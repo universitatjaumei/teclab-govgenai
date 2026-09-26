@@ -12,13 +12,16 @@ contra `ca`, así que saltaba siempre.
 
 Se normaliza aquí y no en el corpus porque el corpus son 60.859 fragmentos y su código lo fija
 `CONTRATO_MD_CORPUS.md`; la detección es una función.
+
+**La equivalencia ya no vive aquí**: la detección no es la única puerta por la que entra una
+lengua —también el front-matter de un `.md`, el manifiesto de un paquete de corpus y el
+`fixed:<código>` de la API—, y tener la lista en cada una es tener dónde olvidarse de la
+siguiente. Está en `core/lengua_del_corpus.py`, donde las cuatro la comparten.
 """
 
 from langdetect import LangDetectException, detect
 
-#: De lo que devuelve `langdetect` a lo que dice el corpus. Explícito y no un `.replace()`:
-#: quien lea esto tiene que ver que la lista de traducciones es exactamente una.
-_AL_CODIGO_DEL_CORPUS = {"ca": "val"}
+from server.app.core.lengua_del_corpus import codi_del_corpus
 
 
 def detect_language(text: str, default: str = "es") -> str:
@@ -32,10 +35,10 @@ def detect_language(text: str, default: str = "es") -> str:
         Código de idioma del corpus (`val`, `es`, `en`...). **Nunca `ca`.**
     """
     if len(text.strip()) < 10:
-        return _AL_CODIGO_DEL_CORPUS.get(default, default)
+        return codi_del_corpus(default)  # type: ignore[return-value]
 
     try:
         detectado = detect(text)
     except LangDetectException:
         detectado = default
-    return _AL_CODIGO_DEL_CORPUS.get(detectado, detectado)
+    return codi_del_corpus(detectado)  # type: ignore[return-value]

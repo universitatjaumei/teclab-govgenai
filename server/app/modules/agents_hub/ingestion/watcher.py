@@ -11,6 +11,7 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from server.app.core.lengua_del_corpus import codi_del_corpus
 from server.app.modules.agents_hub.services.language_detector import detect_language
 from server.app.modules.agents_hub.ingestion.bilingual_bridge import terminos_bilingues
 from server.app.modules.agents_hub.ingestion.corpus.frontmatter import parse_frontmatter
@@ -151,6 +152,10 @@ class IngestionWatcher:
         content = prefetched_content
         seg.total_chars = len(content)
 
+        # El `language=` que llega aqui es una entrada externa: sale del job o del
+        # `language:` del front-matter del `.md`, asi que puede venir escrito `ca`. Se
+        # normaliza antes de guardarlo; `detect_language` ya devuelve el codigo del corpus.
+        language = codi_del_corpus(language)
         if language is None:
             language = detect_language(content)
         content_hash = hash_content(content)

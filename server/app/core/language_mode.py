@@ -26,6 +26,8 @@ from __future__ import annotations
 
 import re
 
+from server.app.core.lengua_del_corpus import codi_del_corpus
+
 MODO_PREFERIR = "prefer"
 MODO_SIN_POLITICA = "none"
 PREFIJO_FIJO = "fixed:"
@@ -50,15 +52,22 @@ MENSAJE_DE_ERROR = (
 
 
 def lengua_fijada(modo: str | None) -> str | None:
-    """El código de `fixed:<código>`, o `None` si el modo no fija ninguna lengua.
+    """El código de `fixed:<código>` **tal como lo escribe el corpus**, o `None` si el modo no
+    fija ninguna lengua.
 
     Una función y no un `split(":")` repartido por ahí: quien la use no tiene que saber cómo se
     escribe el modo, que es justamente lo que permite cambiar la forma sin ir buscando llamadores.
+
+    Y devuelve el código del corpus, no el que le mandaron: `fixed:ca` pasa la validación —que
+    comprueba la **forma**, a propósito, para que otra administración pueda desplegar esto en
+    gallego— y sin esto fijaría una lengua que ningún documento lleva, o sea una preferencia que
+    no prefiere nada, en silencio. `hub_opciones_router` evita que el panel lo mande; el panel no
+    es la única vía a la API.
     """
     if not modo or not modo.startswith(PREFIJO_FIJO):
         return None
     codigo = modo[len(PREFIJO_FIJO) :]
-    return codigo if _CODIGO.match(codigo) else None
+    return codi_del_corpus(codigo) if _CODIGO.match(codigo) else None
 
 
 def es_valido(modo: str | None) -> bool:

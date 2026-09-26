@@ -207,10 +207,33 @@ _NOMBRE_DE_LA_LENGUA: dict[str, dict[str, str]] = {
     "en": {"val": "Valencian", "es": "Spanish", "en": "English", "fr": "French"},
 }
 
+# Issue #17 — el aviso dice además QUÉ SE ESTÁ LEYENDO, no sólo adónde lleva el enlace.
+#
+# **Al corpus sólo entran originales**: no se sube ni una traducción. Así que cuando la norma que
+# responde a la pregunta sólo existe en la otra lengua, lo que lee quien pregunta no es la norma:
+# es una traducción que el modelo acaba de hacer, que nadie ha revisado y que no está publicada en
+# ningún sitio. «La normativa citada está en castellano» no dice eso, y era todo lo que decía.
+#
+# Va aquí y no en el aviso permanente de `chat.json` —que ya advierte de que las respuestas no han
+# pasado revisión lingüística— porque es **condicional**: un aviso que sale siempre se aprende a
+# ignorar, y en las normas que sólo existen en valencià, preguntadas en valencià, no hay ninguna
+# traducción de la que avisar. Afirmarlo sería falso.
 _PLANTILLA_DEL_AVISO: dict[str, str] = {
-    "val": "⚠️ La normativa citada està en {lengua}. L'enllaç porta al document original.",
-    "es": "⚠️ La normativa citada está en {lengua}. El enlace lleva al documento original.",
-    "en": "⚠️ The cited regulation is in {lengua}. The link opens the original document.",
+    "val": (
+        "⚠️ La normativa citada està en {lengua}. La resposta s'ha generat de manera "
+        "automatitzada a partir de l'original, sense revisió humana de la traducció. "
+        "L'enllaç porta al document original."
+    ),
+    "es": (
+        "⚠️ La normativa citada está en {lengua}. La respuesta se ha generado de forma "
+        "automatizada a partir del original, sin revisión humana de la traducción. "
+        "El enlace lleva al documento original."
+    ),
+    "en": (
+        "⚠️ The cited regulation is in {lengua}. This answer was generated automatically "
+        "from the original, with no human review of the translation. "
+        "The link opens the original document."
+    ),
 }
 
 
