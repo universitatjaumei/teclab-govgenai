@@ -337,7 +337,10 @@ class TestDesdeElFrontmatter:
             {"language": "ca", "submateries": ["indemnitzacions-i-dietes"]},
         )
 
-        assert resultado.language == "ca"
+        # `ca` entra y `val` sale: son la misma lengua y el corpus la escribe `val`. Lo que
+        # este test comprueba es que manda el front-matter sobre el manifiesto, y manda: el
+        # manifiesto decia `es`.
+        assert resultado.language == "val"
         assert resultado.submateries == ("indemnitzacions-i-dietes",)
         # lo que el front-matter NO dice se conserva del manifiesto
         assert resultado.ambit_principal == "academica"

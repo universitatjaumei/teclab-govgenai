@@ -81,13 +81,6 @@ def _seccion(site_id: uuid.UUID, **kw):
     return m
 
 
-def _pagina(url: str):
-    m = MagicMock()
-    m.id = uuid.uuid4()
-    m.url = url
-    return m
-
-
 def _app(session):
     from server.app.modules.agents_hub.database.connection import get_async_session
     from server.app.routers.hub_sites_router import router
@@ -325,11 +318,15 @@ class TestProbarElPatron:
         """Lo que evita el regex que no casa nada, que hoy sólo se descubre cuando la pasada
         siguiente no ingiere nada."""
         sitio = _sitio()
-        paginas = [_pagina(f"https://www.uji.es/jornadas/{i}") for i in range(14)]
-        paginas += [_pagina("https://www.uji.es/eventos/uno")]
+        # Issue #159: el endpoint pide la COLUMNA `url` y no el objeto, porque el patron se
+        # evalua en Python y traer cientos de filas ORM para leerles una cadena es la forma
+        # que dejo la VM 50 minutos sin responder. El doble tiene que devolver lo mismo que
+        # devuelve la base: cadenas.
+        urls = [f"https://www.uji.es/jornadas/{i}" for i in range(14)]
+        urls += ["https://www.uji.es/eventos/uno"]
         session = AsyncMock()
         session.get = AsyncMock(return_value=sitio)
-        session.execute = AsyncMock(return_value=_resultado(paginas))
+        session.execute = AsyncMock(return_value=_resultado(urls))
 
         resp = _cliente(session).post(
             f"/api/v1/hub/sites/{sitio.id}/sections/test-pattern",
@@ -352,7 +349,7 @@ class TestProbarElPatron:
         session = AsyncMock()
         session.get = AsyncMock(return_value=sitio)
         session.execute = AsyncMock(
-            return_value=_resultado([_pagina("https://www.uji.es/eventos/uno")])
+            return_value=_resultado(["https://www.uji.es/eventos/uno"])
         )
 
         resp = _cliente(session).post(

@@ -109,6 +109,12 @@ class TestWatcherStorageIntegration:
 
         mock_session = AsyncMock()
         mock_session.get = AsyncMock(return_value=job)
+        # Issue #159: `run_job` empieza tomando el job con un `UPDATE ... WHERE status IN (...)`
+        # y se va si no se lo queda. Un `AsyncMock` devuelve un `Mock` por `rowcount`, que no
+        # es 1: sin esto el doble finge que otro se lo llevo y el test deja de ejercitar la
+        # ingesta — incluido el que comprueba que NO se llama al almacen, que pasaria en verde
+        # sin haber entrado en el metodo.
+        mock_session.execute.return_value.rowcount = 1
 
         watcher = IngestionWatcher(
             session=mock_session,
@@ -135,6 +141,12 @@ class TestWatcherStorageIntegration:
 
         mock_session = AsyncMock()
         mock_session.get = AsyncMock(return_value=job)
+        # Issue #159: `run_job` empieza tomando el job con un `UPDATE ... WHERE status IN (...)`
+        # y se va si no se lo queda. Un `AsyncMock` devuelve un `Mock` por `rowcount`, que no
+        # es 1: sin esto el doble finge que otro se lo llevo y el test deja de ejercitar la
+        # ingesta — incluido el que comprueba que NO se llama al almacen, que pasaria en verde
+        # sin haber entrado en el metodo.
+        mock_session.execute.return_value.rowcount = 1
 
         watcher = IngestionWatcher(
             session=mock_session,
@@ -172,6 +184,12 @@ class TestWatcherStorageIntegration:
 
         mock_session = AsyncMock()
         mock_session.get = AsyncMock(return_value=job)
+        # Issue #159: `run_job` empieza tomando el job con un `UPDATE ... WHERE status IN (...)`
+        # y se va si no se lo queda. Un `AsyncMock` devuelve un `Mock` por `rowcount`, que no
+        # es 1: sin esto el doble finge que otro se lo llevo y el test deja de ejercitar la
+        # ingesta — incluido el que comprueba que NO se llama al almacen, que pasaria en verde
+        # sin haber entrado en el metodo.
+        mock_session.execute.return_value.rowcount = 1
 
         watcher = IngestionWatcher(
             session=mock_session,
@@ -199,6 +217,12 @@ class TestWatcherStorageIntegration:
 
         mock_session = AsyncMock()
         mock_session.get = AsyncMock(return_value=job)
+        # Issue #159: `run_job` empieza tomando el job con un `UPDATE ... WHERE status IN (...)`
+        # y se va si no se lo queda. Un `AsyncMock` devuelve un `Mock` por `rowcount`, que no
+        # es 1: sin esto el doble finge que otro se lo llevo y el test deja de ejercitar la
+        # ingesta — incluido el que comprueba que NO se llama al almacen, que pasaria en verde
+        # sin haber entrado en el metodo.
+        mock_session.execute.return_value.rowcount = 1
 
         watcher = IngestionWatcher(
             session=mock_session,
@@ -234,6 +258,12 @@ class TestWatcherStorageIntegration:
 
         mock_session = AsyncMock()
         mock_session.get = AsyncMock(return_value=job)
+        # Issue #159: `run_job` empieza tomando el job con un `UPDATE ... WHERE status IN (...)`
+        # y se va si no se lo queda. Un `AsyncMock` devuelve un `Mock` por `rowcount`, que no
+        # es 1: sin esto el doble finge que otro se lo llevo y el test deja de ejercitar la
+        # ingesta — incluido el que comprueba que NO se llama al almacen, que pasaria en verde
+        # sin haber entrado en el metodo.
+        mock_session.execute.return_value.rowcount = 1
 
         watcher = IngestionWatcher(
             session=mock_session,

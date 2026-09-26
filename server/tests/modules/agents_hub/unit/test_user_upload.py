@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from sqlalchemy import select
 
 
 class TestUserUploadIngestion:
@@ -49,30 +50,69 @@ class TestUserUploadIngestion:
         assert not any(c.owner_id == user_b for c in chunks)
 
     @pytest.mark.asyncio
-    async def test_temporary_chunks_cleanup(self) -> None:
+    async def test_temporary_chunks_cleanup(self, db_session) -> None:
+        """Se borra el temporal caducado y **solo** ese (issue #159).
+
+        Antes esto se comprobaba con un doble de sesion que devolvia tres objetos y esperaba
+        una llamada a `session.delete`. Ya no vale, y no porque el test estuviera mal escrito:
+        el filtro se movio al `WHERE` de un `DELETE` porque la version anterior traia los
+        163.762 fragmentos temporales como objetos ORM —cada uno con su vector— y comparaba la
+        fecha en Python. Un doble no puede ver la diferencia entre filtrar en SQL y filtrar
+        despues, que es justamente lo que hay que comprobar, asi que se comprueba contra la
+        base.
+        """
+        from server.app.modules.agents_hub.database.operational_models import HubDocumentChunk
         from server.app.modules.agents_hub.ingestion.watcher import cleanup_temporary_chunks
 
+        chatbot_id = uuid.uuid4()
         cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
 
-        old_chunk = Mock()
-        old_chunk.is_temporary = True
-        old_chunk.created_at = cutoff - timedelta(hours=1)  # mÃ¡s de 24h
+        def _fragmento(temporal: bool, creado) -> HubDocumentChunk:
+            return HubDocumentChunk(
+                id=uuid.uuid4(),
+                chatbot_id=chatbot_id,
+                content="Texto.",
+                source_url="https://example.com/doc.pdf",
+                content_hash=uuid.uuid4().hex,
+                language="val",
+                embedding_model="de-prueba",
+                embedding_dim=1024,
+                is_temporary=temporal,
+                created_at=creado,
+            )
 
-        recent_chunk = Mock()
-        recent_chunk.is_temporary = True
-        recent_chunk.created_at = cutoff + timedelta(hours=1)  # menos de 24h
+        caducado = _fragmento(True, cutoff - timedelta(hours=1))
+        reciente = _fragmento(True, cutoff + timedelta(hours=1))
+        permanente = _fragmento(False, cutoff - timedelta(hours=1))
+        db_session.add_all([caducado, reciente, permanente])
+        await db_session.commit()
 
-        non_temp_chunk = Mock()
-        non_temp_chunk.is_temporary = False
-        non_temp_chunk.created_at = cutoff - timedelta(hours=1)
+        borrados = await cleanup_temporary_chunks(db_session, ttl_hours=24)
 
-        mock_session = AsyncMock()
-        mock_session.execute = AsyncMock(
-            return_value=Mock(scalars=Mock(return_value=[old_chunk, recent_chunk, non_temp_chunk]))
-        )
+        assert borrados == 1
+        vivos = {
+            fila
+            for (fila,) in (
+                await db_session.execute(
+                    select(HubDocumentChunk.id).where(
+                        HubDocumentChunk.chatbot_id == chatbot_id
+                    )
+                )
+            ).all()
+        }
+        assert vivos == {reciente.id, permanente.id}
 
-        deleted = await cleanup_temporary_chunks(mock_session, ttl_hours=24)
 
-        # Solo el chunk antiguo y temporal debe eliminarse
-        assert deleted == 1
-        mock_session.delete.assert_called_once_with(old_chunk)
+@pytest.fixture
+async def db_session(db_url: str):
+    """Una sesion contra la base desechable del conftest."""
+    from server.app.modules.agents_hub.database.connection import (
+        create_async_engine,
+        create_session_factory,
+    )
+
+    motor = create_async_engine(db_url)
+    fabrica = create_session_factory(motor)
+    async with fabrica() as sesion:
+        yield sesion
+    await motor.dispose()
