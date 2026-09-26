@@ -52,6 +52,8 @@ from typing import Any, Literal, Protocol
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from server.app.core.lengua_del_corpus import codi_del_corpus
+
 EXTENSIONES_MARKDOWN = (".md", ".markdown")
 
 
@@ -117,6 +119,19 @@ class CorpusDocumentEntry(BaseModel):
     data_revisio_prevista: date | None = None
     # --- El resto del esquema de 56 campos
     extra: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("language")
+    @classmethod
+    def _el_codigo_que_usa_el_corpus(cls, valor: str) -> str:
+        """`ca` y `val` son la misma lengua, y el corpus la escribe `val`.
+
+        Sin esto un paquete puede declarar `idioma: ca` y el documento queda con un codigo que
+        no usa nadie mas: `prefer` lo ordena detras de las demas versiones y el aviso de
+        traduccion salta contra una pregunta en valencia, que es un aviso falso sobre la lengua
+        de quien pregunta. Se corrige y no se rechaza: el paquete no esta mal escrito, esta
+        escrito con el otro de los dos codigos de la misma lengua.
+        """
+        return codi_del_corpus(valor)  # type: ignore[return-value]
 
     @field_validator("relative_path")
     @classmethod

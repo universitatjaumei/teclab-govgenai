@@ -455,8 +455,8 @@
       "modulos": "Mòduls",
       "modulos_del_alta": "Mòduls als quals tindrà accés",
       "pista_modulos": "El rol diu què pot fer; el mòdul, on pot entrar. Sense cap mòdul marcat, aquesta persona no podrà entrar enlloc.",
-      "sin_acceso": "Sense accés",
-      "sin_acceso_ayuda": "Aquesta persona té rol però cap concessió de mòdul, així que no pot entrar enlloc. Concedeix-los-hi ací en donar-la d'alta, o des de Plataforma → Mòduls."
+      "sin_concesion_directa": "Sense concessió directa",
+      "sin_concesion_directa_ayuda": "Esta persona no té cap concessió de mòdul pròpia. Si entra per SSO podria tindre accés per un grup de l'IdP, que no es veu des d'ací. Concedix-los-hi en donar-la d'alta, o des de Plataforma → Mòduls."
     },
     "modulos_nav": "Mòduls",
     "modulos": {

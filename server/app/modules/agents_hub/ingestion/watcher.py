@@ -7,10 +7,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Protocol
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from server.app.core.lengua_del_corpus import codi_del_corpus
 from server.app.modules.agents_hub.services.language_detector import detect_language
 from server.app.modules.agents_hub.ingestion.bilingual_bridge import terminos_bilingues
 from server.app.modules.agents_hub.ingestion.corpus.frontmatter import parse_frontmatter
@@ -151,6 +152,10 @@ class IngestionWatcher:
         content = prefetched_content
         seg.total_chars = len(content)
 
+        # El `language=` que llega aqui es una entrada externa: sale del job o del
+        # `language:` del front-matter del `.md`, asi que puede venir escrito `ca`. Se
+        # normaliza antes de guardarlo; `detect_language` ya devuelve el codigo del corpus.
+        language = codi_del_corpus(language)
         if language is None:
             language = detect_language(content)
         content_hash = hash_content(content)
@@ -460,14 +465,18 @@ class IngestionWatcher:
         a eso por una barra de progreso no sale a cuenta hoy. El consumidor en vivo es
         `progress_callback`, que es por donde informa la carga masiva por consola.
         """
+        # Issue #159 — el candado va ANTES de nada, y decide en una sola operación.
+        if not await tomar_job(self._session, job_id):
+            logger.info(
+                "El job %s ya estaba en curso o terminado: no se procesa otra vez.", job_id
+            )
+            return
+
         job = await self._session.get(HubIngestionJob, job_id)
         if not job:
             return
 
         seguimiento = SeguimientoDeJob(self._anotar_progreso(job, progress_callback))
-        job.status = "running"
-        job.processing_started_at = datetime.now(timezone.utc)
-        await self._session.commit()
 
         tmp_path: str | None = None
         error: Exception | None = None
@@ -538,16 +547,60 @@ class IngestionWatcher:
             await self._session.commit()
 
 
-async def cleanup_temporary_chunks(session: AsyncSession, ttl_hours: int = 24) -> int:
-    """Elimina chunks temporales que han superado el TTL."""
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=ttl_hours)
-    result = await session.execute(
-        select(HubDocumentChunk).where(HubDocumentChunk.is_temporary)
+#: Desde qué estados se puede empezar a procesar un job. `failed` entra a propósito: si no, un
+#: fallo transitorio dejaría el documento fuera del corpus para siempre y la única salida sería
+#: volver a subirlo.
+ESTADOS_QUE_SE_PUEDEN_TOMAR = ("pending", "failed")
+
+
+async def tomar_job(session: AsyncSession, job_id: uuid.UUID) -> bool:
+    """Marca el job como `running` y dice si **este** llamante se lo ha quedado (issue #159).
+
+    **Decide en una sola operación de base de datos, y ésa es toda la gracia.** Comprobar el
+    estado y escribirlo después deja una ventana entre la lectura y la escritura; dos tareas de
+    `BackgroundTasks` corren en el mismo bucle de eventos y ceden el control en cada `await`, así
+    que en esa ventana cabe una tarea entera. El `UPDATE ... WHERE status IN (...)` lo resuelve el
+    servidor: quien obtiene `rowcount == 1` se lo queda y el otro se va.
+
+    **Qué evita.** `run_job` no miraba el estado: ponía `running` y procesaba. Dos invocaciones
+    sobre el mismo `job_id` ingerían el documento **dos veces**, y unos fragmentos duplicados en
+    el corpus no se notan y no se deshacen solos — es peor que una consulta lenta, que al menos
+    se ve.
+
+    **Y un job atascado en `running` no queda bloqueado para siempre por un cronómetro**: el
+    estado lo decide quien reintente, poniéndolo en `failed`, y no una regla de caducidad que
+    habría que acertar.
+    """
+    resultado = await session.execute(
+        update(HubIngestionJob)
+        .where(
+            HubIngestionJob.id == job_id,
+            HubIngestionJob.status.in_(ESTADOS_QUE_SE_PUEDEN_TOMAR),
+        )
+        .values(status="running", processing_started_at=datetime.now(timezone.utc))
     )
-    deleted = 0
-    for chunk in result.scalars():
-        if chunk.is_temporary and chunk.created_at < cutoff:
-            await session.delete(chunk)
-            deleted += 1
     await session.commit()
-    return deleted
+    return (resultado.rowcount or 0) == 1
+
+
+async def cleanup_temporary_chunks(session: AsyncSession, ttl_hours: int = 24) -> int:
+    """Elimina los fragmentos temporales que han superado su tiempo de vida.
+
+    **Se borra en SQL, y el filtro entero va en el `WHERE` (issue #159).** La versión anterior
+    traía **todos** los fragmentos temporales de `hub_document_chunks` —163.762 filas en el corpus
+    de hoy— como objetos ORM, y comparaba la fecha **en Python**. Tres cosas mal a la vez: el
+    recorrido no tenía límite, cada objeto arrastra su vector de 3.072 dimensiones, y la
+    condición que de verdad reducía el conjunto se evaluaba después de haberlo traído entero.
+
+    Es la misma forma que dejó la VM 50 minutos sin responder el 2026-09-24, en una función que
+    además **borra**: un fallo aquí no se queda en una consulta lenta.
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=ttl_hours)
+    resultado = await session.execute(
+        delete(HubDocumentChunk).where(
+            HubDocumentChunk.is_temporary,
+            HubDocumentChunk.created_at < cutoff,
+        )
+    )
+    await session.commit()
+    return resultado.rowcount or 0

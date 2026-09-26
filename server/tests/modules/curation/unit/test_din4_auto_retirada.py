@@ -193,6 +193,22 @@ class _Sesion:
         else:
             filas = []
 
+        # **Pedir una columna no es pedir el objeto**, y este doble no lo distinguía: devolvía
+        # las páginas enteras para cualquier `select` sobre `HubCrawledPage`. Cuando la issue
+        # #159 cambió el contador de ámbito a `select(HubCrawledPage.url)` —para no traer
+        # objetos sólo para contarlos—, el código recibió páginas donde esperaba cadenas.
+        #
+        # El doble mentía en la misma dirección que el defecto que se arreglaba: daba por bueno
+        # traerlo todo. Ahora hace lo que hace SQLAlchemy.
+        columnas = _columnas_de(stmt)
+        if columnas:
+            filas = [
+                getattr(f, columnas[0])
+                if len(columnas) == 1
+                else tuple(getattr(f, c) for c in columnas)
+                for f in filas
+            ]
+
         class _R:
             def scalars(self_inner) -> Any:  # noqa: N805
                 return self_inner
@@ -223,6 +239,28 @@ def _entidad_de(stmt: Any) -> str:
         return stmt.column_descriptions[0]["entity"].__name__
     except Exception:  # noqa: BLE001 — un doble de sentencia sin descripción
         return ""
+
+
+def _columnas_de(stmt: Any) -> list[str]:
+    """Los nombres de las columnas si el `select` pide **columnas** y no la entidad.
+
+    SQLAlchemy lo distingue en `column_descriptions`: al pedir la entidad, `expr` es la clase;
+    al pedir una columna, es el atributo. Sin esto, el doble devuelve objetos donde el código
+    espera valores — y eso fue lo que pasó al acotar el contador de ámbito en la issue #159.
+    """
+    try:
+        columnas = []
+        for descripcion in stmt.column_descriptions:
+            expresion = descripcion.get("expr")
+            if expresion is descripcion.get("entity"):
+                return []
+            clave = getattr(expresion, "key", None)
+            if clave is None:
+                return []
+            columnas.append(clave)
+        return columnas
+    except Exception:  # noqa: BLE001
+        return []
 
 
 def _job(

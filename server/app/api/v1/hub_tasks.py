@@ -47,8 +47,11 @@ async def export_task(
         404: Si el run_id no existe.
         403: Si el usuario no es el dueño ni admin.
     """
+    # `run_id` identifica una ejecución, así que esto devuelve una fila o ninguna. El `limit(1)`
+    # no cambia el resultado: lo hace explícito, y de paso esta consulta deja de parecerse a un
+    # recorrido de `hub_interactions` sin acotar (issue #159).
     result = await session.execute(
-        select(HubInteraction).where(HubInteraction.run_id == run_id)
+        select(HubInteraction).where(HubInteraction.run_id == run_id).limit(1)
     )
     interaction = result.scalar_one_or_none()
     if interaction is None:

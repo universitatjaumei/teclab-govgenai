@@ -303,6 +303,8 @@ class SemanticContradictionDetector:
     # ── Acceso a datos (statements etiquetados para fakes y claridad) ─────
 
     async def _fetch_pages(self, site_id: uuid.UUID, *, only_active: bool) -> list:
+        # recorrido-acotado: igual que el detector determinista, compara unas paginas con
+        # otras y necesita el conjunto del sitio. 352 en el mayor (issue #159).
         stmt = select(HubCrawledPage).where(HubCrawledPage.site_id == site_id)
         if only_active:
             stmt = stmt.where(HubCrawledPage.status == "active")
@@ -321,6 +323,11 @@ class SemanticContradictionDetector:
     async def _fetch_chunks(self, doc_ids: list[uuid.UUID]) -> list:
         if not doc_ids:
             return []
+        # recorrido-acotado: los fragmentos de los documentos que el sitio tiene ingeridos,
+        # para comparar su contenido con el del portal. Acotado por `doc_ids`, que sale de
+        # las paginas del sitio. **Este es el unico de los declarados que toca la tabla
+        # grande**: si un sitio llegara a tener cientos de documentos ingeridos, hay que
+        # lotearlo por documento (issue #159).
         stmt = select(HubDocumentChunk).where(HubDocumentChunk.document_id.in_(doc_ids))
         stmt._model_hint = "chunk"  # type: ignore[attr-defined]
         result = await self._session.execute(stmt)

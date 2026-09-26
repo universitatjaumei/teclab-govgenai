@@ -455,8 +455,8 @@
       "modulos": "Módulos",
       "modulos_del_alta": "Módulos a los que tendrá acceso",
       "pista_modulos": "El rol dice qué puede hacer; el módulo, dónde puede entrar. Sin ningún módulo marcado, esta persona no podrá entrar en nada.",
-      "sin_acceso": "Sin acceso",
-      "sin_acceso_ayuda": "Esta persona tiene rol pero ninguna concesión de módulo, así que no puede entrar en ninguna parte. Concédeselos aquí al darla de alta, o desde Plataforma → Módulos."
+      "sin_concesion_directa": "Sin concesión directa",
+      "sin_concesion_directa_ayuda": "Esta persona no tiene ninguna concesión de módulo propia. Si entra por SSO podría tener acceso por un grupo del IdP, que no se ve desde aquí. Concédeselos al darla de alta, o desde Plataforma → Módulos."
     },
     "modulos_nav": "Módulos",
     "modulos": {

@@ -119,6 +119,10 @@ async def recoger_senales(
     nadie pulse nada, que es lo que la hace útil de verdad.
     """
     desde = datetime.now(timezone.utc) - timedelta(days=dias)
+    # recorrido-acotado: interacciones de un chatbot en una ventana de dias, y solo las que
+    # fallaron. Son 74 filas en toda la tabla hoy. Si `hub_interactions` llega a crecer de
+    # verdad, esto se pagina antes que ninguna otra cosa: es analitica sobre el historico
+    # entero de una ventana (issue #159).
     filas = await session.execute(
         select(HubInteraction)
         .where(HubInteraction.chatbot_id == chatbot_id)

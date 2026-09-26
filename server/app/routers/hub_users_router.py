@@ -106,12 +106,22 @@ class UsuarioRead(BaseModel):
     #: que le llegue por un grupo del IdP: eso depende de la aserción con la que entre y no se
     #: puede resolver desde un listado.
     modulos_concedidos: list[str] = Field(default_factory=list)
-    #: Si esta persona no puede entrar en **ningún** módulo. Lo decide el servidor, igual que
+    #: Si esta persona **no tiene ninguna concesión directa**. Lo decide el servidor, igual que
     #: `puede_borrarse`: un `if (role !== 'superadmin' && modulos.length === 0)` en React sería
     #: la regla escrita por segunda vez, y se rompería el día que otro rol entre por su rol.
     #:
     #: Falso en el superadministrador, que entra en todo por su rol y no tiene fila de concesión.
-    sin_acceso_a_modulos: bool = False
+    #:
+    #: **Se llamaba `sin_acceso_a_modulos` y afirmaba más de lo que sabe (issue #109).** El acceso
+    #: efectivo incluye lo que llegue por un grupo del IdP, y eso viene en la aserción con la que
+    #: la persona entra, no en `hub_users`: desde un listado no se puede resolver. Con SAML
+    #: apagado hoy nadie tiene concesiones de grupo, así que el campo no mentía **todavía** —
+    #: habría empezado a hacerlo el día que se encienda, sin que nadie tocara nada, y un aviso
+    #: que miente se aprende a ignorar, que es justo lo que este aviso venía a evitar.
+    #:
+    #: De las dos salidas posibles ésta es la honesta: resolver el acceso efectivo de verdad
+    #: exige datos que esta pantalla no tiene, y prometerlo con los que hay sería inventarlo.
+    sin_concesion_directa: bool = False
 
 
 class CapacidadesDePersonas(BaseModel):
@@ -256,7 +266,7 @@ def _a_lectura(
         # Sin `modulos` **no se marca**: es el fallo seguro y el mismo criterio que
         # `puede_fijar_contrasena`. Un aviso que no aparece se puede añadir; uno que aparece sin
         # fundamento enseña a ignorarlos.
-        sin_acceso_a_modulos=(
+        sin_concesion_directa=(
             modulos is not None
             and not modulos
             and fila.role != UserRole.SUPERADMIN.value
@@ -469,10 +479,18 @@ async def create_user(
         created_at=datetime.now(timezone.utc),
     )
     session.add(fila)
+    # **Un solo `commit` para la fila y sus concesiones (issue #109).** Antes la persona se
+    # confirmaba por su cuenta y las concesiones después: si el segundo fallaba quedaba alguien
+    # dado de alta **sin los módulos que se pidieron**, y sin que nadie lo supiera porque la
+    # respuesta ya se había ido. Ese estado a medias es justo el que la issue #100 vino a hacer
+    # visible, así que crearlo aquí sería fabricar el problema que allí se detecta.
+    #
+    # El `flush` da el id a la fila sin cerrar la transacción, que es lo que las concesiones
+    # necesitan para su `subject_id`.
+    await session.flush()
+    concedidos = _preparar_concesiones(session, fila, body.modulos, quien=user)
     await session.commit()
     await session.refresh(fila)
-
-    concedidos = await _conceder_al_dar_de_alta(session, fila, body.modulos, quien=user)
     return _a_lectura(fila, quien=user, modulos=concedidos)
 
 
@@ -508,14 +526,18 @@ async def _comprobar_modulos(session: AsyncSession, codigos: list[str]) -> None:
         )
 
 
-async def _conceder_al_dar_de_alta(
+def _preparar_concesiones(
     session: AsyncSession,
     fila: HubUser,
     codigos: list[str],
     *,
     quien: UserInfo,
 ) -> list[str]:
-    """Escribe las concesiones de una persona recién creada.
+    """Añade las concesiones a la sesión **sin confirmar**: las confirma `create_user`.
+
+    Que no haya `commit` aquí es lo que hace el alta atómica (issue #109). Mientras esta función
+    cerraba su propia transacción, la fila de la persona ya estaba confirmada por la suya y un
+    fallo en ésta dejaba a alguien creado sin sus módulos.
 
     Los códigos ya vienen comprobados por `_comprobar_modulos`, que corre **antes** de crear a
     nadie: así un código malo no deja una persona creada y sin sus módulos.
@@ -539,7 +561,6 @@ async def _conceder_al_dar_de_alta(
                 granted_at=ahora,
             )
         )
-    await session.commit()
     return sorted(codigos)
 
 

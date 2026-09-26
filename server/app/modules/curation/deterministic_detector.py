@@ -173,7 +173,11 @@ class DeterministicQualityDetector:
         now = self._now_fn()
         findings: list[ContentFinding] = []
 
-        # Cargar todas las páginas del sitio
+        # recorrido-acotado: el detector COMPARA unas paginas con otras -supersesiones,
+        # duplicados, huerfanas-, asi que necesita el conjunto completo del sitio; paginarlo
+        # daria resultados distintos segun el lote. El sitio mayor tiene 352 paginas
+        # (medido el 2026-09-26). Revisar si alguno pasa de unos pocos miles: entonces esto
+        # se procesa por lotes con estado, no se pagina (issue #159).
         stmt = select(HubCrawledPage).where(HubCrawledPage.site_id == site_id)
         stmt._model_hint = "page"  # type: ignore[attr-defined]
         result = await self._session.execute(stmt)

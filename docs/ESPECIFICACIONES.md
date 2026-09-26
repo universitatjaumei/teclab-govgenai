@@ -185,9 +185,13 @@ prefiere.
 - Un valor que no sea uno de los tres da **422 con los modos enumerados**. Antes era texto libre y
   un typo caía a `prefer` sin avisar a nadie.
 - El panel **no escribe la lista**: la pide a `GET /api/v1/hub/opciones/lengua`.
-- Los códigos que ofrece el catálogo son los **del corpus** (`val`, no `ca`). Un `fixed:ca` pasaría
-  la validación de forma y daría una preferencia que no prefiere ninguna versión de ninguna norma,
-  en silencio.
+- Los códigos que ofrece el catálogo son los **del corpus** (`val`, no `ca`), y **`ca` y `val` son
+  la misma lengua en todo el sistema**: se traduce a `val` en las cuatro puertas por las que entra
+  una lengua —la detección de la pregunta, el `language:` del front-matter de un `.md`, el
+  `idioma` del manifiesto de un paquete de corpus y el `fixed:<código>` de la API—. Antes sólo se
+  traducía en la detección, así que un `fixed:ca` pasaba la validación de forma y daba una
+  preferencia que no prefiere ninguna versión de ninguna norma, en silencio, y un documento
+  ingerido como `ca` quedaba con un código que no usaba nadie más.
 
 Y dos garantías más, que son las que deciden qué lee quien pregunta:
 
@@ -203,12 +207,21 @@ Y dos garantías más, que son las que deciden qué lee quien pregunta:
   enlace le lleva a un documento en castellano. Preguntar en castellano y recibir una norma en
   valencià es el caso mayoritario del corpus real —232 de 334 documentos del asistente normativo
   están en `val`— y antes era justo el que no avisaba.
+- **Y el aviso dice qué se está leyendo, no sólo adónde lleva el enlace.** Al corpus sólo entran
+  originales: no se sube ni una traducción. Así que cuando la norma citada está en la otra lengua,
+  lo que lee quien pregunta es una traducción que **el modelo acaba de hacer, que nadie ha
+  revisado y que no está publicada en ningún sitio**, y el aviso lo dice con esas palabras. Va en
+  el aviso condicional y no en el permanente de contenido generado por IA —que ya advierte de que
+  las respuestas no han pasado revisión lingüística— porque sale sólo cuando es verdad: en una
+  norma que sólo existe en valencià, preguntada en valencià, no hay traducción ninguna, y un aviso
+  que sale siempre se aprende a ignorar.
 
 **Superficie.** `core/language_mode.py` · `hub_opciones_router` · `HubOrganizacion.default_language_mode`
 · `HubChatbot.language_mode` · `PreferLanguagePolicy` en `strategies/protocols.py` (el orden) ·
 `_build_translation_warning` en `api/v1/hub_chat.py` (el aviso) ·
-`services/language_detector.py` (el único punto que produce la lengua de una pregunta, y el que
-traduce el `ca` de `langdetect` al `val` del corpus).
+`services/language_detector.py` (el único punto que produce la lengua de una pregunta) ·
+`core/lengua_del_corpus.py` (el único sitio donde está escrito que `ca` y `val` son la misma
+lengua, compartido por la detección, los modos, la ingesta y el manifiesto del corpus).
 
 **Madurez**: `producción` — desplegado el 2026-09-07 (bloque LANG, 2026-09-03). El orden por
 vigencia y el aviso de lengua entraron antes, el 2026-08-25 (VIS.4 y VIS.5), y llevan en `main`

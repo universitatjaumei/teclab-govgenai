@@ -136,6 +136,11 @@ class TestRunJobPropagatesLanguage:
 
         mock_session = AsyncMock()
         mock_session.get.return_value = job
+        # Issue #159: `run_job` empieza tomando el job con un `UPDATE ... WHERE status IN (...)`
+        # y se va si no se lo queda. Un `AsyncMock` devuelve un `Mock` por `rowcount`, que no
+        # es 1, asi que sin esto el doble hace que el job parezca tomado por otro y el test
+        # pasaria a no comprobar nada de lo que dice comprobar.
+        mock_session.execute.return_value.rowcount = 1
 
         watcher = IngestionWatcher(
             session=mock_session,
@@ -173,6 +178,11 @@ class TestRunJobPropagatesLanguage:
 
         mock_session = AsyncMock()
         mock_session.get.return_value = job
+        # Issue #159: `run_job` empieza tomando el job con un `UPDATE ... WHERE status IN (...)`
+        # y se va si no se lo queda. Un `AsyncMock` devuelve un `Mock` por `rowcount`, que no
+        # es 1, asi que sin esto el doble hace que el job parezca tomado por otro y el test
+        # pasaria a no comprobar nada de lo que dice comprobar.
+        mock_session.execute.return_value.rowcount = 1
 
         watcher = IngestionWatcher(session=mock_session, embedding_service=AsyncMock())
 

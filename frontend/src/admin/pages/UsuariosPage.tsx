@@ -360,18 +360,18 @@ export function UsuariosPage() {
                 <td>{t(`plataforma.usuarios.origenes.${persona.origen}` as Parameters<typeof t>[0])}</td>
                 {/* En qué módulos puede entrar, y el aviso si en ninguno (issue #100).
 
-                    **El aviso lo decide el servidor**, en `sin_acceso_a_modulos`. Aquí no se
+                    **El aviso lo decide el servidor**, en `sin_concesion_directa`. Aquí no se
                     mira `modulos_concedidos.length === 0`: el superadministrador entra por su
                     rol con la lista vacía, y esa regla vive en el servidor. Escribirla aquí
                     sería tenerla dos veces. */}
                 <td data-testid={`modulos-${persona.id}`}>
-                  {persona.sin_acceso_a_modulos ? (
+                  {persona.sin_concesion_directa ? (
                     <span
-                      data-testid={`sin-acceso-${persona.id}`}
+                      data-testid={`sin-concesion-directa-${persona.id}`}
                       className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-900"
-                      title={t('plataforma.usuarios.sin_acceso_ayuda')}
+                      title={t('plataforma.usuarios.sin_concesion_directa_ayuda')}
                     >
-                      {t('plataforma.usuarios.sin_acceso')}
+                      {t('plataforma.usuarios.sin_concesion_directa')}
                     </span>
                   ) : (persona.modulos_concedidos ?? []).length > 0 ? (
                     (persona.modulos_concedidos ?? []).join(', ')

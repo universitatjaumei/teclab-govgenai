@@ -177,12 +177,16 @@ class CrawledPageRepo:
         url: str,
         **fields: Any,
     ) -> HubCrawledPage:
+        # `(site_id, url)` es único: una fila o ninguna. El `limit(1)` lo hace explícito
+        # (issue #159).
         existing = (
             await self.session.execute(
-                select(HubCrawledPage).where(
+                select(HubCrawledPage)
+                .where(
                     HubCrawledPage.site_id == site_id,
                     HubCrawledPage.url == url,
                 )
+                .limit(1)
             )
         ).scalar_one_or_none()
 
@@ -211,6 +215,10 @@ class CrawledPageRepo:
         site_id: uuid.UUID,
         status: str | None = None,
     ) -> list[HubCrawledPage]:
+        # recorrido-acotado: las paginas de un sitio, que alimenta el listado del panel. No
+        # se pagina porque el contrato de `GET /hub/sites/{id}/pages` lo consume el frontend
+        # y cambiarlo es una decision de producto, no una correccion de una operacion
+        # desbocada. 352 paginas en el sitio mayor (issue #159).
         stmt = select(HubCrawledPage).where(HubCrawledPage.site_id == site_id)
         if status is not None:
             stmt = stmt.where(HubCrawledPage.status == status)
@@ -233,9 +241,14 @@ class CrawledPageRepo:
     async def get_by_canonical(
         self, site_id: uuid.UUID, canonical_url: str
     ) -> HubCrawledPage | None:
-        stmt = select(HubCrawledPage).where(
-            HubCrawledPage.site_id == site_id,
-            HubCrawledPage.canonical_url == canonical_url,
+        # Igual que `get_by_url`: la pareja identifica una página (issue #159).
+        stmt = (
+            select(HubCrawledPage)
+            .where(
+                HubCrawledPage.site_id == site_id,
+                HubCrawledPage.canonical_url == canonical_url,
+            )
+            .limit(1)
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()

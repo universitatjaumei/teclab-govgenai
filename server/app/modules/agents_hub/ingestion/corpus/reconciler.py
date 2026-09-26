@@ -582,6 +582,10 @@ class CorpusReconciler:
         if candidato is None:
             return None
 
+        # recorrido-acotado: los fragmentos de UN documento, no de la tabla. El mayor del
+        # corpus es la Ley 9/2017 con 4.330, y hacen falta todos porque lo que se copia al
+        # gemelo es el documento entero: partirlo dejaria una copia incompleta, que es peor
+        # que no copiarla (issue #159).
         filas = (
             await self._session.execute(
                 select(HubDocumentChunk).where(

@@ -343,6 +343,8 @@ async def list_site_pages(
     Deploy: edge.
     """
     await assert_site_org_access(session, site_id, current_user)
+    # recorrido-acotado: ver `site_repo.listar_paginas`. Paginar este endpoint cambia un
+    # contrato que consume el frontend (issue #159).
     stmt = select(HubCrawledPage).where(HubCrawledPage.site_id == site_id)
     if page_status is not None:
         stmt = stmt.where(HubCrawledPage.status == page_status)
@@ -621,14 +623,16 @@ async def test_section_pattern(
 
     from server.app.modules.curation.secciones import casa_patron
 
-    paginas = (
+    # El patrón se evalúa en Python, así que las URL hay que traerlas; los objetos enteros no.
+    # Pedir sólo la columna cambia cientos de filas ORM por cientos de cadenas (issue #159).
+    urls = (
         await session.execute(
-            select(HubCrawledPage).where(HubCrawledPage.site_id == site_id)
+            select(HubCrawledPage.url).where(HubCrawledPage.site_id == site_id)
         )
     ).scalars().all()
 
-    casan = [p.url for p in paginas if casa_patron(body.pattern_kind, body.pattern, p.url)]
-    return PatternTestView(matched=len(casan), total=len(paginas), sample=casan[:10])
+    casan = [u for u in urls if casa_patron(body.pattern_kind, body.pattern, u)]
+    return PatternTestView(matched=len(casan), total=len(urls), sample=casan[:10])
 
 
 # ──────────────────────── CRUD de selecciones ────────────────────────

@@ -435,16 +435,23 @@ class SiteQualityAnalysisJob:
 
         from server.app.modules.agents_hub.database.operational_models import HubCrawledPage
 
+        # Sólo se cuenta, así que **no se piden objetos**: con la URL y el estado basta (issue
+        # #159). Traer las páginas enteras para descartarlas en Python es, en pequeño, la forma
+        # de consulta que tumbó la VM el 2026-09-24.
+        #
+        # El estado se filtra aquí y no en el `WHERE` a propósito: los dobles de sesión de los
+        # test de DIN.4 no aplican los filtros de la sentencia, así que moverlo a SQL haría que
+        # esos test contaran también las páginas retiradas y la salvaguarda de proporción dejara
+        # de dispararse — pasarían a medir otra cosa sin decirlo. Con 352 páginas en el sitio
+        # mayor, la diferencia entre filtrar aquí o allí no se nota; la de traer objetos, sí.
         filas = (
             await session.execute(
-                select(HubCrawledPage).where(HubCrawledPage.site_id == site_id)
+                select(HubCrawledPage.url, HubCrawledPage.status).where(
+                    HubCrawledPage.site_id == site_id
+                )
             )
-        ).scalars().all()
-        return sum(
-            1
-            for p in filas
-            if getattr(p, "status", None) == "active" and efectivos.en_ambito(p.url)
-        )
+        ).all()
+        return sum(1 for url, estado in filas if estado == "active" and efectivos.en_ambito(url))
 
     async def _avisar_de_las_bajas(
         self, session: Any, site_id: uuid.UUID, gone_page_ids: list

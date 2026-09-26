@@ -75,7 +75,7 @@ class TestElContratoLoDiceElServidor:
         lectura = _a_lectura(_persona(), quien=_QUIEN_PREGUNTA, modulos=[])
 
         assert lectura.modulos_concedidos == []
-        assert lectura.sin_acceso_a_modulos is True, (
+        assert lectura.sin_concesion_directa is True, (
             "una persona con rol y sin ninguna concesión no se distingue de una recién creada, "
             "que es cómo `hub_module_grants` llegó a estar vacía en producción sin que nadie "
             "lo notara"
@@ -87,7 +87,7 @@ class TestElContratoLoDiceElServidor:
 
         lectura = _a_lectura(_persona(), quien=_QUIEN_PREGUNTA, modulos=["informes"])
 
-        assert lectura.sin_acceso_a_modulos is False
+        assert lectura.sin_concesion_directa is False
 
 
 class TestElSuperadministradorNoEstaSinAcceso:
@@ -100,7 +100,7 @@ class TestElSuperadministradorNoEstaSinAcceso:
             _persona(role=UserRole.SUPERADMIN.value), quien=_QUIEN_PREGUNTA, modulos=[]
         )
 
-        assert lectura.sin_acceso_a_modulos is False, (
+        assert lectura.sin_concesion_directa is False, (
             "el superadministrador entra en todo por su rol —`modulos.py`: «no necesita "
             "concesión»— y marcarlo haría saltar el aviso en la única cuenta que existe en una "
             "instalación recién creada"
@@ -121,7 +121,7 @@ class TestSinDatosNoSeInventaUnAviso:
         lectura = _a_lectura(_persona(), quien=_QUIEN_PREGUNTA)
 
         assert lectura.modulos_concedidos == []
-        assert lectura.sin_acceso_a_modulos is False
+        assert lectura.sin_concesion_directa is False
 
 
 class TestDarDeAltaConcedeEnElMismoActo:

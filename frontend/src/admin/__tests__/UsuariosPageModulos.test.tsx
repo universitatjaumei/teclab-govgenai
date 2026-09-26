@@ -24,10 +24,10 @@ import type { UsuarioRead } from '@/shared/api/generated/model'
  *
  * Y una persona sin acceso a nada **se veía igual** que una recién creada, así que nadie lo notó.
  *
- * **Lo que la pantalla NO hace es decidir.** `sin_acceso_a_modulos` lo calcula el servidor; aquí
+ * **Lo que la pantalla NO hace es decidir.** `sin_concesion_directa` lo calcula el servidor; aquí
  * sólo se pinta. Un `if (role !== 'superadmin' && modulos.length === 0)` en React sería la regla
  * escrita por segunda vez — es la regla maestra de `AGENTS.md`, y el test de abajo la fija
- * dando un superadministrador con la lista vacía y `sin_acceso_a_modulos: false`.
+ * dando un superadministrador con la lista vacía y `sin_concesion_directa: false`.
  */
 vi.mock('@/shared/api/generated/hub-users/hub-users', () => ({
   useListUsersApiV1HubUsersGet: vi.fn(),
@@ -70,7 +70,7 @@ function persona(cambios: Partial<UsuarioRead> = {}): UsuarioRead {
     motivo_no_borrable: null,
     puede_fijar_contrasena: true,
     modulos_concedidos: [],
-    sin_acceso_a_modulos: false,
+    sin_concesion_directa: false,
     ...cambios,
   }
 }
@@ -193,19 +193,19 @@ describe('El catálogo sólo se pide a quien puede crear personas', () => {
 
 describe('Quien no puede entrar en ningún módulo se ve', () => {
   it('avisa en la fila de quien el servidor marca', () => {
-    montar([persona({ sin_acceso_a_modulos: true })])
+    montar([persona({ sin_concesion_directa: true })])
 
-    expect(screen.getByTestId('sin-acceso-11111111-1111-1111-1111-111111111111')).toBeInTheDocument()
+    expect(screen.getByTestId('sin-concesion-directa-11111111-1111-1111-1111-111111111111')).toBeInTheDocument()
   })
 
   it('no avisa cuando el servidor no lo marca, aunque la lista esté vacía', () => {
-    // Un superadministrador entra por su rol: lista vacía y `sin_acceso_a_modulos` en falso.
+    // Un superadministrador entra por su rol: lista vacía y `sin_concesion_directa` en falso.
     // Si la pantalla mirara `modulos_concedidos.length === 0` aquí avisaría, y estaría
     // calculando la regla por su cuenta.
-    montar([persona({ role: 'superadmin', modulos_concedidos: [], sin_acceso_a_modulos: false })])
+    montar([persona({ role: 'superadmin', modulos_concedidos: [], sin_concesion_directa: false })])
 
     expect(
-      screen.queryByTestId('sin-acceso-11111111-1111-1111-1111-111111111111')
+      screen.queryByTestId('sin-concesion-directa-11111111-1111-1111-1111-111111111111')
     ).not.toBeInTheDocument()
   })
 

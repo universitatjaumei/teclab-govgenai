@@ -29,6 +29,8 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field, model_validator
 
+from server.app.core.lengua_del_corpus import codi_del_corpus
+
 
 class Kind(StrEnum):
     """Qué tipo de recuperación exige la pregunta.
@@ -166,8 +168,7 @@ class Escenario(BaseModel):
         # aceptando `ca` —los lotes de `_local/golden/` estan escritos asi y son el instrumento
         # de medida, no se invalidan por un cambio de vocabulario— pero se normaliza, para que
         # el recuento por lengua del informe no parta en dos la misma lengua.
-        if self.language == "ca":
-            object.__setattr__(self, "language", "val")
+        object.__setattr__(self, "language", codi_del_corpus(self.language))
         if self.language not in ("val", "es"):
             raise ValueError("`language` tiene que ser 'val' o 'es'")
 

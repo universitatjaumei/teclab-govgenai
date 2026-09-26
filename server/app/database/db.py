@@ -54,9 +54,47 @@ def _dsn() -> str:
     return _DSN_DE_DESARROLLO
 
 
+#: Cuánto puede durar **una** consulta antes de que el servidor la corte, en milisegundos
+#: (issue #159). Cero la desactiva.
+#:
+#: **Lo que arregla.** El 2026-09-24 una consulta interna sin acotar dejó el sitio 50 minutos sin
+#: responder. Los techos de memoria de la #149 contienen ese daño —matan el contenedor en vez de
+#: la VM— pero no impiden que la operación se desboque, y una consulta lenta se queda su conexión
+#: indefinidamente. Esto la corta en el servidor y libera la conexión.
+#:
+#: **Lo que NO arregla**: no impide escribir una consulta cara. Impide que una consulta cara se
+#: quede la conexión para siempre, que es lo que de verdad tumbó el servicio.
+#:
+#: Treinta segundos es generoso a propósito: lo que se corta aquí no es trabajo lento, es trabajo
+#: patológico. Se puede subir —o desactivar con `0`— para una migración de datos o un barrido,
+#: sin tener que quitar la protección del resto.
+TIEMPO_MAXIMO_DE_CONSULTA_MS = int(os.getenv("DB_STATEMENT_TIMEOUT_MS", "30000"))
+
+
+def opciones_de_conexion(url: str, timeout_ms: int) -> dict:
+    """Los `connect_args` del motor: hoy, el tiempo máximo de consulta.
+
+    **Sólo para asyncpg.** `server_settings` es suyo, y pasárselo a otro driver rompe la
+    conexión: el codebase tiene que seguir sirviendo a otro despliegue cambiando variables de
+    entorno, así que una protección no puede dejarlo sin arrancar en otro motor.
+
+    Vive aquí, junto a `_dsn()`, porque hay **dos** fábricas de engine —ésta y la de
+    `agents_hub/database/connection.py`— y ya divergieron una vez por el DSN de reserva. Dos
+    copias del mismo valor acaban separándose, y la que no se toca es la que falla en silencio.
+    """
+    if timeout_ms <= 0 or "asyncpg" not in url:
+        return {}
+    return {"server_settings": {"statement_timeout": str(timeout_ms)}}
+
+
 DATABASE_URL = _dsn()
 
-server_engine = create_async_engine(DATABASE_URL, echo=False, future=True)
+server_engine = create_async_engine(
+    DATABASE_URL,
+    echo=False,
+    future=True,
+    connect_args=opciones_de_conexion(DATABASE_URL, TIEMPO_MAXIMO_DE_CONSULTA_MS),
+)
 
 AsyncSessionLocal = async_sessionmaker(
     server_engine, class_=AsyncSession, expire_on_commit=False

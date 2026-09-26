@@ -57,7 +57,9 @@ class TestMultiLanguageDocumentCoexistence:
         # La versión ES (u otra idioma) no debe haberse borrado
         session.delete.assert_not_called()
         assert isinstance(doc, HubDocument)
-        assert doc.language == "ca"
+        # Se pide `ca` y se guarda `val`: son la misma lengua y el corpus la escribe `val`.
+        # Lo que este test protege —que las dos versiones de una URL conviven— no cambia.
+        assert doc.language == "val"
 
     @pytest.mark.asyncio
     async def test_reingest_same_url_same_language_replaces_doc(self) -> None:
@@ -154,4 +156,4 @@ class TestMultiLanguageDocumentCoexistence:
 
         # El doc ES no debe borrarse: no hubo ningún delete
         session.delete.assert_not_called()
-        assert doc.language == "ca"
+        assert doc.language == "val"

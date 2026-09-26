@@ -184,7 +184,10 @@ class TestManifiesto:
 
         entrada = (await _fuente(tmp_path, manifest=manifiesto).list_entries())[0]
 
-        assert entrada.language == "ca"
+        # El front-matter dice `ca` y el manifiesto `es`: manda el front-matter, y se guarda
+        # con el codigo del corpus (`val`), que es la misma lengua escrita como la escribe todo
+        # lo demas.
+        assert entrada.language == "val"
         assert entrada.nivell_acces == "intern"
 
     @pytest.mark.asyncio

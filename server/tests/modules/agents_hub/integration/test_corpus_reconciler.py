@@ -314,7 +314,10 @@ class TestIngesta:
         await _reconciliar(db_session, tmp_path, chatbot_id)
         await db_session.commit()
 
-        assert (await _documentos(db_session, chatbot_id))["REG-003"].language == "ca"
+        # Lo declarado gana a la deteccion —el cuerpo esta en castellano y el `.md` declara
+        # valenciano—, y lo declarado se guarda con el codigo del corpus: `ca` y `val` son la
+        # misma lengua y el corpus la escribe `val`.
+        assert (await _documentos(db_session, chatbot_id))["REG-003"].language == "val"
 
     @pytest.mark.asyncio
     async def test_should_skip_unchanged_document_by_content_hash(

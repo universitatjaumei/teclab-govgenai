@@ -247,7 +247,12 @@ class TestFuenteDePublicacion:
         assert [e.id_publicacio for e in entradas] == ["REG-1", "REG-2"]
         assert [e.relative_path for e in entradas] == ["REG-1.md", "REG-2.md"]
         assert entradas[0].source_url == "https://www.uji.es/REG-1"
-        assert entradas[0].language == "ca"
+        # El indice de publicacion declara `language: ca` —asi esta escrito el sitio— y aqui se
+        # guarda `val`, que es como escribe esa lengua el corpus. Son la misma, y tener los dos
+        # codigos vivos hacia que `prefer` ordenara la norma detras de las demas y que el aviso
+        # de traduccion saltara contra una pregunta en valencia. La traduccion esta en
+        # `core/lengua_del_corpus.py` y se aplica al construir la entrada.
+        assert entradas[0].language == "val"
         assert entradas[0].title == "Norma REG-1"
 
     @pytest.mark.asyncio
