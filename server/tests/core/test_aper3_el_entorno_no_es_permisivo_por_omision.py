@@ -107,12 +107,25 @@ class TestLaSemillaSigueCerradaFueraDeDesarrollo:
     """El gate de SEC.8.0 no cambia; lo que se comprueba es que sigue ahí y por qué importa."""
 
     async def test_no_siembra_con_el_entorno_de_la_imagen(
-        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
     ) -> None:
+        """Por el registro y no por la salida estándar (issue #18).
+
+        Esto leía `capsys`, y era correcto mientras el sembrado imprimía. No lo era que
+        imprimiera: `main.py` llama a estas semillas **en el arranque del servidor**, así que en
+        producción la decisión de no sembrar salía por la salida estándar sin nivel ni marca de
+        tiempo. Es justo la línea que hay que poder encontrar cuando alguien pregunta por qué su
+        instalación no tiene el SuperAdmin de desarrollo.
+
+        Lo que el test comprueba no cambia: que el gate de SEC.8.0 sigue ahí y que **lo dice**.
+        """
         from server.app.database.seeds import seed_multitenancy_defaults
 
         monkeypatch.setenv("ENVIRONMENT", "production")
-        await seed_multitenancy_defaults()
+        with caplog.at_level(logging.INFO):
+            await seed_multitenancy_defaults()
 
-        salida = capsys.readouterr().out
-        assert "se omiten los datos de desarrollo" in salida
+        assert any(
+            "se omiten los datos de desarrollo" in registro.message
+            for registro in caplog.records
+        ), "el gate no deja ni una línea en el registro: nadie puede saber por qué no sembró"

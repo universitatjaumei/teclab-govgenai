@@ -7,6 +7,7 @@ datos de precios. Es configurable a través de la interfaz de administración
 """
 
 import asyncio
+import logging
 from datetime import datetime
 from typing import Optional
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -15,6 +16,11 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from server.app.database.db import server_engine
 from server.app.database.models import SchedulerConfig
+
+# Issue #18 — el planificador corre DENTRO del servidor, asi que su salida es registro y no
+# consola. El prefijo «[Scheduler]» que llevaba cada linea sobra: el nombre del modulo ya va
+# en el formato, y la marca de tiempo tambien —varias lineas la repetian a mano—.
+logger = logging.getLogger(__name__)
 
 
 class ModelRefreshScheduler:
@@ -72,7 +78,7 @@ class ModelRefreshScheduler:
         2. Actualización de precios (USD per million tokens).
         3. Registro de auditoría del último éxito.
         """
-        print(f"[Scheduler] Starting scheduled model refresh at {datetime.now()}")
+        logger.info("Arranca el refresco programado de modelos")
 
         try:
             # Refresh model cache
@@ -90,11 +96,12 @@ class ModelRefreshScheduler:
             # Update last run timestamp
             await self._update_last_run()
 
-            print(
-                f"[Scheduler] Model refresh completed successfully at {datetime.now()}"
-            )
-        except Exception as e:
-            print(f"[Scheduler] Error during model refresh: {e}")
+            logger.info("Refresco de modelos completado")
+        except Exception:
+            # `exception` y no `error`: el traceback es lo unico que dice DONDE fallo, y con
+            # `print(e)` se perdia entero. Esta tarea corre sola de madrugada, asi que nadie
+            # va a estar mirando para reproducirlo.
+            logger.exception("Fallo el refresco programado de modelos")
 
     def _add_job(self, hour: int, minute: int):
         """Add or replace the refresh job with given schedule."""
@@ -111,7 +118,7 @@ class ModelRefreshScheduler:
             name="Daily Model Cache Refresh",
             replace_existing=True,
         )
-        print(f"[Scheduler] Job scheduled for {hour:02d}:{minute:02d} daily")
+        logger.info("Tarea programada cada dia a las %02d:%02d", hour, minute)
 
     def _run_refresh_task(self):
         """Wrapper to run async task from sync scheduler callback."""
@@ -127,17 +134,19 @@ class ModelRefreshScheduler:
         config = await self._get_config()
 
         if not config.enabled:
-            print("[Scheduler] Scheduler is disabled in config, not starting")
+            logger.info("El planificador esta deshabilitado en la configuracion: no arranca")
             return False
 
         if self._scheduler.running:
-            print("[Scheduler] Scheduler already running")
+            logger.info("El planificador ya estaba en marcha")
             return True
 
         self._add_job(config.refresh_hour, config.refresh_minute)
         self._scheduler.start()
-        print(
-            f"[Scheduler] Started - next refresh at {config.refresh_hour:02d}:{config.refresh_minute:02d}"
+        logger.info(
+            "Planificador arrancado; proximo refresco a las %02d:%02d",
+            config.refresh_hour,
+            config.refresh_minute,
         )
         return True
 
@@ -145,7 +154,7 @@ class ModelRefreshScheduler:
         """Stop the scheduler."""
         if self._scheduler.running:
             self._scheduler.shutdown(wait=False)
-            print("[Scheduler] Stopped")
+            logger.info("Planificador detenido")
 
     async def update_schedule(self, enabled: bool, hour: int, minute: int):
         """Update scheduler configuration and reschedule if needed."""
@@ -167,16 +176,16 @@ class ModelRefreshScheduler:
             if not self._scheduler.running:
                 self._scheduler.start()
             self._add_job(hour, minute)
-            print(f"[Scheduler] Updated schedule to {hour:02d}:{minute:02d}")
+            logger.info("Horario actualizado a las %02d:%02d", hour, minute)
         else:
             if self._scheduler.running:
                 if self._scheduler.get_job(self._job_id):
                     self._scheduler.remove_job(self._job_id)
-            print("[Scheduler] Disabled")
+            logger.info("Planificador deshabilitado")
 
     async def run_now(self):
         """Manually trigger a refresh immediately."""
-        print("[Scheduler] Manual refresh triggered")
+        logger.info("Refresco lanzado a mano")
         await self._refresh_task()
 
     def is_running(self) -> bool:

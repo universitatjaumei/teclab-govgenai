@@ -9,12 +9,16 @@ Este módulo contiene funciones puras para las diferentes fases de extracción:
 """
 
 import json
+import logging
 import re
 from typing import Dict, Any, List, Optional
 from server.app.modules.automation.infrastructure.llm_gateway import (
     ejecutar_tarea,
     limpiar_respuesta_json,
 )
+
+# Issue #18 — estas funciones corren dentro de una peticion de extraccion.
+logger = logging.getLogger(__name__)
 
 # --- AI STRATEGIES (PURE FUNCTIONS) ---
 
@@ -390,7 +394,7 @@ async def generar_script_determinista(
 
     # Log the provider being used for transparency
     provider_info = f"{config_rol.get('provider', 'unknown')}/{config_rol.get('model_id', 'unknown')}"
-    print(f"[Extraction Strategy] Calling LLM: {provider_info}")
+    logger.debug("Llamando al modelo: %s", provider_info)
 
     resultado = await ejecutar_tarea(
         prompt_maestro, config_rol, script_origen="brain.extraction_strategies"
@@ -648,8 +652,10 @@ async def filtrar_datos_irrelevantes(
         return limpiar_respuesta_json(resultado["response"])
     else:
         # Fail-safe
-        print(
-            f"[AIBrain] Error en filtro de ruido (Tier 2): {resultado.get('error')}. Devolviendo original."
+        # `warning`: se devuelve el original, asi que el resultado es peor pero valido.
+        logger.warning(
+            "Fallo el filtro de ruido (nivel 2): %s. Se devuelve el original.",
+            resultado.get("error"),
         )
         return datos_crudos
 

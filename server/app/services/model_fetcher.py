@@ -1,5 +1,6 @@
 """Servicio para la obtención y almacenamiento en caché de modelos de IA disponibles."""
 
+import logging
 from datetime import datetime, timedelta
 from typing import List
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -7,6 +8,10 @@ import aiohttp
 
 from server.app.database.db import server_engine
 from server.app.database.models import ModelCache
+
+# Issue #18 — lo llama el planificador y tambien la primera consulta que encuentra la cache
+# caducada: nadie esta mirando una consola cuando esto habla.
+logger = logging.getLogger(__name__)
 
 # Staleness threshold: refresh if cache is older than 24 hours
 CACHE_MAX_AGE = timedelta(hours=24)
@@ -24,7 +29,9 @@ async def fetch_google_models() -> List[str]:
     try:
         api_key = await get_api_key("google")
         if not api_key:
-            print("[Model Fetcher] Google API key not configured")
+            logger.warning(
+                "Sin credencial de Google: se usa la lista de modelos de reserva"
+            )
             # Return hardcoded list as fallback
             return [
                 "gemini-2.5-flash",
@@ -51,12 +58,13 @@ async def fetch_google_models() -> List[str]:
                             if "gemini" in m["name"]  # Filter for Gemini models
                         ]
                     else:
-                        print(
-                            f"[Model Fetcher] Google API returned status {resp.status}"
+                        logger.warning(
+                            "La API de Google respondio %s; se usa la lista de reserva",
+                            resp.status,
                         )
 
         # Fallback list (verified IDs as of Jan 2026)
-        print("[Model Fetcher] Using fallback model list for Google")
+        logger.warning("Se usa la lista de modelos de reserva para Google")
         return [
             "gemini-3.1-flash-lite",
             "gemini-3.1-pro",
@@ -67,8 +75,8 @@ async def fetch_google_models() -> List[str]:
             "gemini-1.5-flash",
             "gemini-2.0-flash-exp",
         ]
-    except Exception as e:
-        print(f"[Model Fetcher] Error fetching Google models: {e}")
+    except Exception:
+        logger.exception("Fallo la consulta de modelos a Google")
         return []
 
 
@@ -98,8 +106,8 @@ async def fetch_openrouter_models() -> List[str]:
     try:
         api_key = await get_api_key("openrouter")
         if not api_key:
-            print(
-                "[Model Fetcher] OpenRouter API key not configured, using fallback list"
+            logger.warning(
+                "Sin credencial de OpenRouter: se usa la lista de modelos de reserva"
             )
             return fallback_models
 
@@ -114,12 +122,13 @@ async def fetch_openrouter_models() -> List[str]:
                     models = [m["id"] for m in data.get("data", [])]
                     return models if models else fallback_models
                 else:
-                    print(
-                        f"[Model Fetcher] OpenRouter API returned status {resp.status}, using fallback"
+                    logger.warning(
+                        "La API de OpenRouter respondio %s; se usa la lista de reserva",
+                        resp.status,
                     )
                     return fallback_models
-    except Exception as e:
-        print(f"[Model Fetcher] Error fetching OpenRouter models: {e}")
+    except Exception:
+        logger.exception("Fallo la consulta de modelos a OpenRouter")
         return fallback_models
 
 
@@ -130,7 +139,7 @@ async def refresh_model_cache():
     Persiste los resultados en la base de datos local para evitar latencia en
     consultas subsiguientes de los clientes.
     """
-    print("[Model Fetcher] Refreshing model cache...")
+    logger.info("Refrescando la cache de modelos")
 
     providers = {
         "google": fetch_google_models,
@@ -141,7 +150,7 @@ async def refresh_model_cache():
         for provider, fetch_func in providers.items():
             try:
                 models = await fetch_func()
-                print(f"[Model Fetcher] {provider}: {len(models)} models found")
+                logger.info("%s: %d modelos", provider, len(models))
 
                 # Upsert cache
                 cache = await session.get(ModelCache, provider)
@@ -153,8 +162,8 @@ async def refresh_model_cache():
                     session.add(cache)
 
                 await session.commit()
-            except Exception as e:
-                print(f"[Model Fetcher] Error caching {provider} models: {e}")
+            except Exception:
+                logger.exception("Fallo el cacheo de los modelos de %s", provider)
 
 
 async def get_models_for_provider(provider: str) -> List[str]:
@@ -191,7 +200,9 @@ async def get_models_for_provider(provider: str) -> List[str]:
             except Exception as e:
                 # If race condition occurred (Unique constraint), just ignore and return fresh models
                 # The other thread won so data is there.
-                print(f"[Model Fetcher] Cache update race condition ignored: {e}")
+                # `debug`: es la carrera esperada y el resultado es correcto, asi que en
+                # produccion es ruido. Se conserva porque si deja de ser rara hay que verlo.
+                logger.debug("Carrera al actualizar la cache, ignorada: %s", e)
                 await session.rollback()
 
             return models

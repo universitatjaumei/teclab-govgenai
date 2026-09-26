@@ -9,10 +9,17 @@ This module provides:
 """
 
 import json
+import logging
 import re
 import openai
 from google import genai
 from typing import Dict, Any
+
+# Issue #18 — la pasarela habla en el camino de una peticion, y justo cuando algo va mal. Era
+# el peor sitio para imprimir: el diagnostico de red que hay aqui abajo es exactamente lo que
+# se necesita leer despues de una caida, y sin nivel ni marca de tiempo no se puede correlacionar
+# con nada.
+logger = logging.getLogger(__name__)
 
 # --- HELPER FUNCTIONS ---
 
@@ -40,10 +47,12 @@ def registrar_log_tokens(
         except RuntimeError:
             # No running loop (e.g. script usage), fallback to sync DB or skip
             # For now just print error or skip as this is mainly for GUI app
-            print("[LLM Gateway] No event loop for token logging")
+            logger.warning(
+                "Sin bucle de eventos: no se registra el consumo de tokens de esta llamada"
+            )
 
-    except Exception as e:
-        print(f"Error al registrar log de tokens: {e}")
+    except Exception:
+        logger.exception("Fallo el registro del consumo de tokens")
 
 
 def limpiar_respuesta_json(respuesta_raw: str) -> Dict[str, Any]:
@@ -185,14 +194,18 @@ async def ejecutar_tarea(
 
         except Exception as e:
             error_str = str(e)
-            print(
-                f"[LLM Gateway] Error with {proveedor} (Attempt {attempt + 1}/{max_retries}): {error_str}"
+            logger.warning(
+                "Error con %s (intento %d de %d): %s",
+                proveedor,
+                attempt + 1,
+                max_retries,
+                error_str,
             )
 
             # Special handling for DNS / Connectivity issues
             if "getaddrinfo" in error_str or "connection" in error_str.lower():
-                print(
-                    "[LLM Gateway] Network error detected. Running diagnostic pre-check..."
+                logger.warning(
+                    "Error de red detectado; se comprueba la resolucion de nombres"
                 )
                 import socket
 
@@ -203,12 +216,14 @@ async def ejecutar_tarea(
                 )
                 try:
                     addr = socket.gethostbyname(host_to_check)
-                    print(
-                        f"[LLM Gateway] Diagnostic: {host_to_check} resolved to {addr}. DNS is OK now."
+                    logger.info(
+                        "Diagnostico: %s resuelve a %s, el DNS responde", host_to_check, addr
                     )
                 except Exception as dns_e:
-                    print(
-                        f"[LLM Gateway] Diagnostic: FAILED to resolve {host_to_check}. DNS/Network issue confirmed: {dns_e}"
+                    logger.error(
+                        "Diagnostico: no se resuelve %s; problema de red confirmado: %s",
+                        host_to_check,
+                        dns_e,
                     )
 
             # Check if retryable (Internal Error, 500, 503, Gateway Timeout, or transient DNS issue)
@@ -225,8 +240,8 @@ async def ejecutar_tarea(
             if retry_reason:
                 if attempt < max_retries - 1:
                     sleep_time = backoff_factor * (2**attempt)
-                    print(
-                        f"[LLM Gateway] {retry_reason}. Retrying in {sleep_time} seconds..."
+                    logger.warning(
+                        "%s; se reintenta en %s segundos", retry_reason, sleep_time
                     )
                     await asyncio.sleep(sleep_time)
                     continue
