@@ -164,7 +164,12 @@ async def get_anonymization_summary(
 
     - 200: resumen disponible.
     - 404: no hay run ejecutado todavía para este workspace.
-    - 403: usuario no es owner ni admin/superadmin.
+    - 403: usuario no es owner.
+
+    **El «ni admin/superadmin» que decía esta línea llevaba obsoleto desde SEC.8.1** y no era
+    inocuo: describía un bypass por rol que ya no existe, y el panel del frontend lo creyó —hacía
+    `if (!isAdmin) return null`, o sea enseñaba la pantalla exactamente a quien el servidor
+    responde 403 y se la escondía a quien sí puede verla—. Ver la issue #98.
     """
     workspace = await _get_workspace_checked(workspace_id, user, session)
     manifest_orm = await _get_last_manifest(workspace_id, session)

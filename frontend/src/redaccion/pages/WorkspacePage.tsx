@@ -21,6 +21,7 @@ import { AIBlockReviewPanel } from '../components/AIBlockReviewPanel'
 import { DataQualityPanel } from '../components/DataQualityPanel'
 import { ReportUIContractRenderer } from '../components/ReportUIContractRenderer'
 import { WorkspaceEditor } from '../components/WorkspaceEditor'
+import { WorkspaceAnonymizationPanel } from '../components/WorkspaceAnonymizationPanel'
 import { WorkspaceStatusBar } from '../components/WorkspaceStatusBar'
 
 /** Estados en los que ya hay algo que previsualizar. */
@@ -253,6 +254,17 @@ export function WorkspacePage() {
 
         <DataQualityPanel workspaceId={id} />
         <WorkspaceEditor workspace={{ blocks: workspace.blocks, status: workspace.status }} />
+
+        {/* Issue #98 — el resumen de datos personales, en el informe y UNA vez.
+            Vivia dentro del desplegable de «depuracion» de CADA bloque, y ese desplegable
+            colgaba de `BlockEditor`, que **no lo monta ninguna ruta**: era inalcanzable, igual
+            que le paso al copiloto en PRO.6 y a la auto-ingesta en DIN.4.
+            Y sin condicionar por rol: `_get_workspace_checked` ya sirve esto **solo al dueño**
+            del workspace —SEC.8.1 quito el bypass de administrador a proposito, porque «el
+            resumen NER no se comparte por jerarquia: se comparte con quien lo genero»—, asi que
+            un `if (!isAdmin)` en el cliente solo se lo quitaba a la persona cuyos documentos se
+            anonimizan. El frontend no calcula permisos (invariante I6). */}
+        <WorkspaceAnonymizationPanel workspaceId={id} workspaceStatus={workspace.status} />
         {contrato?.ai_review_panel_enabled && <AIBlockReviewPanel workspaceId={id} />}
       </div>
     </FocusLayout>

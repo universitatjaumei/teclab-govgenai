@@ -12,6 +12,10 @@ from server.app.modules.redaccion.contracts.manifest import (
 )
 from server.app.modules.redaccion.contracts.runtime import WorkspaceState
 from server.app.modules.redaccion.database.models import HubRunManifest
+from server.app.modules.redaccion.services.anonymization.run_context import (
+    AnonymizationSummary,
+    RunAnonymizationContext,
+)
 
 _KINDS_DE_IA = frozenset({"AI_ASSISTED_TEXT", "AI_SUMMARY", "AI_REWRITE"})
 
@@ -85,6 +89,22 @@ class AuditLogNode:
             failed_blocks=failed_blocks,
             final_document_hash=state.final_document_hash,
             status_at_close=state.status,
+            # Issue #98 — el resumen de anonimizacion SE ESCRIBE aqui, que es lo que faltaba.
+            # El campo admite `None` por defecto en el contrato, asi que olvidarlo no daba
+            # error: daba un `null` persistido y un 404 en `GET /anonymization-summary`, o sea
+            # una pantalla diciendo «no se ha ejecutado ningun analisis todavia» aunque se
+            # hubieran sustituido datos personales. Medido antes de arreglarlo: 0 de 35
+            # manifiestos lo traian. Lo unico que lo rellenaba era un test que construia el
+            # manifiesto a mano, y eso demuestra el contrato, no el cableado.
+            #
+            # `None` cuando no hay contexto, y no un resumen con `total_spans: 0`: eso
+            # afirmaria que se miro y no habia nada, que es distinto de «no se miro» — y de
+            # las dos maneras de equivocarse es la que tranquiliza.
+            anonymization_summary=(
+                AnonymizationSummary.from_context(state.anonymization_context)
+                if isinstance(state.anonymization_context, RunAnonymizationContext)
+                else None
+            ),
             created_at=now,
         )
 
