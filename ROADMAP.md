@@ -81,12 +81,54 @@ autorizado, revisión posterior y anonimización**. A eso se dedican los cuatro 
 | [2 — Registrar lo que corre fuera](https://github.com/universitatjaumei/teclab-govgenai/milestone/10) | Previsto | Funciones de **origen externo** (un cuaderno se registra por su hash sin ejecutarlo); paquete MCP y *skill* de gobernanza para agentes de código; registro de la ejecución de un cuaderno en tres líneas; depósito del manifiesto de una ejecución hecha fuera | [#114](https://github.com/universitatjaumei/teclab-govgenai/issues/114), [#115](https://github.com/universitatjaumei/teclab-govgenai/issues/115), [#124](https://github.com/universitatjaumei/teclab-govgenai/issues/124), [#116](https://github.com/universitatjaumei/teclab-govgenai/issues/116) |
 | [3 — Funciones de tarea](https://github.com/universitatjaumei/teclab-govgenai/milestone/11) | Previsto | Una función produce **ficheros**; red saliente sólo hacia **orígenes declarados**; el ecosistema de módulos ampliado y vigilado; los dos cuadernos reales como casos guía con datos sintéticos | [#117](https://github.com/universitatjaumei/teclab-govgenai/issues/117), [#118](https://github.com/universitatjaumei/teclab-govgenai/issues/118), [#119](https://github.com/universitatjaumei/teclab-govgenai/issues/119), [#120](https://github.com/universitatjaumei/teclab-govgenai/issues/120) |
 | [4 — Decisiones de la institución](https://github.com/universitatjaumei/teclab-govgenai/milestone/12) | **Bloqueado** | El régimen de ejecución frente a la regla de soberanía local; la lista del ecosistema autorizado y el plazo de revisión; quién revisa, quién suspende y la ruta a protección de datos | [#121](https://github.com/universitatjaumei/teclab-govgenai/issues/121), [#122](https://github.com/universitatjaumei/teclab-govgenai/issues/122), [#123](https://github.com/universitatjaumei/teclab-govgenai/issues/123) |
+| [5 — Agentes de unidad sobre el asistente general](https://github.com/universitatjaumei/teclab-govgenai/milestone/17) | Previsto | Una unidad publica un **agente** —prompt, carpeta de documentos, índice y colectivo— y la plataforma lo cataloga, lo acota, selecciona los documentos de cada consulta y registra el uso; el modelo lo ejecuta el asistente general de la organización | [#172](https://github.com/universitatjaumei/teclab-govgenai/issues/172), [#173](https://github.com/universitatjaumei/teclab-govgenai/issues/173), [#174](https://github.com/universitatjaumei/teclab-govgenai/issues/174), [#175](https://github.com/universitatjaumei/teclab-govgenai/issues/175), [#176](https://github.com/universitatjaumei/teclab-govgenai/issues/176) |
 
 El orden recomendado es 1, 2, 3: el hito 2 es el más barato y ataca el problema real de una
 organización que trabaja con cuadernos, saber cuáles circulan; el 3 es el de más diseño. El 4 no
 depende del código y condiciona el alcance final del 3: si la institución no da por equivalente
 la ejecución central, el catálogo autoservicio se acota y las funciones de origen externo pasan a
 ser el canal principal.
+
+#### El hito 5, y por qué encaja aquí
+
+Muchas organizaciones ya tienen un asistente general contratado —con su protección de datos
+acordada y su cuota de tokens incluida— y su gente lo usa a diario. Levantar otro asistente al
+lado, para lo mismo, es pelearse con esa realidad; y dar licencias de una herramienta distinta a
+todo el personal, cuando ya se paga una, es difícil de justificar.
+
+**El hito 5 asume el asistente que la organización ya tiene y le añade lo que le falta.** Una
+unidad —contratación, control interno, calidad de la docencia— reúne los documentos que gobiernan
+su materia en una carpeta, un guion mantiene un **índice** con una ficha por documento, y la
+plataforma guarda el **prompt** que convierte todo eso en un agente. Cuando alguien pregunta, la
+plataforma elige los documentos pertinentes, compone el prompt con sus enlaces y registra el uso;
+el asistente general abre esos documentos con la identidad de quien pregunta y responde con la
+cuota que la organización ya paga.
+
+El reparto es deliberado, y cada pieza está donde sale más barata y más segura:
+
+| | Dónde |
+|---|---|
+| Documentos e índice | El almacén de la unidad. **La plataforma no custodia copias** |
+| Permisos | Los del almacén y el rol del proveedor de identidad. Dos puertas independientes |
+| Prompt, catálogo y selección | La plataforma |
+| Cómputo del modelo | El asistente general, con la cuota de la organización |
+| Registro | La plataforma, y **sólo metadatos** |
+
+**Lo barato es lo que hace esto viable.** Indexar una ficha por documento son tres órdenes de
+magnitud menos que trocear y embeber el texto completo, y no es una versión degradada: la
+maquinaria del corpus normativo existe para poder citar el artículo exacto y no presentar como
+vigente lo derogado, y un agente de unidad no promete eso. Cuando la promesa es más modesta, la
+infraestructura también.
+
+**Lo que se gana** es lo que un asistente general no da por sí solo: saber qué agentes existen y
+de quién son, que dejen de usarse cuando su responsable los suspende, que no devuelvan documentos
+superados, y que el uso quede registrado. La extensión de navegador es la pieza que cierra ese
+circuito — sin ella, quien copia un prompt una vez puede reutilizarlo durante meses sin volver a
+pasar por la plataforma, y el registro contaría un uso en vez de cincuenta.
+
+**Lo que no promete, y conviene leerlo antes que lo anterior**: no es un control de acceso —
+cualquiera puede abrir el asistente general sin pasar por aquí— y la plataforma registra lo que
+ofreció, no lo que el modelo respondió.
 
 ### 5. Registro de actividad IA y gobernanza por API — En producción
 
