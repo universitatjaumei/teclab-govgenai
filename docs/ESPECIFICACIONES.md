@@ -249,6 +249,10 @@ qué clasificación y hasta cuándo vale.
   conversión ocurre **fuera** de la aplicación; el servidor no lleva conversor de documentos.
 - Clasificación por **ámbito** y **submaterias** desde vocabulario en tabla, con `vigent` y
   `substituit_per_codi` para renombrar y fusionar sin reindexar (I3, I4).
+- **Renombrar o fusionar un término reclasifica los documentos que lo usaban**, en una sola
+  operación (`--substituir … --per …` del cargador de vocabulario). Las dos mitades no se pueden
+  invocar por separado a propósito: marcar el término sin barrer los documentos no da ningún
+  error y deja la búsqueda por el código nuevo sin encontrarlos.
 - **Una versión por norma y lengua**; `ca` ≡ `val`; la vigencia se expresa con un eje, y la
   validación y la caducidad se comparten entre versiones.
 - Reingesta **idempotente**: volver a ingerir lo mismo no duplica ni reembebe.
@@ -304,6 +308,10 @@ a aprobación o edición humana.
 
 **Garantiza.**
 - **Las tablas las calcula código, no el modelo.** La IA valora; no inventa cifras.
+- **Un apartado no se redacta sin los datos de los que declara depender.** Si el bloque del que
+  depende falló, se marca fallido en cascada y no se llama al modelo: una valoración escrita sin
+  sus datos parece fundamentada y no lo está. Y lo transitorio se reintenta —un *timeout* no deja
+  el apartado caído para siempre—, con la cuenta de intentos en el estado del bloque.
 - Ningún script se ejecuta sin **auditoría AST + sandbox + aprobación** (I13).
 - El formulario de un script se pinta desde un `ui_contract` que manda el servidor: el frontend no
   conoce los campos a priori (I6).
