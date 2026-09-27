@@ -1,7 +1,13 @@
 """InitAnonymizationNode — Fase 13.
 
-Posición en el grafo: entre `data_quality_check` y `ai_assist_draft`. Es decir,
-después de la extracción determinista y antes de cualquier nodo que toque LLM.
+Posición en el grafo: **justo después de `deterministic_extraction`**, que es lo primero que
+deja texto donde mirar, y antes de cualquier nodo que toque LLM.
+
+Lo segundo lo decía este docstring desde el principio y era falso (issue #170): el nodo estaba
+entre `data_quality_check` y `ai_assist_draft`, con la transformación de datos y el nodo de
+gráficos por delante. Los dos llaman al modelo y los dos invocan `apply_pre_llm` —están
+preparados— con un contexto que allí todavía era `None`. Lo comprueba ahora un test que recorre
+el grafo, en vez de una frase.
 
 Construye el `RunAnonymizationContext` del workspace recorriendo todos los textos
 disponibles (inputs + bloques extraídos), detectando PII con `PiiDetector` y
@@ -43,6 +49,11 @@ class InitAnonymizationNode:
 
         # 1. Recolectar texto de inputs + bloques extraídos.
         text_corpus, source_map = self._gather_text(state)
+
+        # Issue #170 — se pregunta **después** del `return` de OFF: `spacy_available` fuerza la
+        # carga del modelo (~305 MB), y quien tiene la anonimización apagada no tiene por qué
+        # pagarla para informar de una capa que no usó.
+        ner_disponible = bool(getattr(self._detector, "spacy_available", False))
 
         # 2. Detectar spans en todo el corpus.
         raw_spans = self._detector.detect_spans(text_corpus) if text_corpus else []
@@ -102,6 +113,7 @@ class InitAnonymizationNode:
                 spans=spans,
                 forward_map=forward_map,
                 reverse_map=reverse_map,
+                ner_disponible=ner_disponible,
             ),
         }
 

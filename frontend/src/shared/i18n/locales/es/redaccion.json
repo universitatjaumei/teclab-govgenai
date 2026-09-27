@@ -26,22 +26,11 @@
     "col_count": "Cantidad",
     "total": "Total",
     "no_run": "No se ha ejecutado ningún análisis todavía.",
-    "btn_reanalyze": "Re-analizar ahora",
+    "btn_refrescar": "Actualizar resultado",
     "btn_change_mode": "Cambiar modo",
-    "reanalyzing": "Analizando…",
     "mode_locked": "El modo no se puede cambiar durante la ejecución.",
-    "loading": "Cargando…"
-  },
-  "autosave": {
-    "status": {
-      "saved": "Guardado",
-      "saving": "Guardando…",
-      "offline": "Sin conexión",
-      "conflict": "Conflicto sin resolver"
-    },
-    "conflict_title": "Conflicto al guardar",
-    "conflict_body": "Otra sesion ha modificado este informe. Recarga para ver los cambios; los tuyos sin guardar se perderan.",
-    "reload_workspace": "Recargar el informe"
+    "loading": "Cargando…",
+    "ner_no_disponible": "La detección de nombres en texto libre no estuvo disponible en esta ejecución: falta el modelo lingüístico en esta instalación. Se aplicaron los patrones deterministas (DNI, NIE, correo, IBAN, teléfono) y las cabeceras de formulario."
   },
   "copilot": {
     "placeholder": "Escribe tu pregunta o instrucción…",
@@ -147,7 +136,9 @@
     "save": "Guardar",
     "show_original": "Ver lo que propuso la IA",
     "source_anchored": "Valora: {{tables}}",
-    "source_full": "Sin anclar: ha leído todo el informe"
+    "source_full": "Sin anclar: ha leído todo el informe",
+    "draft_recovered": "Estás viendo un borrador sin guardar de una sesión anterior.",
+    "draft_discard": "Descartarlo"
   },
   "status": {
     "missing_data": "Datos pendientes",

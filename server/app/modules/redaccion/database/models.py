@@ -201,8 +201,6 @@ class HubWorkspace(HubOperationalBase):
         nullable=True,
     )
     archived_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    # Optimistic concurrency (1C.1): incrementado en cada PATCH /state.
-    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     # Modo NER reversible (13.1): off | detect_only | replace | replace_with_disposition_7.
     anonymization_mode: Mapped[str] = mapped_column(
         String(40), nullable=False, default="replace"
@@ -241,8 +239,6 @@ class HubWorkspaceBlock(HubOperationalBase):
     failure_kind: Mapped[str | None] = mapped_column(String(50), nullable=True)
     last_error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     retry_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    # Optimistic concurrency por bloque (1C.1): expected_block_version del BlockUpdate.
-    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_now, onupdate=_now
     )

@@ -105,3 +105,53 @@ def motivo_de_no_relajar(
         f"«{solicitado.value}» no se aplica: se mantiene «{suelo.value}». Un informe puede "
         "endurecer la anonimización, no relajarla."
     )
+
+
+# ---------------------------------------------------------------------------
+# Resolver la cascada contra la base de datos
+# ---------------------------------------------------------------------------
+#
+# **Vivía dentro del router, y por eso el suelo sólo regía al guardar desde la pantalla**
+# (issue #170). `modo_efectivo` se aplicaba en el `PATCH` y se congelaba en la columna del
+# informe: una organización que endurecía su política hoy no endurecía los informes creados
+# ayer, que seguían ejecutándose con lo que tuvieran guardado. Una política que sólo alcanza a
+# quien vuelva a pasar por una pantalla concreta no es un suelo.
+#
+# Así que la resolución vive aquí, la usan el router y el `drafting_runner`, y ninguno de los dos
+# puede derivar del otro.
+
+
+async def modo_de_la_organizacion(workspace: object, session: object) -> AnonymizationMode | None:
+    """El suelo que fija la organización del informe, o **`None` si no ha fijado ninguno**.
+
+    Devuelve `None` y no el valor del código a propósito: `MODO_POR_DEFECTO` es un **valor por
+    omisión**, no un mínimo. Si esto resolviera «sin política» como `replace`, ese valor pasaría a
+    ser un suelo y nadie podría elegir `off` en una instalación recién montada — la anonimización
+    sería obligatoria con otro nombre, que es lo contrario de lo que se decidió.
+
+    Se resuelve con una consulta y no navegando por una relación: `HubWorkspace` es operacional y
+    `HubOrganizacion` es de configuración, y la frontera edge/cloud prohíbe `relationship()` entre
+    las dos bases (`AGENTS.md` §Frontera Edge-Cloud).
+    """
+    from server.app.modules.agents_hub.database.config_models import HubOrganizacion
+
+    organizacion_id = getattr(workspace, "organizacion_id", None)
+    if organizacion_id is None:
+        return None
+
+    organizacion = await session.get(HubOrganizacion, organizacion_id)  # type: ignore[attr-defined]
+    declarado = getattr(organizacion, "anonymization_mode", None)
+    return AnonymizationMode(declarado) if declarado else None
+
+
+async def modo_de_ejecucion(workspace: object, session: object) -> AnonymizationMode:
+    """El modo con el que se ejecuta este informe **ahora**, no el de cuando alguien lo eligió.
+
+    Es `modo_efectivo` resuelto en el momento de generar: el informe pide lo que tiene guardado y
+    la organización pone el suelo. Resolverlo aquí y no fiarse de la columna es lo que hace que
+    endurecer la política de la casa tenga efecto sobre lo que ya existe.
+    """
+    return modo_efectivo(
+        heredado=await modo_de_la_organizacion(workspace, session),
+        pedido=getattr(workspace, "anonymization_mode", None),
+    )

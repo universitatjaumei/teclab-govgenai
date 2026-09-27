@@ -115,6 +115,14 @@ class RunAnonymizationContext(BaseModel):
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)
     )
+    #: Si el NER estuvo disponible en esta ejecución (issue #170).
+    #:
+    #: **`None` no es `False`.** `None` significa que no se escaneó —modo `off`— y decir `False`
+    #: ahí afirmaría haber comprobado algo que no se comprobó. `False` significa que se escaneó
+    #: sin modelo lingüístico: los identificadores estructurados sí se cogieron, los nombres
+    #: dentro de la prosa no. Sin este dato, esa ejecución produce un resumen tan saludable como
+    #: cualquier otra mientras deja pasar exactamente lo que la capa de patrones no ve.
+    ner_disponible: bool | None = None
 
     # ------------------------------------------------------------------
     # API pública
@@ -173,6 +181,9 @@ class AnonymizationSummary(BaseModel):
     mode: AnonymizationMode
     counts_by_type: dict[str, int] = Field(default_factory=dict)
     total_spans: int = 0
+    #: Si la detección de nombres en texto libre estuvo puesta. Ver el campo homónimo del
+    #: contexto: `None` = no se escaneó, `False` = se escaneó sólo con patrones.
+    ner_disponible: bool | None = None
     detected_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)
     )
@@ -184,6 +195,7 @@ class AnonymizationSummary(BaseModel):
             mode=ctx.mode,
             counts_by_type=counts,
             total_spans=sum(counts.values()),
+            ner_disponible=ctx.ner_disponible,
             detected_at=ctx.created_at,
         )
 

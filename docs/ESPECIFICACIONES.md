@@ -121,7 +121,7 @@ vive en un documento no es un invariante: es una intención.
 | I9 | **Un docstring no autoriza nada.** Declarar un módulo obliga a exigirlo con `require_module` | el mismo test |
 | I10 | **El contenido del modelo se lee con `texto_de`.** Gemini devuelve `content` como lista de bloques en cuanto hay más de una parte, y quien asume `str` falla más tarde y en otro sitio | `core/llm_text.py` + guardarraíl de USR.8 |
 | I11 | **Los ficheros de negocio se guardan por `StorageService`**, nunca con `open()`: el contenedor es efímero y el proveedor, cambiable | `core/storage.py`; regla de portabilidad |
-| I12 | **La organización fija el suelo de anonimización y el informe sólo puede endurecerlo, nunca relajarlo**; y el `model_factory` no anonimiza: recibe los datos como se los entreguen. La anonimización previa al LLM es una capacidad **que se elige**, porque depende del contrato con el proveedor y del tipo de datos, y ninguna de las dos cosas es una decisión de quien redacta un informe. Pedir un modo más flojo que el de la organización no es un 4xx: se aplica el suelo y se devuelve el motivo | `services/anonymization/politica.py` (`modo_efectivo`, `motivo_de_no_relajar`); `anonymization_router` |
+| I12 | **La organización fija el suelo de anonimización y el informe sólo puede endurecerlo, nunca relajarlo**; y el `model_factory` no anonimiza: recibe los datos como se los entreguen. La anonimización previa al LLM es una capacidad **que se elige**, porque depende del contrato con el proveedor y del tipo de datos, y ninguna de las dos cosas es una decisión de quien redacta un informe. Pedir un modo más flojo que el de la organización no es un 4xx: se aplica el suelo y se devuelve el motivo. **El suelo se resuelve al ejecutar el informe**, no en el momento en que alguien tocó la pantalla: si sólo se aplicara al guardar, endurecer la política de la casa hoy no alcanzaría a los informes de ayer, que seguirían corriendo con lo que tuvieran guardado | `services/anonymization/politica.py` (`modo_efectivo`, `modo_de_ejecucion`); `anonymization_router` y `drafting_runner` |
 | I13 | **Código que no ha pasado el filtro no se ejecuta.** Auditoría AST sin hallazgos críticos + prueba en sandbox + declaración responsable, **y el filtro es automático**: la aprobación humana previa dejó de ser la puerta en FUN.3/FUN.4, porque la Instrucció 02/2026 la prohíbe como condición para compartir dentro del servicio. La persona entra **después**, en la revisión posterior, que puede pedir correcciones, reclasificar o suspender. La única aprobación previa que queda es el paso a nivel 3 | `redaccion/services/script_auditor.py`, `redaccion/funciones_service.py`, `redaccion/funciones_acciones.py`, `SANDBOX_SECURITY.md`, `CATALOGO_FUNCIONES.md` |
 | I14 | **El esquema lo define Alembic, y sólo Alembic.** La aplicación no crea tablas al arrancar; un modelo cambiado sin su migración es un fallo de CI, no una tabla aparecida | `alembic check` en CI tras `upgrade head`; `test_bd2_alembic_es_la_unica_fuente.py` |
 | I15 | **El servidor sólo pide URL de la red pública, y lo comprueba en cada salto.** Una dirección privada, de *loopback* o de enlace local —el servidor de metadatos de la nube, los contenedores vecinos— no se pide, ni directamente ni **llegando a ella por una redirección**. La forma de la URL la validan los contratos de entrada (422 con motivo); el destino resuelto, cada petición. Hay una válvula de desarrollo, `CRAWLER_ALLOW_PRIVATE_TARGETS`, y **producción se niega a arrancar con ella puesta** | `core/red_publica.py` + `cliente_de_rastreo` en `modules/curation/spider.py`; los cuatro gates de `core/config.py`; `test_aper1_*` |
@@ -249,6 +249,10 @@ qué clasificación y hasta cuándo vale.
   conversión ocurre **fuera** de la aplicación; el servidor no lleva conversor de documentos.
 - Clasificación por **ámbito** y **submaterias** desde vocabulario en tabla, con `vigent` y
   `substituit_per_codi` para renombrar y fusionar sin reindexar (I3, I4).
+- **Renombrar o fusionar un término reclasifica los documentos que lo usaban**, en una sola
+  operación (`--substituir … --per …` del cargador de vocabulario). Las dos mitades no se pueden
+  invocar por separado a propósito: marcar el término sin barrer los documentos no da ningún
+  error y deja la búsqueda por el código nuevo sin encontrarlos.
 - **Una versión por norma y lengua**; `ca` ≡ `val`; la vigencia se expresa con un eje, y la
   validación y la caducidad se comparten entre versiones.
 - Reingesta **idempotente**: volver a ingerir lo mismo no duplica ni reembebe.
@@ -304,10 +308,20 @@ a aprobación o edición humana.
 
 **Garantiza.**
 - **Las tablas las calcula código, no el modelo.** La IA valora; no inventa cifras.
+- **Un apartado no se redacta sin los datos de los que declara depender.** Si el bloque del que
+  depende falló, se marca fallido en cascada y no se llama al modelo: una valoración escrita sin
+  sus datos parece fundamentada y no lo está. Y lo transitorio se reintenta —un *timeout* no deja
+  el apartado caído para siempre—, con la cuenta de intentos en el estado del bloque.
 - Ningún script se ejecuta sin **auditoría AST + sandbox + aprobación** (I13).
 - El formulario de un script se pinta desde un `ui_contract` que manda el servidor: el frontend no
   conoce los campos a priori (I6).
 - Toda ejecución deja `RunManifest`: qué se ejecutó, con qué versión y con qué datos.
+- **Elegir un modo de anonimización cambia lo que ve el modelo**, y el manifiesto registra
+  cuántos datos se trataron por tipo —sin originales ni sintéticos— y **si la detección de
+  nombres en texto libre estuvo disponible**. Lo segundo importa tanto como lo primero: sin
+  modelo lingüístico la anonimización sigue cogiendo identificadores estructurados y deja pasar
+  los nombres dentro de la prosa, y el resumen saldría igual de saludable. Una capacidad que se
+  elige tiene que poder distinguirse de una capacidad que no está (I12).
 
 **Superficie.** `modules/redaccion/` · `redaccion_*_router` (plantillas, workspaces, scripts,
 gráficos, manifiestos) · [`REDACCION_CONTRACT_FIRST.md`](REDACCION_CONTRACT_FIRST.md).

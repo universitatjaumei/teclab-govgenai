@@ -63,7 +63,6 @@ vi.mock('@/shared/api/generated/redaccion-workspaces/redaccion-workspaces', () =
 vi.mock('@/shared/api/generated/redaccion-anonymization/redaccion-anonymization', () => ({
   useGetAnonymizationSummary: vi.fn(),
   usePatchAnonymizationMode: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
-  useReAnalyzeAnonymization: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
   getGetAnonymizationSummaryQueryKey: vi.fn(() => ['anon']),
 }))
 

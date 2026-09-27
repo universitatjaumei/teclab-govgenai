@@ -15,7 +15,6 @@ import {
   getGetAnonymizationSummaryQueryKey,
   useGetAnonymizationSummary,
   usePatchAnonymizationMode,
-  useReAnalyzeAnonymization,
 } from '@/shared/api/generated/redaccion-anonymization/redaccion-anonymization'
 
 interface WorkspaceAnonymizationPanelProps {
@@ -50,7 +49,6 @@ export function WorkspaceAnonymizationPanel({
   }
 
   const patchMode = usePatchAnonymizationMode({ mutation: { onSuccess: refrescarResumen } })
-  const reAnalyze = useReAnalyzeAnonymization({ mutation: { onSuccess: refrescarResumen } })
 
   const currentMode = summary?.current_workspace_mode ?? 'replace'
   const [selectedMode, setSelectedMode] = useState<string>(currentMode)
@@ -65,8 +63,14 @@ export function WorkspaceAnonymizationPanel({
     patchMode.mutate({ workspaceId, data: { mode: selectedMode as AnonymizationMode } })
   }
 
-  const handleReAnalyze = () => {
-    reAnalyze.mutate({ workspaceId })
+  // Issue #169 — este botón refresca la vista, que es lo que de verdad se quería de él: ver el
+  // resultado de una anonimización ya aplicada, o el de la iteración anterior.
+  //
+  // Llamaba a `POST /re-analyze`, que devolvía 202 «encolado» **sin encolar nada**. Se retiró esa
+  // ruta en vez de implementarle la cola, porque el resumen ya lo sirve el `GET`: desde la issue
+  // #98 cada ejecución escribe el suyo en el manifiesto.
+  const handleRefrescar = () => {
+    refrescarResumen()
   }
 
   if (isLoading) {
@@ -141,6 +145,24 @@ export function WorkspaceAnonymizationPanel({
           {t('anonymization.table_title')}
         </h3>
 
+        {/*
+          Issue #170 — sin modelo lingüístico la anonimización sigue cogiendo DNI, correos, IBAN
+          y las cabeceras de formulario, y deja pasar los nombres que sólo aparecen dentro de la
+          prosa. El resumen se vería idéntico: sus conteos, su total. Sin este aviso, «no había
+          nombres» y «no se buscaron» son la misma pantalla.
+
+          La comparación es explícita contra `false` porque `null` es otra cosa: en modo `off` no
+          se escaneó, y avisar allí sería reclamar una capa que nadie pidió.
+        */}
+        {summary?.ner_disponible === false && (
+          <p
+            data-testid="anon-ner-degradado"
+            className="text-xs text-amber-600 mb-2"
+          >
+            {t('anonymization.ner_no_disponible')}
+          </p>
+        )}
+
         {!summary || summary.total_spans === 0 ? (
           <p className="text-xs text-muted-foreground">{t('anonymization.no_run')}</p>
         ) : (
@@ -183,14 +205,11 @@ export function WorkspaceAnonymizationPanel({
       <section>
         <button
           type="button"
-          data-testid="btn-reanalyze"
-          onClick={handleReAnalyze}
-          disabled={reAnalyze.isPending}
+          data-testid="btn-refrescar-resumen"
+          onClick={handleRefrescar}
           className="text-sm px-3 py-1 border rounded"
         >
-          {reAnalyze.isPending
-            ? t('anonymization.reanalyzing')
-            : t('anonymization.btn_reanalyze')}
+          {t('anonymization.btn_refrescar')}
         </button>
       </section>
     </div>

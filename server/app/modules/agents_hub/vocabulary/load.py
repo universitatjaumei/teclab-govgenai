@@ -215,8 +215,10 @@ async def supersede_term(
 ) -> None:
     """Marca `codi_antic` como sustituido por `codi_nou` (renombrado o fusión).
 
-    No toca los documentos: el barrido de `hub_documents` se hace en ING.0.2, que es
-    donde existen las columnas `ambit_principal`/`submateries`.
+    **No toca los documentos, y por eso casi nunca se llama a solas**: para eso está
+    `sustituir_termino`, que hace las dos mitades. Dejar el vocabulario marcado y los documentos
+    sin barrer es la avería silenciosa de la issue #153 — la búsqueda por el código nuevo no los
+    encuentra, la del viejo apunta a un término retirado, y nada da error.
     """
     if codi_antic == codi_nou:
         raise VocabularyCsvError("Un término no puede sustituirse por sí mismo")
@@ -237,6 +239,50 @@ async def supersede_term(
         ),
         organizacion_id,
     )
+
+
+
+async def sustituir_termino(
+    session: AsyncSession,
+    *,
+    axis: str,
+    codi_antic: str,
+    codi_nou: str,
+    organizacion_id: uuid.UUID,
+    chatbot_id: uuid.UUID | None = None,
+) -> int:
+    """Renombra o fusiona un término **y reclasifica los documentos que lo usaban**.
+
+    Devuelve cuántos documentos se tocaron. Las dos mitades existían desde ING.0.1 e ING.0.2 y
+    **ninguna tenía quien la llamara** (issue #153): la guía de carga mandaba al operador a
+    `supersede_term`, que no es alcanzable desde ningún CLI ni router. Van juntas aquí porque
+    separadas vuelven a poder correr a medias, y correr a medias no da ningún error: el término
+    queda retirado y los documentos siguen clasificados con el código viejo.
+
+    **El orden no es indiferente.** Primero el vocabulario, que es quien valida que el sustituto
+    existe; después el barrido. Al revés, un código mal escrito dejaría los documentos apuntando
+    a un término inexistente, y eso no se nota hasta que una consulta no devuelve nada.
+
+    Los ejes que no gobiernan columnas de `hub_documents` —`rang`, `colectiu`, que viven en
+    `doc_metadata` y no dirigen la recuperación— se sustituyen igual y devuelven 0: que no haya
+    nada que barrer no puede impedir renombrar.
+
+    Nota de frontera: el vocabulario es configuración y los documentos son operacionales. En un
+    despliegue partido cloud/edge no comparten base, y entonces esta función corre donde están
+    los documentos y el lado del vocabulario llega por la sincronización.
+    """
+    from server.app.modules.agents_hub.services.corpus_reclassifier import (
+        AXES_BARRIBLES,
+        reclassify_documents,
+    )
+
+    await supersede_term(
+        SqlAlchemyVocabularyStore(session), axis, codi_antic, codi_nou, organizacion_id
+    )
+
+    if axis not in AXES_BARRIBLES:
+        return 0
+    return await reclassify_documents(session, axis, codi_antic, codi_nou, chatbot_id)
 
 
 # ───────────────────────── Store real ─────────────────────────
@@ -342,6 +388,9 @@ async def _run(args: argparse.Namespace) -> int:
         create_session_factory,
     )
 
+    if args.substituir:
+        return await _run_sustitucion(args)
+
     try:
         terms = parse_vocabulary_csv(args.csv, args.axis)
     except VocabularyCsvError as exc:
@@ -372,9 +421,55 @@ async def _run(args: argparse.Namespace) -> int:
     return 0
 
 
-def main(argv: list[str] | None = None) -> int:
+async def _run_sustitucion(args: argparse.Namespace) -> int:
+    """El modo «renombrar o fusionar», que es el que no existía (issue #153).
+
+    En `--dry-run` no se escribe nada: la transacción se deshace después de contar, que es la
+    única forma de decir cuántos documentos se tocarían sin tocarlos.
+    """
+    from server.app.modules.agents_hub.database.connection import (
+        create_async_engine,
+        create_session_factory,
+    )
+
+    engine = create_async_engine()
+    session_factory = create_session_factory(engine)
+    try:
+        async with session_factory() as session:
+            try:
+                tocados = await sustituir_termino(
+                    session,
+                    axis=args.axis,
+                    codi_antic=args.substituir,
+                    codi_nou=args.per,
+                    organizacion_id=args.organizacion_id,
+                )
+            except VocabularyCsvError as exc:
+                print(f"ERROR: {exc}", file=sys.stderr)
+                return 1
+            if args.dry_run:
+                await session.rollback()
+                print(
+                    f"[dry-run] '{args.substituir}' → '{args.per}' en el eje '{args.axis}': "
+                    f"{tocados} documento(s) se reclasificarían (nada escrito)"
+                )
+            else:
+                await session.commit()
+                print(
+                    f"'{args.substituir}' → '{args.per}' en el eje '{args.axis}': "
+                    f"término marcado como sustituido y {tocados} documento(s) reclasificados"
+                )
+    finally:
+        await engine.dispose()
+    return 0
+
+
+def _construir_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Carga el vocabulario controlado del corpus desde un CSV."
+        description=(
+            "Vocabulario controlado del corpus: carga un CSV, o renombra/fusiona un término "
+            "reclasificando los documentos que lo usaban."
+        )
     )
     parser.add_argument(
         "--axis",
@@ -382,7 +477,7 @@ def main(argv: list[str] | None = None) -> int:
         choices=[a.value for a in VocabularyAxis],
         help="Eje del vocabulario",
     )
-    parser.add_argument("--csv", required=True, help="Ruta del CSV")
+    parser.add_argument("--csv", help="Ruta del CSV a cargar")
     parser.add_argument(
         "--organizacion-id",
         required=True,
@@ -391,9 +486,39 @@ def main(argv: list[str] | None = None) -> int:
         help="Organización destino",
     )
     parser.add_argument(
+        "--substituir",
+        metavar="CODI_ANTIC",
+        help="Código a retirar. Exige `--per` y excluye `--csv`",
+    )
+    parser.add_argument(
+        "--per",
+        metavar="CODI_NOU",
+        help="Código que sustituye al anterior",
+    )
+    parser.add_argument(
         "--dry-run", action="store_true", help="Reporta el plan sin escribir"
     )
+    return parser
+
+
+def _validar_modo(parser: argparse.ArgumentParser, args: argparse.Namespace) -> None:
+    """Un modo o el otro, nunca los dos ni ninguno.
+
+    Se comprueba a mano y no con `add_mutually_exclusive_group` porque `--substituir` necesita
+    además a `--per`, y eso argparse no lo sabe expresar.
+    """
+    if bool(args.csv) == bool(args.substituir):
+        parser.error("elige `--csv` para cargar o `--substituir ... --per ...` para renombrar")
+    if args.substituir and not args.per:
+        parser.error("`--substituir` necesita `--per CODI_NOU`")
+    if args.per and not args.substituir:
+        parser.error("`--per` sólo tiene sentido con `--substituir`")
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = _construir_parser()
     args = parser.parse_args(argv)
+    _validar_modo(parser, args)
     return asyncio.run(_run(args))
 
 

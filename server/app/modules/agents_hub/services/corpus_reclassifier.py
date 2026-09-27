@@ -5,6 +5,10 @@ Deploy: edge — escribe documentos del cliente.
 Es la otra mitad de `vocabulary/load.py:supersede_term`, que solo marca el término
 antiguo. Aquí se barren los documentos que lo usaban.
 
+**Las dos se llaman desde `vocabulary/load.py:sustituir_termino`, y no por separado** (issue
+#153). Durante un tiempo no las llamaba nadie: el barrido existía, estaba probado, y renombrar
+un término dejaba los documentos con el código viejo sin que nada diera error.
+
 **Invariante que sostiene la promesa de vocabulario revisable** (CLAUDE.md §5):
 reclasificar cuesta un `UPDATE` y **no toca ni un chunk**. Es cierto porque la
 taxonomía nunca entra en el texto embebido; si alguien la mete, este servicio deja de
@@ -27,6 +31,11 @@ _COLUMNAS_POR_EJE: dict[str, tuple[str, tuple[str, ...]]] = {
     VocabularyAxis.AMBIT: ("ambit_principal", ("ambits_secundaris",)),
     VocabularyAxis.SUBMATERIA: (None, ("submateries", "submateries_internes")),
 }
+
+#: Los ejes que esta función sabe barrer. Quien orquesta la sustitución lo consulta **antes** de
+#: llamar: para `rang` o `colectiu` no hay nada que barrer, y eso no es un error que deba
+#: impedir renombrar el término.
+AXES_BARRIBLES: frozenset[str] = frozenset(_COLUMNAS_POR_EJE)
 
 
 async def reclassify_documents(

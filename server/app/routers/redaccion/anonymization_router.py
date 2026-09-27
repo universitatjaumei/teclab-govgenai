@@ -2,10 +2,22 @@
 
 Deploy: edge
 
-Tres endpoints:
+Dos endpoints:
 - GET  /{workspace_id}/anonymization-summary  → AnonymizationSummaryResponse
 - PATCH /{workspace_id}/anonymization-mode    → AnonymizationModeResponse
-- POST  /{workspace_id}/re-analyze            → ReAnalyzeResponse (202)
+
+**Hubo un tercero y se retiró (issue #169).** `POST /re-analyze` devolvía **202 Accepted** con
+`status: "queued"` y prometía en su docstring «dispara `InitAnonymizationNode`; el análisis se
+encola en background». Lo que hacía era escribir un evento de auditoría y volver: ni
+`BackgroundTasks`, ni cola, ni nodo — y nadie consumía el evento que dejaba.
+
+Afirmar haber hecho algo es peor que no hacer nada: quien pulsaba el botón recibía «aceptado,
+encolado», la pantalla no daba error, y el análisis no existía.
+
+**La finalidad que el botón sí cumplía se conserva**, porque era otra: ver el resultado de una
+anonimización ya aplicada, o el de la iteración anterior. Eso lo sirve el `GET` de aquí arriba
+—desde la issue #98 cada ejecución escribe su resumen en el manifiesto—, así que el botón pasó a
+refrescar esa vista y no hubo que implementar ninguna cola para anunciarla.
 """
 from __future__ import annotations
 
@@ -26,6 +38,7 @@ from server.app.modules.redaccion.database.models import (
     HubWorkspaceAuditEvent,
 )
 from server.app.modules.redaccion.services.anonymization.politica import (
+    modo_de_la_organizacion,
     modo_efectivo,
     motivo_de_no_relajar,
 )
@@ -57,6 +70,13 @@ class AnonymizationSummaryResponse(BaseModel):
     total_spans: int
     last_run_at: datetime
     current_workspace_mode: AnonymizationMode
+    #: Si la detección de nombres en texto libre estuvo puesta en esa ejecución (issue #170).
+    #:
+    #: Va en el contrato porque el frontend **no puede deducirlo**: sin modelo lingüístico el
+    #: resumen sale igual de saludable —sus conteos, sus spans— y lo que se escapa son los
+    #: nombres dentro de la prosa, que es justo lo que la persona creía haber anonimizado.
+    #: `None` en ejecuciones anteriores a la #170 y en modo `off`, donde no se escaneó nada.
+    ner_disponible: bool | None = None
 
 
 class AnonymizationModeUpdate(BaseModel):
@@ -73,10 +93,6 @@ class AnonymizationModeResponse(BaseModel):
     motivo: str | None = None
 
 
-class ReAnalyzeResponse(BaseModel):
-    workspace_id: uuid.UUID
-    status: str
-    current_mode: AnonymizationMode
 
 
 # ---------------------------------------------------------------------------
@@ -105,29 +121,6 @@ async def _get_workspace_checked(
     return workspace
 
 
-async def _modo_de_la_organizacion(
-    workspace: HubWorkspace, session: AsyncSession
-) -> AnonymizationMode | None:
-    """El suelo que fija la organización del informe, o **`None` si no ha fijado ninguno** (AIS.5).
-
-    Devuelve `None` y no el valor del código a propósito, y es la distinción que sostiene el
-    prompt: `MODO_POR_DEFECTO` es un **valor por omisión**, no un mínimo. Si esta función
-    resolviera «sin política» como `replace`, ese valor pasaría a ser un suelo y nadie podría
-    elegir `off` en una instalación recién montada — la anonimización sería obligatoria con otro
-    nombre, que es lo contrario de lo que se decidió.
-
-    Se resuelve con una consulta y no navegando por una relación: `HubWorkspace` es operacional
-    y `HubOrganizacion` es de configuración, y la frontera edge/cloud prohíbe `relationship()`
-    entre las dos bases (`AGENTS.md` §Frontera Edge-Cloud).
-    """
-    from server.app.modules.agents_hub.database.config_models import HubOrganizacion
-
-    if workspace.organizacion_id is None:
-        return None
-
-    organizacion = await session.get(HubOrganizacion, workspace.organizacion_id)
-    declarado = getattr(organizacion, "anonymization_mode", None)
-    return AnonymizationMode(declarado) if declarado else None
 
 
 async def _get_last_manifest(
@@ -196,6 +189,7 @@ async def get_anonymization_summary(
         total_spans=summary.total_spans,
         last_run_at=manifest_orm.created_at,
         current_workspace_mode=AnonymizationMode(workspace.anonymization_mode),
+        ner_disponible=summary.ner_disponible,
     )
 
 
@@ -230,7 +224,7 @@ async def patch_anonymization_mode(
             detail="MODE_LOCKED_DURING_EXECUTION",
         )
 
-    heredado = await _modo_de_la_organizacion(workspace, session)
+    heredado = await modo_de_la_organizacion(workspace, session)
     efectivo = modo_efectivo(heredado=heredado, pedido=body.mode)
     motivo = motivo_de_no_relajar(heredado=heredado, pedido=body.mode)
 
@@ -267,39 +261,3 @@ async def patch_anonymization_mode(
     )
 
 
-@router.post(
-    "/{workspace_id}/re-analyze",
-    response_model=ReAnalyzeResponse,
-    status_code=status.HTTP_202_ACCEPTED,
-    operation_id="reAnalyzeAnonymization",
-)
-async def re_analyze_anonymization(
-    workspace_id: uuid.UUID,
-    user: UserInfo = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session),
-) -> ReAnalyzeResponse:
-    """Dispara InitAnonymizationNode sin llegar al LLM.
-
-    Útil para previsualizar conteos de PII antes de ejecutar el grafo.
-    El análisis se encola en background; el endpoint devuelve 202 inmediatamente.
-    - 403: usuario no es owner.
-    """
-    workspace = await _get_workspace_checked(workspace_id, user, session)
-
-    audit_event = HubWorkspaceAuditEvent(
-        workspace_id=workspace_id,
-        block_id=None,
-        event="re_analyze_started",
-        from_status=workspace.status,
-        to_status=workspace.status,
-        actor=user.user_id,
-        metadata_json={"mode": workspace.anonymization_mode},
-    )
-    session.add(audit_event)
-    await session.commit()
-
-    return ReAnalyzeResponse(
-        workspace_id=workspace_id,
-        status="queued",
-        current_mode=AnonymizationMode(workspace.anonymization_mode),
-    )

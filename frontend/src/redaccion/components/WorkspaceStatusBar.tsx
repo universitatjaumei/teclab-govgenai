@@ -3,7 +3,6 @@ import { useGetWorkspaceById } from '@/shared/api/generated/hub-redaccion/hub-re
 import type { WorkspaceOut } from '@/shared/api/generated/model'
 import { StatusBadge } from '@/shared/components/StatusBadge'
 import { mapWorkspaceStatusToUserLabel } from '../utils/statusLabels'
-import type { AutosaveStatus } from '../hooks/useAutosave'
 
 const STATUS_ORDER = [
   'draft', 'ingesting', 'extracting', 'drafting',
@@ -12,17 +11,9 @@ const STATUS_ORDER = [
 
 interface Props {
   workspaceId: string
-  autosaveStatus?: AutosaveStatus
 }
 
-const AUTOSAVE_TONE: Record<AutosaveStatus, 'success' | 'info' | 'warning' | 'error'> = {
-  saved: 'success',
-  saving: 'info',
-  offline: 'warning',
-  conflict: 'error',
-}
-
-export function WorkspaceStatusBar({ workspaceId, autosaveStatus }: Props) {
+export function WorkspaceStatusBar({ workspaceId }: Props) {
   const { t } = useTranslation('common')
   const { t: tR } = useTranslation('redaccion')
   const { data: workspaceRaw, isLoading } = useGetWorkspaceById(workspaceId)
@@ -53,13 +44,6 @@ export function WorkspaceStatusBar({ workspaceId, autosaveStatus }: Props) {
         ))}
       </div>
 
-      {autosaveStatus && (
-        <StatusBadge
-          label={tR(`autosave.status.${autosaveStatus}`)}
-          tone={AUTOSAVE_TONE[autosaveStatus]}
-          data-testid="autosave-status-badge"
-        />
-      )}
     </div>
   )
 }

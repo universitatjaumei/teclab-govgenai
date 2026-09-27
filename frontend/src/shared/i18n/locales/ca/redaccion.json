@@ -26,22 +26,11 @@
     "col_count": "Quantitat",
     "total": "Total",
     "no_run": "Encara no s'ha executat cap anàlisi.",
-    "btn_reanalyze": "Re-analitzar ara",
+    "btn_refrescar": "Actualitzar resultat",
     "btn_change_mode": "Canviar mode",
-    "reanalyzing": "Analitzant…",
     "mode_locked": "El mode no es pot canviar durant l'execució.",
-    "loading": "Carregant…"
-  },
-  "autosave": {
-    "status": {
-      "saved": "Guardat",
-      "saving": "Guardant…",
-      "offline": "Sense connexió",
-      "conflict": "Conflicte sense resoldre"
-    },
-    "conflict_title": "Conflicte en guardar",
-    "conflict_body": "Una altra sessio ha modificat aquest informe. Recarrega per veure els canvis; els teus sense guardar es perdran.",
-    "reload_workspace": "Recarregar l’informe"
+    "loading": "Carregant…",
+    "ner_no_disponible": "La detecció de noms en text lliure no va estar disponible en aquesta execució: falta el model lingüístic en aquesta instal·lació. S'hi van aplicar els patrons deterministes (DNI, NIE, correu, IBAN, telèfon) i les capçaleres de formulari."
   },
   "copilot": {
     "placeholder": "Escriu la teva pregunta o instrucció…",
@@ -147,7 +136,9 @@
     "save": "Guarda",
     "show_original": "Veure què va proposar la IA",
     "source_anchored": "Valora: {{tables}}",
-    "source_full": "Sense ancorar: ha llegit tot l’informe"
+    "source_full": "Sense ancorar: ha llegit tot l’informe",
+    "draft_recovered": "Estàs veient un esborrany sense desar d'una sessió anterior.",
+    "draft_discard": "Descartar-lo"
   },
   "status": {
     "missing_data": "Dades pendents",

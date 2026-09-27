@@ -229,5 +229,9 @@ def test_anonymization_context_never_persists_forward_or_reverse_map_to_db() -> 
     assert not leaked, f"AnonymizationSummary expone campos prohibidos: {leaked}"
 
     # Y por simetría confirmamos los campos esperados (no nos quedamos cortos).
-    expected = {"mode", "counts_by_type", "total_spans", "detected_at"}
+    #
+    # `ner_disponible` entra con la issue #170 y esta lista es justo la revisión que el test
+    # existe para forzar: es un booleano sobre **la instalación**, no sobre el documento —dice si
+    # había modelo lingüístico cuando se escaneó—, así que no puede llevar nada de nadie.
+    expected = {"mode", "counts_by_type", "total_spans", "detected_at", "ner_disponible"}
     assert summary_fields == expected

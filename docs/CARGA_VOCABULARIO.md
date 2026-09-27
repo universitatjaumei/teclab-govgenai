@@ -66,8 +66,23 @@ Salida esperada de cada pasada: `NN términos leídos` y `creados=… actualizad
 
 - **Idempotente** por la clave natural `(organizacion_id, axis, codi)`: repetir una carga no
   duplica y reporta `sin_cambios`. Cambiar `nom`/`abast`/orden en el CSV y recargar hace `UPDATE`.
-- **Renombrar o fusionar** un término no se hace editando el CSV a mano en producción: usa
-  `supersede_term` (marca `vigent=False` + `substituit_per_codi`), que preserva el histórico.
+- **Renombrar o fusionar** un término no se hace editando el CSV a mano en producción, sino con
+  el modo `--substituir` del mismo módulo, que preserva el histórico (`vigent=False` +
+  `substituit_per_codi`) **y reclasifica los documentos que usaban el código viejo**:
+
+  ```powershell
+  & $PY -m server.app.modules.agents_hub.vocabulary.load --axis submateria `
+      --substituir rrhh-ptgas --per rrhh-ptgas-condicions --organizacion-id $env:ORG --dry-run
+  ```
+
+  Con `--dry-run` dice cuántos documentos se reclasificarían sin escribir nada. **Las dos mitades
+  van juntas a propósito** (issue #153): este documento decía «usa `supersede_term`» y esa
+  función no era alcanzable desde ningún sitio, así que renombrar era imposible sin abrir un
+  intérprete — y quien lo hiciera se dejaría la segunda mitad, que no da ningún error: el término
+  queda retirado y los documentos siguen clasificados con el código viejo.
+
+  Los ejes `rang` y `colectiu` viven en `doc_metadata` y no gobiernan la recuperación: se
+  sustituyen igual y el barrido reporta 0.
 - **El `ordre`** de presentación del router sale del orden de las filas del CSV.
 - Un `parent_codi` (columna `ambit`) inexistente aborta el CSV de submaterias entero, nombrando
   los códigos colgantes. Es la señal de que falta cargar (o corregir) algún ámbito.

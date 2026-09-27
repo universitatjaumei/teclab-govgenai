@@ -173,8 +173,15 @@ class AnonymizationContext:
         spacy_model: str = "es_core_news_md",
         faker_seed: int | None = None,
     ) -> None:
-        self._nlp = _get_nlp(spacy_model)
         self._spacy_model = spacy_model
+        # **El modelo se carga en el primer texto que pase por el NER, no aquí** (issue #170).
+        # Son ~305 MB de RSS medidos, y desde que el grafo de redacción construye un detector en
+        # cada ejecución, cargarlos en el constructor se los cobraría también a quien tiene la
+        # anonimización en `off` — que es una decisión legítima de su organización. El resultado
+        # se cachea por proceso en `_NLP_CACHE`, así que sigue siendo coste de arranque y no
+        # latencia por informe.
+        self._nlp_valor: Any = None
+        self._nlp_resuelto = False
         self.fakes = FakerGenerator(locale=locale, seed=faker_seed)
         self._detected_anchors: list[dict[str, Any]] = []
 
@@ -195,7 +202,21 @@ class AnonymizationContext:
         return self.fakes.stats
 
     @property
+    def _nlp(self) -> Any:
+        if not self._nlp_resuelto:
+            self._nlp_valor = _get_nlp(self._spacy_model)
+            self._nlp_resuelto = True
+        return self._nlp_valor
+
+    @_nlp.setter
+    def _nlp(self, valor: Any) -> None:
+        """Escribible a propósito: un test fuerza `None` para comprobar la degradación."""
+        self._nlp_valor = valor
+        self._nlp_resuelto = True
+
+    @property
     def spacy_available(self) -> bool:
+        """Fuerza la carga: preguntar si está disponible es pedir que se compruebe."""
         return self._nlp is not None
 
     # ------------------------------------------------------------------
