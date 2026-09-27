@@ -32,17 +32,6 @@
     "loading": "Loading…",
     "ner_no_disponible": "Name detection in free text was not available for this run: this installation is missing the language model. Deterministic patterns (ID numbers, email, IBAN, phone) and form headers were applied."
   },
-  "autosave": {
-    "status": {
-      "saved": "Saved",
-      "saving": "Saving…",
-      "offline": "Offline",
-      "conflict": "Unresolved conflict"
-    },
-    "conflict_title": "Save conflict",
-    "conflict_body": "Another session has changed this report. Reload to see the changes; your unsaved ones will be lost.",
-    "reload_workspace": "Reload the report"
-  },
   "copilot": {
     "placeholder": "Type a question or instruction…",
     "send": "Send",
@@ -147,7 +136,9 @@
     "save": "Save",
     "show_original": "See what the AI proposed",
     "source_anchored": "Comments on: {{tables}}",
-    "source_full": "Not anchored: it read the whole report"
+    "source_full": "Not anchored: it read the whole report",
+    "draft_recovered": "You are seeing an unsaved draft from an earlier session.",
+    "draft_discard": "Discard it"
   },
   "status": {
     "missing_data": "Data pending",

@@ -12,6 +12,7 @@ import {
 } from '@/shared/api/generated/redaccion-workspaces/redaccion-workspaces'
 import type { WorkspaceOut } from '@/shared/api/generated/model'
 import { StatusBadge } from '@/shared/components/StatusBadge'
+import { guardarBorrador, leerBorrador, olvidarBorrador } from '../utils/borradorLocal'
 import { mapBlockStatusToUserLabel } from '../utils/statusLabels'
 
 interface Props {
@@ -69,6 +70,10 @@ export function AIBlockReviewPanel({ workspaceId }: Props) {
   /** INF.3 — bloque cuya regeneración se acaba de pedir, para poder decir qué pasa ahora. */
   const [regenerado, setRegenerado] = useState<string | null>(null)
   const [borrador, setBorrador] = useState('')
+  // Issue #171 — el texto que estaba guardado cuando se abrió el editor, para poder volver
+  // a él al descartar un borrador recuperado.
+  const [textoGuardado, setTextoGuardado] = useState('')
+  const [borradorRecuperado, setBorradorRecuperado] = useState(false)
 
   const { data: workspaceRaw, isLoading } = useGetWorkspaceById(workspaceId)
   const workspace = workspaceRaw as unknown as WorkspaceOut | undefined
@@ -112,14 +117,47 @@ export function AIBlockReviewPanel({ workspaceId }: Props) {
   }
 
   function empezarAEditar(blockId: string, texto: string) {
+    // Issue #171 — si quedó un borrador sin guardar (una recarga, una pestaña cerrada), se
+    // recupera **diciéndolo**: enseñar un texto que no es el guardado sin avisar es peor que
+    // perderlo, porque quien revisa no puede saber qué está leyendo.
+    const pendiente = leerBorrador(workspaceId, blockId)
+    const hayBorrador = pendiente !== null && pendiente !== texto
+
     setEditando(blockId)
+    setTextoGuardado(texto)
+    setBorradorRecuperado(hayBorrador)
+    setBorrador(hayBorrador ? (pendiente as string) : texto)
+  }
+
+  function escribir(blockId: string, texto: string) {
     setBorrador(texto)
+    guardarBorrador(workspaceId, blockId, texto)
+  }
+
+  function descartarBorrador(blockId: string) {
+    olvidarBorrador(workspaceId, blockId)
+    setBorrador(textoGuardado)
+    setBorradorRecuperado(false)
+  }
+
+  function cerrarEditor(blockId: string) {
+    // Cancelar es descartar: el borrador protege de una recarga, no de cambiar de opinión.
+    olvidarBorrador(workspaceId, blockId)
+    setBorradorRecuperado(false)
+    setEditando(null)
   }
 
   function guardar(blockId: string) {
     editarBloque(
       { workspaceId, blockId, data: { content: { text: borrador.trim() } } },
-      { ...refrescar, onSettled: () => setEditando(null) },
+      {
+        ...refrescar,
+        onSettled: () => {
+          olvidarBorrador(workspaceId, blockId)
+          setBorradorRecuperado(false)
+          setEditando(null)
+        },
+      },
     )
   }
 
@@ -224,10 +262,26 @@ export function AIBlockReviewPanel({ workspaceId }: Props) {
 
             {editando === block.block_id ? (
               <div className="space-y-2">
+                {borradorRecuperado && (
+                  <p
+                    data-testid={`aviso-borrador-${block.block_id}`}
+                    className="flex items-center gap-2 text-xs text-amber-600"
+                  >
+                    {tR('review.draft_recovered')}
+                    <button
+                      type="button"
+                      data-testid={`btn-descartar-borrador-${block.block_id}`}
+                      onClick={() => descartarBorrador(block.block_id)}
+                      className="underline"
+                    >
+                      {tR('review.draft_discard')}
+                    </button>
+                  </p>
+                )}
                 <textarea
                   data-testid={`editor-${block.block_id}`}
                   value={borrador}
-                  onChange={(e) => setBorrador(e.target.value)}
+                  onChange={(e) => escribir(block.block_id, e.target.value)}
                   rows={8}
                   aria-label={tR('review.edit_label')}
                   className="w-full border rounded p-2 text-sm resize-y font-serif"
@@ -245,7 +299,7 @@ export function AIBlockReviewPanel({ workspaceId }: Props) {
                   <button
                     type="button"
                     data-testid={`btn-cancelar-${block.block_id}`}
-                    onClick={() => setEditando(null)}
+                    onClick={() => cerrarEditor(block.block_id)}
                     className="px-2 py-1 text-xs border rounded"
                   >
                     {t('cancel', 'Cancelar')}

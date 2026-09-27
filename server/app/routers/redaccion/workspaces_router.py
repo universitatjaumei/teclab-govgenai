@@ -38,17 +38,6 @@ from server.app.modules.redaccion.services.block_state_machine import (
     BlockStateMachine,
     BlockTransitionEvent,
 )
-from server.app.modules.redaccion.contracts.state_update import (
-    WorkspaceStatePatch,
-    WorkspaceStatePatchResponse,
-    WorkspaceStateConflictResponse,
-)
-from server.app.modules.redaccion.services.autosave_service import (
-    ConflictError,
-    InvalidTransitionError as AutosaveInvalidTransitionError,
-    WorkspaceAutosaveService,
-    WorkspaceNotFoundError,
-)
 from server.app.modules.redaccion.services.workspace_run_service import (
     InputsNotReadyError,
     WorkspaceRunService,
@@ -593,47 +582,6 @@ async def _redactor_de_bloques(session: AsyncSession, *, organizacion_id: Any = 
     return RedactorDeBloques(
         modelo, nombre_del_modelo(modelo), instrucciones=instrucciones
     )
-
-
-@router.patch(
-    "/{workspace_id}/state",
-    response_model=WorkspaceStatePatchResponse,
-    operation_id="patchWorkspaceState",
-    responses={
-        409: {"model": WorkspaceStateConflictResponse, "description": "Optimistic conflict"},
-        422: {"description": "Invalid BlockState transition"},
-        404: {"description": "Workspace not found or not owned by user"},
-    },
-)
-async def patch_workspace_state(
-    workspace_id: uuid.UUID,
-    patch: WorkspaceStatePatch,
-    user: UserInfo = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session),
-) -> WorkspaceStatePatchResponse:
-    """Autosave atómico (1C.1) con concurrencia optimista.
-
-    - 200: aplicado, devuelve nuevas versiones.
-    - 409: workspace_version o block_version desactualizada (con `current_workspace_version`
-      y `conflicting_block_ids`).
-    - 422: transición de BlockState inválida.
-    - 404: workspace inexistente o no pertenece al usuario.
-    """
-    service = WorkspaceAutosaveService(session=session)
-    try:
-        return await service.apply_patch(workspace_id, user.user_id, patch)
-    except WorkspaceNotFoundError as exc:
-        raise HTTPException(status_code=404, detail="Workspace not found") from exc
-    except ConflictError as exc:
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "current_workspace_version": exc.current_workspace_version,
-                "conflicting_block_ids": [str(b) for b in exc.conflicting_block_ids],
-            },
-        ) from exc
-    except AutosaveInvalidTransitionError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 # ---------------------------------------------------------------------------
