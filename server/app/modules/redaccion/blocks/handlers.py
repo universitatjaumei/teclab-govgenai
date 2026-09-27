@@ -311,6 +311,13 @@ class DataTransformHandler:
                 df=source_df, mode="ai",
                 nl_instruction=cfg.nl_instruction,
                 joinable_resolver=resolver,
+                # Issue #170 — este consumidor **no lo ejecuta nadie**: el camino vivo es
+                # `DataTransformationNode`, y esta clase sólo la instancian sus propios tests
+                # (como el resto de la familia de handlers, salvo `ChartHandler`). Se le pasa el
+                # contexto igualmente porque cuesta una línea y evita dejar una trampa puesta
+                # para quien la cablee algún día. Qué hacer con la familia entera está medido en
+                # su propia issue: o se termina o se retira, pero no a ciegas y no aquí.
+                anonymization_context=getattr(state, "anonymization_context", None),
             )
 
         return {

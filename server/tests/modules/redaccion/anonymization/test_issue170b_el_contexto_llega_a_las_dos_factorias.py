@@ -307,3 +307,112 @@ class TestNoSePagaElModeloSiNoHayNadaQueEscanear:
         salida = await InitAnonymizationNode(detector, MagicMock())(estado)
 
         assert salida["anonymization_context"].ner_disponible is True
+
+
+class TestElEscaneoMiraTambienLasInstrucciones:
+    """Segunda revisión (PR #179), y es el hueco que mis propios tests no veían.
+
+    Los de arriba **inyectan el span a mano**, así que comprueban que el contexto viaja pero no
+    que llegue a existir. Y no llegaba: `_gather_text` recoge `artifacts_normalized` y el
+    contenido de los bloques, y la instrucción en lenguaje natural de un `DATA_TRANSFORM` o un
+    `CHART` **no está en ninguno de los dos** — vive en `spec.blocks[*].config`.
+
+    O sea que un nombre que aparezca sólo ahí no genera ningún span, el mapa sale vacío, y el
+    `apply_pre_llm` que acabo de cablear no tiene nada que sustituir. El cableado era correcto y
+    el escaneo llegaba corto: dos mitades, y sólo arreglé una.
+
+    Un test que construye el contexto a mano no puede encontrar esto. Éste deja que lo construya
+    el nodo, con el detector de verdad.
+    """
+
+    def _estado_con_instruccion(self, texto: str) -> WorkspaceState:
+        contrato = DataTransformBlock(
+            id="b_transform",
+            title="Transformacio",
+            config=DataTransformBlockConfig(
+                mode="ai",
+                source_block_ref=BlockReference(block_id="b_datos"),
+                nl_instruction=texto,
+            ),
+        )
+        spec = ReportTemplateSpec(
+            sections=[],
+            blocks=[contrato],
+            input_contract=InputContract(),
+            ui_contract=ReportUIContract(
+                wizard_steps=[], dropzones=[], manual_fields=[],
+                block_editor_enabled=False, ai_review_panel_enabled=True,
+                preview_layout="markdown",
+            ),
+            ai_block_policy=AIBlockPolicy.ALLOWED,
+            review_policy=ReviewPolicy.REQUIRED,
+            export_policy=ExportPolicy.DOCX,
+        )
+        return WorkspaceState(
+            workspace_id=uuid.uuid4(),
+            template_version_id=uuid.uuid4(),
+            report_profile="GENERIC_REPORT",
+            inputs={},
+            blocks={"b_transform": _bloque("b_transform", "DATA_TRANSFORM", "draft")},
+            status="drafting",
+            warnings=[],
+            spec=spec,
+            anonymization_mode="replace",
+        )
+
+    @pytest.mark.asyncio
+    async def test_un_dni_que_solo_esta_en_la_instruccion_se_detecta(self):
+        """El DNI porque lo coge la regex: así el test no depende del modelo de spaCy."""
+        from server.app.modules.redaccion.graph.nodes.init_anonymization import (
+            InitAnonymizationNode,
+        )
+        from server.app.modules.redaccion.services.anonymization.faker_generator import (
+            FakerGenerator,
+        )
+        from server.app.modules.redaccion.services.anonymization.pii_detector import PiiDetector
+
+        estado = self._estado_con_instruccion(
+            "Agrupa les dietes de la persona amb DNI 45678912K per mes"
+        )
+
+        salida = await InitAnonymizationNode(PiiDetector(), FakerGenerator())(estado)
+        contexto = salida["anonymization_context"]
+
+        assert "45678912K" in contexto.forward_map, (
+            "el DNI está sólo en la instrucción del bloque y no se escaneó, así que el mapa sale "
+            "vacío y el hook no tiene nada que sustituir: el prompt sale con el dato dentro"
+        )
+
+    @pytest.mark.asyncio
+    async def test_de_punta_a_punta_sin_inyectar_nada_a_mano(self):
+        """Lo que de verdad importa: escanear y sustituir, con el nodo construyendo su contexto."""
+        from server.app.modules.redaccion.graph.nodes.data_transformation import (
+            DataTransformationNode,
+        )
+        from server.app.modules.redaccion.graph.nodes.init_anonymization import (
+            InitAnonymizationNode,
+        )
+        from server.app.modules.redaccion.services.anonymization.faker_generator import (
+            FakerGenerator,
+        )
+        from server.app.modules.redaccion.services.anonymization.pii_detector import PiiDetector
+
+        estado = self._estado_con_instruccion(
+            "Agrupa les dietes de la persona amb DNI 45678912K per mes"
+        )
+        estado.blocks["b_datos"] = _bloque(
+            "b_datos", "DETERMINISTIC_DATA", "extracted", {"rows": [{"mes": "gener"}]}
+        )
+
+        salida = await InitAnonymizationNode(PiiDetector(), FakerGenerator())(estado)
+        estado.anonymization_context = salida["anonymization_context"]
+
+        llm = _llm_que_registra()
+        await DataTransformationNode(llm_service=llm, model_name="modelo-de-prueba")(estado)
+
+        visto = _lo_que_vio(llm)
+        assert visto, "el modelo no recibió nada: el test no está mirando nada"
+        assert "45678912K" not in visto, (
+            "el DNI llegó al modelo. El cableado del contexto estaba bien y el escaneo llegaba "
+            "corto: son dos mitades y hay que comprobar las dos juntas."
+        )
