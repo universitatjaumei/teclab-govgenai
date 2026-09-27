@@ -121,7 +121,15 @@ class TestLosTestsDeLaRaizSeRepartieron:
         "server/tests/modules/redaccion": (
             "test_block_handlers.py",
             "test_block_input_ui_contracts.py",
-            "test_block_topology.py",
+            # `test_block_topology.py` estuvo aquí y se retiró con su módulo el 2026-09-27
+            # (issue #153): `block_topology` no tenía ningún importador vivo y sus tres trabajos
+            # estaban cubiertos —el orden lo fija la plantilla, los fallos por dependencia los
+            # propaga `block_executor`, y las proyecciones las resuelve `citation_traceability`—.
+            #
+            # **Quitarlo de esta lista es el único camino de salida, y está bien que lo sea**:
+            # esta lista existe para que un test migrado no desaparezca en silencio, así que
+            # retirarlo a propósito obliga a escribir por qué. Lo que no vale es bajar el número
+            # sin decir nada.
             "test_draft_validator.py",
             "test_hub_redaccion_router.py",
             "test_llm_drafts_router.py",
