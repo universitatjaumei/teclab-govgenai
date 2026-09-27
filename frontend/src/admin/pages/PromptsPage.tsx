@@ -92,7 +92,13 @@ export function PromptsPage() {
     qc.invalidateQueries({ queryKey: getListPromptTemplatesApiV1HubPromptTemplatesGetQueryKey() })
 
   const { data: chatbotsRaw } = useListChatbotsApiV1HubChatbotsGet()
-  const chatbots: ChatbotRead[] = (chatbotsRaw as unknown as ChatbotRead[] | undefined) ?? []
+  // Memoizado: el `?? []` construía un array nuevo en cada render mientras no hubiera datos, y
+  // cualquier hook que lo metiera en sus dependencias se recalculaba siempre. Mismo caso que en
+  // `ActivityPromptsPage`.
+  const chatbots: ChatbotRead[] = useMemo(
+    () => (chatbotsRaw as unknown as ChatbotRead[] | undefined) ?? [],
+    [chatbotsRaw],
+  )
 
   const selectedTemplate = selectedType === 'template'
     ? templates.find((tmpl) => tmpl.id === selectedId) ?? null

@@ -85,15 +85,30 @@ export function LLMDraftPreviewPage() {
    * se podía tirar: había que volver a escribir el prompt entero. Con una copia local, corregir
    * una referencia y revalidar cuesta una llamada barata a `/validate` y ninguna al modelo.
    */
-  const [borrador, setBorrador] = useState<ReportTemplateDraft | null>(null)
   const propuestaDelModelo = proposedRaw as unknown as ReportTemplateDraft | undefined
+
+  // **El estado inicial se siembra aquí, y no es un detalle**: si la propuesta ya está en el
+  // primer render —una respuesta cacheada, o un test que la inyecta— el `if` de abajo no
+  // dispara nunca, porque `propuestaSembrada` nace con ese mismo valor. Sin esta línea el
+  // borrador se quedaba en `null` para siempre y la pantalla no mostraba nada: 16 tests lo
+  // cazaron.
+  const [borrador, setBorrador] = useState<ReportTemplateDraft | null>(
+    propuestaDelModelo ?? null,
+  )
   const validation = validationRaw as unknown as ReportTemplateDraftValidationResult | undefined
   const isApproving = isApprovingTemplate || isApprovingWorkspace
   const canApprove = !!borrador && !isValidating && (!validation || validation.ok === true)
 
-  useEffect(() => {
+  // Y cuando la propuesta llega **después** —el caso normal, es una petición—, se siembra
+  // durante el render. Es el patrón de React para «reiniciar estado cuando cambia un valor», y
+  // quita un hueco que se veía: con el efecto, la pantalla pintaba un fotograma con el borrador
+  // vacío —y por tanto con «Aprobar» deshabilitado, porque `canApprove` mira `!!borrador`—
+  // justo después de que la propuesta hubiera llegado.
+  const [propuestaSembrada, setPropuestaSembrada] = useState(propuestaDelModelo)
+  if (propuestaDelModelo !== propuestaSembrada) {
+    setPropuestaSembrada(propuestaDelModelo)
     if (propuestaDelModelo) setBorrador(propuestaDelModelo)
-  }, [propuestaDelModelo])
+  }
 
   useEffect(() => {
     if (borrador) {
