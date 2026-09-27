@@ -455,3 +455,52 @@ class TestElCodigoQueEsPrefijoDeOtroNoCorrompe:
         await db_session.refresh(doc)
 
         assert doc.ambit_principal == "gerencia"
+
+
+class TestElAmbitoNoSePuedeFalsear:
+    """Tercera revisión (PR #181), y el agujero lo abrí yo arreglando el anterior.
+
+    Para que la operación pudiera correr en un despliegue partido añadí `--chatbot-id`, que
+    saltaba la resolución desde la organización. Pero `reclassify_documents` filtra **sólo** por
+    los UUID que recibe y `hub_documents` no lleva `organizacion_id`, así que
+    `--organizacion-id A --chatbot-id B` marcaba el término de A y reescribía los documentos de
+    B: la misma fuga entre organizaciones que la ronda anterior había cerrado, reabierta por la
+    puerta de atrás.
+
+    **Y no se puede validar donde hace falta.** Comprobar que esos chatbots son de esa
+    organización exige leer configuración, que es justo lo que ese despliegue partido no tiene a
+    mano. O sea que la bandera no podía ser a la vez «ejecutable sin configuración» y
+    «comprobada contra la configuración».
+
+    Así que se retira. El ámbito se resuelve siempre desde la organización, y el día que exista
+    un despliegue partido de verdad esta operación necesita un diseño en la frontera de
+    sincronización — no una bandera. La regla del proyecto es no anticipar infraestructura antes
+    de que el problema aparezca, y ese despliegue hoy no existe.
+    """
+
+    def test_el_cli_no_acepta_un_ambito_escrito_a_mano(self):
+        from server.app.modules.agents_hub.vocabulary.load import _construir_parser
+
+        base = [
+            "--axis", "submateria",
+            "--organizacion-id", str(uuid.uuid4()),
+            "--substituir", "vella",
+            "--per", "nova",
+        ]
+
+        with pytest.raises(SystemExit):
+            _construir_parser().parse_args([*base, "--chatbot-id", str(uuid.uuid4())])
+
+    def test_el_ambito_sale_de_la_organizacion_y_de_ningun_otro_sitio(self, db_session):
+        """El que da sentido al de arriba: quitar la bandera no puede dejar la operación sin ámbito."""
+        import inspect
+
+        from server.app.modules.agents_hub.vocabulary import load
+
+        fuente = inspect.getsource(load._run_sustitucion)
+
+        assert "_chatbots_de" in fuente, (
+            "el CLI tiene que resolver el ámbito desde la organización: sin eso, o barre todo o "
+            "no barre nada"
+        )
+        assert "args.chatbot_id" not in fuente, "queda la puerta de atrás"
