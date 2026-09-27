@@ -93,7 +93,9 @@ def build_core_graph(
     quality_node = DataQualityCheckNode()
     missing_node = MissingDataQuestionNode()
     init_anon_node = _build_init_anonymization_node(pii_detector, faker_generator)
-    ai_node = AIAssistDraftNode(llm_service)
+    # El tracing va al nodo porque su `BlockExecutor` emite un span por intento fallido:
+    # sin él, un reintento no se distingue de una llamada que salió a la primera.
+    ai_node = AIAssistDraftNode(llm_service, tracing)
     citation_node = CitationAndTraceabilityNode()
     review_node = UserReviewGateNode()
     edits_node = ApplyUserEditsNode()
