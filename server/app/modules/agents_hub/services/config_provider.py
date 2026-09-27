@@ -51,6 +51,9 @@ class ConfigProvider(Protocol):
     ) -> ActivityPromptOverride | None: ...
     async def list_active_chatbots(self, organizacion_id: uuid.UUID) -> list[HubChatbot]: ...
     async def get_retrieval_mode(self, chatbot_id: uuid.UUID) -> str: ...
+    async def get_anonymization_mode(
+        self, organizacion_id: uuid.UUID
+    ) -> str | None: ...
     async def list_vocabulary(
         self, axis: str, organizacion_id: uuid.UUID
     ) -> list[VocabularyTermDTO]: ...
@@ -166,6 +169,23 @@ class LocalConfigProvider:
         """Devuelve el retrieval_mode del chatbot (default 'RAG' si no existe)."""
         chatbot = await self.get_chatbot(chatbot_id)
         return getattr(chatbot, "retrieval_mode", "RAG") if chatbot else "RAG"
+
+    async def get_anonymization_mode(self, organizacion_id: uuid.UUID) -> str | None:
+        """El suelo de anonimización que fijó la organización, o `None` si no fijó ninguno.
+
+        Vive aquí y no en el servicio de anonimización porque `HubOrganizacion` es un modelo de
+        **configuración** y aquel servicio es **edge**: la frontera prohíbe que un servicio edge
+        importe modelos de config, justamente para que el despliegue partido pueda leerlos por
+        sincronización en vez de por consulta local. Lo señaló la revisión de la PR #178.
+
+        `None` no es un valor por omisión disfrazado: significa «esta organización no lo ha
+        fijado», y quien decide qué hacer con eso es `politica.modo_efectivo`.
+        """
+        from server.app.modules.agents_hub.database.config_models import HubOrganizacion
+
+        organizacion = await self.session.get(HubOrganizacion, organizacion_id)
+        declarado = getattr(organizacion, "anonymization_mode", None)
+        return declarado or None
 
     async def list_vocabulary(
         self, axis: str, organizacion_id: uuid.UUID

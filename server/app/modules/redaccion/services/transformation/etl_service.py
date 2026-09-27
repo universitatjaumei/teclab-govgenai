@@ -55,6 +55,7 @@ class ETLService:
         operations: list[Operation] | None = None,
         nl_instruction: str | None = None,
         joinable_resolver: JoinableResolver | None = None,
+        anonymization_context: Any = None,
     ) -> ETLServiceResult:
         engine = DeterministicETLService(joinable_resolver=joinable_resolver)
 
@@ -78,7 +79,12 @@ class ETLService:
             self._llm, model_name=self._model_name, system_prompt=self._system_prompt
         )
         schema = self._schema_of(df)
-        plan = await factory.generate_operations_from_nl(nl_instruction, schema)
+        # Issue #170 — el contexto viaja hasta aquí. `ETLFactory` tiene los hooks pre/post desde
+        # la fase 13 y **no tenía por dónde recibirlo**: la instrucción en lenguaje natural la
+        # escribe una persona, así que es justo un sitio donde el dato personal entra a mano.
+        plan = await factory.generate_operations_from_nl(
+            nl_instruction, schema, anonymization_context=anonymization_context
+        )
 
         if plan.mode == "operations":
             transformed = engine.execute(df, plan.operations)

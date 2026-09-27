@@ -50,10 +50,16 @@ class InitAnonymizationNode:
         # 1. Recolectar texto de inputs + bloques extraídos.
         text_corpus, source_map = self._gather_text(state)
 
-        # Issue #170 — se pregunta **después** del `return` de OFF: `spacy_available` fuerza la
-        # carga del modelo (~305 MB), y quien tiene la anonimización apagada no tiene por qué
-        # pagarla para informar de una capa que no usó.
-        ner_disponible = bool(getattr(self._detector, "spacy_available", False))
+        # Issue #170 — se pregunta **después** del `return` de OFF y **sólo si hay texto**:
+        # `spacy_available` fuerza la carga del modelo (~305 MB), y ni quien tiene la
+        # anonimización apagada ni una ejecución sin nada extraído tienen por qué pagarla para
+        # informar de una capa que no llegaron a usar.
+        #
+        # Y sin escaneo la respuesta honrada es `None`, no `False`: `False` afirmaría que se
+        # comprobó y no estaba.
+        ner_disponible = (
+            bool(getattr(self._detector, "spacy_available", False)) if text_corpus else None
+        )
 
         # 2. Detectar spans en todo el corpus.
         raw_spans = self._detector.detect_spans(text_corpus) if text_corpus else []

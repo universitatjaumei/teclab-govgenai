@@ -109,6 +109,9 @@ class DataTransformationNode:
                         mode="ai",
                         nl_instruction=cfg.nl_instruction,
                         joinable_resolver=_resolver,
+                        # Issue #170 — sin esto el prompt salía con los datos personales dentro
+                        # aunque el modo fuera `replace`, y nada lo decía.
+                        anonymization_context=state.anonymization_context,
                     )
             except Exception as exc:
                 new_warnings.append(

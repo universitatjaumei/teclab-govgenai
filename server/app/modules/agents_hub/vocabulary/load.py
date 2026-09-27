@@ -249,7 +249,6 @@ async def sustituir_termino(
     codi_antic: str,
     codi_nou: str,
     organizacion_id: uuid.UUID,
-    chatbot_id: uuid.UUID | None = None,
 ) -> int:
     """Renombra o fusiona un término **y reclasifica los documentos que lo usaban**.
 
@@ -271,6 +270,7 @@ async def sustituir_termino(
     despliegue partido cloud/edge no comparten base, y entonces esta función corre donde están
     los documentos y el lado del vocabulario llega por la sincronización.
     """
+    from server.app.modules.agents_hub.database.config_models import HubChatbot
     from server.app.modules.agents_hub.services.corpus_reclassifier import (
         AXES_BARRIBLES,
         reclassify_documents,
@@ -282,7 +282,20 @@ async def sustituir_termino(
 
     if axis not in AXES_BARRIBLES:
         return 0
-    return await reclassify_documents(session, axis, codi_antic, codi_nou, chatbot_id)
+
+    # **El ámbito se resuelve aquí y viaja explícito.** `hub_documents` no lleva
+    # `organizacion_id`: se llega por `chatbot_id`, tal como está escrito en
+    # `docs/MULTITENENCIA.md`. Sin esta consulta el barrido alcanzaba los documentos de
+    # cualquier organización que usara el mismo código, que es una fuga de las de verdad.
+    chatbot_ids = (
+        await session.execute(
+            select(HubChatbot.id).where(HubChatbot.organizacion_id == organizacion_id)
+        )
+    ).scalars().all()
+
+    return await reclassify_documents(
+        session, axis, codi_antic, codi_nou, chatbot_ids=list(chatbot_ids)
+    )
 
 
 # ───────────────────────── Store real ─────────────────────────
