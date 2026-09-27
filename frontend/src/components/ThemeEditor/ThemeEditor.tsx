@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../themes/ThemeProvider';
 import { DEFAULT_THEME, validateTheme, type ThemeConfig } from '../../themes/types';
@@ -43,16 +43,23 @@ export const ThemeEditor: React.FC<ThemeEditorProps> = ({ onSave, onCancel }) =>
   const [localTheme, setLocalTheme] = useState<ThemeConfig>(theme);
   const [activeTab, setActiveTab] = useState<'colors' | 'typography' | 'components' | 'preview'>('colors');
   const [isSaving, setIsSaving] = useState(false);
-  const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
-  useEffect(() => {
+  // El borrador se reinicia cuando cambia el tema global —alguien cambia de preset y el editor
+  // tiene que mostrarlo—. Va **durante el render** y no en un efecto, que es el patron que React
+  // documenta para «ajustar estado cuando cambia una prop»: con el efecto, React pintaba un
+  // fotograma con el borrador viejo antes de corregirlo.
+  const [temaPrevio, setTemaPrevio] = useState<ThemeConfig>(theme);
+  if (theme !== temaPrevio) {
+    setTemaPrevio(theme);
     setLocalTheme(theme);
-  }, [theme]);
+  }
 
-  useEffect(() => {
-    const result = validateTheme(localTheme);
-    setValidationErrors(result.errors);
-  }, [localTheme]);
+  // Los errores de validacion son estado **derivado** de `localTheme`, no estado propio: se leen
+  // para pintarlos y para bloquear el guardado, y nadie los escribe por otra via. Con
+  // efecto + `useState` cada tecleo costaba un render de mas —el del borrador y el de los
+  // errores—, y durante ese hueco `validationErrors` describia el borrador ANTERIOR: pulsar
+  // «Guardar» justo ahi podia dejar pasar un tema invalido o bloquear uno valido.
+  const validationErrors = useMemo(() => validateTheme(localTheme).errors, [localTheme]);
 
   const updateColor = useCallback((key: keyof ThemeConfig['colors'], value: string) => {
     setLocalTheme((prev) => ({

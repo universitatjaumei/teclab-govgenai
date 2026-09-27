@@ -37,7 +37,11 @@ CONFIG = RAIZ / "frontend" / "eslint.config.js"
 
 #: El techo de hoy. Subirlo exige cambiarlo **aquí también**, que es la conversación que se
 #: quiere tener: un número que crece solo deja de significar nada.
-TECHO = 33
+#:
+#: **Y baja con cada arreglo, en su mismo commit** (issue #111). 33 → 26 el 2026-09-27, al
+#: arreglar `ThemeProvider`, `useAutosave` y `ThemeEditor`. Un techo que sólo se defiende de
+#: subidas acaba siendo el número con el que se convive.
+TECHO = 26
 
 
 def _script_lint() -> str:
