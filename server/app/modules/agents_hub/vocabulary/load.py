@@ -278,6 +278,11 @@ async def sustituir_termino(
     Quien compone la operación —hoy el CLI— es quien resuelve el ámbito y lo pasa. Es también
     mejor diseño al margen de la frontera: **el ámbito de un `UPDATE` masivo es una entrada de la
     operación, no algo que la operación averigua**.
+
+    **Precondición que esta función no puede comprobar**: `chatbot_ids` tiene que ser el ámbito
+    de `organizacion_id`. Aquí no hay forma de validarlo sin leer configuración, que es lo que la
+    frontera prohíbe, así que lo garantiza quien compone. Hoy sólo compone el CLI, y lo resuelve
+    por consulta; no hay manera de pasarle un ámbito a mano, y el motivo está en `_chatbots_de`.
     """
     from server.app.modules.agents_hub.services.corpus_reclassifier import (
         AXES_BARRIBLES,
@@ -436,9 +441,23 @@ async def _chatbots_de(session: AsyncSession, organizacion_id: uuid.UUID) -> lis
     """Los chatbots de la organización, que es el ámbito de sus documentos.
 
     Vive en el CLI y no en `sustituir_termino` porque aquí es donde se compone la operación: la
-    consulta toca **configuración** y el barrido toca lo **operacional**, y en un despliegue
-    partido no están en la misma base. Quien ejecute el CLI allí puede saltarse esta consulta
-    pasando `--chatbot-id` tantas veces como haga falta.
+    consulta toca **configuración** y el barrido toca lo **operacional**.
+
+    **Hubo un `--chatbot-id` para saltarse esta consulta y se retiró en cuanto se escribió**
+    (revisión de la PR #181). La idea era que un despliegue partido cloud/edge pudiera barrer
+    desde donde están los documentos, sin leer configuración. Pero `reclassify_documents` filtra
+    **sólo** por los UUID que recibe y `hub_documents` no lleva `organizacion_id`, así que
+    `--organizacion-id A --chatbot-id B` marcaba el término de A y reescribía los documentos de
+    B: la fuga entre organizaciones que la ronda anterior había cerrado, reabierta por la puerta
+    de atrás.
+
+    Y comprobar que esos chatbots son de esa organización exige leer configuración, que es
+    precisamente lo que aquel despliegue no tiene a mano. La bandera no podía ser a la vez
+    «ejecutable sin configuración» y «comprobada contra la configuración».
+
+    Así que el ámbito sale de aquí y de ningún otro sitio. El día que exista un despliegue
+    partido de verdad, esta operación necesita un diseño en la frontera de sincronización, no una
+    bandera — y ese día no ha llegado, así que no se anticipa.
     """
     from server.app.modules.agents_hub.database.config_models import HubChatbot
 
@@ -464,9 +483,7 @@ async def _run_sustitucion(args: argparse.Namespace) -> int:
     try:
         async with session_factory() as session:
             try:
-                chatbot_ids = args.chatbot_id or await _chatbots_de(
-                    session, args.organizacion_id
-                )
+                chatbot_ids = await _chatbots_de(session, args.organizacion_id)
                 tocados = await sustituir_termino(
                     session,
                     axis=args.axis,
@@ -525,17 +542,6 @@ def _construir_parser() -> argparse.ArgumentParser:
         "--per",
         metavar="CODI_NOU",
         help="Código que sustituye al anterior",
-    )
-    parser.add_argument(
-        "--chatbot-id",
-        action="append",
-        type=uuid.UUID,
-        dest="chatbot_id",
-        help=(
-            "Acota el barrido a estos chatbots, repetible. Si no se pasa, se resuelven los de "
-            "la organización. En un despliegue partido cloud/edge, donde el vocabulario y los "
-            "documentos no comparten base, es la forma de barrer desde donde están los documentos"
-        ),
     )
     parser.add_argument(
         "--dry-run", action="store_true", help="Reporta el plan sin escribir"
