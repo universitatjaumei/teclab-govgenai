@@ -37,7 +37,35 @@ CONFIG = RAIZ / "frontend" / "eslint.config.js"
 
 #: El techo de hoy. Subirlo exige cambiarlo **aquí también**, que es la conversación que se
 #: quiere tener: un número que crece solo deja de significar nada.
-TECHO = 33
+#:
+#: **Y baja con cada arreglo, en su mismo commit** (issue #111). 33 → 16 el 2026-09-27, en
+#: cuatro tandas: `ThemeProvider`, `useAutosave`, `ThemeEditor`, `ActivityPromptsPage`,
+#: `ValoresPorDefectoPage`, `useOrganizacionElegida`, `UsuariosPage`, `DocumentsTable`,
+#: `AuthCallbackPage`, `useCopilotAction`, `PromptsPage` y `LLMDraftPreviewPage`.
+#:
+#: **Qué queda dentro de estos 16, que es lo que impide convivir con el número sin pensar:**
+#:
+#: · **10 de `react-refresh/only-export-components`** — DESCARTADOS con razón (2026-09-27).
+#:   Ficheros que exportan un componente y además una constante o una función, así que Vite
+#:   recarga la página entera en vez de en caliente. Se ve en la consola: «Could not Fast
+#:   Refresh ("injectThemeCSS" export is incompatible)». Es comodidad de desarrollo, **no
+#:   afecta a producción**, y arreglarlo exigiría partir diez ficheros y arrastrar sus imports
+#:   — dispersar código que está junto por buenas razones a cambio de que un desarrollador vea
+#:   su cambio antes. La regla NO se apaga: apagarla tiraría la señal para siempre.
+#:
+#: · **3 de `react-hooks/incompatible-library`** — DESCARTADOS con razón (2026-09-27). Es el
+#:   compilador de React avisando de que una librería externa hace cosas que no puede
+#:   optimizar. No se arregla desde este código: se arregla cuando la librería cambie.
+#:
+#: · **2 de `react-hooks/set-state-in-effect` en `ScriptProposalWizardPage`** — APLAZADOS con
+#:   razón. El aviso tiene razón —`isSuccess` es un pestillo, no un evento— pero moverlo al
+#:   `onSuccess` de la mutación rompe 14 tests que usan el paso avanzado como **atrezo** para
+#:   probar otra cosa. Antes de reintentarlo hay que decidir si el paso del asistente es estado
+#:   o es derivado, y eso es un rediseño, no un arreglo de lint.
+#:
+#: · **1 de `react-hooks/set-state-in-effect` en `WorkspaceEditor`** — PENDIENTE de verdad. El
+#:   anunciador de accesibilidad, único trabajo real que queda de la issue #111.
+TECHO = 16
 
 
 def _script_lint() -> str:

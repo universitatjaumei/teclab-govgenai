@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useListOrganizacionesApiV1HubOrganizacionesGet } from '@/shared/api/generated/hub-organizaciones/hub-organizaciones'
 
 /** Dónde se recuerda la elección. Por navegador y por persona que usa ese navegador. */
@@ -38,8 +38,19 @@ export interface EleccionDeOrganizacion {
  */
 export function useOrganizacionElegida(): EleccionDeOrganizacion {
   const { data } = useListOrganizacionesApiV1HubOrganizacionesGet()
-  const organizaciones: OrganizacionBreve[] = ((data ?? []) as { id: string; name: string }[]).map(
-    (o) => ({ id: String(o.id), name: o.name }),
+
+  // **Memoizado, y no es optimización prematura.** Sin esto, el `.map()` construía un array
+  // nuevo en CADA render, así que las dependencias del efecto de abajo cambiaban siempre y el
+  // efecto corría en todos ellos — y lo mismo le pasaba a cualquier consumidor que metiera
+  // `organizaciones` en sus propias dependencias, que es un hook compartido multiplicando el
+  // problema por sus llamadores.
+  const organizaciones: OrganizacionBreve[] = useMemo(
+    () =>
+      ((data ?? []) as { id: string; name: string }[]).map((o) => ({
+        id: String(o.id),
+        name: o.name,
+      })),
+    [data],
   )
 
   const [elegida, setElegida] = useState<string>(() => {
@@ -60,15 +71,31 @@ export function useOrganizacionElegida(): EleccionDeOrganizacion {
     }
   }, [])
 
-  useEffect(() => {
-    if (organizaciones.length === 0) return
-    const sigueExistiendo = organizaciones.some((o) => o.id === elegida)
-    if (!sigueExistiendo) elegir(organizaciones[0].id)
-  }, [organizaciones, elegida, elegir])
+  // **Cuál rige ahora mismo: la guardada si sigue existiendo y, si no, la primera.** Se
+  // DERIVA; no se guarda.
+  //
+  // Antes era un efecto que llamaba a `elegir(organizaciones[0].id)`, y tenía dos costes. Uno,
+  // un render de más: se pintaba un fotograma con la organización que ya no existe —o con
+  // ninguna— antes de corregirlo. Y dos, escribía en `localStorage` una elección **que nadie
+  // había hecho**, así que a quien perdía el acceso a una organización se le grababa su
+  // sustituta como si la hubiera elegido.
+  //
+  // **Decisión de producto (2026-09-27)**: sin elección previa se aterriza en la primera
+  // organización, cambiable desde el desplegable de la cabecera. Una pantalla de selección se
+  // justificaría si elegir mal tuviera consecuencia, y aquí sólo afecta a qué se ve y con qué
+  // marca, se cambia en un clic, y la mayoría pertenece a una sola organización — para esas
+  // personas sería una pulsación de más en cada sesión a cambio de nada.
+  //
+  // Con cero organizaciones se devuelve `''`, que los consumidores traducen a «la marca de la
+  // plataforma» (`elegida || undefined`). `elegir` sigue persistiendo cuando la elección es de
+  // una persona, que es cuando tiene sentido recordarla.
+  const efectiva = organizaciones.some((o) => o.id === elegida)
+    ? elegida
+    : (organizaciones[0]?.id ?? '')
 
   return {
     organizaciones,
-    elegida: organizaciones.some((o) => o.id === elegida) ? elegida : '',
+    elegida: efectiva,
     elegir,
     hayVarias: organizaciones.length > 1,
   }

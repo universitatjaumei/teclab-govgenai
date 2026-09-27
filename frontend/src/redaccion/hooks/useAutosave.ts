@@ -73,12 +73,26 @@ export function useAutosave(
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
 
   // Refs to avoid stale closures: callers can change getState/onConflict freely.
+  //
+  // **La asignación va en un efecto y no en el cuerpo del componente.** Escribir un ref durante
+  // el render es lo que señala `react-hooks/refs`, y no es una formalidad: con el render doble
+  // de StrictMode y con las funciones concurrentes de React, el cuerpo puede ejecutarse sin que
+  // ese render llegue a confirmarse, así que un ref escrito ahí puede quedar adelantado respecto
+  // a lo que hay en pantalla.
+  //
+  // Aquí es seguro moverlo porque **ninguno de los tres se lee durante el render**: sólo dentro
+  // de `runSave` y del temporizador del debounce, que corren después de que los efectos se hayan
+  // ejecutado. Comprobado uno a uno antes de tocarlo; si alguno se leyera al renderizar, este
+  // cambio le daría el valor del render anterior.
   const getStateRef = useRef(getState)
-  getStateRef.current = getState
   const patchFnRef = useRef(patchFn)
-  patchFnRef.current = patchFn
   const onConflictRef = useRef(options.onConflict)
-  onConflictRef.current = options.onConflict
+
+  useEffect(() => {
+    getStateRef.current = getState
+    patchFnRef.current = patchFn
+    onConflictRef.current = options.onConflict
+  })
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inFlight = useRef(false)

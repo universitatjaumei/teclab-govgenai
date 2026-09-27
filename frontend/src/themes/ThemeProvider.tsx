@@ -149,6 +149,25 @@ interface ThemeProviderProps {
   themeUrl?: string;
 }
 
+/** Trae un tema de una URL, lo funde con el de por defecto y lo valida.
+ *
+ * Fuera del componente y sin tocar estado: asi la usan **los dos** consumidores —`loadTheme`,
+ * que es API del contexto, y el efecto que reacciona a `themeUrl`— sin duplicar el cuerpo ni
+ * obligar al efecto a llamar a un `setState` sincrono.
+ *
+ * Lanza si la respuesta no es 200; quien llama decide que hacer con el fallo.
+ */
+async function traerTema(url: string): Promise<{ tema: ThemeConfig; avisos: string[] }> {
+  const respuesta = await fetch(url);
+  if (!respuesta.ok) {
+    throw new Error(`Failed to load theme: ${respuesta.statusText}`);
+  }
+  const parcial = await respuesta.json();
+  const fundido = mergeThemes(DEFAULT_THEME, parcial);
+  const validacion = validateTheme(fundido);
+  return { tema: fundido, avisos: [...validacion.errors, ...validacion.warnings] };
+}
+
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({
   children,
   initialTheme,
@@ -167,7 +186,10 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
     return initialTheme || DEFAULT_THEME;
   });
 
-  const [isLoading, setIsLoading] = useState(false);
+  // Nace en `true` cuando hay un tema que traer. Antes nacia en `false` y el efecto lo subia
+  // despues, asi que el primer render decia «no estoy cargando» mientras iba a descargar — un
+  // parpadeo, y ademas el `setState` sincrono dentro del efecto que el linter senala.
+  const [isLoading, setIsLoading] = useState(Boolean(themeUrl));
   const [error, setError] = useState<Error | null>(null);
   const [validationWarnings, setValidationWarnings] = useState<string[]>([]);
 
@@ -194,20 +216,10 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
     setError(null);
 
     try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Failed to load theme: ${response.statusText}`);
-      }
-
-      const partialTheme = await response.json();
-      const mergedTheme = mergeThemes(DEFAULT_THEME, partialTheme);
-
-      // Validate and surface all errors as warnings (don't persist invalid themes to localStorage)
-      const validation = validateTheme(mergedTheme);
-      setValidationWarnings([...validation.errors, ...validation.warnings]);
-
-      // Apply without persisting to localStorage (loadTheme is ephemeral)
-      setThemeState(mergedTheme);
+      const { tema, avisos } = await traerTema(url);
+      // No se persiste en localStorage: `loadTheme` es efimero.
+      setValidationWarnings(avisos);
+      setThemeState(tema);
     } catch (e) {
       const err = e instanceof Error ? e : new Error('Unknown error loading theme');
       setError(err);
@@ -233,10 +245,34 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
     localStorage.removeItem(STORAGE_KEY);
   }, [setTheme]);
 
+  // El tema que llega por `themeUrl`. Llamaba a `loadTheme`, que hace `setIsLoading(true)` de
+  // forma sincrona: de ahi el aviso del linter. Pero el defecto de verdad era otro y no lo
+  // senalaba nadie: **no habia cancelacion**. Si `themeUrl` cambiaba, las dos descargas
+  // competian y ganaba la que tardara mas, dejando aplicado el tema equivocado.
   useEffect(() => {
-    if (themeUrl) {
-      loadTheme(themeUrl);
-    }
+    if (!themeUrl) return;
+    let vigente = true;
+
+    traerTema(themeUrl)
+      .then(({ tema, avisos }) => {
+        if (!vigente) return;
+        setValidationWarnings(avisos);
+        setThemeState(tema);
+      })
+      .catch((e: unknown) => {
+        if (!vigente) return;
+        const err = e instanceof Error ? e : new Error('Unknown error loading theme');
+        setError(err);
+        setThemeState(DEFAULT_THEME);
+        console.error('Failed to load theme:', err);
+      })
+      .finally(() => {
+        if (vigente) setIsLoading(false);
+      });
+
+    return () => {
+      vigente = false;
+    };
   }, [themeUrl]);
 
   const availableThemes = useMemo(() => Object.keys(PRESET_THEMES), []);
