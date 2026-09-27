@@ -15,6 +15,7 @@ Lo que garantiza que las dos cosas —modelos y migraciones— sigan diciendo lo
 `uv run alembic upgrade head` desde `server/`, como dice el README.
 """
 
+import logging
 import os
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -22,6 +23,10 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 # Los modelos se importan para que queden registrados en `SQLModel.metadata`, que es lo que lee
 # `migrations/env.py` para el autogenerate y para `alembic check`.
 from server.app.database import models  # noqa: F401
+
+# Issue #18 — el sembrado de configuracion corre en el arranque del servidor. El prefijo
+# «[SERVER DB]» que llevaba cada linea lo pone ya el nombre del modulo.
+logger = logging.getLogger(__name__)
 
 #: DSN de desarrollo. Es local y su credencial está publicada en el repositorio, igual que la
 #: cuenta de desarrollo de `seeds.py`: no es un secreto, es un valor de conveniencia.
@@ -112,7 +117,7 @@ async def seed_server_db():
     from sqlmodel import select
 
     async with AsyncSessionLocal() as session:
-        print("[SERVER DB] Checking/Seeding AI Configs...")
+        logger.info("Comprobando la configuracion de modelos por rol")
 
         required_roles = {
             "logico_navegacion": {
@@ -132,7 +137,7 @@ async def seed_server_db():
             existing = results.first()
 
             if not existing:
-                print(f"[SERVER DB] Creating role: {role_key}")
+                logger.info("Creando el rol de modelo «%s»", role_key)
                 session.add(
                     AIConfig(
                         role_key=role_key,
@@ -142,4 +147,4 @@ async def seed_server_db():
                 )
 
         await session.commit()
-        print("[SERVER DB] Seeding complete.")
+        logger.info("Configuracion de modelos por rol comprobada")

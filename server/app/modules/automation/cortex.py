@@ -9,6 +9,7 @@ Este módulo proporciona:
 
 import asyncio
 import json
+import logging
 import re
 import base64
 from typing import List, Dict, Optional, Union, Tuple
@@ -19,6 +20,11 @@ import openai
 # Importar el gestor de LLM existente
 from server.app.modules.automation.infrastructure.llm_gateway import ejecutar_tarea
 from server.app.services.api_key_service import get_api_key
+
+# Issue #18 — los cuatro prefijos distintos que llevaba este modulo («[Brain/Cortex]»,
+# «[Cortex]», «[analyze_recording_with_ai]», «[Cortex Vision Error]») son justamente lo que un
+# nombre de logger resuelve sin que nadie tenga que acordarse de escribirlo.
+logger = logging.getLogger(__name__)
 
 
 def _clean_json_markdown(text: str) -> Union[List[Dict], Dict]:
@@ -56,7 +62,7 @@ async def analyze_recording_with_ai(
     Returns:
         List[Dict]: Lista de pasos estructurados para el motor de ejecución.
     """
-    print("[Brain/Cortex] Iniciando analisis de grabacion con IA...")
+    logger.info("Analizando la grabacion con IA")
 
     # Seleccionar rol adecuado
     rol_to_use = config
@@ -135,8 +141,8 @@ async def analyze_recording_with_ai(
             playbook = _clean_json_markdown(res["response"])
             if isinstance(playbook, list):
                 return playbook
-        except Exception as e:
-            print(f"[analyze_recording_with_ai] Error parseando respuesta IA: {e}")
+        except Exception:
+            logger.exception("No se pudo interpretar la respuesta de la IA")
 
     return []
 
@@ -169,7 +175,7 @@ async def refine_playbook_with_ai(
     Returns:
         List[Dict]: Playbook reparado y optimizado.
     """
-    print("[Brain/Cortex] Iniciando refinamiento de playbook con IA...")
+    logger.info("Refinando el playbook con IA")
 
     # Seleccionar rol adecuado
     rol_to_use = config
@@ -237,8 +243,8 @@ async def refine_playbook_with_ai(
             new_pb = _clean_json_markdown(res["response"])
             if isinstance(new_pb, list):
                 return new_pb
-        except Exception as e:
-            print(f"[refine_playbook] Error parseando JSON: {e}")
+        except Exception:
+            logger.exception("No se pudo interpretar el JSON del playbook refinado")
 
     return current_playbook
 
@@ -267,22 +273,22 @@ async def locate_visual_element(
     Returns:
         Optional[Tuple[int, int]]: Coordenadas del centro del elemento o None si falla.
     """
-    print(f"[Cortex] Vision AI request: '{element_description}'")
+    logger.info("Peticion de vision: %s", element_description)
 
     provider = config.get("provider", "").lower()
     model_id = config.get("model_id", "")
 
     # Warn if using defaults (indicates missing config)
     if not provider:
-        print("[Cortex] WARNING: No provider in config, defaulting to 'google'")
+        logger.warning("Sin proveedor en la configuracion; se usa «google»")
         provider = "google"
     if not model_id:
-        print(
-            "[Cortex] WARNING: No model_id in config, defaulting to 'gemini-2.0-flash-exp'"
+        logger.warning(
+            "Sin modelo en la configuracion; se usa «gemini-2.0-flash-exp»"
         )
         model_id = "gemini-2.0-flash-exp"
 
-    print(f"[Cortex] Using provider={provider}, model={model_id}")
+    logger.debug("Proveedor %s, modelo %s", provider, model_id)
 
     # Construir Prompt Final
     dims_str = f"{viewport_size.get('width', '?')}x{viewport_size.get('height', '?')}"
@@ -299,7 +305,7 @@ async def locate_visual_element(
         if provider == "google":
             api_key = await get_api_key("google")
             if not api_key:
-                print("[Cortex] No Google API Key found.")
+                logger.error("Sin credencial de Google: no se puede usar la vision")
                 return None
 
             client = genai.Client(api_key=api_key)
@@ -355,7 +361,7 @@ async def locate_visual_element(
             response_json = _clean_json_markdown(content)
 
         else:
-            print(f"[Cortex] Vision Provider not supported: {provider}")
+            logger.error("Proveedor de vision no soportado: %s", provider)
             return None
 
         # Parse Result
@@ -367,16 +373,20 @@ async def locate_visual_element(
             reasoning = response_json.get("reasoning", "")
 
             if x is not None and y is not None:
-                print(
-                    f"[Cortex] Elemento localizado en ({x}, {y}) conf={confidence}. Razon: {reasoning}"
+                logger.info(
+                    "Elemento localizado en (%s, %s), confianza %s: %s",
+                    x,
+                    y,
+                    confidence,
+                    reasoning,
                 )
                 return (int(x), int(y))
 
-        print(
-            f"[Cortex] Elemento no encontrado o baja confianza. Resp: {response_json}"
+        logger.info(
+            "Elemento no encontrado o con confianza baja; respuesta: %s", response_json
         )
         return None
 
-    except Exception as e:
-        print(f"[Cortex Vision Error] {e}")
+    except Exception:
+        logger.exception("Fallo la localizacion del elemento por vision")
         return None

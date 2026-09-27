@@ -19,6 +19,7 @@ La clave de licencia de desarrollo es: DEV_LICENSE_KEY_12345
 """
 
 import hashlib
+import logging
 import os
 from datetime import datetime, timedelta
 from sqlmodel import select
@@ -32,6 +33,11 @@ from server.app.database.models import (
 )
 from server.app.core.security import hash_password
 from automatia_shared.enums import LicenseStatus
+
+# Issue #18 — esto NO es una herramienta de consola aunque lo parezca por el prefijo «[SEED]»:
+# `main.py` lo llama en el arranque del servidor, asi que en produccion su salida iba a la
+# salida estandar sin nivel ni marca de tiempo. El prefijo lo pone ya el nombre del modulo.
+logger = logging.getLogger(__name__)
 
 
 # Constante para desarrollo - usar en tests y desarrollo local
@@ -70,8 +76,8 @@ async def seed_multitenancy_defaults():
     que toma la credencial de SUPERADMIN_EMAIL/SUPERADMIN_PASSWORD y no hardcodea nada.
     """
     if os.getenv("ENVIRONMENT", "development") != "development":
-        print(
-            "[SEED] Entorno no-desarrollo: se omiten los datos de desarrollo "
+        logger.info(
+            "Entorno no-desarrollo: se omiten los datos de desarrollo "
             "(SuperAdmin/admin/cliente/licencia de prueba). Provisiona el SuperAdmin "
             "con `python -m server.app.scripts.bootstrap`."
         )
@@ -91,7 +97,7 @@ async def seed_multitenancy_defaults():
         await _seed_dev_license(session)
 
         await session.commit()
-        print("[SEED] Multitenancy de desarrollo creado/verificado.")
+        logger.info("Multitenencia de desarrollo creada o verificada")
 
 
 async def _seed_dev_superadmin(session: AsyncSession):
@@ -109,9 +115,9 @@ async def _seed_dev_superadmin(session: AsyncSession):
             is_active=True,
         )
         session.add(superadmin)
-        print(f"[SEED] SuperAdmin de desarrollo creado: {DEV_ADMIN_EMAIL}")
+        logger.info("SuperAdmin de desarrollo creado: %s", DEV_ADMIN_EMAIL)
     else:
-        print("[SEED] SuperAdmin de desarrollo ya existe.")
+        logger.debug("El SuperAdmin de desarrollo ya existe")
 
 
 async def _seed_dev_admin(session: AsyncSession):
@@ -130,9 +136,9 @@ async def _seed_dev_admin(session: AsyncSession):
             is_active=True,
         )
         session.add(admin)
-        print("[SEED] Admin de desarrollo creado: partner_dev")
+        logger.info("Admin de desarrollo creado: partner_dev")
     else:
-        print("[SEED] Admin de desarrollo ya existe.")
+        logger.debug("El admin de desarrollo ya existe")
 
 
 async def _seed_dev_client(session: AsyncSession):
@@ -155,9 +161,9 @@ async def _seed_dev_client(session: AsyncSession):
             is_active=True,
         )
         session.add(client)
-        print("[SEED] Cliente de desarrollo creado: client_dev")
+        logger.info("Cliente de desarrollo creado: client_dev")
     else:
-        print("[SEED] Cliente de desarrollo ya existe.")
+        logger.debug("El cliente de desarrollo ya existe")
 
 
 async def _seed_dev_license(session: AsyncSession):
@@ -177,9 +183,9 @@ async def _seed_dev_license(session: AsyncSession):
             status=LicenseStatus.ACTIVE.value,
         )
         session.add(license)
-        print("[SEED] Licencia de desarrollo creada: lic_dev")
+        logger.info("Licencia de desarrollo creada: lic_dev")
     else:
-        print("[SEED] Licencia de desarrollo ya existe.")
+        logger.debug("La licencia de desarrollo ya existe")
 
 
 
@@ -208,4 +214,4 @@ async def seed_all():
     # Lo que decían esos ocho prompts, y qué se salvó de ellos, está en
     # `docs/COMPARATIVA_PROMPTS_LEGACY.md`.
 
-    print("[SEED] Todos los seeds del servidor completados.")
+    logger.info("Sembrado del servidor completado")

@@ -7,6 +7,7 @@ análisis financiero.
 """
 
 import csv
+import logging
 import os
 from datetime import datetime
 from typing import Optional
@@ -19,6 +20,9 @@ from server.app.services.pricing_service import calculate_cost
 
 import asyncio
 from sqlalchemy.exc import OperationalError
+
+# Issue #18 — la migracion del CSV corre al arrancar el servidor, no desde una consola.
+logger = logging.getLogger(__name__)
 
 
 async def log_token_usage(
@@ -64,8 +68,11 @@ async def log_token_usage(
                 else:
                     raise e  # Re-raise if not lock or retries exhausted
 
-    except Exception as e:
-        print(f"Error logging token usage: {e}")
+    except Exception:
+        # El consumo de tokens es lo que sostiene la facturacion y las cuotas: perder un
+        # registro en silencio es perder dinero sin que nadie lo vea. Con el traceback, al
+        # menos se puede saber cuantos y por que.
+        logger.exception("No se pudo registrar el consumo de tokens de una llamada")
 
 
 async def migrate_csv_logs():
@@ -80,14 +87,16 @@ async def migrate_csv_logs():
     if not os.path.exists(csv_path):
         return
 
-    print("Migrating token logs from CSV...")
+    logger.info("Migrando el historial de tokens desde el CSV")
 
     try:
         # Check if DB is already populated to avoid duplicates (naive check)
         async with AsyncSession(server_engine) as session:
             result = await session.exec(select(TokenLog).limit(1))
             if result.first():
-                print("DB already has token logs, skipping full CSV migration")
+                logger.info(
+                    "La base ya tiene historial de tokens: no se migra el CSV"
+                )
                 return
 
         new_logs = []
@@ -147,13 +156,13 @@ async def migrate_csv_logs():
                 count += 1
 
             await session.commit()
-            print(f"Migrated {count} token logs from CSV")
+            logger.info("Migrados %d registros de tokens desde el CSV", count)
 
             # Optional: rename CSV to backup?
             # os.rename(csv_path, csv_path + ".bak")
 
-    except Exception as e:
-        print(f"Error migrating CSV logs: {e}")
+    except Exception:
+        logger.exception("Fallo la migracion del historial de tokens desde el CSV")
 
 
 async def get_token_stats(

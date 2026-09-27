@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { BlockStateAnnouncer } from './BlockStateAnnouncer'
 import { StatusBadge } from '@/shared/components/StatusBadge'
-import { mapBlockStatusToUserLabel } from '../utils/statusLabels'
+import { mapBlockStatusToUserLabel, mapFailureKindToKey } from '../utils/statusLabels'
 import type { BlockStateOut } from '@/shared/api/generated/model'
 
 /** El bloque es el del contrato, no una copia a mano.
@@ -84,6 +84,38 @@ export function WorkspaceEditor({ workspace }: Props) {
                 </div>
                 <StatusBadge label={tR(labelKey)} tone={tone} />
               </div>
+
+              {/* Issue #98 — por que fallo, en el bloque que fallo.
+                  `failure_kind`, `last_error_message` y `retry_attempts` vienen en el contrato y
+                  no se veian en NINGUN sitio de la aplicacion viva: solo los ensenaba
+                  `BlockDebugPanel`, que colgaba de `BlockEditor`, que no montaba ninguna ruta.
+                  La pagina decia «ha habido un error» para todo el informe y nada mas, asi que
+                  quien redacta no podia decidir si reintentar, cambiar el documento o avisar.
+
+                  **`last_error_message` NO sale, y no es un olvido**: puede traer un traceback
+                  con rutas del contenedor, y ocultarselo a quien redacta era una decision
+                  tomada —la fijaba `should_not_show_last_error_message_to_regular_user`—. Es la
+                  misma fuga que la issue #147 cerro en el chat publico. Lo que se ensena es el
+                  motivo traducido y cuantas veces se reintento, que es lo que permite decidir;
+                  el error literal vive en el registro del servidor, que desde la issue #18 sale
+                  con nivel, marca de tiempo y modulo.
+
+                  Sin condicionar por rol: si el servidor te deja abrir el informe, te deja saber
+                  por que fallo tu propio bloque. El panel anterior hacia
+                  `if (!isAdmin) return null`, que ademas iba al reves que el servidor. */}
+              {block.status === 'failed' && (
+                <div
+                  data-testid={`block-failure-detail-${block.block_id}`}
+                  className="mt-2 rounded-md bg-muted px-3 py-2 text-xs space-y-0.5"
+                >
+                  <p data-testid={`failure-friendly-message-${block.block_id}`}>
+                    {tR(mapFailureKindToKey(block.failure_kind))}
+                  </p>
+                  <p className="text-muted-foreground">
+                    {tR('debug.retry_attempts')}: {block.retry_attempts ?? 0}
+                  </p>
+                </div>
+              )}
             </div>
           )
         })}

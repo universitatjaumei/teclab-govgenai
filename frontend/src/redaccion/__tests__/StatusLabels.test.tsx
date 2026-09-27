@@ -1,58 +1,40 @@
 /**
- * Tests 9R.7.6 (RED → GREEN)
- * statusLabels utility + StatusBadge + BlockDebugPanel
+ * Tests 9R.7.6 — `statusLabels` + `StatusBadge` + lo que se le dice a quien redacta cuando algo
+ * falla.
+ *
+ * **Reescrito en la issue #98.** Montaba `BlockEditor` y `BlockDebugPanel`, y los dos se
+ * retiraron: `BlockEditor` era una bifurcación de `WorkspaceEditor` —misma lista, mismas
+ * etiquetas, mismo badge y hasta los mismos `data-testid`— que **no montaba ninguna ruta**, así
+ * que sólo se ejecutaba aquí; y `BlockDebugPanel` colgaba de él, lo que dejaba el panel de
+ * anonimización inalcanzable desde la aplicación.
+ *
+ * **Lo que comprobaban se conserva entero**, y era lo que valía la pena: que el estado interno no
+ * se le enseña a nadie, que un fallo se traduce a un motivo accionable, y —la importante— que
+ * **el mensaje de error literal no sale nunca por la pantalla**. Sólo cambia dónde se comprueba:
+ * en `WorkspaceEditor`, que es el componente que la aplicación renderiza de verdad.
  */
-import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { describe, it, expect, beforeAll } from 'vitest'
+import { render, screen } from '@testing-library/react'
 import i18n from '@/shared/i18n'
+import { I18nextProvider } from 'react-i18next'
 
-import { BlockEditor } from '../components/BlockEditor'
-import { BlockDebugPanel } from '../components/BlockDebugPanel'
+import { WorkspaceEditor } from '../components/WorkspaceEditor'
 import { mapBlockStatusToUserLabel } from '../utils/statusLabels'
-
-// --------------------------------------------------------------------------
-// Mocks
-// --------------------------------------------------------------------------
-
-vi.mock('@/shared/api/generated/hub-redaccion/hub-redaccion', () => ({
-  useGetWorkspaceById: vi.fn(),
-  usePatchWorkspaceBlock: vi.fn(),
-  useGetWorkspaceWarnings: vi.fn(),
-}))
-
-vi.mock('@/shared/auth', async () => {
-  const actual = await vi.importActual<typeof import('@/shared/auth')>('@/shared/auth')
-  return { ...actual, useAuth: vi.fn() }
-})
-
-import {
-  useGetWorkspaceById,
-  usePatchWorkspaceBlock,
-} from '@/shared/api/generated/hub-redaccion/hub-redaccion'
-import { useAuth } from '@/shared/auth'
+import type { BlockStateOut } from '@/shared/api/generated/model'
 
 // --------------------------------------------------------------------------
 // Helpers
 // --------------------------------------------------------------------------
 
-interface BlockStub {
-  block_id: string
-  kind: string
-  status: string
-  content: null
-  failure_kind: string | null
-  last_error_message: string | null
-  retry_attempts: number
-  updated_at: string
-}
-
-function makeBlock(id: string, status: string, extra: Partial<BlockStub> = {}): BlockStub {
+function makeBlock(
+  id: string,
+  status: string,
+  extra: Partial<BlockStateOut> = {},
+): BlockStateOut {
   return {
     block_id: id,
     kind: 'AI_ASSISTED_TEXT',
     status,
-    content: null,
     failure_kind: null,
     last_error_message: null,
     retry_attempts: 0,
@@ -61,49 +43,16 @@ function makeBlock(id: string, status: string, extra: Partial<BlockStub> = {}): 
   }
 }
 
-function setupWorkspace(blocks: BlockStub[]) {
-  vi.mocked(useGetWorkspaceById).mockReturnValue({
-    data: {
-      id: 'ws-1',
-      template_version_id: 'tv-1',
-      status: 'in_review',
-      blocks,
-      created_at: '2026-01-01T00:00:00Z',
-      updated_at: '2026-01-01T00:00:00Z',
-    },
-    isLoading: false,
-    isError: false,
-  } as ReturnType<typeof useGetWorkspaceById>)
-}
-
-function setupAuth(role: string) {
-  vi.mocked(useAuth).mockReturnValue({
-    user: { user_id: 'u1', email: `${role}@test.com`, role },
-    isAuthenticated: true,
-    login: vi.fn(),
-    logout: vi.fn(),
-  })
-}
-
-function wrap(ui: React.ReactElement) {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return render(<QueryClientProvider client={qc}>{ui}</QueryClientProvider>)
+function pintar(blocks: BlockStateOut[]) {
+  return render(
+    <I18nextProvider i18n={i18n}>
+      <WorkspaceEditor workspace={{ blocks, status: 'in_review' }} />
+    </I18nextProvider>,
+  )
 }
 
 beforeAll(async () => {
   await i18n.changeLanguage('es')
-})
-
-beforeEach(() => {
-  vi.clearAllMocks()
-  vi.mocked(usePatchWorkspaceBlock).mockReturnValue({
-    mutate: vi.fn(),
-    isPending: false,
-    isError: false,
-    isSuccess: false,
-    reset: vi.fn(),
-  } as unknown as ReturnType<typeof usePatchWorkspaceBlock>)
-  setupAuth('user')
 })
 
 // --------------------------------------------------------------------------
@@ -112,13 +61,11 @@ beforeEach(() => {
 
 describe('statusLabels and StatusBadge', () => {
   it('should_render_user_label_not_internal_status', () => {
-    setupWorkspace([makeBlock('b1', 'needs_review')])
-    wrap(<BlockEditor workspaceId="ws-1" />)
+    pintar([makeBlock('b1', 'needs_review')])
 
-    // Raw internal status must NOT appear as visible text
+    // El estado interno no puede aparecer como texto visible.
     expect(screen.queryByText('needs_review')).toBeNull()
-    // A StatusBadge for the block must be present
-    expect(screen.getByTestId('status-badge-b1')).toBeDefined()
+    expect(screen.getByTestId('block-b1')).toBeDefined()
   })
 
   it('should_map_failed_to_recoverable_error_tone', () => {
@@ -127,66 +74,44 @@ describe('statusLabels and StatusBadge', () => {
   })
 
   it('should_not_show_last_error_message_to_regular_user', () => {
+    // **La comprobación que había que no perder.** El dato de prueba es un traceback a
+    // propósito: `last_error_message` puede traer rutas del contenedor, y enseñárselo a quien
+    // redacta es la misma fuga que la issue #147 cerró en el chat público, donde el widget
+    // devolvía `str(exc)` a cualquiera.
+    //
+    // Antes esto se cumplía por rol —el panel hacía `if (!isAdmin) return null`—. Ahora se
+    // cumple porque **el mensaje literal no se pinta en ninguna parte**, que es más fuerte: no
+    // depende de que nadie se acuerde de comprobar el rol en el siguiente componente.
     const SECRET_ERROR = 'Traceback (most recent call last): RuntimeError at line 42'
-    setupWorkspace([
+    pintar([
       makeBlock('b1', 'failed', {
         failure_kind: 'ai_failed',
         last_error_message: SECRET_ERROR,
       }),
     ])
-    setupAuth('user')
-    wrap(<BlockEditor workspaceId="ws-1" />)
 
     expect(screen.queryByText(SECRET_ERROR)).toBeNull()
-  })
-
-  it('should_show_last_error_message_in_debug_panel_for_admin', () => {
-    const ERROR_MESSAGE = 'Traceback (most recent call last): RuntimeError at line 42'
-    const block = makeBlock('b1', 'failed', {
-      failure_kind: 'ai_failed',
-      last_error_message: ERROR_MESSAGE,
-    })
-
-    setupAuth('admin')
-    wrap(<BlockDebugPanel block={block} />)
-
-    // Debug panel visible for admin
-    expect(screen.getByTestId('block-debug-panel')).toBeDefined()
-
-    // Toggle to expose internals
-    const toggleBtn = screen.queryByTestId('btn-toggle-debug')
-    if (toggleBtn) {
-      fireEvent.click(toggleBtn)
-      expect(screen.queryByText(ERROR_MESSAGE)).not.toBeNull()
-    }
-  })
-
-  it('should_hide_debug_panel_for_user_role', () => {
-    const block = makeBlock('b1', 'failed', {
-      failure_kind: 'ai_failed',
-      last_error_message: 'some internal error',
-    })
-
-    setupAuth('user')
-    wrap(<BlockDebugPanel block={block} />)
-
-    expect(screen.queryByTestId('block-debug-panel')).toBeNull()
+    expect(document.body.textContent).not.toMatch(/Traceback/)
   })
 
   it('should_translate_failure_kind_to_friendly_message', () => {
     const SECRET_ERROR = 'Internal: LLM timed out after 30 s'
-    setupWorkspace([
+    pintar([
       makeBlock('b1', 'failed', {
         failure_kind: 'ai_failed',
         last_error_message: SECRET_ERROR,
       }),
     ])
-    setupAuth('user')
-    wrap(<BlockEditor workspaceId="ws-1" />)
 
-    // Raw error must not appear
     expect(screen.queryByText(SECRET_ERROR)).toBeNull()
-    // Friendly message element must be present
     expect(screen.getByTestId('failure-friendly-message-b1')).toBeDefined()
+  })
+
+  it('should_show_the_failure_detail_to_everyone_who_can_open_the_report', () => {
+    // Lo que el panel anterior hacía al revés: escondía por rol algo que el servidor ya sirve
+    // sólo al dueño del workspace. El frontend no calcula permisos (invariante I6).
+    pintar([makeBlock('b1', 'failed', { failure_kind: 'ai_failed', retry_attempts: 3 })])
+
+    expect(screen.getByTestId('block-failure-detail-b1').textContent).toMatch(/3/)
   })
 })

@@ -1,5 +1,6 @@
 """Seeds de ejemplo para el módulo agents_hub."""
 
+import logging
 import uuid
 
 from sqlalchemy import select
@@ -15,6 +16,9 @@ from server.app.modules.agents_hub.database.config_models import (
     HubLLMConfig,
     HubProvider,
 )
+
+# Issue #18 — lo llama `main.py` en el arranque: registro, no consola.
+logger = logging.getLogger(__name__)
 
 _DEV_LLM_CONFIG_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 _DEV_ORG_ID = uuid.UUID("00000000-0000-0000-0000-000000000010")
@@ -34,7 +38,7 @@ async def seed_hub_defaults() -> None:
         await session.commit()
 
     await engine.dispose()
-    print("[SEED] Hub defaults verificados/creados.")
+    logger.info("Valores por defecto del hub verificados o creados")
 
 
 _DEFAULT_PROVIDERS = [
@@ -51,7 +55,7 @@ async def _seed_providers(session: AsyncSession) -> None:
         existing = await session.get(HubProvider, provider.id)
         if not existing:
             session.add(provider)
-    print("[SEED] HubProviders verificados/creados.")
+    logger.info("Proveedores del hub verificados o creados")
 
 
 async def _seed_llm_config(session: AsyncSession) -> None:
@@ -71,7 +75,7 @@ async def _seed_llm_config(session: AsyncSession) -> None:
             api_key_secret_name="GOOGLE_API_KEY",
         )
     )
-    print("[SEED] HubLLMConfig de desarrollo creada.")
+    logger.info("Configuracion de modelo de desarrollo creada")
 
 
 async def _seed_organizacion(session: AsyncSession) -> None:
@@ -86,7 +90,7 @@ async def _seed_organizacion(session: AsyncSession) -> None:
             is_active=True,
         )
     )
-    print("[SEED] HubOrganizacion de desarrollo creada.")
+    logger.info("Organizacion de desarrollo creada")
 
 
 async def _seed_chatbot(session: AsyncSession) -> None:
@@ -105,4 +109,4 @@ async def _seed_chatbot(session: AsyncSession) -> None:
             is_active=True,
         )
     )
-    print("[SEED] HubChatbot de desarrollo creado.")
+    logger.info("Chatbot de desarrollo creado")

@@ -1,5 +1,7 @@
 """Servicio para gestionar los precios de modelos de IA vía API de OpenRouter."""
 
+import logging
+
 import aiohttp
 from datetime import datetime
 from sqlmodel import select
@@ -7,6 +9,9 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from server.app.database.db import server_engine
 from server.app.database.models import ModelPricing
+
+# Issue #18 — esto lo dispara el planificador de madrugada: no hay nadie mirando una consola.
+logger = logging.getLogger(__name__)
 
 
 async def update_prices_from_openrouter():
@@ -16,7 +21,7 @@ async def update_prices_from_openrouter():
     Actualiza los costes de entrada y salida por millón de tokens para todos los
     modelos soportados, creando nuevos registros si no existen.
     """
-    print("Updating model prices from OpenRouter...")
+    logger.info("Actualizando precios de modelos desde OpenRouter")
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get("https://openrouter.ai/api/v1/models") as resp:
@@ -66,15 +71,22 @@ async def update_prices_from_openrouter():
                                 count_new += 1
 
                         await session.commit()
-                        print(
-                            f"Updated prices: {count_new} new, {count_updated} updated via OpenRouter"
+                        logger.info(
+                            "Precios actualizados desde OpenRouter: %d nuevos, %d modificados",
+                            count_new,
+                            count_updated,
                         )
                 else:
-                    print(
-                        f"Failed to fetch prices from OpenRouter: Status {resp.status}"
+                    # `warning` y no `error`: el servicio sigue con los precios que ya
+                    # tenia, asi que es degradacion y no averia. Distinguirlo es la mitad de
+                    # para que sirven los niveles.
+                    logger.warning(
+                        "OpenRouter no devolvio los precios (HTTP %s); se conservan los "
+                        "anteriores",
+                        resp.status,
                     )
-    except Exception as e:
-        print(f"Error updating model prices: {e}")
+    except Exception:
+        logger.exception("Fallo la actualizacion de precios de modelos")
 
 
 async def calculate_cost(

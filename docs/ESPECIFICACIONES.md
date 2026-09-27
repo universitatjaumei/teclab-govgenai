@@ -121,10 +121,11 @@ vive en un documento no es un invariante: es una intención.
 | I9 | **Un docstring no autoriza nada.** Declarar un módulo obliga a exigirlo con `require_module` | el mismo test |
 | I10 | **El contenido del modelo se lee con `texto_de`.** Gemini devuelve `content` como lista de bloques en cuanto hay más de una parte, y quien asume `str` falla más tarde y en otro sitio | `core/llm_text.py` + guardarraíl de USR.8 |
 | I11 | **Los ficheros de negocio se guardan por `StorageService`**, nunca con `open()`: el contenedor es efímero y el proveedor, cambiable | `core/storage.py`; regla de portabilidad |
-| I12 | **Todo lo que va al LLM desde el edge va anonimizado**, y el `model_factory` no anonimiza: recibe datos ya limpios | frontera edge/cloud de `AGENTS.md` |
+| I12 | **La organización fija el suelo de anonimización y el informe sólo puede endurecerlo, nunca relajarlo**; y el `model_factory` no anonimiza: recibe los datos como se los entreguen. La anonimización previa al LLM es una capacidad **que se elige**, porque depende del contrato con el proveedor y del tipo de datos, y ninguna de las dos cosas es una decisión de quien redacta un informe. Pedir un modo más flojo que el de la organización no es un 4xx: se aplica el suelo y se devuelve el motivo | `services/anonymization/politica.py` (`modo_efectivo`, `motivo_de_no_relajar`); `anonymization_router` |
 | I13 | **Código que no ha pasado el filtro no se ejecuta.** Auditoría AST sin hallazgos críticos + prueba en sandbox + declaración responsable, **y el filtro es automático**: la aprobación humana previa dejó de ser la puerta en FUN.3/FUN.4, porque la Instrucció 02/2026 la prohíbe como condición para compartir dentro del servicio. La persona entra **después**, en la revisión posterior, que puede pedir correcciones, reclasificar o suspender. La única aprobación previa que queda es el paso a nivel 3 | `redaccion/services/script_auditor.py`, `redaccion/funciones_service.py`, `redaccion/funciones_acciones.py`, `SANDBOX_SECURITY.md`, `CATALOGO_FUNCIONES.md` |
 | I14 | **El esquema lo define Alembic, y sólo Alembic.** La aplicación no crea tablas al arrancar; un modelo cambiado sin su migración es un fallo de CI, no una tabla aparecida | `alembic check` en CI tras `upgrade head`; `test_bd2_alembic_es_la_unica_fuente.py` |
 | I15 | **El servidor sólo pide URL de la red pública, y lo comprueba en cada salto.** Una dirección privada, de *loopback* o de enlace local —el servidor de metadatos de la nube, los contenedores vecinos— no se pide, ni directamente ni **llegando a ella por una redirección**. La forma de la URL la validan los contratos de entrada (422 con motivo); el destino resuelto, cada petición. Hay una válvula de desarrollo, `CRAWLER_ALLOW_PRIVATE_TARGETS`, y **producción se niega a arrancar con ella puesta** | `core/red_publica.py` + `cliente_de_rastreo` en `modules/curation/spider.py`; los cuatro gates de `core/config.py`; `test_aper1_*` |
+| I16 | **Lo que corre dentro del servidor registra, no imprime.** Un `print()` en producción sale sin nivel, sin marca de tiempo y sin nombre de módulo: no se puede filtrar por severidad ni subir el detalle de un servicio sin subirlo de todos. Una herramienta de consola **sí** imprime —le habla a quien la acaba de ejecutar— y se distingue por serlo (`typer.Typer()`, `__main__`, `argparse`), no por declararlo | `configurar_logging` en `main.py` (nivel por `LOG_LEVEL`); `test_issue18_lo_que_corre_en_el_servidor_no_imprime.py` |
 
 **Cómo se usa esta tabla.** Al escribir código nuevo, si tocas algo que aparece en la columna
 derecha, el test correspondiente es el que te dirá si te has pasado. Si crees que un invariante
@@ -425,7 +426,9 @@ para que no tengan que resolver la PII por su cuenta.
 
 Es **registro de gobernanza**, al servicio de la conservación de registros del AI Act (arts. 12 y
 26) y del registro de actividades de tratamiento del RGPD (art. 30). No es trazado técnico: el
-detalle de lo que pasa dentro de la plataforma ya lo cubre la observabilidad interna.
+detalle de lo que pasa dentro de la plataforma lo cubre la observabilidad interna, que desde
+la issue #18 es una y no dos — hasta entonces 72 mensajes de diez módulos que corren en el
+servidor salían por la salida estándar sin pasar por ella (I16).
 
 **Garantiza.**
 - **Metadatos sí, payloads no.** El contrato del evento no declara ningún campo de contenido y
