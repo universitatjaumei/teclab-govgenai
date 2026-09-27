@@ -159,11 +159,6 @@ export const HIGH_CONTRAST_THEME: ThemeConfig = mergeThemes(DEFAULT_THEME, {
   },
 });
 
-export const THEME_PRESETS = {
-  default: DEFAULT_THEME,
-  dark: DARK_THEME,
-  university: UNIVERSITY_THEME,
-  'high-contrast': HIGH_CONTRAST_THEME,
-} as const;
-
-export type ThemePresetName = keyof typeof THEME_PRESETS;
+// `THEME_PRESETS` y `ThemePresetName` vivían aquí y se retiran con `ThemeEditor` (issue #171),
+// que era su único consumidor. `ThemeProvider` no los usaba: arma su propio `PRESET_THEMES` a
+// partir de los tres temas de arriba, que siguen exportados y siguen vivos.
