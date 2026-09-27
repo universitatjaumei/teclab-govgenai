@@ -145,6 +145,24 @@ export function WorkspaceAnonymizationPanel({
           {t('anonymization.table_title')}
         </h3>
 
+        {/*
+          Issue #170 — sin modelo lingüístico la anonimización sigue cogiendo DNI, correos, IBAN
+          y las cabeceras de formulario, y deja pasar los nombres que sólo aparecen dentro de la
+          prosa. El resumen se vería idéntico: sus conteos, su total. Sin este aviso, «no había
+          nombres» y «no se buscaron» son la misma pantalla.
+
+          La comparación es explícita contra `false` porque `null` es otra cosa: en modo `off` no
+          se escaneó, y avisar allí sería reclamar una capa que nadie pidió.
+        */}
+        {summary?.ner_disponible === false && (
+          <p
+            data-testid="anon-ner-degradado"
+            className="text-xs text-amber-600 mb-2"
+          >
+            {t('anonymization.ner_no_disponible')}
+          </p>
+        )}
+
         {!summary || summary.total_spans === 0 ? (
           <p className="text-xs text-muted-foreground">{t('anonymization.no_run')}</p>
         ) : (

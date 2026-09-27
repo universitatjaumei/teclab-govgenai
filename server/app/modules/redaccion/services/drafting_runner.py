@@ -34,6 +34,7 @@ from server.app.modules.redaccion.contracts.runtime import (
 )
 from server.app.modules.redaccion.contracts.template import ReportTemplateSpec
 from server.app.modules.redaccion.database.models import HubWorkspace, HubWorkspaceBlock
+from server.app.modules.redaccion.services.anonymization.politica import modo_de_ejecucion
 from server.app.modules.redaccion.database.repos import (
     ReportTemplateVersionRepo,
     RunManifestRepo,
@@ -56,9 +57,14 @@ def construir_grafo(
 ):
     """El `DraftingCoreGraph` con sus dependencias resueltas contra esta sesión.
 
-    `pii_detector` y `faker_generator` se dejan sin inyectar a propósito: sin ellos el nodo
-    de anonimización es un no-op declarado (modo OFF), que es el comportamiento vigente. El
-    cableado del NER reversible es la Fase 13 y tiene su propia superficie de configuración.
+    **`pii_detector` y `faker_generator` se inyectan desde la issue #170.** Se dejaban fuera, y
+    sin ellos `_build_init_anonymization_node` devuelve un no-op declarado: el contexto quedaba en
+    `None`, los hooks pre/post-LLM no operaban, y elegir `replace` en la pantalla daba exactamente
+    lo mismo que elegir `off`. Sin error y sin aviso — que es peor que no ofrecer la opción.
+
+    Uno por ejecución, y no compartido: un detector que viviera entre informes acumularía en sus
+    mapas el PII de todos los que pasaron. Es la misma razón por la que el endpoint público de
+    anonimización (REG.3) es *stateless* a propósito.
 
     `etl_llm` sí se inyecta desde PRO.4: sin él, `DataTransformationNode` se construía con
     `llm_service=None` y un bloque de transformación en modo IA fallaba con «ai mode requires
@@ -67,10 +73,14 @@ def construir_grafo(
     """
     from server.app.core.storage import get_storage_service
     from server.app.modules.redaccion.funciones_resolver import ResolvedorDeFuncion
-    from server.app.modules.redaccion.graph.core_graph import build_core_graph
+    from server.app.modules.redaccion.graph import core_graph
     from server.app.modules.redaccion.pipelines.factory import build_default_factory
+    from server.app.modules.redaccion.services.anonymization.faker_generator import (
+        FakerGenerator,
+    )
+    from server.app.modules.redaccion.services.anonymization.pii_detector import PiiDetector
 
-    return build_core_graph(
+    return core_graph.build_core_graph(
         template_version_repo=ReportTemplateVersionRepo(session),
         storage_service=storage_service or get_storage_service(),
         extraction_factory=build_default_factory(),
@@ -83,6 +93,10 @@ def construir_grafo(
         # diciendo que el grafo se construyó sin resolutor. Es mejor que ejecutar nada en
         # silencio, pero es un fallo: el sitio donde se pasa es éste, y hay un test que lo fija.
         resolvedor_de_funciones=ResolvedorDeFuncion(session),
+        # El detector no carga el modelo de spaCy hasta que un texto pasa por el NER, así que
+        # construirlo aquí no cuesta nada cuando el modo es `off`.
+        pii_detector=PiiDetector(),
+        faker_generator=FakerGenerator(),
     )
 
 
@@ -125,6 +139,7 @@ def _estado_inicial(
     workspace: HubWorkspace,
     spec: ReportTemplateSpec,
     existentes: list[HubWorkspaceBlock] | None = None,
+    modo_anonimizacion: str | None = None,
 ) -> WorkspaceState:
     """El estado con el que arranca el grafo.
 
@@ -164,7 +179,9 @@ def _estado_inicial(
         status="drafting",
         warnings=[],
         spec=spec,
-        anonymization_mode=workspace.anonymization_mode,
+        # El modo se resuelve al ejecutar contra el suelo de la organización (#170); la
+        # columna del informe es lo que se pidió, no necesariamente lo que se aplica.
+        anonymization_mode=modo_anonimizacion or workspace.anonymization_mode,
     )
 
 
@@ -271,7 +288,10 @@ async def ejecutar_borrador(
             etl_model_name=etl_model_name,
             etl_system_prompt=etl_prompt,
         )
-        final = await grafo.ainvoke(_estado_inicial(workspace, spec, list(existentes)))
+        modo = await modo_de_ejecucion(workspace, session)
+        final = await grafo.ainvoke(
+            _estado_inicial(workspace, spec, list(existentes), modo_anonimizacion=modo.value)
+        )
 
         estado = WorkspaceState.model_validate(_bloques_del(final))
         await _persistir_bloques(session, workspace_id, estado)

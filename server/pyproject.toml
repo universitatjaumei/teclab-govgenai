@@ -95,6 +95,28 @@ dependencies = [
     "chardet>=5.1.0,<8",
     "pdfplumber>=0.11.0",
     "spacy>=3.7",
+    # **El modelo, y va en las dependencias por defecto a propósito** (issue #170). spaCy sin
+    # modelo degrada a regex + anclajes de cabecera **sin decirlo**, así que un despliegue
+    # estándar anonimizaría identificadores estructurados y dejaría pasar los nombres que sólo
+    # aparecen dentro del texto. Esa es justo la avería que la #170 corrige: una capacidad que se
+    # ofrece y no se distingue de estar apagada.
+    #
+    # No va en un extra —como sí van los modelos locales de `local-models`— porque la
+    # anonimización está **activa por omisión** (`politica.MODO_POR_DEFECTO` es `replace`), y un
+    # extra que nadie instala deja lo activo funcionando a medias. Medido: 52 MB en disco y ~305
+    # MB de RSS tras una pasada real, contra los 216 de `sentence-transformers` más 172 de
+    # `torch`; y el RSS sólo se paga si algún texto llega al NER, porque la carga es perezosa.
+    #
+    # **`md` y no `sm` con número**: sobre 20 nombres de morfología valenciana en prosa
+    # administrativa, `sm` recupera el 65 % —deja 7— y `md` el 90 %. `ca_core_news_md` recupera lo
+    # mismo que `md` y cuesta 211 MB más; sólo gana en falsos positivos, que en anonimización es
+    # lo menos grave (sustituye algo que no era un nombre; no filtra nada).
+    #
+    # Viene de una URL porque los modelos de spaCy **no se publican en PyPI**. La rueda declara
+    # `spacy>=3.8.0,<3.9.0`, así que si algún día `uv lock --upgrade` intentara subir spaCy a 3.9
+    # la resolución **falla en alto** en vez de dejar el modelo sin cargar en silencio. Al
+    # actualizar spaCy de serie hay que subir esta URL en el mismo commit.
+    "es-core-news-md @ https://github.com/explosion/spacy-models/releases/download/es_core_news_md-3.8.0/es_core_news_md-3.8.0-py3-none-any.whl",
     "faker>=22.0",
     "matplotlib>=3.10.9",
     "seaborn>=0.13.2",
@@ -250,6 +272,12 @@ markers = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+# El modelo de spaCy viene de una URL (los modelos no se publican en PyPI), y hatchling rechaza
+# una referencia directa mientras no se diga que se admite. Sin esto `uv sync` ni siquiera
+# construye el paquete del servidor: «Dependency #38 cannot be a direct reference».
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 bypass-selection = true

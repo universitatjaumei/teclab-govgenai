@@ -125,7 +125,17 @@ def build_core_graph(
     graph.add_edge("load_template", "validate_inputs")
     graph.add_edge("validate_inputs", "file_normalization")
     graph.add_edge("file_normalization", "deterministic_extraction")
-    graph.add_edge("deterministic_extraction", "data_transformation")
+    # **La anonimización va aquí, justo detrás de la extracción** (issue #170). Estaba entre
+    # `data_quality_check` y `ai_assist_draft`, y su propio docstring decía «antes de cualquier
+    # nodo que toque LLM»: no era cierto, porque la transformación de datos y el nodo de gráficos
+    # llaman al modelo y quedaban por delante. Los dos invocan `apply_pre_llm` con un contexto
+    # que en ese punto todavía era `None`, así que el hook devolvía el texto sin tocar.
+    #
+    # Detrás de la extracción es donde ya existe el texto que hay que escanear, y lo que se
+    # detecta ahí sigue valiendo después: el mapa sustituye **cadenas**, no posiciones, así que un
+    # dato del documento se sustituye igual cuando reaparece en una tabla transformada.
+    graph.add_edge("deterministic_extraction", "init_anonymization")
+    graph.add_edge("init_anonymization", "data_transformation")
     # El gráfico va después de la transformación: dibuja los datos ya limpios.
     graph.add_edge("data_transformation", "chart_render")
     # Y la tabla igual: reproduce los datos ya limpios, antes de que la IA los valore.
@@ -134,9 +144,8 @@ def build_core_graph(
     graph.add_conditional_edges(
         "data_quality_check",
         data_quality_router,
-        {"ask_user": "missing_data_question", "ok": "init_anonymization"},
+        {"ask_user": "missing_data_question", "ok": "ai_assist_draft"},
     )
-    graph.add_edge("init_anonymization", "ai_assist_draft")
     graph.add_edge("missing_data_question", "audit_log")
     graph.add_edge("ai_assist_draft", "citation_traceability")
     graph.add_edge("citation_traceability", "review_gate")

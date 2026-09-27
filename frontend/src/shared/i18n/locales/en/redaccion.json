@@ -29,7 +29,8 @@
     "btn_refrescar": "Refresh result",
     "btn_change_mode": "Change mode",
     "mode_locked": "Mode cannot be changed while execution is in progress.",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "ner_no_disponible": "Name detection in free text was not available for this run: this installation is missing the language model. Deterministic patterns (ID numbers, email, IBAN, phone) and form headers were applied."
   },
   "autosave": {
     "status": {

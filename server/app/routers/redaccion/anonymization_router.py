@@ -38,6 +38,7 @@ from server.app.modules.redaccion.database.models import (
     HubWorkspaceAuditEvent,
 )
 from server.app.modules.redaccion.services.anonymization.politica import (
+    modo_de_la_organizacion,
     modo_efectivo,
     motivo_de_no_relajar,
 )
@@ -69,6 +70,13 @@ class AnonymizationSummaryResponse(BaseModel):
     total_spans: int
     last_run_at: datetime
     current_workspace_mode: AnonymizationMode
+    #: Si la detección de nombres en texto libre estuvo puesta en esa ejecución (issue #170).
+    #:
+    #: Va en el contrato porque el frontend **no puede deducirlo**: sin modelo lingüístico el
+    #: resumen sale igual de saludable —sus conteos, sus spans— y lo que se escapa son los
+    #: nombres dentro de la prosa, que es justo lo que la persona creía haber anonimizado.
+    #: `None` en ejecuciones anteriores a la #170 y en modo `off`, donde no se escaneó nada.
+    ner_disponible: bool | None = None
 
 
 class AnonymizationModeUpdate(BaseModel):
@@ -113,29 +121,6 @@ async def _get_workspace_checked(
     return workspace
 
 
-async def _modo_de_la_organizacion(
-    workspace: HubWorkspace, session: AsyncSession
-) -> AnonymizationMode | None:
-    """El suelo que fija la organización del informe, o **`None` si no ha fijado ninguno** (AIS.5).
-
-    Devuelve `None` y no el valor del código a propósito, y es la distinción que sostiene el
-    prompt: `MODO_POR_DEFECTO` es un **valor por omisión**, no un mínimo. Si esta función
-    resolviera «sin política» como `replace`, ese valor pasaría a ser un suelo y nadie podría
-    elegir `off` en una instalación recién montada — la anonimización sería obligatoria con otro
-    nombre, que es lo contrario de lo que se decidió.
-
-    Se resuelve con una consulta y no navegando por una relación: `HubWorkspace` es operacional
-    y `HubOrganizacion` es de configuración, y la frontera edge/cloud prohíbe `relationship()`
-    entre las dos bases (`AGENTS.md` §Frontera Edge-Cloud).
-    """
-    from server.app.modules.agents_hub.database.config_models import HubOrganizacion
-
-    if workspace.organizacion_id is None:
-        return None
-
-    organizacion = await session.get(HubOrganizacion, workspace.organizacion_id)
-    declarado = getattr(organizacion, "anonymization_mode", None)
-    return AnonymizationMode(declarado) if declarado else None
 
 
 async def _get_last_manifest(
@@ -204,6 +189,7 @@ async def get_anonymization_summary(
         total_spans=summary.total_spans,
         last_run_at=manifest_orm.created_at,
         current_workspace_mode=AnonymizationMode(workspace.anonymization_mode),
+        ner_disponible=summary.ner_disponible,
     )
 
 
@@ -238,7 +224,7 @@ async def patch_anonymization_mode(
             detail="MODE_LOCKED_DURING_EXECUTION",
         )
 
-    heredado = await _modo_de_la_organizacion(workspace, session)
+    heredado = await modo_de_la_organizacion(workspace, session)
     efectivo = modo_efectivo(heredado=heredado, pedido=body.mode)
     motivo = motivo_de_no_relajar(heredado=heredado, pedido=body.mode)
 

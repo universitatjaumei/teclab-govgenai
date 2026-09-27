@@ -29,7 +29,8 @@
     "btn_refrescar": "Actualitzar resultat",
     "btn_change_mode": "Canviar mode",
     "mode_locked": "El mode no es pot canviar durant l'execució.",
-    "loading": "Carregant…"
+    "loading": "Carregant…",
+    "ner_no_disponible": "La detecció de noms en text lliure no va estar disponible en aquesta execució: falta el model lingüístic en aquesta instal·lació. S'hi van aplicar els patrons deterministes (DNI, NIE, correu, IBAN, telèfon) i les capçaleres de formulari."
   },
   "autosave": {
     "status": {

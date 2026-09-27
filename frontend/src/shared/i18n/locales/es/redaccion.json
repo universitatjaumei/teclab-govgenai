@@ -29,7 +29,8 @@
     "btn_refrescar": "Actualizar resultado",
     "btn_change_mode": "Cambiar modo",
     "mode_locked": "El modo no se puede cambiar durante la ejecución.",
-    "loading": "Cargando…"
+    "loading": "Cargando…",
+    "ner_no_disponible": "La detección de nombres en texto libre no estuvo disponible en esta ejecución: falta el modelo lingüístico en esta instalación. Se aplicaron los patrones deterministas (DNI, NIE, correo, IBAN, teléfono) y las cabeceras de formulario."
   },
   "autosave": {
     "status": {
