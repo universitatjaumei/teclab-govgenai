@@ -27,7 +27,12 @@ import { useEditBlock } from '@/shared/api/generated/redaccion-workspaces/redacc
  * Y se restaura **diciéndolo**. Restaurar en silencio enseñaría un texto que no es el guardado
  * sin que nadie pueda saber por qué, que es peor que perderlo.
  */
+// `getGetWorkspaceByIdQueryKey` **tiene que estar en el doble**: el panel la llama al invalidar
+// la caché tras guardar. Sin ella el doble no era el módulo, era un módulo incompleto, y la
+// llamada lanzaba dentro del `onSuccess` abortándolo a mitad — el borrador no se olvidaba y el
+// test culpaba al código. Un doble al que le faltan exportaciones miente sobre lo que sustituye.
 vi.mock('@/shared/api/generated/hub-redaccion/hub-redaccion', () => ({
+  getGetWorkspaceByIdQueryKey: (id: string) => ['workspace', id],
   useGetWorkspaceById: vi.fn(),
   usePatchWorkspaceBlock: vi.fn(),
 }))
@@ -146,7 +151,9 @@ describe('el borrador de una edición sobrevive a recargar la pestaña', () => {
   })
 
   it('should_olvidar_el_borrador_cuando_se_guarda_de_verdad', () => {
-    const edit = mockearApi(vi.fn((_vars, opts) => opts?.onSettled?.()))
+    // `onSuccess` y no `onSettled`: desde la revisión de la PR #178 el olvido del borrador
+    // cuelga del éxito, porque `onSettled` corría también al fallar.
+    const edit = mockearApi(vi.fn((_vars, opts) => opts?.onSuccess?.()))
     pintar()
     fireEvent.click(screen.getByTestId('btn-editar-v_matricula'))
     escribir('El texto definitivo.')
@@ -154,6 +161,36 @@ describe('el borrador de una edición sobrevive a recargar la pestaña', () => {
 
     expect(edit).toHaveBeenCalledTimes(1)
     expect(JSON.stringify(window.localStorage)).not.toContain('El texto definitivo')
+  })
+
+  it('should_conservar_el_borrador_si_el_guardado_falla', () => {
+    /**
+     * El olvido estaba en `onSettled`, que corre **también al fallar**. Un error de red borraba
+     * el borrador y cerraba el editor, o sea que perdía exactamente el texto que esta pieza
+     * existe para no perder. Lo encontró la revisión automática de la PR #178.
+     */
+    const edit = mockearApi(vi.fn((_vars, opts) => opts?.onError?.(new Error('sin red'))))
+    pintar()
+    fireEvent.click(screen.getByTestId('btn-editar-v_matricula'))
+    escribir('Lo que costó escribir y el servidor no aceptó.')
+    fireEvent.click(screen.getByTestId('btn-guardar-v_matricula'))
+
+    expect(edit).toHaveBeenCalledTimes(1)
+    expect(JSON.stringify(window.localStorage)).toContain('el servidor no aceptó')
+    expect(screen.getByTestId('editor-v_matricula')).toHaveValue(
+      'Lo que costó escribir y el servidor no aceptó.',
+    )
+  })
+
+  it('should_avisar_de_que_el_guardado_ha_fallado', () => {
+    /** Conservar el borrador y no decir nada se lee como que sí se guardó. */
+    mockearApi(vi.fn((_vars, opts) => opts?.onError?.(new Error('sin red'))))
+    pintar()
+    fireEvent.click(screen.getByTestId('btn-editar-v_matricula'))
+    escribir('Texto que no se guarda.')
+    fireEvent.click(screen.getByTestId('btn-guardar-v_matricula'))
+
+    expect(screen.getByTestId('error-guardar-v_matricula')).toBeInTheDocument()
   })
 
   it('should_seguir_funcionando_si_el_navegador_no_deja_guardar', () => {

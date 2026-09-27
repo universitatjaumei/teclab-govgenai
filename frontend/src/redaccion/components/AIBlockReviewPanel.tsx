@@ -74,6 +74,7 @@ export function AIBlockReviewPanel({ workspaceId }: Props) {
   // a él al descartar un borrador recuperado.
   const [textoGuardado, setTextoGuardado] = useState('')
   const [borradorRecuperado, setBorradorRecuperado] = useState(false)
+  const [errorAlGuardar, setErrorAlGuardar] = useState<string | null>(null)
 
   const { data: workspaceRaw, isLoading } = useGetWorkspaceById(workspaceId)
   const workspace = workspaceRaw as unknown as WorkspaceOut | undefined
@@ -124,6 +125,7 @@ export function AIBlockReviewPanel({ workspaceId }: Props) {
     const hayBorrador = pendiente !== null && pendiente !== texto
 
     setEditando(blockId)
+    setErrorAlGuardar(null)
     setTextoGuardado(texto)
     setBorradorRecuperado(hayBorrador)
     setBorrador(hayBorrador ? (pendiente as string) : texto)
@@ -144,18 +146,29 @@ export function AIBlockReviewPanel({ workspaceId }: Props) {
     // Cancelar es descartar: el borrador protege de una recarga, no de cambiar de opinión.
     olvidarBorrador(workspaceId, blockId)
     setBorradorRecuperado(false)
+    setErrorAlGuardar(null)
     setEditando(null)
   }
 
   function guardar(blockId: string) {
+    setErrorAlGuardar(null)
     editarBloque(
       { workspaceId, blockId, data: { content: { text: borrador.trim() } } },
       {
-        ...refrescar,
-        onSettled: () => {
+        // **`onSuccess`, no `onSettled`.** Aquél corre también al fallar, así que un error de
+        // red borraba el borrador y cerraba el editor: perdía justo el texto que el borrador
+        // existe para no perder. Si el guardado falla, todo se queda como está y se dice.
+        onSuccess: () => {
+          // **El orden importa.** Primero lo local: si invalidar la caché fallara, el borrador
+          // ya guardado se quedaría en el navegador para siempre y la próxima apertura
+          // enseñaría un «borrador sin guardar» que sí se había guardado.
           olvidarBorrador(workspaceId, blockId)
           setBorradorRecuperado(false)
           setEditando(null)
+          refrescar.onSuccess()
+        },
+        onError: (error: unknown) => {
+          setErrorAlGuardar(error instanceof Error ? error.message : String(error))
         },
       },
     )
@@ -286,6 +299,14 @@ export function AIBlockReviewPanel({ workspaceId }: Props) {
                   aria-label={tR('review.edit_label')}
                   className="w-full border rounded p-2 text-sm resize-y font-serif"
                 />
+                {errorAlGuardar && (
+                  <p
+                    data-testid={`error-guardar-${block.block_id}`}
+                    className="text-xs text-destructive"
+                  >
+                    {tR('review.save_failed')}
+                  </p>
+                )}
                 <div className="flex gap-2">
                   <button
                     type="button"

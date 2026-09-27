@@ -47,7 +47,10 @@ from server.app.modules.redaccion.services.block_actions import (
     _DESTINO_DE_LA_ACCION,
     acciones_permitidas,
 )
-from server.app.modules.redaccion.services.estructura_del_informe import bloques_sin_seccion
+from server.app.modules.redaccion.services.estructura_del_informe import (
+    bloques_sin_seccion,
+    dependencias_imposibles,
+)
 from server.app.modules.redaccion.services.template_migration_service import (
     CompatibilityConflictError,
     NewVersionNotice,
@@ -909,6 +912,21 @@ async def publish_template_version(
                 f"Estos bloques no están en ninguna sección y no aparecerían en el informe: "
                 f"{', '.join(huerfanos)}. Añádelos al `block_ids` de la sección "
                 f"correspondiente."
+            ),
+        )
+
+    # Issue #153 — una dependencia hacia adelante o un ciclo no rompen nada al ejecutar, y ése
+    # es el problema: el apartado dependiente se redacta igual, apoyado en un bloque que todavía
+    # no produjo nada. Se rechaza aquí por la misma razón que lo de arriba — después ya es tarde,
+    # y validarlo al leer rompería las plantillas que ya están guardadas.
+    imposibles = dependencias_imposibles(spec.blocks)
+    if imposibles:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Esta plantilla declara dependencias que no se pueden cumplir: "
+                + "; ".join(imposibles)
+                + ". Coloca cada bloque después de aquellos de los que depende."
             ),
         )
 

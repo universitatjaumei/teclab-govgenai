@@ -138,7 +138,8 @@
     "source_anchored": "Valora: {{tables}}",
     "source_full": "Sense ancorar: ha llegit tot l’informe",
     "draft_recovered": "Estàs veient un esborrany sense desar d'una sessió anterior.",
-    "draft_discard": "Descartar-lo"
+    "draft_discard": "Descartar-lo",
+    "save_failed": "No s'ha pogut desar. El teu text continua ací i en aquest navegador; torna-ho a provar."
   },
   "status": {
     "missing_data": "Dades pendents",

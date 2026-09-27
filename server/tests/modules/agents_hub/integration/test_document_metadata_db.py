@@ -212,7 +212,12 @@ class TestIndicesEnBd:
 
 
 class TestReclasificacion:
-    """La deuda que ING.0.1 dejó: el barrido de documentos al sustituir un término."""
+    """La deuda que ING.0.1 dejó: el barrido de documentos al sustituir un término.
+
+    **El ámbito es obligatorio desde la revisión de la PR #178**: `chatbot_ids` no tiene valor
+    por omisión, porque el que tenía —`chatbot_id=None`— hacía que el barrido cruzara la frontera
+    entre organizaciones. Estos tests lo pasan explícito, que es justo lo que se quería forzar.
+    """
 
     @pytest.mark.asyncio
     async def test_should_replace_submateria_in_both_arrays(self, db_session):
@@ -230,7 +235,11 @@ class TestReclasificacion:
         await db_session.commit()
 
         tocados = await reclassify_documents(
-            db_session, "submateria", "rrhh-ptgas", "rrhh-ptgas-condicions"
+            db_session,
+            "submateria",
+            "rrhh-ptgas",
+            "rrhh-ptgas-condicions",
+            chatbot_ids=[chatbot_id],
         )
         await db_session.commit()
         await db_session.refresh(doc)
@@ -245,12 +254,18 @@ class TestReclasificacion:
             reclassify_documents,
         )
 
+        chatbot_id = uuid.uuid4()
         doc = await _documento(
-            db_session, ambit_principal="administracio", ambits_secundaris=["administracio"]
+            db_session,
+            chatbot_id=chatbot_id,
+            ambit_principal="administracio",
+            ambits_secundaris=["administracio"],
         )
         await db_session.commit()
 
-        tocados = await reclassify_documents(db_session, "ambit", "administracio", "gerencia")
+        tocados = await reclassify_documents(
+            db_session, "ambit", "administracio", "gerencia", chatbot_ids=[chatbot_id]
+        )
         await db_session.commit()
         await db_session.refresh(doc)
 
@@ -270,7 +285,7 @@ class TestReclasificacion:
         await db_session.commit()
 
         tocados = await reclassify_documents(
-            db_session, "submateria", "vieja", "nueva", chatbot_id=uno
+            db_session, "submateria", "vieja", "nueva", chatbot_ids=[uno]
         )
         await db_session.commit()
         await db_session.refresh(mio)
@@ -308,7 +323,9 @@ class TestReclasificacion:
         await db_session.commit()
         antes = chunk.content_hash
 
-        await reclassify_documents(db_session, "submateria", "vieja", "nueva")
+        await reclassify_documents(
+            db_session, "submateria", "vieja", "nueva", chatbot_ids=[chatbot_id]
+        )
         await db_session.commit()
         await db_session.refresh(chunk)
 
@@ -325,12 +342,17 @@ class TestReclasificacion:
             reclassify_documents,
         )
 
-        await _documento(db_session, submateries=["vieja"])
+        chatbot_id = uuid.uuid4()
+        await _documento(db_session, chatbot_id=chatbot_id, submateries=["vieja"])
         await db_session.commit()
 
-        primera = await reclassify_documents(db_session, "submateria", "vieja", "nueva")
+        primera = await reclassify_documents(
+            db_session, "submateria", "vieja", "nueva", chatbot_ids=[chatbot_id]
+        )
         await db_session.commit()
-        segunda = await reclassify_documents(db_session, "submateria", "vieja", "nueva")
+        segunda = await reclassify_documents(
+            db_session, "submateria", "vieja", "nueva", chatbot_ids=[chatbot_id]
+        )
         await db_session.commit()
 
         assert primera == 1
@@ -343,4 +365,6 @@ class TestReclasificacion:
         )
 
         with pytest.raises(ValueError):
-            await reclassify_documents(db_session, "rang", "a", "b")
+            await reclassify_documents(
+                db_session, "rang", "a", "b", chatbot_ids=[uuid.uuid4()]
+            )

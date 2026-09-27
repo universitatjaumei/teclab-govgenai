@@ -129,18 +129,20 @@ async def modo_de_la_organizacion(workspace: object, session: object) -> Anonymi
     ser un suelo y nadie podría elegir `off` en una instalación recién montada — la anonimización
     sería obligatoria con otro nombre, que es lo contrario de lo que se decidió.
 
-    Se resuelve con una consulta y no navegando por una relación: `HubWorkspace` es operacional y
-    `HubOrganizacion` es de configuración, y la frontera edge/cloud prohíbe `relationship()` entre
-    las dos bases (`AGENTS.md` §Frontera Edge-Cloud).
+    **La consulta la hace el `ConfigProvider`, no este módulo** (revisión de la PR #178). Esto es
+    un servicio edge y `HubOrganizacion` es un modelo de configuración: la frontera prohíbe
+    importarlo aquí, y no por purismo — es lo que permite que en un despliegue partido la
+    configuración llegue por sincronización en vez de por una consulta a una base que el edge no
+    tiene. `AGENTS.md` §Frontera Edge-Cloud.
     """
-    from server.app.modules.agents_hub.database.config_models import HubOrganizacion
+    from server.app.modules.agents_hub.services.config_provider import LocalConfigProvider
 
     organizacion_id = getattr(workspace, "organizacion_id", None)
     if organizacion_id is None:
         return None
 
-    organizacion = await session.get(HubOrganizacion, organizacion_id)  # type: ignore[attr-defined]
-    declarado = getattr(organizacion, "anonymization_mode", None)
+    proveedor = LocalConfigProvider(session)  # type: ignore[arg-type]
+    declarado = await proveedor.get_anonymization_mode(organizacion_id)
     return AnonymizationMode(declarado) if declarado else None
 
 

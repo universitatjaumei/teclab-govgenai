@@ -182,7 +182,12 @@ class ChartHandler:
         from server.app.modules.redaccion.services.charts.chart_factory import ChartFactory
         factory = ChartFactory(self._llm, self._model_name)
         schema = {"columns": list(df.columns), "dtypes": {c: str(t) for c, t in df.dtypes.items()}}
-        chart_script = await factory.generate_script(cfg.nl_prompt or "", schema)
+        # Issue #170 — `execute` recibe el estado entero, contexto incluido, y no se lo pasaba.
+        chart_script = await factory.generate_script(
+            cfg.nl_prompt or "",
+            schema,
+            anonymization_context=getattr(state, "anonymization_context", None),
+        )
         if not chart_script.audit_result.approved:
             raise ChartRenderError(
                 f"Script IA rechazado por auditoría: {chart_script.audit_result.findings}"

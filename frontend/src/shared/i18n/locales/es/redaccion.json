@@ -138,7 +138,8 @@
     "source_anchored": "Valora: {{tables}}",
     "source_full": "Sin anclar: ha leído todo el informe",
     "draft_recovered": "Estás viendo un borrador sin guardar de una sesión anterior.",
-    "draft_discard": "Descartarlo"
+    "draft_discard": "Descartarlo",
+    "save_failed": "No se pudo guardar. Tu texto sigue aquí y en este navegador; vuelve a intentarlo."
   },
   "status": {
     "missing_data": "Datos pendientes",

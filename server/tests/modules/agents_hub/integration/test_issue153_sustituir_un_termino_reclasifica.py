@@ -74,6 +74,42 @@ async def _sembrar_terminos(session, organizacion_id, axis: str, *codis: str) ->
     await session.flush()
 
 
+async def _chatbot(session, organizacion_id) -> uuid.UUID:
+    """Un chatbot de esa organización, que es el camino por el que un documento llega a ella.
+
+    `hub_documents` no lleva `organizacion_id`: se llega por `chatbot_id`, y así está escrito en
+    `docs/MULTITENENCIA.md`. Sembrarlo es lo que permite comprobar la frontera de verdad.
+    """
+    from server.app.modules.agents_hub.database.config_models import (
+        HubChatbot,
+        HubLLMConfig,
+        HubProvider,
+    )
+
+    await session.merge(HubProvider(id="google", name="Google", provider_type="google_genai"))
+    await session.flush()
+
+    llm = HubLLMConfig(
+        id=uuid.uuid4(),
+        provider="google",
+        model_name="gemini-2.5-flash",
+        label=f"llm-{uuid.uuid4().hex[:6]}",
+    )
+    session.add(llm)
+    await session.flush()
+
+    chatbot = HubChatbot(
+        organizacion_id=organizacion_id,
+        llm_config_id=llm.id,
+        name=f"Chatbot {uuid.uuid4().hex[:6]}",
+        system_prompt="x",
+        sources=[],
+    )
+    session.add(chatbot)
+    await session.flush()
+    return chatbot.id
+
+
 async def _termino(session, organizacion_id, axis: str, codi: str):
     from server.app.modules.agents_hub.database.config_models import HubVocabularyTerm
 
@@ -97,8 +133,12 @@ class TestLasDosMitadesVanJuntas:
 
         organizacion_id = uuid.uuid4()
         await _sembrar_terminos(db_session, organizacion_id, "submateria", "vella", "nova")
+        chatbot_id = await _chatbot(db_session, organizacion_id)
         doc = await _documento(
-            db_session, submateries=["vella", "convenis"], submateries_internes=["vella"]
+            db_session,
+            chatbot_id=chatbot_id,
+            submateries=["vella", "convenis"],
+            submateries_internes=["vella"],
         )
         await db_session.commit()
 
@@ -163,7 +203,11 @@ class TestLasDosMitadesVanJuntas:
 
         organizacion_id = uuid.uuid4()
         await _sembrar_terminos(db_session, organizacion_id, "submateria", "vella")
-        doc = await _documento(db_session, submateries=["vella"])
+        doc = await _documento(
+            db_session,
+            chatbot_id=await _chatbot(db_session, organizacion_id),
+            submateries=["vella"],
+        )
         await db_session.commit()
 
         with pytest.raises(VocabularyCsvError):
@@ -240,3 +284,143 @@ class TestElOperadorPuedeEjecutarlo:
         assert args.csv == "ambits.csv"
         assert args.dry_run is True
         assert args.substituir is None
+
+
+class TestNoCruzaLaFronteraEntreOrganizaciones:
+    """Lo encontró la revisión automática de la PR, y es la regla más dura del proyecto.
+
+    El vocabulario es **por organización** —`hub_vocabulary_terms` lleva `organizacion_id`— pero
+    el barrido de documentos no lo era: `reclassify_documents` sólo acotaba por un `chatbot_id`
+    opcional, y quien lo llamaba le pasaba `None`. Así que sustituir un término de la organización
+    A reescribía los documentos de la B que usaran el mismo código.
+
+    Dos organizaciones pueden usar perfectamente el mismo código: `personal`, `beques`,
+    `contractacio` no son de nadie. El camino a la organización de un documento es
+    `chatbot_id`, y está escrito en `docs/MULTITENENCIA.md`.
+    """
+
+    @pytest.mark.asyncio
+    async def test_sustituir_en_una_organizacion_no_toca_los_documentos_de_la_otra(
+        self, db_session
+    ):
+        from server.app.modules.agents_hub.vocabulary.load import sustituir_termino
+
+        propia, ajena = uuid.uuid4(), uuid.uuid4()
+        await _sembrar_terminos(db_session, propia, "submateria", "vella", "nova")
+        await _sembrar_terminos(db_session, ajena, "submateria", "vella", "nova")
+
+        chatbot_propio = await _chatbot(db_session, propia)
+        chatbot_ajeno = await _chatbot(db_session, ajena)
+        meu = await _documento(db_session, chatbot_id=chatbot_propio, submateries=["vella"])
+        seu = await _documento(db_session, chatbot_id=chatbot_ajeno, submateries=["vella"])
+        await db_session.commit()
+
+        tocados = await sustituir_termino(
+            db_session,
+            axis="submateria",
+            codi_antic="vella",
+            codi_nou="nova",
+            organizacion_id=propia,
+        )
+        await db_session.commit()
+        await db_session.refresh(meu)
+        await db_session.refresh(seu)
+
+        assert meu.submateries == ["nova"], "no se reclasificó el documento propio"
+        assert seu.submateries == ["vella"], (
+            "se reescribió el documento de otra organización. El vocabulario es por "
+            "organización y el barrido no lo era."
+        )
+        assert tocados == 1, f"contó {tocados} documentos: está barriendo fuera de su ámbito"
+
+    @pytest.mark.asyncio
+    async def test_una_organizacion_sin_chatbots_no_barre_nada_y_no_falla(self, db_session):
+        """El caso de borde que un ámbito obligatorio podría convertir en excepción."""
+        from server.app.modules.agents_hub.vocabulary.load import sustituir_termino
+
+        organizacion_id = uuid.uuid4()
+        await _sembrar_terminos(db_session, organizacion_id, "submateria", "vella", "nova")
+        await db_session.commit()
+
+        tocados = await sustituir_termino(
+            db_session,
+            axis="submateria",
+            codi_antic="vella",
+            codi_nou="nova",
+            organizacion_id=organizacion_id,
+        )
+        await db_session.commit()
+
+        vieja = await _termino(db_session, organizacion_id, "submateria", "vella")
+        assert vieja.vigent is False, "el término tiene que quedar sustituido igualmente"
+        assert tocados == 0
+
+
+class TestElCodigoQueEsPrefijoDeOtroNoCorrompe:
+    """El segundo hallazgo de la revisión: el campo escalar se actualizaba con `replace()`.
+
+    La fila entra en el `UPDATE` si **cualquiera** de sus columnas trae el código viejo, y el
+    `replace()` se aplicaba después sobre `ambit_principal` fuera cual fuera su valor. Un
+    documento con el código viejo en el array y un ámbito principal que **empieza igual** salía
+    con el ámbito principal roto — y no da ningún error.
+    """
+
+    @pytest.mark.asyncio
+    async def test_un_ambito_principal_que_empieza_igual_se_queda_como_estaba(self, db_session):
+        from server.app.modules.agents_hub.vocabulary.load import sustituir_termino
+
+        organizacion_id = uuid.uuid4()
+        await _sembrar_terminos(
+            db_session, organizacion_id, "ambit", "administracio", "gerencia"
+        )
+        chatbot_id = await _chatbot(db_session, organizacion_id)
+        doc = await _documento(
+            db_session,
+            chatbot_id=chatbot_id,
+            ambit_principal="administracio-general",
+            ambits_secundaris=["administracio"],
+        )
+        await db_session.commit()
+
+        await sustituir_termino(
+            db_session,
+            axis="ambit",
+            codi_antic="administracio",
+            codi_nou="gerencia",
+            organizacion_id=organizacion_id,
+        )
+        await db_session.commit()
+        await db_session.refresh(doc)
+
+        assert doc.ambits_secundaris == ["gerencia"], "el array sí tenía que cambiar"
+        assert doc.ambit_principal == "administracio-general", (
+            "el ámbito principal se corrompió: `replace()` sustituye subcadenas, y "
+            "`administracio` es prefijo de `administracio-general`. Tiene que ser igualdad."
+        )
+
+    @pytest.mark.asyncio
+    async def test_el_ambito_principal_exacto_si_cambia(self, db_session):
+        """El camino bueno, sin el cual el test de arriba se cumpliría no haciendo nada."""
+        from server.app.modules.agents_hub.vocabulary.load import sustituir_termino
+
+        organizacion_id = uuid.uuid4()
+        await _sembrar_terminos(
+            db_session, organizacion_id, "ambit", "administracio", "gerencia"
+        )
+        chatbot_id = await _chatbot(db_session, organizacion_id)
+        doc = await _documento(
+            db_session, chatbot_id=chatbot_id, ambit_principal="administracio"
+        )
+        await db_session.commit()
+
+        await sustituir_termino(
+            db_session,
+            axis="ambit",
+            codi_antic="administracio",
+            codi_nou="gerencia",
+            organizacion_id=organizacion_id,
+        )
+        await db_session.commit()
+        await db_session.refresh(doc)
+
+        assert doc.ambit_principal == "gerencia"

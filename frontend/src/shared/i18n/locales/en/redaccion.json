@@ -138,7 +138,8 @@
     "source_anchored": "Comments on: {{tables}}",
     "source_full": "Not anchored: it read the whole report",
     "draft_recovered": "You are seeing an unsaved draft from an earlier session.",
-    "draft_discard": "Discard it"
+    "draft_discard": "Discard it",
+    "save_failed": "Could not save. Your text is still here and in this browser; try again."
   },
   "status": {
     "missing_data": "Data pending",

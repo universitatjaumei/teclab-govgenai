@@ -18,7 +18,9 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import func, or_, select, update
+from collections.abc import Sequence
+
+from sqlalchemy import case, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.app.modules.agents_hub.database.operational_models import HubDocument
@@ -43,13 +45,26 @@ async def reclassify_documents(
     axis: str,
     codi_antic: str,
     codi_nou: str,
-    chatbot_id: uuid.UUID | None = None,
+    *,
+    chatbot_ids: Sequence[uuid.UUID],
 ) -> int:
-    """Sustituye `codi_antic` por `codi_nou` en los documentos que lo usan.
+    """Sustituye `codi_antic` por `codi_nou` en los documentos de esos chatbots.
 
     Devuelve el número de documentos tocados. Idempotente: una segunda pasada
     devuelve 0 porque ya no queda ninguno con el código antiguo.
+
+    **`chatbot_ids` es obligatorio y sin valor por omisión, a propósito.** Antes era un
+    `chatbot_id | None` que quien llamaba dejaba en `None`, y entonces el barrido cruzaba la
+    frontera entre organizaciones: el vocabulario es **por organización**, pero dos
+    organizaciones pueden usar el mismo código —`personal`, `beques`, `contractacio` no son de
+    nadie— y el `UPDATE` las alcanzaba a todas. Un ámbito que se puede omitir se omite; uno que
+    hay que escribir obliga a pensar de quién son los documentos que se van a reescribir.
+
+    Una lista vacía significa «esta organización no tiene chatbots», y entonces no hay nada que
+    barrer: devuelve 0 sin tocar nada. Es distinto de no acotar.
     """
+    if not chatbot_ids:
+        return 0
     if axis not in _COLUMNAS_POR_EJE:
         raise ValueError(
             f"Eje '{axis}' sin columnas en hub_documents. "
@@ -66,9 +81,7 @@ async def reclassify_documents(
     if columna_escalar:
         condiciones.append(getattr(HubDocument, columna_escalar) == codi_antic)
 
-    filtro = [or_(*condiciones)]
-    if chatbot_id is not None:
-        filtro.append(HubDocument.chatbot_id == chatbot_id)
+    filtro = [or_(*condiciones), HubDocument.chatbot_id.in_(list(chatbot_ids))]
 
     afectados = await session.scalar(
         select(func.count()).select_from(HubDocument).where(*filtro)
@@ -81,10 +94,14 @@ async def reclassify_documents(
         for nombre in columnas_array
     }
     if columna_escalar:
-        valores[columna_escalar] = func.nullif(
-            func.replace(getattr(HubDocument, columna_escalar), codi_antic, codi_nou),
-            "",
-        )
+        # **Igualdad, no `replace()`.** La fila entra en el `UPDATE` si **cualquiera** de sus
+        # columnas trae el código viejo, así que el escalar se tocaba aunque no fuera el código:
+        # un documento con `ambits_secundaris = ["administracio"]` y
+        # `ambit_principal = "administracio-general"` salía con el ámbito principal convertido en
+        # `"gerencia-general"`. `replace()` sustituye subcadenas y aquí el código viejo puede ser
+        # prefijo de otro perfectamente legítimo. Y no da ningún error.
+        columna = getattr(HubDocument, columna_escalar)
+        valores[columna_escalar] = case((columna == codi_antic, codi_nou), else_=columna)
 
     await session.execute(
         update(HubDocument).where(*filtro).values(**valores)
