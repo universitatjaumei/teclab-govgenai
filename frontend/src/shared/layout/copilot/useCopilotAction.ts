@@ -3,8 +3,13 @@ import { useFocusStore, type CopilotAction, type CopilotActionKind } from '../us
 
 /**
  * Hook que consume `pendingAction` del store cuando coincide con `targetKind`.
- * El wizard activo (chart builder / ETL / script proposal) llama a `useCopilotAction(kind, onApply)`
- * para recibir la configuración que el Copilot ha dispatcheado.
+ *
+ * sin-montar: ninguna pantalla lo llama todavía, y es una espera declarada, no un olvido. GUI.5
+ * retiró el botón «Aplicar» del Copiloto porque escribía la propuesta en `pendingAction` y
+ * **nadie la leía**: un botón que no hace nada es peor que no tenerlo. La propuesta se copia, que
+ * es algo que de verdad ocurre. Aplicarla exige una pantalla que la reciba —el asistente de
+ * gráficos, el de ETL o el de scripts—, y esa pantalla es lo que falta. Cuando exista, este hook
+ * es lo que tiene que llamar: `useCopilotAction(kind, onApply)`.
  */
 export function useCopilotAction(
   targetKind: CopilotActionKind,
