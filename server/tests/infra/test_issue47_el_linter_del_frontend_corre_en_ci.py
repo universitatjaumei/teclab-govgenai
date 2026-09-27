@@ -43,7 +43,10 @@ CONFIG = RAIZ / "frontend" / "eslint.config.js"
 #:
 #: · 33 → 26 el 2026-09-27: `ThemeProvider`, `useAutosave`, `ThemeEditor`.
 #: · 26 → 23 el 2026-09-27: `ActivityPromptsPage`, `ValoresPorDefectoPage`.
-TECHO = 23
+#: · 23 → 21 el 2026-09-27: `UsuariosPage`, `DocumentsTable` y el array inestable de
+#:   `useOrganizacionElegida`. Su otro aviso se queda: quitarlo exige decidir antes qué marca
+#:   ve quien no ha elegido organización, y eso es producto, no refactor.
+TECHO = 21
 
 
 def _script_lint() -> str:

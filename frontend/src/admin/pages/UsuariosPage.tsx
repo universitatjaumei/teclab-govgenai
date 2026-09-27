@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useForm } from 'react-hook-form'
@@ -117,10 +117,15 @@ export function UsuariosPage() {
   } = useForm<ValoresContrasena>({ resolver: zodResolver(esquemaContrasena) })
   /** El alta arranca en la organizacion sobre la que ya se esta trabajando (REV.10). */
   const { organizaciones, elegida } = useOrganizacionElegida()
-  const [organizacionDelAlta, setOrganizacionDelAlta] = useState('')
-  useEffect(() => {
-    if (!organizacionDelAlta && elegida) setOrganizacionDelAlta(elegida)
-  }, [elegida, organizacionDelAlta])
+  // **Se deriva, no se copia.** El efecto copiaba `elegida` en el estado la primera vez que
+  // llegaba, y eso tenía un hueco: `elegida` viene de una petición, así que entre el primer
+  // render y su llegada el desplegable mostraba «sin organización». Si alguien abría el alta
+  // justo ahí y le daba a crear, mandaba la persona sin organización.
+  //
+  // `null` significa «nadie ha tocado el desplegable»; en cuanto se toca, manda la elección
+  // explícita aunque coincida con la de la cabecera.
+  const [organizacionElegidaAMano, setOrganizacionDelAlta] = useState<string | null>(null)
+  const organizacionDelAlta = organizacionElegidaAMano ?? elegida
 
   /**
    * El nombre de la organización de una fila, o que no tiene ninguna (REV.10).

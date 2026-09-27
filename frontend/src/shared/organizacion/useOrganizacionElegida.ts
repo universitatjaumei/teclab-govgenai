@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useListOrganizacionesApiV1HubOrganizacionesGet } from '@/shared/api/generated/hub-organizaciones/hub-organizaciones'
 
 /** Dónde se recuerda la elección. Por navegador y por persona que usa ese navegador. */
@@ -38,8 +38,19 @@ export interface EleccionDeOrganizacion {
  */
 export function useOrganizacionElegida(): EleccionDeOrganizacion {
   const { data } = useListOrganizacionesApiV1HubOrganizacionesGet()
-  const organizaciones: OrganizacionBreve[] = ((data ?? []) as { id: string; name: string }[]).map(
-    (o) => ({ id: String(o.id), name: o.name }),
+
+  // **Memoizado, y no es optimización prematura.** Sin esto, el `.map()` construía un array
+  // nuevo en CADA render, así que las dependencias del efecto de abajo cambiaban siempre y el
+  // efecto corría en todos ellos — y lo mismo le pasaba a cualquier consumidor que metiera
+  // `organizaciones` en sus propias dependencias, que es un hook compartido multiplicando el
+  // problema por sus llamadores.
+  const organizaciones: OrganizacionBreve[] = useMemo(
+    () =>
+      ((data ?? []) as { id: string; name: string }[]).map((o) => ({
+        id: String(o.id),
+        name: o.name,
+      })),
+    [data],
   )
 
   const [elegida, setElegida] = useState<string>(() => {
@@ -60,6 +71,18 @@ export function useOrganizacionElegida(): EleccionDeOrganizacion {
     }
   }, [])
 
+  // **La corrección se queda en un efecto, y NO es por no haberlo intentado.** Derivarla
+  // —devolver la primera cuando la guardada ya no existe— quita un render y evita escribir en
+  // `localStorage` una elección que nadie hizo. Pero rompe
+  // `should_ask_for_nothing_in_particular_when_none_is_chosen`, y al mirar por qué aparece una
+  // contradicción que no es de este código: ese test dice que sin elección se pide la marca de
+  // PLATAFORMA, y con el efecto eso sólo es cierto durante un render — inmediatamente después
+  // el efecto elige la primera organización y la marca pasa a ser la suya. El test pasaba por
+  // ese instante, no por el comportamiento estable.
+  //
+  // Qué debe ver quien no ha elegido —la marca de la plataforma o la de la primera
+  // organización— es una decisión de producto, no una de refactor. Hasta que se tome, se
+  // conserva el comportamiento actual.
   useEffect(() => {
     if (organizaciones.length === 0) return
     const sigueExistiendo = organizaciones.some((o) => o.id === elegida)

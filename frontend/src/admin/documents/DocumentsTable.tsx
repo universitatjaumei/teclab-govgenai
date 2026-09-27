@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Eye, FileUp, Link, Loader2, Trash2 } from 'lucide-react'
 
@@ -54,7 +54,17 @@ export function DocumentsTable({
 
   // Volver a la primera al cambiar el conjunto: filtrar desde la página 4 dejaba la tabla
   // vacía y parecía que el filtro no había encontrado nada.
-  useEffect(() => setPagina(0), [documents.length, langFilter])
+  //
+  // Se hace **durante el render** y no en un efecto, que es el patrón de React para «reiniciar
+  // estado cuando cambia un valor». Con el efecto se pintaba un fotograma con la página vieja
+  // sobre el conjunto nuevo — justo la tabla vacía que este código existe para evitar, aunque
+  // durara un instante.
+  const claveDelConjunto = `${documents.length}|${langFilter ?? ''}`
+  const [claveVista, setClaveVista] = useState(claveDelConjunto)
+  if (claveDelConjunto !== claveVista) {
+    setClaveVista(claveDelConjunto)
+    setPagina(0)
+  }
 
   const paginas = Math.max(1, Math.ceil(documents.length / POR_PAGINA))
   const actual = Math.min(pagina, paginas - 1)
