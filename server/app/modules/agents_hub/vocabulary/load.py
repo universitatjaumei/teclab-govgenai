@@ -16,6 +16,7 @@ validación de documentos empezaría a fallar de forma aleatoria.
 from __future__ import annotations
 
 import argparse
+from collections.abc import Sequence
 import asyncio
 import csv
 import sys
@@ -249,6 +250,7 @@ async def sustituir_termino(
     codi_antic: str,
     codi_nou: str,
     organizacion_id: uuid.UUID,
+    chatbot_ids: Sequence[uuid.UUID],
 ) -> int:
     """Renombra o fusiona un término **y reclasifica los documentos que lo usaban**.
 
@@ -266,11 +268,17 @@ async def sustituir_termino(
     `doc_metadata` y no dirigen la recuperación— se sustituyen igual y devuelven 0: que no haya
     nada que barrer no puede impedir renombrar.
 
-    Nota de frontera: el vocabulario es configuración y los documentos son operacionales. En un
-    despliegue partido cloud/edge no comparten base, y entonces esta función corre donde están
-    los documentos y el lado del vocabulario llega por la sincronización.
+    **El ámbito entra por parámetro y no se descubre aquí** (segunda revisión de la PR #179). La
+    versión anterior consultaba `HubChatbot` —un modelo de **configuración**— para resolver los
+    chatbots de la organización, y a continuación escribía `HubDocument`, que es **operacional**.
+    En un despliegue partido cloud/edge esas dos bases no son la misma, así que esa función sólo
+    podía correr donde están las dos: en modo `all`. Recibiendo el ámbito, la parte que barre
+    documentos se puede ejecutar donde están los documentos.
+
+    Quien compone la operación —hoy el CLI— es quien resuelve el ámbito y lo pasa. Es también
+    mejor diseño al margen de la frontera: **el ámbito de un `UPDATE` masivo es una entrada de la
+    operación, no algo que la operación averigua**.
     """
-    from server.app.modules.agents_hub.database.config_models import HubChatbot
     from server.app.modules.agents_hub.services.corpus_reclassifier import (
         AXES_BARRIBLES,
         reclassify_documents,
@@ -282,16 +290,6 @@ async def sustituir_termino(
 
     if axis not in AXES_BARRIBLES:
         return 0
-
-    # **El ámbito se resuelve aquí y viaja explícito.** `hub_documents` no lleva
-    # `organizacion_id`: se llega por `chatbot_id`, tal como está escrito en
-    # `docs/MULTITENENCIA.md`. Sin esta consulta el barrido alcanzaba los documentos de
-    # cualquier organización que usara el mismo código, que es una fuga de las de verdad.
-    chatbot_ids = (
-        await session.execute(
-            select(HubChatbot.id).where(HubChatbot.organizacion_id == organizacion_id)
-        )
-    ).scalars().all()
 
     return await reclassify_documents(
         session, axis, codi_antic, codi_nou, chatbot_ids=list(chatbot_ids)
@@ -434,6 +432,22 @@ async def _run(args: argparse.Namespace) -> int:
     return 0
 
 
+async def _chatbots_de(session: AsyncSession, organizacion_id: uuid.UUID) -> list[uuid.UUID]:
+    """Los chatbots de la organización, que es el ámbito de sus documentos.
+
+    Vive en el CLI y no en `sustituir_termino` porque aquí es donde se compone la operación: la
+    consulta toca **configuración** y el barrido toca lo **operacional**, y en un despliegue
+    partido no están en la misma base. Quien ejecute el CLI allí puede saltarse esta consulta
+    pasando `--chatbot-id` tantas veces como haga falta.
+    """
+    from server.app.modules.agents_hub.database.config_models import HubChatbot
+
+    filas = await session.execute(
+        select(HubChatbot.id).where(HubChatbot.organizacion_id == organizacion_id)
+    )
+    return list(filas.scalars().all())
+
+
 async def _run_sustitucion(args: argparse.Namespace) -> int:
     """El modo «renombrar o fusionar», que es el que no existía (issue #153).
 
@@ -450,12 +464,16 @@ async def _run_sustitucion(args: argparse.Namespace) -> int:
     try:
         async with session_factory() as session:
             try:
+                chatbot_ids = args.chatbot_id or await _chatbots_de(
+                    session, args.organizacion_id
+                )
                 tocados = await sustituir_termino(
                     session,
                     axis=args.axis,
                     codi_antic=args.substituir,
                     codi_nou=args.per,
                     organizacion_id=args.organizacion_id,
+                    chatbot_ids=chatbot_ids,
                 )
             except VocabularyCsvError as exc:
                 print(f"ERROR: {exc}", file=sys.stderr)
@@ -507,6 +525,17 @@ def _construir_parser() -> argparse.ArgumentParser:
         "--per",
         metavar="CODI_NOU",
         help="Código que sustituye al anterior",
+    )
+    parser.add_argument(
+        "--chatbot-id",
+        action="append",
+        type=uuid.UUID,
+        dest="chatbot_id",
+        help=(
+            "Acota el barrido a estos chatbots, repetible. Si no se pasa, se resuelven los de "
+            "la organización. En un despliegue partido cloud/edge, donde el vocabulario y los "
+            "documentos no comparten base, es la forma de barrer desde donde están los documentos"
+        ),
     )
     parser.add_argument(
         "--dry-run", action="store_true", help="Reporta el plan sin escribir"

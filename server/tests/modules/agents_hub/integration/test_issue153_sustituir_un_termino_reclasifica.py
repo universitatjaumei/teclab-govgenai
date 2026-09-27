@@ -148,6 +148,7 @@ class TestLasDosMitadesVanJuntas:
             codi_antic="vella",
             codi_nou="nova",
             organizacion_id=organizacion_id,
+            chatbot_ids=[chatbot_id],
         )
         await db_session.commit()
         await db_session.refresh(doc)
@@ -182,6 +183,7 @@ class TestLasDosMitadesVanJuntas:
             codi_antic="llei",
             codi_nou="llei-organica",
             organizacion_id=organizacion_id,
+            chatbot_ids=[],
         )
         await db_session.commit()
 
@@ -203,11 +205,8 @@ class TestLasDosMitadesVanJuntas:
 
         organizacion_id = uuid.uuid4()
         await _sembrar_terminos(db_session, organizacion_id, "submateria", "vella")
-        doc = await _documento(
-            db_session,
-            chatbot_id=await _chatbot(db_session, organizacion_id),
-            submateries=["vella"],
-        )
+        chatbot_id = await _chatbot(db_session, organizacion_id)
+        doc = await _documento(db_session, chatbot_id=chatbot_id, submateries=["vella"])
         await db_session.commit()
 
         with pytest.raises(VocabularyCsvError):
@@ -217,6 +216,7 @@ class TestLasDosMitadesVanJuntas:
                 codi_antic="vella",
                 codi_nou="fantasma",
                 organizacion_id=organizacion_id,
+                chatbot_ids=[chatbot_id],
             )
 
         await db_session.rollback()
@@ -321,6 +321,7 @@ class TestNoCruzaLaFronteraEntreOrganizaciones:
             codi_antic="vella",
             codi_nou="nova",
             organizacion_id=propia,
+            chatbot_ids=[chatbot_propio],
         )
         await db_session.commit()
         await db_session.refresh(meu)
@@ -332,6 +333,33 @@ class TestNoCruzaLaFronteraEntreOrganizaciones:
             "organización y el barrido no lo era."
         )
         assert tocados == 1, f"contó {tocados} documentos: está barriendo fuera de su ámbito"
+
+    @pytest.mark.asyncio
+    async def test_el_ambito_es_una_entrada_de_la_operacion_y_no_se_descubre(self, db_session):
+        """Segunda revisión (PR #179): resolver el ámbito dentro obligaba a mirar dos bases.
+
+        `HubChatbot` es configuración y `HubDocument` es operacional; en un despliegue partido no
+        comparten base, así que la consulta dentro de la función ataba la operación al modo
+        `all`. Ahora entra por parámetro, y quien compone —el CLI— es quien lo resuelve.
+        """
+        import inspect
+
+        from server.app.modules.agents_hub.vocabulary import load
+
+        firma = inspect.signature(load.sustituir_termino)
+
+        assert "chatbot_ids" in firma.parameters, (
+            "el ámbito tiene que ser una entrada de la operación, no algo que averigua"
+        )
+        # Sin el docstring: ahí `HubChatbot` se nombra para explicar por qué **ya no** se
+        # consulta, y contar esa mención sería medir la prosa en vez del código.
+        fuente = inspect.getsource(load.sustituir_termino)
+        cuerpo = fuente.split('"""')[-1]
+
+        assert "HubChatbot" not in cuerpo, (
+            "la función vuelve a consultar un modelo de configuración: eso la ata a un "
+            "despliegue donde las dos bases son la misma"
+        )
 
     @pytest.mark.asyncio
     async def test_una_organizacion_sin_chatbots_no_barre_nada_y_no_falla(self, db_session):
@@ -348,6 +376,7 @@ class TestNoCruzaLaFronteraEntreOrganizaciones:
             codi_antic="vella",
             codi_nou="nova",
             organizacion_id=organizacion_id,
+            chatbot_ids=[],
         )
         await db_session.commit()
 
@@ -388,6 +417,7 @@ class TestElCodigoQueEsPrefijoDeOtroNoCorrompe:
             codi_antic="administracio",
             codi_nou="gerencia",
             organizacion_id=organizacion_id,
+            chatbot_ids=[chatbot_id],
         )
         await db_session.commit()
         await db_session.refresh(doc)
@@ -419,6 +449,7 @@ class TestElCodigoQueEsPrefijoDeOtroNoCorrompe:
             codi_antic="administracio",
             codi_nou="gerencia",
             organizacion_id=organizacion_id,
+            chatbot_ids=[chatbot_id],
         )
         await db_session.commit()
         await db_session.refresh(doc)

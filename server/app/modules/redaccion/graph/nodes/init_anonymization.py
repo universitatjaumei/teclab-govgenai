@@ -161,6 +161,23 @@ class InitAnonymizationNode:
                             parts.append(item)
                             source_map.setdefault(item, block_id)
 
+        # Issue #170 — **las instrucciones en lenguaje natural también se escanean.** Viven en
+        # `spec.blocks[*].config`, no en el contenido de ningún bloque ni en los ficheros
+        # normalizados, así que no entraban por ninguno de los dos caminos de arriba. Y son un
+        # sitio donde el dato personal entra **a mano**: las escribe una persona («agrupa las
+        # dietas de …»), y de ahí salen tal cual hacia el modelo en el nodo de transformación y
+        # en el de gráficos.
+        #
+        # Sin esto el cableado del contexto no sirve de nada en ese camino: el mapa sale vacío y
+        # `apply_pre_llm` no tiene qué sustituir. Son dos mitades de lo mismo.
+        for contrato in getattr(getattr(state, "spec", None), "blocks", None) or []:
+            config = getattr(contrato, "config", None)
+            for campo in ("nl_instruction", "nl_prompt"):
+                texto = getattr(config, campo, None)
+                if isinstance(texto, str) and texto.strip():
+                    parts.append(texto)
+                    source_map.setdefault(texto, str(getattr(contrato, "id", "")))
+
         corpus = "\n".join(parts)
         return corpus, source_map
 
