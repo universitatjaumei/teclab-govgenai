@@ -13,7 +13,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "build:widget": "vite build --config vite.config.widget.ts",
-    "lint": "eslint . --max-warnings 26",
+    "lint": "eslint . --max-warnings 23",
     "preview": "vite preview",
     "test": "vitest run",
     "test:a11y": "vitest run --config vitest.a11y.config.ts",

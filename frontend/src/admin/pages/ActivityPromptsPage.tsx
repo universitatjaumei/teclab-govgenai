@@ -293,7 +293,11 @@ export function ActivityPromptsPage() {
   const [modulo, setModulo] = useState('')
   const [busqueda, setBusqueda] = useState('')
 
-  const todas = actividades ?? []
+  // `actividades ?? []` a secas creaba un array NUEVO en cada render mientras no hubiera datos,
+  // asi que las dependencias de los dos `useMemo` de abajo cambiaban siempre y la memoizacion no
+  // memoizaba nada: se recalculaban los modulos y el filtrado en cada pulsacion de tecla del
+  // buscador. Con el `useMemo` la referencia es estable.
+  const todas = useMemo(() => actividades ?? [], [actividades])
 
   /**
    * Los módulos que de verdad hay, sacados de los datos y **no de una lista escrita aquí**:

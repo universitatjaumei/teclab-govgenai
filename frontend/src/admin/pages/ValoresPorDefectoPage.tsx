@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useOrganizacionElegida } from '@/shared/organizacion/useOrganizacionElegida'
@@ -172,7 +172,17 @@ export function ValoresPorDefectoPage() {
    * limpia al cambiar de organización porque lo que se abrió pertenecía a la anterior.
    */
   const [desplegados, setDesplegados] = useState<Set<string>>(new Set())
-  useEffect(() => setDesplegados(new Set()), [organizacionId])
+
+  // Se limpia **durante el render** y no en un efecto, que es el patrón que React documenta para
+  // «reiniciar estado cuando cambia un valor». Con el efecto, React pintaba un fotograma con los
+  // campos que alguien había desplegado en la organización ANTERIOR antes de limpiarlos: poca
+  // cosa visualmente, pero en una pantalla multiorganización es enseñar un instante qué abrió
+  // alguien en otra.
+  const [organizacionPrevia, setOrganizacionPrevia] = useState(organizacionId)
+  if (organizacionId !== organizacionPrevia) {
+    setOrganizacionPrevia(organizacionId)
+    setDesplegados(new Set())
+  }
 
   function cambiar(campo: string, valor: unknown) {
     guardar(
