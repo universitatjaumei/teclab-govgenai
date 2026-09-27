@@ -35,11 +35,18 @@ vi.mock('@/shared/api/generated/hub-themes/hub-themes', () => ({
 
 // REV.10 — `AppLayout` lleva el selector de organización, así que consulta la lista. Sin el
 // doble, el `useQuery` revienta por falta de `QueryClientProvider` y el fallo parece del menú.
+// `vi.fn()` y no una funcion fija: un test necesita cambiar la lista para el caso «no hay
+// ninguna organizacion», y con una funcion literal no se puede.
+import { useListOrganizacionesApiV1HubOrganizacionesGet } from '@/shared/api/generated/hub-organizaciones/hub-organizaciones'
+
 vi.mock('@/shared/api/generated/hub-organizaciones/hub-organizaciones', () => ({
-  useListOrganizacionesApiV1HubOrganizacionesGet: () => ({
-    data: [{ id: 'org-uji', name: 'Universitat Jaume I' }, { id: 'org-b', name: 'Otra' }],
-  }),
+  useListOrganizacionesApiV1HubOrganizacionesGet: vi.fn(),
 }))
+
+const ORGANIZACIONES = [
+  { id: 'org-uji', name: 'Universitat Jaume I' },
+  { id: 'org-b', name: 'Otra' },
+]
 
 const TOKEN =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.' +
@@ -61,6 +68,9 @@ beforeAll(async () => {
 })
 
 beforeEach(() => {
+    vi.mocked(useListOrganizacionesApiV1HubOrganizacionesGet).mockReturnValue({
+      data: ORGANIZACIONES,
+    } as unknown as ReturnType<typeof useListOrganizacionesApiV1HubOrganizacionesGet>)
   localStorage.setItem('access_token', TOKEN)
   vi.mocked(useGetMeApiV1AuthMeGet).mockReturnValue({
     data: { modulos: ['chatbots', 'curacion', 'informes'] },
@@ -137,10 +147,39 @@ describe('REV.12 — la marca sigue a la organización elegida', () => {
     )
   })
 
-  it('should_ask_for_nothing_in_particular_when_none_is_chosen', () => {
-    // Sin elección, el comportamiento de siempre: la marca de plataforma. Mandar una cadena
-    // vacía sería pedir «la organización que se llama ""», que es un 422.
+  it('should_land_on_the_first_organisation_when_none_is_chosen', () => {
+    // **Reescrito el 2026-09-27, y por una decisión, no por un refactor.**
+    //
+    // Este test afirmaba que sin elección se pide la marca de PLATAFORMA. Nunca fue cierto en
+    // el estado estable: el hook corregía con un efecto y elegía la primera organización, así
+    // que la marca de plataforma duraba **un render**. El test pasaba por ese instante.
+    //
+    // Decidido: sin elección previa se aterriza en la primera organización, cambiable desde la
+    // cabecera. Así que lo que se comprueba es eso, que es lo que de verdad ve quien entra.
+    // Con cero organizaciones sigue sin pedirse ninguna — lo cubre el test de abajo.
     localStorage.clear()
+    render(
+      <MemoryRouter>
+        <AuthProvider>
+          <AppLayout />
+        </AuthProvider>
+      </MemoryRouter>
+    )
+
+    expect(vi.mocked(useGetResolvedThemeApiV1HubThemesResolvedGet)).toHaveBeenCalledWith(
+      expect.objectContaining({ organizacion: 'org-uji' })
+    )
+  })
+
+  it('should_ask_for_nothing_in_particular_when_there_are_no_organisations', () => {
+    // El caso que sí pide la marca de plataforma: no hay ninguna organización a la que
+    // aterrizar. Mandar una cadena vacía sería pedir «la organización que se llama ""», que
+    // es un 422, así que el hook devuelve `''` y el consumidor lo traduce a `undefined`.
+    localStorage.clear()
+    vi.mocked(useListOrganizacionesApiV1HubOrganizacionesGet).mockReturnValue({
+      data: [],
+    } as unknown as ReturnType<typeof useListOrganizacionesApiV1HubOrganizacionesGet>)
+
     render(
       <MemoryRouter>
         <AuthProvider>
