@@ -26,9 +26,8 @@
     "col_count": "Count",
     "total": "Total",
     "no_run": "No analysis has been run yet.",
-    "btn_reanalyze": "Re-analyze now",
+    "btn_refrescar": "Refresh result",
     "btn_change_mode": "Change mode",
-    "reanalyzing": "Analyzing…",
     "mode_locked": "Mode cannot be changed while execution is in progress.",
     "loading": "Loading…"
   },

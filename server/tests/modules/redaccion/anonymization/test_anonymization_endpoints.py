@@ -261,24 +261,8 @@ def test_patch_mode_records_audit_event() -> None:
     session.commit.assert_called_once()
 
 
-def test_re_analyze_triggers_init_node_without_llm() -> None:
-    """POST re-analyze devuelve 202 y no invoca ningún modelo LLM."""
-    owner_id = uuid.uuid4()
-    workspace = _make_workspace(
-        owner_id=owner_id, status="draft", anonymization_mode="replace"
-    )
-    session = _make_session(workspace=workspace)
-
-    client = TestClient(_build_app(session))
-    resp = client.post(
-        f"/api/v1/redaccion/workspaces/{workspace.id}/re-analyze",
-        headers=_auth(user_id=str(owner_id)),
-    )
-
-    assert resp.status_code == 202
-    data = resp.json()
-    assert data["status"] == "queued"
-    assert data["workspace_id"] == str(workspace.id)
-    assert data["current_mode"] == "replace"
-    # Sin modelo LLM en la respuesta
-    assert "model_used" not in data
+# `test_re_analyze_triggers_init_node_without_llm` vivia aqui y se retiro con su endpoint
+# (issue #169). Se llamaba «dispara el nodo de inicializacion» y lo unico que comprobaba era que
+# la respuesta traia 202 y `"queued"`: fijaba la FORMA de una promesa que no se cumplia, porque
+# no habia ni cola ni nodo. Lo que el boton si hacia falta que hiciera —ensenar el resultado— lo
+# sirve el `GET` de aqui arriba, y eso ya tiene sus tests.

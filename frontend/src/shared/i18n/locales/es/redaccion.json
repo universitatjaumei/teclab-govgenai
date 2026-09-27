@@ -26,9 +26,8 @@
     "col_count": "Cantidad",
     "total": "Total",
     "no_run": "No se ha ejecutado ningún análisis todavía.",
-    "btn_reanalyze": "Re-analizar ahora",
+    "btn_refrescar": "Actualizar resultado",
     "btn_change_mode": "Cambiar modo",
-    "reanalyzing": "Analizando…",
     "mode_locked": "El modo no se puede cambiar durante la ejecución.",
     "loading": "Cargando…"
   },

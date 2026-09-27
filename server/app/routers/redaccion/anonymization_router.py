@@ -2,10 +2,22 @@
 
 Deploy: edge
 
-Tres endpoints:
+Dos endpoints:
 - GET  /{workspace_id}/anonymization-summary  → AnonymizationSummaryResponse
 - PATCH /{workspace_id}/anonymization-mode    → AnonymizationModeResponse
-- POST  /{workspace_id}/re-analyze            → ReAnalyzeResponse (202)
+
+**Hubo un tercero y se retiró (issue #169).** `POST /re-analyze` devolvía **202 Accepted** con
+`status: "queued"` y prometía en su docstring «dispara `InitAnonymizationNode`; el análisis se
+encola en background». Lo que hacía era escribir un evento de auditoría y volver: ni
+`BackgroundTasks`, ni cola, ni nodo — y nadie consumía el evento que dejaba.
+
+Afirmar haber hecho algo es peor que no hacer nada: quien pulsaba el botón recibía «aceptado,
+encolado», la pantalla no daba error, y el análisis no existía.
+
+**La finalidad que el botón sí cumplía se conserva**, porque era otra: ver el resultado de una
+anonimización ya aplicada, o el de la iteración anterior. Eso lo sirve el `GET` de aquí arriba
+—desde la issue #98 cada ejecución escribe su resumen en el manifiesto—, así que el botón pasó a
+refrescar esa vista y no hubo que implementar ninguna cola para anunciarla.
 """
 from __future__ import annotations
 
@@ -73,10 +85,6 @@ class AnonymizationModeResponse(BaseModel):
     motivo: str | None = None
 
 
-class ReAnalyzeResponse(BaseModel):
-    workspace_id: uuid.UUID
-    status: str
-    current_mode: AnonymizationMode
 
 
 # ---------------------------------------------------------------------------
@@ -267,39 +275,3 @@ async def patch_anonymization_mode(
     )
 
 
-@router.post(
-    "/{workspace_id}/re-analyze",
-    response_model=ReAnalyzeResponse,
-    status_code=status.HTTP_202_ACCEPTED,
-    operation_id="reAnalyzeAnonymization",
-)
-async def re_analyze_anonymization(
-    workspace_id: uuid.UUID,
-    user: UserInfo = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session),
-) -> ReAnalyzeResponse:
-    """Dispara InitAnonymizationNode sin llegar al LLM.
-
-    Útil para previsualizar conteos de PII antes de ejecutar el grafo.
-    El análisis se encola en background; el endpoint devuelve 202 inmediatamente.
-    - 403: usuario no es owner.
-    """
-    workspace = await _get_workspace_checked(workspace_id, user, session)
-
-    audit_event = HubWorkspaceAuditEvent(
-        workspace_id=workspace_id,
-        block_id=None,
-        event="re_analyze_started",
-        from_status=workspace.status,
-        to_status=workspace.status,
-        actor=user.user_id,
-        metadata_json={"mode": workspace.anonymization_mode},
-    )
-    session.add(audit_event)
-    await session.commit()
-
-    return ReAnalyzeResponse(
-        workspace_id=workspace_id,
-        status="queued",
-        current_mode=AnonymizationMode(workspace.anonymization_mode),
-    )

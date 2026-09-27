@@ -26,9 +26,8 @@
     "col_count": "Quantitat",
     "total": "Total",
     "no_run": "Encara no s'ha executat cap anàlisi.",
-    "btn_reanalyze": "Re-analitzar ara",
+    "btn_refrescar": "Actualitzar resultat",
     "btn_change_mode": "Canviar mode",
-    "reanalyzing": "Analitzant…",
     "mode_locked": "El mode no es pot canviar durant l'execució.",
     "loading": "Carregant…"
   },

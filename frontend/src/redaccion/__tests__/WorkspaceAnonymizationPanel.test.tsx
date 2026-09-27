@@ -14,19 +14,16 @@ import { WorkspaceAnonymizationPanel } from '../components/WorkspaceAnonymizatio
 // ---------------------------------------------------------------------------
 
 const mockPatchMutate = vi.fn()
-const mockReAnalyzeMutate = vi.fn()
 
 vi.mock('@/shared/api/generated/redaccion-anonymization/redaccion-anonymization', () => ({
   getGetAnonymizationSummaryQueryKey: (id: string) => ['anon-summary', id],
   useGetAnonymizationSummary: vi.fn(),
   usePatchAnonymizationMode: vi.fn(),
-  useReAnalyzeAnonymization: vi.fn(),
 }))
 
 import {
   useGetAnonymizationSummary,
   usePatchAnonymizationMode,
-  useReAnalyzeAnonymization,
 } from '@/shared/api/generated/redaccion-anonymization/redaccion-anonymization'
 
 // ---------------------------------------------------------------------------
@@ -68,10 +65,6 @@ describe('WorkspaceAnonymizationPanel', () => {
       mutate: mockPatchMutate,
       isPending: false,
     } as never)
-    vi.mocked(useReAnalyzeAnonymization).mockReturnValue({
-      mutate: mockReAnalyzeMutate,
-      isPending: false,
-    } as never)
 
     wrap(
       <WorkspaceAnonymizationPanel
@@ -93,10 +86,6 @@ describe('WorkspaceAnonymizationPanel', () => {
     } as never)
     vi.mocked(usePatchAnonymizationMode).mockReturnValue({
       mutate: mockPatchMutate,
-      isPending: false,
-    } as never)
-    vi.mocked(useReAnalyzeAnonymization).mockReturnValue({
-      mutate: mockReAnalyzeMutate,
       isPending: false,
     } as never)
 
@@ -124,10 +113,6 @@ describe('WorkspaceAnonymizationPanel', () => {
       mutate: mockPatchMutate,
       isPending: false,
     } as never)
-    vi.mocked(useReAnalyzeAnonymization).mockReturnValue({
-      mutate: mockReAnalyzeMutate,
-      isPending: false,
-    } as never)
 
     wrap(
       <WorkspaceAnonymizationPanel
@@ -139,7 +124,14 @@ describe('WorkspaceAnonymizationPanel', () => {
     expect(screen.getByTestId('anon-badge-lopdgdd')).toBeInTheDocument()
   })
 
-  it('test_re_analyze_button_dispatches_mutation', () => {
+  it('test_el_boton_refresca_la_vista_y_no_lanza_ninguna_mutacion', () => {
+    // **Issue #169.** Este test se llamaba `test_re_analyze_button_dispatches_mutation` y
+    // comprobaba que el botón llamaba a una mutación que respondía 202 «encolado» **sin encolar
+    // nada**: fijaba la forma de una promesa que no se cumplía.
+    //
+    // El botón se queda porque la finalidad era otra y sí existe —ver el resultado de una
+    // anonimización ya aplicada, o el de la iteración anterior— y eso lo sirve el `GET`. Así que
+    // ahora refresca la vista, y lo que se comprueba es que **no llama a ninguna mutación**.
     vi.mocked(useGetAnonymizationSummary).mockReturnValue({
       data: makeSummary(),
       isLoading: false,
@@ -147,10 +139,6 @@ describe('WorkspaceAnonymizationPanel', () => {
     } as never)
     vi.mocked(usePatchAnonymizationMode).mockReturnValue({
       mutate: mockPatchMutate,
-      isPending: false,
-    } as never)
-    vi.mocked(useReAnalyzeAnonymization).mockReturnValue({
-      mutate: mockReAnalyzeMutate,
       isPending: false,
     } as never)
 
@@ -161,7 +149,8 @@ describe('WorkspaceAnonymizationPanel', () => {
       />
     )
 
-    fireEvent.click(screen.getByTestId('btn-reanalyze'))
-    expect(mockReAnalyzeMutate).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByTestId('btn-refrescar-resumen'))
+
+    expect(mockPatchMutate).not.toHaveBeenCalled()
   })
 })

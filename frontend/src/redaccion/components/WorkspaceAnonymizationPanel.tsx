@@ -15,7 +15,6 @@ import {
   getGetAnonymizationSummaryQueryKey,
   useGetAnonymizationSummary,
   usePatchAnonymizationMode,
-  useReAnalyzeAnonymization,
 } from '@/shared/api/generated/redaccion-anonymization/redaccion-anonymization'
 
 interface WorkspaceAnonymizationPanelProps {
@@ -50,7 +49,6 @@ export function WorkspaceAnonymizationPanel({
   }
 
   const patchMode = usePatchAnonymizationMode({ mutation: { onSuccess: refrescarResumen } })
-  const reAnalyze = useReAnalyzeAnonymization({ mutation: { onSuccess: refrescarResumen } })
 
   const currentMode = summary?.current_workspace_mode ?? 'replace'
   const [selectedMode, setSelectedMode] = useState<string>(currentMode)
@@ -65,8 +63,14 @@ export function WorkspaceAnonymizationPanel({
     patchMode.mutate({ workspaceId, data: { mode: selectedMode as AnonymizationMode } })
   }
 
-  const handleReAnalyze = () => {
-    reAnalyze.mutate({ workspaceId })
+  // Issue #169 — este botón refresca la vista, que es lo que de verdad se quería de él: ver el
+  // resultado de una anonimización ya aplicada, o el de la iteración anterior.
+  //
+  // Llamaba a `POST /re-analyze`, que devolvía 202 «encolado» **sin encolar nada**. Se retiró esa
+  // ruta en vez de implementarle la cola, porque el resumen ya lo sirve el `GET`: desde la issue
+  // #98 cada ejecución escribe el suyo en el manifiesto.
+  const handleRefrescar = () => {
+    refrescarResumen()
   }
 
   if (isLoading) {
@@ -183,14 +187,11 @@ export function WorkspaceAnonymizationPanel({
       <section>
         <button
           type="button"
-          data-testid="btn-reanalyze"
-          onClick={handleReAnalyze}
-          disabled={reAnalyze.isPending}
+          data-testid="btn-refrescar-resumen"
+          onClick={handleRefrescar}
           className="text-sm px-3 py-1 border rounded"
         >
-          {reAnalyze.isPending
-            ? t('anonymization.reanalyzing')
-            : t('anonymization.btn_reanalyze')}
+          {t('anonymization.btn_refrescar')}
         </button>
       </section>
     </div>
