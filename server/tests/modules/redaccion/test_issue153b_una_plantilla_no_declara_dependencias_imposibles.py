@@ -23,8 +23,6 @@ ya está a medias— y validar al leer rompería las plantillas que ya están gu
 
 from __future__ import annotations
 
-import pytest
-
 from server.app.modules.redaccion.contracts.block_io import BlockReference
 from server.app.modules.redaccion.contracts.blocks import (
     AIAssistedTextBlock,
