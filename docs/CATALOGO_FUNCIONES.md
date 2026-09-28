@@ -26,7 +26,7 @@ el contrato concretos, inmutables una vez registradas).
 | `nombre` | Cómo se llama. Es lo que se ve en el catálogo. |
 | `descripcion` | Para qué sirve, en una línea. |
 | `organizacion_id` | La organización autora. **Nulo significa «de la plataforma»**. |
-| `origen` | `autoservicio` (el código vive en el catálogo) o `paquete` (vive en el repositorio de un equipo). |
+| `origen` | `autoservicio` (el código vive en el catálogo y corre en el sandbox), `paquete` (vive en el repositorio de un equipo y corre en el proceso) o `externa` (AUT.3: vive donde su autora lo tenga y **la plataforma no lo ejecuta**). |
 | `entry_point` | Solo en `paquete`: `distribución:nombre`. |
 | `publicada_en` | Cuándo se promovió a nivel de plataforma. Nulo si no lo está. |
 | `valoracion_promocion` | La valoración escrita de quien la promovió. |
@@ -35,14 +35,37 @@ el contrato concretos, inmutables una vez registradas).
 `nivel` es derivado a propósito: una columna sería un tercer sitio donde vive el mismo hecho y
 podría discrepar de los otros dos — el defecto que MT.4 le quitó a `is_global`.
 
+### El origen `externa`, y lo que la plataforma no puede hacer (AUT.3)
+
+Una organización que trabaja con cuadernos escritos por agentes de código tiene un problema de
+**registro, no de ejecución**: no sabe cuáles circulan, quién los usa ni de qué versión. Las
+normas de desarrollo ciudadano exigen registrar antes de compartir y prohíben la distribución
+informal. `externa` es el sitio donde ese cuaderno se registra.
+
+Tres cosas que este origen hace distintas, y las tres a propósito:
+
+1. **No se ejecuta aquí.** `POST /funciones/{id}/run` responde **409** —no 423— con el motivo y
+   con dónde sí corre. Un 423 diría «espera o cambia de versión»; aquí no hay nada que esperar.
+   Registrarlo sin ejecutarlo es además lo que respeta la soberanía local: el código sigue
+   corriendo donde corría, con las credenciales de quien lo usa.
+2. **La auditoría es informativa.** Sus hallazgos se guardan y llegan a la cola de revisión, y
+   **no bloquean el registro**: un programa que corre fuera usa red y disco legítimamente, y
+   exigirle las reglas del sandbox sería aprobación previa por la puerta de atrás. Cuando el
+   fichero no se puede leer como Python, se anota que **no se pudo auditar** en vez de dejar la
+   lista de hallazgos vacía, que se leería como «está limpio».
+3. **Suspender es un aviso, no un cerrojo.** La plataforma puede marcarla, sacarla de las
+   recomendaciones y dejar constancia; no puede impedir que alguien la ejecute fuera. Se dice
+   aquí porque aparentar un control que no existe es peor que no tenerlo.
+
 ### La versión
 
 | Campo | Qué es |
 |---|---|
 | `version` | El ordinal en el catálogo: 1, 2, 3… |
-| `code` | El código Python, en `autoservicio`. **Nulo en `paquete`**: una copia divergiría del `pip install`. |
+| `code` | El código Python, en `autoservicio`. El fichero entero —`.py` o `.ipynb`— en `externa`. **Nulo en `paquete`**: una copia divergiría del `pip install`. |
 | `code_sha256` | El hash del código (o de la fuente del `run` en un paquete). Es lo que permite decir meses después si lo que corrió era esto. |
 | `version_paquete` | Solo en `paquete`: la versión semver instalada. |
+| `entorno_ejecucion` | Solo en `externa`: **dónde corre**. Es el dato que distingue el origen, porque la plataforma no lo ejecuta; sin él el registro no dice de qué responde nadie ni con qué credenciales se toca el dato. Texto libre: es una declaración, no una taxonomía que se pueda comprobar desde aquí. |
 | `contrato_entrada` | El `ContratoFuncion`: slots de fichero, parámetros y la declaración responsable. |
 | `contrato_salida` | Siempre `ExtractionResult`. No se inventa un segundo esquema, porque dos esquemas divergen. |
 | `audit_result_json` | Lo que vio el auditor, **incluidos los avisos que no bloquearon**: es lo que la revisión posterior tiene que poder leer. |

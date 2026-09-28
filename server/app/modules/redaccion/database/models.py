@@ -347,10 +347,15 @@ class HubFuncion(HubOperationalBase):
     organizacion_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), nullable=True, index=True
     )
-    #: `autoservicio` | `paquete`. Es **estructura y no vocabulario**: cada valor tiene
-    #: consumidor en el código —el resolutor elige sandbox o proceso— y añadir uno exige
-    #: escribir ese consumidor. Por eso lleva `CheckConstraint`, al contrario que las
+    #: `autoservicio` | `paquete` | `externa`. Es **estructura y no vocabulario**: cada valor
+    #: tiene consumidor en el código —el resolutor elige sandbox, proceso, o se niega— y añadir
+    #: uno exige escribir ese consumidor. Por eso lleva `CheckConstraint`, al contrario que las
     #: categorías de datos (I4).
+    #:
+    #: `externa` es AUT.3: un cuaderno o un script que **se ejecuta fuera** y aquí sólo se
+    #: registra. El consumidor que exige la regla es el que se niega a ejecutarlo y dice por qué;
+    #: registrarlo sin ejecutarlo es lo que respeta la soberanía local que las normas de
+    #: desarrollo ciudadano suelen fijar: el código sigue corriendo donde corría.
     origen: Mapped[str] = mapped_column(
         String(20), nullable=False, default="autoservicio"
     )
@@ -387,7 +392,7 @@ class HubFuncion(HubOperationalBase):
 
     __table_args__ = (
         CheckConstraint(
-            "origen IN ('autoservicio', 'paquete')", name="ck_funcion_origen"
+            "origen IN ('autoservicio', 'paquete', 'externa')", name="ck_funcion_origen"
         ),
     )
 
@@ -487,6 +492,11 @@ class HubFuncionVersion(HubOperationalBase):
     #: la IA»: los dos caminos pasan por el mismo auditor y el mismo sandbox. Se guarda porque
     #: la revisión posterior quiere verlo.
     autoria: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    #: Sólo en `externa` (AUT.3): **dónde corre** este cuaderno o script. Es el dato que
+    #: distingue el origen, porque la plataforma no lo ejecuta: sin él, el registro no dice de
+    #: qué responde nadie ni con qué credenciales se está tocando el dato. Va en la versión y no
+    #: en la función porque puede cambiar entre versiones, igual que la finalidad.
+    entorno_ejecucion: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # ── Declaración responsable (Instrucció §6 regla 3, §8.2) ──
     finalidad: Mapped[str | None] = mapped_column(Text, nullable=True)

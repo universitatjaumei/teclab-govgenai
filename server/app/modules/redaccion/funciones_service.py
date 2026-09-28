@@ -71,6 +71,7 @@ def datos_de_version_coherentes(
     categorias_datos: list[str] | None = None,
     version_paquete: str | None = None,
     entry_point: str | None = None,
+    entorno_ejecucion: str | None = None,
 ) -> None:
     """Comprueba la forma de una versión según su origen. Levanta `FuncionIncoherente`.
 
@@ -116,8 +117,39 @@ def datos_de_version_coherentes(
             )
         return
 
+    if origen == "externa":
+        # AUT.3 — un cuaderno o un script que se ejecuta **fuera**. Lo que la plataforma guarda
+        # es el fichero y su hash, que hace de versión, más la declaración responsable y dónde
+        # corre. No hay contrato de sandbox que cumplir porque no lo va a ejecutar.
+        if not code or not code.strip():
+            raise FuncionIncoherente(
+                "una función externa necesita su fichero: el hash del fichero es lo que hace "
+                "de versión, así que sin él no hay nada que registrar ni que versionar"
+            )
+        if not finalidad or not finalidad.strip():
+            raise FuncionIncoherente(
+                "falta la finalidad de la declaración responsable, que la Instrucció 02/2026 "
+                "exige registrar antes de compartir (§8.2)"
+            )
+        if declarada_por is None:
+            raise FuncionIncoherente(
+                "falta quién declara: una declaración responsable sin responsable no es una "
+                "declaración"
+            )
+        if not entorno_ejecucion or not entorno_ejecucion.strip():
+            raise FuncionIncoherente(
+                "falta decir dónde se ejecuta: la plataforma no lo ejecuta, así que sin eso el "
+                "registro no dice de qué responde nadie ni con qué credenciales se toca el dato"
+            )
+        if version_paquete is not None or entry_point is not None:
+            raise FuncionIncoherente(
+                "una función externa no se instala ni se descubre por punto de entrada: se "
+                "registra su fichero. Si viene de un paquete, su origen es «paquete»"
+            )
+        return
+
     raise FuncionIncoherente(
-        f"«{origen}» no es un origen conocido; los que hay son autoservicio y paquete"
+        f"«{origen}» no es un origen conocido; los que hay son autoservicio, paquete y externa"
     )
 
 
@@ -166,6 +198,8 @@ async def registrar_version(
     autoria: str = "ia",
     funcion_id: uuid.UUID | None = None,
     creada_por: uuid.UUID | None = None,
+    origen: str = "autoservicio",
+    entorno_ejecucion: str | None = None,
 ) -> tuple[Any, Any]:
     """Registra una versión en el catálogo y la deja **usable de inmediato** (FUN.3).
 
@@ -178,6 +212,14 @@ async def registrar_version(
     Con `funcion_id` publica una versión nueva de una función que ya existe; sin él crea la
     función. En los dos casos el ordinal es el siguiente, y **la versión anterior no se toca**:
     es lo que hace que publicar v2 no cambie ninguna plantilla anclada a v1.
+
+    **El filtro previo lo aplica quien llama, y por eso el origen importa** (AUT.3). Para
+    `autoservicio` el llamante ya ha comprobado auditoría sin hallazgos críticos y prueba en
+    sandbox, porque ese código va a correr aquí. Para `externa` no hay nada que comprobar en ese
+    sentido: el código corre fuera, usa red y disco legítimamente, y el auditor pasa con perfil
+    **informativo** —sus hallazgos se guardan y van a la cola de revisión, no bloquean—. Exigirle
+    las reglas del sandbox a un programa que no va a entrar en él sería, además, aprobación
+    previa por la puerta de atrás.
     """
     from datetime import datetime, timezone
 
@@ -189,11 +231,12 @@ async def registrar_version(
     )
 
     datos_de_version_coherentes(
-        origen="autoservicio",
+        origen=origen,
         code=code,
         finalidad=contrato.finalidad,
         declarada_por=declarada_por,
         categorias_datos=list(contrato.categorias_datos),
+        entorno_ejecucion=entorno_ejecucion,
     )
 
     if funcion_id is None:
@@ -206,7 +249,7 @@ async def registrar_version(
             nombre=nombre,
             descripcion="",
             organizacion_id=organizacion_id,
-            origen="autoservicio",
+            origen=origen,
             creada_por=creada_por or declarada_por,
         )
         session.add(funcion)
@@ -242,6 +285,7 @@ async def registrar_version(
         categorias_datos=list(contrato.categorias_datos),
         declarada_por=declarada_por,
         declarada_en=datetime.now(timezone.utc),
+        entorno_ejecucion=entorno_ejecucion,
     )
     session.add(version)
     await session.flush()

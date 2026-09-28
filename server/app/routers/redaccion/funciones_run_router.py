@@ -216,6 +216,25 @@ async def ejecutar_funcion_por_api(
             detalle += f" (estado «{version.estado}»)"
         raise HTTPException(status_code=status.HTTP_423_LOCKED, detail=detalle)
 
+    if funcion.origen == "externa":
+        # AUT.3 — se registra, no se ejecuta. **409 y no 423**: un 423 dice «existe y está
+        # detenida», o sea espera o cambia de versión, y aquí no hay nada que esperar. Esta
+        # función no va a correr aquí nunca, y quien integra necesita distinguirlo para no
+        # reintentar contra una puerta que no existe.
+        #
+        # Y la respuesta dice **dónde sí corre**, que es el dato que el registro guarda
+        # justamente para esto.
+        donde = version.entorno_ejecucion or "fuera de la plataforma"
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"«{funcion.nombre}» es una función de origen externo: la plataforma la "
+                f"registra y no la ejecuta. Corre en {donde}, con las credenciales de quien la "
+                f"usa. Lo que la plataforma aporta aquí es el registro, la declaración "
+                f"responsable y la revisión posterior."
+            ),
+        )
+
     contrato = ContratoFuncion.model_validate(version.contrato_entrada or {})
 
     if funcion.origen == "paquete":

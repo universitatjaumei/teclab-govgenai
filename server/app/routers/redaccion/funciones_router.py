@@ -78,6 +78,9 @@ class VersionView(BaseModel):
     motivo_suspension: str | None = None
     code_sha256: str
     version_paquete: str | None = None
+    #: AUT.3 — dónde corre, en las de origen externo. Nulo en las otras dos: ahí la respuesta
+    #: está en el código (sandbox o proceso) y no hace falta declararla.
+    entorno_ejecucion: str | None = None
     created_at: Any = None
     #: FUN.4 — lo que quien pregunta puede pedir sobre **esta** versión.
     acciones_permitidas: list[str] = Field(default_factory=list)
@@ -242,6 +245,7 @@ def _vista_de_version(
         motivo_suspension=version.motivo_suspension,
         code_sha256=version.code_sha256,
         version_paquete=version.version_paquete,
+        entorno_ejecucion=version.entorno_ejecucion,
         created_at=version.created_at,
         acciones_permitidas=acciones_permitidas(funcion, version, principal=principal),
     )
@@ -272,6 +276,143 @@ def _vista_de_funcion(
         motivos_nivel_3=motivos,
         versiones=[_vista_de_version(funcion, v, principal) for v in versiones],
     )
+
+
+class RegistrarExternaRequest(BaseModel):
+    """Lo que hay que declarar para registrar un cuaderno que se ejecuta fuera (AUT.3)."""
+
+    nombre: str = Field(min_length=1, max_length=120)
+    #: El fichero entero, `.ipynb` o `.py`. Su hash es la versión.
+    fichero: str = Field(min_length=1)
+    finalidad: str = Field(min_length=1)
+    categorias_datos: list[str] = Field(min_length=1)
+    #: Dónde corre: «un cuaderno en Colab», «el equipo de la persona», «el servidor del
+    #: servicio». Texto libre a propósito: es una declaración de quien responde, no una
+    #: taxonomía que la plataforma pueda comprobar — no ve ese entorno.
+    entorno_ejecucion: str = Field(min_length=1)
+    #: `persona` | `ia`. Igual que en autoservicio: no hay ninguna rama según quién escribió, se
+    #: guarda porque la revisión posterior quiere verlo.
+    autoria: str = Field(default="persona")
+    #: Para registrar una versión más de una función externa que ya existe.
+    funcion_id: uuid.UUID | None = None
+
+
+def _auditoria_informativa(fichero: str) -> dict[str, Any]:
+    """El auditor sobre el fichero, **sin puerta** (AUT.3).
+
+    El resultado se guarda y llega a la cola de revisión; no decide si se registra. Un programa
+    que corre fuera usa red y disco legítimamente, así que bloquear por eso sería exigirle las
+    reglas del sandbox a algo que no va a entrar en él —y, además, aprobación previa por la
+    puerta de atrás, que es lo que la Instrucció prohíbe en el nivel 2.
+
+    **Que el auditor no pueda mirar no se disfraza de «no hay hallazgos»**: se anota. Es la
+    diferencia entre «miré y está limpio» y «no pude mirar», y confundirlas es como un medidor
+    informa de cero en verde.
+    """
+    from server.app.modules.redaccion.services.cuaderno import codigo_de_cuaderno
+    from server.app.modules.redaccion.services.script_auditor import (
+        ScriptSecurityAuditor,
+    )
+
+    codigo = codigo_de_cuaderno(fichero)
+    if codigo is None:
+        return {
+            "perfil": "informativo",
+            "no_se_pudo_auditar": "el fichero no trae código legible como Python",
+            "findings": [],
+        }
+
+    try:
+        resultado = ScriptSecurityAuditor().audit(codigo).model_dump(mode="json")
+    except Exception as fallo:  # noqa: BLE001 — el registro no depende de esto
+        return {
+            "perfil": "informativo",
+            "no_se_pudo_auditar": f"{type(fallo).__name__}: {fallo}",
+            "findings": [],
+        }
+
+    # `approved` no aplica: aquí no hubo ninguna puerta que aprobara o rechazara, y dejarlo
+    # haría creer lo contrario a quien lea la ficha o la cola de revisión.
+    resultado.pop("approved", None)
+    resultado["perfil"] = "informativo"
+    return resultado
+
+
+@router.post(
+    "/externas",
+    response_model=FuncionView,
+    status_code=201,
+    operation_id="registrarFuncionExterna",
+)
+async def registrar_funcion_externa(
+    body: RegistrarExternaRequest,
+    principal: UserInfo = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> FuncionView:
+    """Registra un cuaderno o script que se ejecuta **fuera** de la plataforma (AUT.3).
+
+    **El problema que resuelve es de registro, no de ejecución.** Una organización que trabaja
+    con cuadernos escritos por agentes de código no sabe cuáles circulan, quién los usa ni de qué
+    versión. Las normas de desarrollo ciudadano exigen registrar antes de compartir y prohíben la
+    distribución informal; hasta aquí el catálogo sólo admitía lo que él mismo ejecuta o lo que
+    llega por punto de entrada, así que un cuaderno no tenía dónde registrarse.
+
+    **Y registrarlo sin ejecutarlo respeta la soberanía local** que esas normas suelen fijar: el
+    código sigue corriendo donde corría, con las credenciales de quien lo usa. La plataforma no
+    toca el dato; sabe que el cuaderno existe, de qué versión, para qué se declaró y quién
+    responde de él.
+
+    Entra en la **misma cola de revisión** que las demás y con los mismos resultados. Lo que hay
+    que decir sin adornos es que **suspender una función externa es un aviso**: la plataforma
+    puede marcarla y dejar de recomendarla, y no puede impedir que alguien la ejecute fuera.
+    """
+    from server.app.modules.redaccion.contracts.funciones import ContratoFuncion
+    from server.app.modules.redaccion.funciones_service import registrar_version
+
+    quien = user_to_uuid(principal.user_id)
+
+    try:
+        contrato = ContratoFuncion(
+            slots=[],
+            parametros=[],
+            finalidad=body.finalidad,
+            categorias_datos=list(body.categorias_datos),
+        )
+    except Exception as fallo:  # noqa: BLE001 — se traduce a 422 con su motivo
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "DECLARACION_INCOMPLETA", "message": str(fallo)},
+        ) from fallo
+
+    try:
+        funcion, _version = await registrar_version(
+            session,
+            nombre=body.nombre,
+            organizacion_id=organizacion_unica_de(principal),
+            code=body.fichero,
+            contrato=contrato,
+            declarada_por=quien,
+            audit_result=_auditoria_informativa(body.fichero),
+            autoria=body.autoria,
+            funcion_id=body.funcion_id,
+            origen="externa",
+            entorno_ejecucion=body.entorno_ejecucion,
+        )
+    except FuncionIncoherente as fallo:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "FUNCION_INCOHERENTE", "message": str(fallo)},
+        ) from fallo
+
+    # El identificador se lee **antes** del commit: `expire_on_commit` expira los atributos y
+    # leerlos después dispara una recarga perezosa que revienta con `MissingGreenlet`. Es el
+    # patrón que tumbó ocho endpoints de `scripts_router` el 2026-08-14.
+    funcion_id = funcion.id
+    await session.commit()
+
+    funcion = await session.get(HubFuncion, funcion_id)
+    versiones = await _versiones_de(session, funcion_id)
+    return _vista_de_funcion(funcion, versiones, principal)
 
 
 # ──────────────────────────── El catálogo ────────────────────────────
