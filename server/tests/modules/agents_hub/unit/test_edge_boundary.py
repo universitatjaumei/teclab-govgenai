@@ -115,6 +115,11 @@ def test_operational_base_contains_only_operational_models() -> None:
         # registro de actividad de sus clientes sería justo lo que la frontera existe para
         # impedir — y en una instalación edge por requisito regulatorio, inaceptable.
         "hub_actividad_ia",
+        # AUT.6 — la evidencia por ejecución que deposita una aplicación de fuera. Mismo
+        # criterio que `hub_actividad_ia`, y más fuerte: dice qué modelo tocó qué fuentes, quién
+        # aprobó qué y con qué salida, todo de esta organización. Que el cloud tuviera eso de sus
+        # clientes es exactamente lo que la frontera existe para impedir.
+        "hub_manifiestos_externos",
     }
 
 def test_no_cross_base_relationships() -> None:

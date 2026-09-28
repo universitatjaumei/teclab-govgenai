@@ -6,7 +6,16 @@ construcción; éstos llegan declarados por una aplicación de fuera. Son dos su
 dos modelos de confianza distintos, y por eso viven en dos ficheros.
 
 Deploy: edge — describe tratamientos de datos de la organización.
-Módulo: registro — es la misma capacidad de gobernanza que el registro de actividad.
+Módulo: — en la escritura; `registro` en la lectura.
+
+**Y por eso vive aquí y no en `routers/redaccion/`**, aunque el contrato reutilice piezas del
+manifiesto de informes: todo router de `redaccion/` exige el módulo `informes` —lo comprueba el
+guardarraíl de SEC.9.6— y esto no es una superficie de informes, es la misma capacidad de
+gobernanza que el registro de actividad, que está en esta misma carpeta por lo mismo.
+
+El reparto de módulo es también el de aquél: **la escritura no exige módulo** —la autentica un
+PAT de máquina, y un token de máquina no tiene módulos concedidos, porque los módulos son de
+personas— y **la lectura sí**, con `registro`.
 
 **Qué añade sobre el evento de actividad.** El evento (REG.2, AUT.5) dice «quién, qué, cuándo,
 con qué finalidad». El manifiesto dice **qué pasó dentro de esa ejecución**: qué modelo, qué

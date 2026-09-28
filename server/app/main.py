@@ -49,7 +49,6 @@ from server.app.routers.redaccion.funciones_router import router as redaccion_fu
 from server.app.routers.redaccion.funciones_run_router import router as redaccion_funciones_run_router
 from server.app.routers.redaccion.scripts_router import router as redaccion_scripts_router
 from server.app.routers.redaccion.charts_router import router as redaccion_charts_router
-from server.app.routers.redaccion.governanca_router import router as governanca_router
 from server.app.routers.redaccion.manifests_router import router as redaccion_manifests_router
 from server.app.routers.redaccion.copilot_router import router as redaccion_copilot_router
 from server.app.routers.redaccion.anonymization_router import router as redaccion_anonymization_router
@@ -58,6 +57,7 @@ from server.app.routers.hub_users_router import router as hub_users_router
 from server.app.routers.hub_modulos_router import router as hub_modulos_router
 from server.app.routers.hub_opciones_router import router as hub_opciones_router
 from server.app.routers.actividad_router import router as actividad_router
+from server.app.routers.governanca_router import router as governanca_router
 from server.app.routers.anonimizacion_router import router as anonimizacion_router
 from server.app.routers.verificaciones_router import router as verificaciones_router
 from server.app.routers.hub_agents_router import router as hub_agents_router
@@ -486,6 +486,7 @@ def _register_edge(app: FastAPI) -> None:
     app.include_router(hub_chat_router, prefix="/api/v1")
     app.include_router(hub_feedback_router, prefix="/api/v1")
     app.include_router(actividad_router, prefix="/api/v1")  # Deploy: edge (REG.2)
+    app.include_router(governanca_router, prefix="/api/v1")  # Deploy: edge (AUT.6)
     app.include_router(anonimizacion_router, prefix="/api/v1")  # Deploy: edge (REG.3)
     app.include_router(verificaciones_router, prefix="/api/v1")  # Deploy: edge (VAS.1)
     app.include_router(hub_usage_router, prefix="/api/v1")  # Deploy: edge (SEC.4)
@@ -499,7 +500,6 @@ def _register_edge(app: FastAPI) -> None:
     app.include_router(redaccion_funciones_run_router, prefix="/api/v1")  # Deploy: edge
     app.include_router(redaccion_charts_router, prefix="/api/v1")  # Deploy: edge
     app.include_router(redaccion_manifests_router, prefix="/api/v1")  # Deploy: edge
-    app.include_router(governanca_router, prefix="/api/v1")  # Deploy: edge (AUT.6)
     app.include_router(redaccion_copilot_router, prefix="/api/v1")  # Deploy: edge
     app.include_router(redaccion_anonymization_router, prefix="/api/v1")  # Deploy: edge
     app.include_router(hub_agents_router, prefix="/api/v1")  # Deploy: edge

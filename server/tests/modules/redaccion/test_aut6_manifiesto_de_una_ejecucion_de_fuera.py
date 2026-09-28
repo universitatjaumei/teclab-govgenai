@@ -159,7 +159,7 @@ class TestElDeposito:
         """La frontera de siempre: una organización no ve los manifiestos de otra."""
         from server.app.core.auth.models import UserInfo
         from server.app.modules.redaccion.database.models import HubManifiestoExterno
-        from server.app.routers.redaccion.governanca_router import (
+        from server.app.routers.governanca_router import (
             listar_manifiestos_externos,
         )
 
@@ -196,7 +196,7 @@ class TestElDeposito:
         plataforma produjo ella misma, y no son lo mismo."""
         from server.app.core.auth.models import UserInfo
         from server.app.modules.redaccion.database.models import HubManifiestoExterno
-        from server.app.routers.redaccion.governanca_router import (
+        from server.app.routers.governanca_router import (
             listar_manifiestos_externos,
         )
 
