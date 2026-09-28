@@ -369,6 +369,10 @@ class TestLasTresTools:
             "modelo_usado",
             "categorias_datos",
             "payload_hash",
+            # AUT.5 — el hash del programa que corrió, que enlaza el uso con su función del
+            # catálogo. Lo vigila `test_reg7_la_tool_declara_el_contrato`: un campo del
+            # contrato que falte aquí no se puede mandar por MCP.
+            "funcion_sha256",
         }, esquema["properties"].keys()
         assert set(esquema["required"]) == {
             "ocurrido_en",

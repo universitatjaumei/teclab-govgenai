@@ -161,6 +161,60 @@ class HubRunManifest(HubOperationalBase):
     )
 
 
+class HubManifiestoExterno(HubOperationalBase):
+    """La evidencia de una ejecución hecha **fuera** de la plataforma (AUT.6, issue #116).
+
+    **Tabla propia y no `hub_run_manifests`**, y la razón es estructural: aquélla exige
+    `workspace_id` y `template_version_id` con clave ajena, y una ejecución de fuera no tiene ni
+    workspace ni plantilla de la plataforma. Hacer esas dos columnas nulas para que quepan las
+    dos cosas dejaría una tabla en la que la mitad de las filas incumplen lo que la otra mitad
+    garantiza — y la garantía de `hub_run_manifests` es justamente que cada manifiesto apunta a
+    la plantilla exacta que lo produjo.
+
+    Lo que se guarda son **metadatos**: modelo, versiones de prompt, fuentes por referencia,
+    aprobaciones humanas y el hash de la salida. Nunca el contenido; lo hace cumplir
+    `ManifiestoExterno` con `extra="forbid"`.
+
+    Las columnas sueltas duplican lo que ya está en `payload_json` **a propósito**: son por las
+    que se filtra y se ordena al leer, y sacarlas del JSONB en cada consulta convertiría un
+    listado en un recorrido de documentos.
+    """
+
+    __tablename__ = "hub_manifiestos_externos"
+    __ambito__ = Ambito.ORGANIZACION
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    #: De qué organización. **Se deriva del token**, nunca del cuerpo: si se pudiera elegir, una
+    #: aplicación podría depositar evidencia en el registro de otra organización.
+    organizacion_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), nullable=False, index=True
+    )
+    #: Cuándo ocurrió la ejecución, según quien la declara.
+    ocurrido_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
+    #: Cuándo se depositó aquí. **Las dos marcas, y no una**: en una auditoría, la diferencia
+    #: entre cuándo pasó algo y cuándo se declaró es un dato, no ruido. Es la misma pareja que
+    #: `ocurrido_en`/`registrado_en` en el registro de actividad.
+    depositado_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_now
+    )
+    aplicacion: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    #: El identificador que la aplicación le da a su propia ejecución, para conciliar.
+    referencia_externa: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    finalidad: Mapped[str] = mapped_column(String(500), nullable=False)
+    modelo_usado: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    #: SHA-256 de la salida: permite cotejar un documento meses después sin guardarlo.
+    hash_de_la_salida: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    #: Con qué función del catálogo se corresponde el programa que corrió (AUT.3/AUT.5).
+    funcion_sha256: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, index=True
+    )
+    payload_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+
+
 class HubWorkspace(HubOperationalBase):
     """Workspace de redacción activo.
 

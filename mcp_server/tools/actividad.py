@@ -134,6 +134,17 @@ def register_actividad_tools(mcp: FastMCP, *, client_provider: ClientProvider) -
                 )
             ),
         ] = None,
+        funcion_sha256: Annotated[
+            str | None,
+            Field(
+                description=(
+                    "SHA-256 en minúscula del **programa** que se ejecutó, si está registrado "
+                    "en el catálogo como función de origen externo. Es lo que cruza «qué "
+                    "cuadernos existen» con «cuándo corrieron». No es `payload_hash`: aquél es "
+                    "el contenido procesado, y éste el programa que lo procesó."
+                )
+            ),
+        ] = None,
     ) -> dict:
         """Declara un uso de IA ocurrido fuera de la plataforma. [scope actividad:write]
 
@@ -160,6 +171,7 @@ def register_actividad_tools(mcp: FastMCP, *, client_provider: ClientProvider) -
                 ("modelo_usado", modelo_usado),
                 ("categorias_datos", categorias_datos),
                 ("payload_hash", payload_hash),
+                ("funcion_sha256", funcion_sha256),
             )
             if valor is not None
         }

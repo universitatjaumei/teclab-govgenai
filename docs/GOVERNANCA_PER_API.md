@@ -34,8 +34,8 @@ Llegenda de la columna «Des de fora»: **Hui** (existix una API o MCP), **REG.n
 | Mecanisme | Què garantix | Norma | On viu | Des de fora |
 | :---- | :---- | :---- | :---- | :---- |
 | **Interacció + traça de diagnòstic** per resposta d'assistent: pregunta, resposta, tokens i cost, motiu de declinar, identificadors i notes de tot el que es va recuperar, configuració **per valor**, consulta reescrita o reformulada | Cada resposta és explicable mesos després; distingir un error de recuperació d'un de redacció; re-executar ablacions sense tornar a demanar treball humà | RIA art. 12 (registre d'esdeveniments) | `hub_interactions` + `interaction_metadata` (HIB.I); escrit per l'endpoint de xat | **Hui** per a qui consumix el xat per API (es registra sol). Per a un assistent construït fora: **REG.2** (esdeveniment de governança) |
-| **Manifest d'execució d'un informe** (`DraftingRunManifest`, congelat): plantilla i versió, documents, validació d'entrada, blocs extrets, blocs d'IA amb model, versió de prompt i **abast del context**, cites, aprovacions humanes, blocs fallits, hash del document final, resum d'anonimització | Reproduïbilitat com a registre; res s'exporta sense manifest; s'emet també quan falla | RIA art. 12; Llei 40/2015 art. 41 | `hub_run_manifests`, `contracts/manifest.py` | Lectura: **Hui** (sessió). Que una aplicació externa **deposite** el seu manifest d'una generació feta fora: **Candidat** (§4.2) |
-| **Registre d'aprovacions humanes** amb identitat, moment i versió aprovada; màquina d'estats de bloc amb esdeveniment d'auditoria per transició | Supervisió humana instrumentada, no ritual; cap bloc d'IA entra al document sense `approved` | RIA art. 14; RGPD art. 22 | `ApprovalRecord`, `BlockStateMachine` | Dins del manifest depositat: **Candidat** (§4.2) |
+| **Manifest d'execució d'un informe** (`DraftingRunManifest`, congelat): plantilla i versió, documents, validació d'entrada, blocs extrets, blocs d'IA amb model, versió de prompt i **abast del context**, cites, aprovacions humanes, blocs fallits, hash del document final, resum d'anonimització | Reproduïbilitat com a registre; res s'exporta sense manifest; s'emet també quan falla | RIA art. 12; Llei 40/2015 art. 41 | `hub_run_manifests`, `contracts/manifest.py` | Lectura: **Hui** (sessió). Que una aplicació externa **deposite** el seu manifest d'una generació feta fora: **Hui** (AUT.6, §4.2) |
+| **Registre d'aprovacions humanes** amb identitat, moment i versió aprovada; màquina d'estats de bloc amb esdeveniment d'auditoria per transició | Supervisió humana instrumentada, no ritual; cap bloc d'IA entra al document sense `approved` | RIA art. 14; RGPD art. 22 | `ApprovalRecord`, `BlockStateMachine` | Dins del manifest depositat: **Hui** (AUT.6, §4.2) |
 | **Registre d'activitat d'IA de governança** (`ActividadIAEvent`): actor, organització, eina externa, finalitat, model, categories de dades declarades; **metadades sí, contingut no**, per contracte | El registre que el RIA exigix al responsable del desplegament (arts. 12 i 26) i el que el registre d'activitats de tractament agraïx (RGPD art. 30), també per a l'IA que passa **fora** de la plataforma | RIA arts. 12 i 26; RGPD art. 30 | **Planificat**: bloc REG | **REG.2** (escriure, PAT amb `actividad:write`), **REG.4** (MCP remot), **REG.5** (llegir i exportar, acotat a l'organització) |
 | **Escenaris de prova amb veredicte humà** i **revisió d'interaccions** (adequada, millorable, inadequada, fonts esperades, resposta de referència) | La mateixa consulta abans i després d'un canvi, amb qui la va jutjar i per què; el que cap mètrica substituïx en un assistent normatiu | RIA art. 9 (gestió de riscos), avaluació contínua del marc §5 | `hub_test_scenarios`, `hub_test_runs`, `hub_interactions.review_*` | Per a assistents de la plataforma: **Hui** (sessió). Per a un assistent extern: **Candidat** (§4.3, lligat a la decisió 8 de l'informe) |
 | **Historial de configuració amb autoria**: prompts i nivell de model per activitat, versions de plantilla immutables, cascada Plataforma → Organització → Xatbot | Traçabilitat de la configuració que va regir cada execució | RIA art. 12 | `hub_activity_prompts`, `hub_prompt_templates`, versions de plantilla, `config_resolver` | Lectura dels paràmetres de governança efectius d'un cas d'ús: **Candidat** (§4.1) |
@@ -67,7 +67,7 @@ Llegenda de la columna «Des de fora»: **Hui** (existix una API o MCP), **REG.n
 
 ## 4. Els candidats: què caldria exposar perquè la UADTI desenvolupe fora amb registre dins
 
-Són el que falta per a la frase quarta de §1, amb un cost orientatiu (no mesurat). **Tots van després del bloc REG**, que construïx el token de màquina amb permisos, l'esdeveniment de governança i el MCP remot que tots reutilitzen. **Tres ja estan fets** (bloc VAS, 2026-09-04): §4.4, §4.5 i §4.6, els de cost baix que ja existien com a funció i només necessitaven superfície. **Queden tres candidats** —§4.1, §4.2 i §4.3—, que esperen a la primera aplicació externa real que els necessite.
+Són el que falta per a la frase quarta de §1, amb un cost orientatiu (no mesurat). **Tots van després del bloc REG**, que construïx el token de màquina amb permisos, l'esdeveniment de governança i el MCP remot que tots reutilitzen. **Quatre ja estan fets**: §4.4, §4.5 i §4.6 (bloc VAS, 2026-09-04), els de cost baix que ja existien com a funció i només necessitaven superfície; i **§4.2** (AUT.6, 2026-09-29), el depòsit del manifest. **Queden dos candidats** —§4.1 i §4.3—, que esperen a la primera aplicació externa real que els necessite.
 
 Els tres fets comparteixen dues regles que convé conéixer abans de consumir-los: **no hi ha segona implementació** —cada servici embolcalla la funció que ja usa el motor, amb un test de paritat que compara els dos veredictes— i **el text no es guarda**: ni la resposta que es verifica ni el codi que s'audita toquen registres ni base de dades. De les tres, **només l'auditoria deixa esdeveniment** al registre d'activitat: auditar és un acte de governança i ha de constar; verificar cites o consultar vigència són comprovacions sense estat, i un esdeveniment per comprovació duplicaria el registre sense dir res nou.
 
@@ -75,9 +75,41 @@ Els tres fets comparteixen dues regles que convé conéixer abans de consumir-lo
 
 `GET /api/v1/governanca/casos-d-us/{id}/parametres`: nivell de model assignat per activitat, mode de disociació exigit, on hi ha portes de revisió humana, llindar de qualitat, llengua, categories de dades declarades. És «una vegada definits els paràmetres» fet literal: la UADTI llig de la plataforma **la configuració que el pla institucional ha decidit** per a eixe cas d'ús i la seua aplicació la respecta. Hui eixa configuració existix per xatbot i per plantilla; el que faltaria és el concepte de «cas d'ús» que abrace un assistent construït fora. **Cost baix** si es modela com un xatbot de tipus `extern` (§4.3); alt si es crea una entitat nova.
 
-### 4.2 Depòsit del manifest d'una execució feta fora
+### 4.2 Depòsit del manifest d'una execució feta fora — **Fet** (AUT.6, 2026-09-29)
 
-`POST /api/v1/governanca/manifests` amb el mateix contracte que `DraftingRunManifest` (o el subconjunt que apliqui a un assistent: model, versió de prompt, fonts citades, aprovacions humanes, hash de la sortida), validat amb `extra="forbid"` i **sense contingut**. És el pas de l'esdeveniment de governança (REG.2, «qui, què, quan, amb quina finalitat») a l'evidència per execució (RIA art. 12 en el sentit fort). Una aplicació de la UADTI que genere informes amb IA depositaria el manifest de cada generació, i el panell els mostraria al costat dels de la plataforma. **Cost mitjà**: el contracte existix; falta el contenidor genèric i la lectura.
+`POST /api/v1/governanca/manifests` amb `ManifiestoExterno`: **el subconjunt que aplica**, no el
+`DraftingRunManifest` sencer. Model, versions de prompt, fonts citades **per referència**,
+aprovacions humanes, hash de l'eixida, i l'enllaç amb la funció del catàleg (`funcion_sha256`) si
+el programa que va córrer està registrat com a funció d'origen extern (AUT.3). Validat amb
+`extra="forbid"` i **sense contingut**.
+
+És el pas de l'esdeveniment de governança (REG.2, «qui, què, quan, amb quina finalitat») a
+l'evidència per execució (RIA art. 12 en el sentit fort).
+
+Quatre decisions que convé conéixer abans de consumir-lo:
+
+1. **Taula pròpia**, `hub_manifiestos_externos`, i no `hub_run_manifests`. Aquella exigix
+   `workspace_id` i `template_version_id` amb clau forana, i una execució de fora no en té cap
+   dels dos. Fer-les nul·les per a que hi càpiguen les dues coses deixaria una taula on la meitat
+   de les files incompleixen el que garantix l'altra meitat.
+2. **Les cites van sense `excerpt`.** El manifest propi de la plataforma en guarda; ací no pot
+   entrar. Un depòsit obert per API que admetera extractes seria un segon lloc on viuen les dades
+   personals de l'organització, creat justament per l'eina que existix per a portar el compte
+   dels riscos. El rebuig **explica la regla** en compte de dir «Extra inputs are not permitted»,
+   i ho fa també **dins de la cita**, que és on arriba l'intent raonable de qui coneix l'altre
+   contracte.
+3. **Scope propi**, `manifiestos:write`, i no `actividad:write`. Són dues capacitats: anotar que
+   hi va haver un ús i depositar l'evidència d'eixa execució. Una aplicació pot voler la primera
+   sense la segona, i un token que només anota usos no té per què poder escriure evidència amb la
+   qual després es respon en una auditoria. L'emet també un administrador d'organització: és
+   afegir evidència del que és propi, *append-only*, i no muta res de la plataforma.
+4. **Es llig distingint l'origen** (`origen: "externo"`). Un manifest declarat per un tercer no té
+   la mateixa autoritat que un que la plataforma ha produït ella mateixa; llegir-los sense
+   distingir seria perdre l'única cosa que els diferencia.
+
+Escriure exigix PAT; llegir, sessió amb el mòdul `registro`. És el mateix repartiment que el
+registre d'activitat, i pel mateix motiu: una sessió de navegador amb permís d'escriptura ací
+permetria fabricar evidència des del panell.
 
 ### 4.3 Assistents externs registrats, amb escenaris i veredicte
 
