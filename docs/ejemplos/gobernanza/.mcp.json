@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "govgenai": {
+      "type": "http",
+      "url": "https://normativa.uji.es/mcp",
+      "headers": {
+        "Authorization": "Bearer ${GOVGENAI_PAT}"
+      }
+    }
+  }
+}
