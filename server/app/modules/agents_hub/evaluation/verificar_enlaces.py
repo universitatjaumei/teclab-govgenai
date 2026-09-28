@@ -39,6 +39,8 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Awaitable, Callable
 
+from server.app.modules.agents_hub.ingestion.ancores_del_diari import mapa_de_ancores
+
 #: `id="art-9"` o `name="art-9"`, con comillas simples o dobles y espacios alrededor del `=`.
 #: Se busca el atributo y no la cadena suelta: `art-9` aparece en el texto de cualquier norma que
 #: se cite a sí misma, y buscarla a pelo daría por viva un ancla que no existe.
@@ -50,7 +52,13 @@ def _ancla_presente(html: str, ancla: str) -> bool:
 @dataclass(frozen=True)
 class Hallazgo:
     url: str
-    motivo: str  # "no_resuelve" | "ancla_ausente"
+    #: "no_resuelve" | "ancla_ausente" | "ancla_de_otro_articulo"
+    #:
+    #: El tercero es de la issue #157 y es **el peor de los tres**: el ancla existe, la página
+    #: responde, el enlace se abre… y lleva a otro artículo. No da error y no se ve. Aparece
+    #: cuando el mapa que la ingesta leyó del diario ha envejecido: el BOE renumera sus bloques
+    #: al reconsolidar una norma reformada.
+    motivo: str
     detalle: str
 
 
@@ -58,12 +66,25 @@ Fetch = Callable[[str], Awaitable[tuple[int, str]]]
 
 
 async def comprobar_enlaces(
-    urls: list[str], fetch: Fetch, concurrencia: int = 8
+    urls: list[str],
+    fetch: Fetch,
+    concurrencia: int = 8,
+    *,
+    articulo_citado: dict[str, str] | None = None,
 ) -> list[Hallazgo]:
     """Los hallazgos de una lista de URLs de cita. Lista vacía significa que todas viven.
 
     `fetch` devuelve `(status, cuerpo)`. Se inyecta para que esta función —que es la que decide
     qué cuenta como muerto— sea determinista y pueda correr en CI sin red.
+
+    `articulo_citado` mapea cada URL con fragmento a **la ancora nuestra que se estaba citando**
+    (`art-18`). Donde se sabe, se comprueba además la **correspondencia**: que el ancla del
+    diario etiquete ese artículo y no otro (issue #157). Donde no se sabe, se comprueba lo de
+    siempre —que el ancla exista—, que es lo que mide la #14.
+
+    La comprobación nueva **se suma** a la vieja y no la sustituye: un ancla ausente sigue
+    contando como ausente. Un ancla que no existe no puede etiquetar nada, así que no tendría
+    sentido preguntarle a cuál.
     """
     # Las anclas del mismo documento comparten descarga. El corpus tiene cientos de fragmentos
     # por norma: pedir la página una vez por fragmento convertiría la comprobación en algo
@@ -97,11 +118,45 @@ async def comprobar_enlaces(
         if status != 200:
             return [Hallazgo(pagina, "no_resuelve", str(status))]
 
-        return [
-            Hallazgo(f"{pagina}#{a}", "ancla_ausente", f"la pagina no declara `{a}`")
-            for a in dict.fromkeys(a for a in anclas if a)
-            if not _ancla_presente(cuerpo, a)
-        ]
+        hallazgos_de_la_pagina: list[Hallazgo] = []
+        # El mapa se construye **una vez por página** y sólo si alguna de sus citas declara
+        # artículo: parsear un texto consolidado de dos megas por cada ancla sería tan caro como
+        # volver a descargarlo.
+        mapa: dict[str, str] | None = None
+
+        for a in dict.fromkeys(a for a in anclas if a):
+            url = f"{pagina}#{a}"
+            if not _ancla_presente(cuerpo, a):
+                hallazgos_de_la_pagina.append(
+                    Hallazgo(url, "ancla_ausente", f"la pagina no declara `{a}`")
+                )
+                continue
+
+            citado = (articulo_citado or {}).get(url)
+            if not citado:
+                continue
+            if mapa is None:
+                mapa = mapa_de_ancores(cuerpo)
+            # Un mapa vacío significa que de esta página no se sabe leer artículos —no es del
+            # BOE, o cambió el marcado—, y de ahí no se puede concluir que la cita esté mal.
+            if not mapa:
+                continue
+
+            deberia = mapa.get(citado)
+            if deberia is not None and deberia != a:
+                etiqueta = next(
+                    (nuestra for nuestra, suya in mapa.items() if suya == a), "?"
+                )
+                hallazgos_de_la_pagina.append(
+                    Hallazgo(
+                        url,
+                        "ancla_de_otro_articulo",
+                        f"`{a}` etiqueta `{etiqueta}` y la cita dice `{citado}`, "
+                        f"que hoy es `{deberia}`",
+                    )
+                )
+
+        return hallazgos_de_la_pagina
 
     for lote in await asyncio.gather(
         *(_una(p, a) for p, a in por_pagina.items())
@@ -233,6 +288,10 @@ async def _run(args: argparse.Namespace) -> int:
             ).all()
 
             vistas: set[str] = set()
+            # Issue #157 — qué artículo decía la cita que estaba citando, por URL. Es lo que
+            # convierte «el ancla existe» en «el ancla etiqueta lo que la cita dice». Sólo se
+            # apunta cuando la URL sale con fragmento: sin fragmento no hay nada que comprobar.
+            citado_en: dict[str, str] = {}
             for doc_id, anc in pares:
                 documento = documentos.get(doc_id)
                 if documento is None:
@@ -240,6 +299,8 @@ async def _run(args: argparse.Namespace) -> int:
                 u = url_de_cita(documento, {"ancora": anc} if anc else {})
                 if u:
                     vistas.add(u)
+                    if anc and "#" in u:
+                        citado_en[u] = anc
             urls = sorted(vistas)
             print(
                 f"{len(documentos)} documentos · {len(pares)} pares documento/ancla",
@@ -253,7 +314,9 @@ async def _run(args: argparse.Namespace) -> int:
 
     print(f"{len(urls)} URL de cita distintas", file=sys.stderr)
     fetch = await _fetch_real()
-    hallazgos = await comprobar_enlaces(urls, fetch, args.concurrencia)
+    hallazgos = await comprobar_enlaces(
+        urls, fetch, args.concurrencia, articulo_citado=citado_en
+    )
 
     for h in sorted(hallazgos, key=lambda x: (x.motivo, x.url)):
         print(f"{h.motivo}\t{h.url}\t{h.detalle}")

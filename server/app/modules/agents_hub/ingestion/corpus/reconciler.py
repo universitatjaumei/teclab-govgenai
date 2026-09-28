@@ -179,6 +179,11 @@ _METADATOS_QUE_NO_VIENEN_DEL_CORPUS = {
     "vigencia_validada_per": "vigencia_validada_per",
     "vigencia_validada_des_de": "vigencia_validada_per",
     "data_revisio_des_de": "data_revisio_prevista",
+    # Issue #157 — el mapa `art-18 -> a1-10` que se lee del diario oficial. El corpus **nunca**
+    # lo declara: lo calcula la plataforma descargando la página, asi que la condicion no se
+    # cumple jamas y se conserva siempre. Sin esto, cada pasada lo borraria y la siguiente
+    # descarga lo repondria: el ruido que ACT.1 elimino, y con una peticion al BOE de propina.
+    "ancores_del_diari": "ancores_del_diari",
 }
 
 

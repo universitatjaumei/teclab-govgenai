@@ -125,7 +125,9 @@ def resumen(nom: str, chatbot_id, informe) -> str:
     return "\n".join(lineas)
 
 
-async def _pasada(paquetes: list[Paquete], *, dry_run: bool, verbose: bool):
+async def _pasada(
+    paquetes: list[Paquete], *, dry_run: bool, verbose: bool, sense_diari: bool = False
+):
     """Reconcilia todos los paquetes y devuelve {(nom, chatbot_id): informe}."""
     from server.app.core import config  # noqa: F401
     from server.app.modules.agents_hub.database.config_models import HubChatbot
@@ -179,6 +181,11 @@ async def _pasada(paquetes: list[Paquete], *, dry_run: bool, verbose: bool):
                     )
                     informes[(paquete.nom, chatbot_id)] = informe
                     print(resumen(paquete.nom, chatbot_id, informe))
+                    if not dry_run and not sense_diari:
+                        print(
+                            "      "
+                            + (await _anclas_del_diario(session, chatbot_id)).resumen
+                        )
                     if verbose:
                         for linea in informe.detalle:
                             print(f"      {linea}")
@@ -242,6 +249,15 @@ def main(argv: list[str] | None = None) -> int:
         help="Aplica. Sin esto solo se ensena el plan y no se escribe nada",
     )
     parser.add_argument("-v", "--verbose", action="store_true")
+    parser.add_argument(
+        "--sense-diari",
+        action="store_true",
+        help=(
+            "no leer el diario oficial para refrescar el mapa de anclas (issue #157). "
+            "Para ingerir sin salida a internet: las normas externas se citaran sin "
+            "fragmento, como antes de la #157."
+        ),
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -252,7 +268,9 @@ def main(argv: list[str] | None = None) -> int:
 
     print("=== EL PLAN (nada escrito) ===")
     try:
-        informes = asyncio.run(_pasada(paquetes, dry_run=True, verbose=args.verbose))
+        informes = asyncio.run(
+        _pasada(paquetes, dry_run=True, verbose=args.verbose, sense_diari=args.sense_diari)
+    )
     except DescriptorInvalido as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
@@ -266,7 +284,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     print("\n=== APLICANDO, en el orden del descriptor ===")
-    asyncio.run(_pasada(paquetes, dry_run=False, verbose=args.verbose))
+    asyncio.run(
+        _pasada(paquetes, dry_run=False, verbose=args.verbose, sense_diari=args.sense_diari)
+    )
     print("\n=== COPIAS ATRASADAS ENTRE ASISTENTES ===")
     asyncio.run(_divergencias(paquetes))
     return 0
@@ -274,3 +294,61 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())
+
+
+async def _anclas_del_diario(session, chatbot_id):
+    """Lee del diario oficial el mapa `artículo → ancla` de las normas externas (issue #157).
+
+    **Va aquí, en la ingesta, y no al componer la cita**: se lee una vez por pasada en vez de en
+    cada respuesta, y lo que se guarda es un mapa y no una fórmula, porque para uno de los dos
+    esquemas del BOE no existe ninguna fórmula.
+
+    **Y no puede tumbar la ingesta.** Si el diario no responde, la norma entra igual y sus citas
+    van sin fragmento, que es lo que hacían antes de esto. Acoplar la disponibilidad del corpus a
+    la de una web ajena sería peor que la imprecisión que se viene a arreglar; por eso se cuenta
+    en el informe en vez de levantar.
+
+    **Cada cuánto se revisa el mapa**: cada pasada de ingesta, que es cuando ya se está mirando
+    el corpus. Entre pasada y pasada lo vigila `verificar_enlaces`, que desde la #157 comprueba
+    que el ancla etiquete el artículo que la cita dice — y ésa es la respuesta honrada, porque un
+    calendario no detecta nada y el detector sí.
+    """
+    from sqlalchemy import select
+
+    from server.app.modules.agents_hub.database.operational_models import HubDocument
+    from server.app.modules.agents_hub.ingestion.ancores_del_diari import (
+        refrescar_ancores,
+        url_del_diari,
+    )
+
+    documentos = [
+        d
+        for d in (
+            await session.execute(
+                select(HubDocument).where(HubDocument.chatbot_id == chatbot_id)
+            )
+        )
+        .scalars()
+        .all()
+        if url_del_diari(d)
+    ]
+    if not documentos:
+        from server.app.modules.agents_hub.ingestion.ancores_del_diari import Refresco
+
+        return Refresco()
+
+    import httpx
+
+    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as cliente:
+
+        async def fetch(url: str) -> tuple[int, str]:
+            respuesta = await cliente.get(url)
+            return respuesta.status_code, respuesta.text
+
+        refresco = await refrescar_ancores(documentos, fetch)
+
+    for url, motivo in refresco.no_se_pudo.items():
+        print(f"      AVISO: no se pudo leer {url}: {motivo}", file=sys.stderr)
+    for url in refresco.sin_articulos:
+        print(f"      AVISO: sin artículos en {url}", file=sys.stderr)
+    return refresco

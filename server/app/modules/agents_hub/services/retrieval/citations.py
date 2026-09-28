@@ -9,6 +9,10 @@ from __future__ import annotations
 
 import os
 
+from server.app.modules.agents_hub.ingestion.ancores_del_diari import (
+    CLAVE as ANCORES_DEL_DIARI,
+)
+
 # ── Cita al sitio publicado (PUB.3) ───────────────────────────────────────────────────
 #
 # El PDF oficial no tiene anclas: se abre por la primera página y quien pregunta ha de
@@ -65,10 +69,14 @@ TIPO_EXTERNA = "norma_externa"
 # derogado.
 #
 # **No hay fórmula que arregle esto**: para saber qué ancla lleva al artículo 18 hay que leer la
-# página. Mientras no se lea, se cita la norma **sin fragmento** — el enlace lleva a la cabecera
-# del documento correcto en vez de a un punto equivocado del documento correcto.
+# página. **Y eso es lo que hace la issue #157**: la ingesta lee el texto consolidado una vez y
+# deja el mapa `art-18 → a1-10` en `doc_metadata` (`ingestion/ancores_del_diari.py`). Aquí sólo
+# se consulta.
 #
-# Resolverlas en la ingesta es viable y tiene issue propia.
+# Lo que no cambia es la regla: **el mapa es la única fuente del fragmento**. Si no trae la
+# ancora que se cita —artículo derogado, disposición, norma de un diario que no se sabe leer, o
+# página que nunca se pudo descargar—, se cita la norma **sin fragmento**: el enlace lleva a la
+# cabecera del documento correcto en vez de a un punto equivocado del documento correcto.
 
 
 def _es_externa(documento) -> bool:
@@ -83,8 +91,13 @@ def _url_en_el_diario_oficial(documento, metadata: dict | None) -> str:
         or metadatos.get("url_eli")
         or getattr(documento, "canonical_url", None)
         or ""
-    )
-    return base.split("#", 1)[0]
+    ).split("#", 1)[0]
+
+    # Issue #157 — el fragmento sale del mapa leído en la ingesta, y de ningún otro sitio. Un
+    # `.get` sobre el mapa es exactamente la regla que se quiere: lo que no esté, no se cita.
+    mapa = metadatos.get(ANCORES_DEL_DIARI) or {}
+    del_diario = mapa.get((metadata or {}).get("ancora")) if base else None
+    return f"{base}#{del_diario}" if del_diario else base
 
 
 def _solo_si_es_url(valor: str | None) -> str | None:
