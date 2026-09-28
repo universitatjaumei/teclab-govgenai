@@ -12,8 +12,8 @@ import {
   getGetResolvedThemeApiV1HubThemesResolvedGetQueryKey,
 } from '@/shared/api/generated/hub-themes/hub-themes'
 import { useListOrganizacionesApiV1HubOrganizacionesGet } from '@/shared/api/generated/hub-organizaciones/hub-organizaciones'
-import { useListChatbotsApiV1HubChatbotsGet } from '@/shared/api/generated/hub-chatbots/hub-chatbots'
 import { useAuth } from '@/shared/auth'
+import { useChatbotsDeLaOrganizacion } from '@/shared/organizacion/useChatbotsDeLaOrganizacion'
 
 type Nivel = 'plataforma' | 'organizacion' | 'chatbot'
 type Config = Record<string, Record<string, unknown>>
@@ -105,7 +105,7 @@ export function IdentidadVisualPage() {
    */
   const { data: valoresDelContrato } = useGetThemeDefaultsApiV1HubThemesDefaultsGet()
   const { data: organizaciones = [] } = useListOrganizacionesApiV1HubOrganizacionesGet()
-  const { data: chatbots = [] } = useListChatbotsApiV1HubChatbotsGet()
+  const { data: chatbots = [] } = useChatbotsDeLaOrganizacion()
 
   const niveles: Nivel[] = esSuperadmin
     ? ['plataforma', 'organizacion', 'chatbot']

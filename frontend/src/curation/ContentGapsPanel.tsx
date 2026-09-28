@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
-import { useListChatbotsApiV1HubChatbotsGet } from '@/shared/api/generated/hub-chatbots/hub-chatbots'
+import { useChatbotsDeLaOrganizacion } from '@/shared/organizacion/useChatbotsDeLaOrganizacion'
 import {
   useListContentGaps,
   useAnalyzeContentGaps,
@@ -41,7 +41,7 @@ export function ContentGapsPanel() {
   const qc = useQueryClient()
   const [chatbotId, setChatbotId] = useState('')
 
-  const { data: chatbots = [] } = useListChatbotsApiV1HubChatbotsGet()
+  const { data: chatbots = [] } = useChatbotsDeLaOrganizacion()
   const { data: gaps = [] } = useListContentGaps(
     { chatbot_id: chatbotId },
     { query: { enabled: !!chatbotId } }

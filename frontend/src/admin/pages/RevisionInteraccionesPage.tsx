@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
 import { Download, Star, ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
-import { useListChatbotsApiV1HubChatbotsGet } from '@/shared/api/generated/hub-chatbots/hub-chatbots'
 import {
   useGetInteractionsForReviewApiV1HubFeedbackChatbotIdReviewGet,
   useReviewInteractionApiV1HubFeedbackInteractionsInteractionIdReviewPatch,
@@ -11,6 +10,7 @@ import {
 } from '@/shared/api/generated/hub-feedback/hub-feedback'
 import type { ChatbotRead, InteractionReviewOut } from '@/shared/api/generated/model'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { useChatbotsDeLaOrganizacion } from '@/shared/organizacion/useChatbotsDeLaOrganizacion'
 
 type Verdict = 'good' | 'bad' | 'mixed'
 type ReviewStatus = 'pending' | 'reviewed' | 'all'
@@ -107,7 +107,7 @@ export function RevisionInteraccionesPage() {
   const [notes, setNotes] = useState<Record<string, string>>({})
 
   const qc = useQueryClient()
-  const { data: chatbotsRaw } = useListChatbotsApiV1HubChatbotsGet()
+  const { data: chatbotsRaw } = useChatbotsDeLaOrganizacion()
   const chatbots: ChatbotRead[] = (chatbotsRaw as unknown as ChatbotRead[] | undefined) ?? []
 
   if (!selectedChatbotId && chatbots.length > 0) {

@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import delete as sql_delete
 from sqlalchemy import func
@@ -431,14 +431,35 @@ async def opciones_de_grafo(user: UserInfo = Depends(_require_admin)):
 
 @router.get("", response_model=list[ChatbotRead])
 async def list_chatbots(
+    organizacion_id: uuid.UUID | None = Query(default=None),
     user: UserInfo = Depends(_require_admin),
     session=Depends(get_async_session),
 ):
+    """Los chatbots que este principal puede ver, opcionalmente los de una organización.
+
+    **El filtro es la elección de la cabecera** (issue #11, MT.8). Desde REV.10 la organización
+    se elige una vez en el panel, y hasta ahora esa elección no llegaba aquí: quien administra
+    varias seguía viendo los chatbots de todas en cada desplegable. Casi ninguna pantalla lista
+    «lo suyo» —listan chatbots para elegir uno y pedir después sus documentos, sus escenarios o
+    sus interacciones—, así que el acotado aquí llega a casi todas.
+
+    **Opcional a propósito**: hay consumidores que necesitan ver todos los que la tenencia
+    permita, y convertirlo en obligatorio los rompería sin avisar.
+
+    **Y el orden importa**: la tenencia primero, el filtro después. `scope_query_to_orgs` decide
+    lo que se *puede* ver y no se negocia; el filtro sólo estrecha dentro de eso. Pedir una
+    organización ajena no es una consulta legítima, así que es un 403 y no un listado vacío —lo
+    segundo se leería como «esa organización no tiene chatbots». Es el mismo patrón que
+    `list_sites` desde SEC.8.1.
+    """
     # SEC.2: acotado en SQL y no en memoria. Filtrar despues de leer con LIMIT deja
     # fuera resultados propios y de todos modos trae los ajenos al proceso.
     consulta = scope_query_to_orgs(
         select(HubChatbot).order_by(HubChatbot.created_at.desc()), user, HubChatbot
     )
+    if organizacion_id is not None:
+        assert_org_access(user, organizacion_id)
+        consulta = consulta.where(HubChatbot.organizacion_id == organizacion_id)
     result = await session.execute(consulta)
     return [
         await _leer_con_disponibilidad(session, chatbot)

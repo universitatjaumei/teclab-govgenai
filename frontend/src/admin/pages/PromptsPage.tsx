@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import {
-  useListChatbotsApiV1HubChatbotsGet,
   useUpdateChatbotApiV1HubChatbotsChatbotIdPatch,
   getListChatbotsApiV1HubChatbotsGetQueryKey,
 } from '@/shared/api/generated/hub-chatbots/hub-chatbots'
@@ -14,6 +13,7 @@ import {
   getListPromptTemplatesApiV1HubPromptTemplatesGetQueryKey,
 } from '@/shared/api/generated/hub-prompt-templates/hub-prompt-templates'
 import type { ChatbotRead, PromptTemplateRead, PromptTemplateCreate, ChatbotUpdate } from '@/shared/api/generated/model'
+import { useChatbotsDeLaOrganizacion } from '@/shared/organizacion/useChatbotsDeLaOrganizacion'
 
 // Render template text with {variable} spans highlighted (for the editor preview)
 function HighlightedText({ text }: { text: string }) {
@@ -91,7 +91,7 @@ export function PromptsPage() {
   const invalidateTemplates = () =>
     qc.invalidateQueries({ queryKey: getListPromptTemplatesApiV1HubPromptTemplatesGetQueryKey() })
 
-  const { data: chatbotsRaw } = useListChatbotsApiV1HubChatbotsGet()
+  const { data: chatbotsRaw } = useChatbotsDeLaOrganizacion()
   // Memoizado: el `?? []` construía un array nuevo en cada render mientras no hubiera datos, y
   // cualquier hook que lo metiera en sus dependencias se recalculaba siempre. Mismo caso que en
   // `ActivityPromptsPage`.
