@@ -720,6 +720,26 @@ class HubUser(HubConfigBase):
     #: **Ortogonal a `origen`**, que dice quién creó la fila y no cómo entra: una persona puede
     #: tener las dos vías, el ACS no toca esta columna y fijar contraseña no cambia `origen`.
     hashed_password: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    #: Si la contraseña de esta persona **la puso otra** y sigue pendiente de cambio (issue #94).
+    #:
+    #: Es lo que acota a un solo uso el conocimiento de quien la restableció: mientras sea cierto,
+    #: el token que se emita no sirve para nada más que cambiarla. Sin esto, quien restablece
+    #: conoce una contraseña que vale indefinidamente — que es lo que costó el incidente del
+    #: 2026-09-01, con seis cuentas compartiendo secreto y la atribución de las valoraciones
+    #: valiendo lo que valiera ese secreto.
+    #:
+    #: `NOT NULL` con defecto falso, explícito: nulo aquí sería un tercer estado que nadie sabe
+    #: leer, y el defecto de servidor es lo que deja las filas que ya existen en «nada pendiente».
+    debe_cambiar_contrasena: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    #: Cuándo y quién restableció la contraseña por última vez (issue #94). Sin la traza, un
+    #: restablecimiento es indistinguible de un cambio propio y la pregunta «¿quién más ha
+    #: conocido esta contraseña?» no tiene respuesta.
+    password_reset_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    password_reset_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
     #: Quién creó la fila: `sso` (el ACS, Just-In-Time) o `manual` (una persona, IDE.3). El
     #: defecto es `sso` porque el ACS no va a escribirlo en cada entrada, y NULL no vale: la
     #: pantalla de personas distingue las dos procedencias.

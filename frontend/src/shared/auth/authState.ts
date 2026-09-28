@@ -17,6 +17,8 @@ export interface AuthUser {
   user_id: string
   email: string
   role: string
+  /** La contraseña la puso otra persona y está pendiente de cambio (issue #94). */
+  cambio_pendiente: boolean
 }
 
 export interface AuthState {
@@ -51,7 +53,9 @@ export function parseJwtPayload(token: string): AuthUser | null {
     if (typeof exp === 'number' && exp * 1000 < Date.now()) {
       return null
     }
-    return { user_id, email, role }
+    // Issue #94 — ausente es «nada pendiente», igual que lo lee el servidor: un token emitido
+    // antes de esto no puede echar a nadie por no traer un claim que no existía.
+    return { user_id, email, role, cambio_pendiente: payload['cambio_pendiente'] === true }
   } catch {
     return null
   }

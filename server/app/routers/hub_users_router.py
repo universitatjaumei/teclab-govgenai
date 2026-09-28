@@ -643,6 +643,15 @@ async def set_usuario_password(
     assert_org_access(user, fila.organizacion_id)
 
     fila.hashed_password = hash_password(body.password)
+    # Issue #94 — **la contraseña que pone otra persona vale una sola vez**. Quien restablece
+    # conoce el secreto; con la marca, ese conocimiento se agota en la primera entrada, porque
+    # el token que se emita no servirá para nada más que cambiarla.
+    #
+    # Y queda dicho quién y cuándo: sin la traza, un restablecimiento es indistinguible de un
+    # cambio propio, y la pregunta «¿quién más ha conocido esta contraseña?» no tiene respuesta.
+    fila.debe_cambiar_contrasena = True
+    fila.password_reset_at = datetime.now(timezone.utc)
+    fila.password_reset_by = user.user_id
     session.add(fila)
     await session.commit()
 

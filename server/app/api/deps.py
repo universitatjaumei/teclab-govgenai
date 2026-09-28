@@ -25,6 +25,35 @@ def _unauthorized(detail: str) -> HTTPException:
     )
 
 
+#: Lo único que se puede hacer con una contraseña que puso otra persona (issue #94).
+#:
+#: `/auth/me` entra en la lista y no la debilita: leer quién eres no es hacer nada, y sin ella el
+#: panel se queda ciego al recargar la página —la marca viaja dentro del token y el cliente no lo
+#: abre—, así que no sabría ni que tiene que pedir el cambio.
+_RUTAS_CON_CAMBIO_PENDIENTE = ("/auth/me/password", "/auth/me")
+
+
+def _exigir_el_cambio_pendiente(request: Request, principal: UserInfo) -> None:
+    """Corta la sesión que arrastra una contraseña ajena, salvo para cambiarla.
+
+    **Se hace aquí y no en la pantalla** porque el aviso en el panel dejaría la contraseña viva
+    para quien llame a la API a mano — que es justo quien preocupa. Con esto, el conocimiento de
+    quien restableció queda acotado a un solo uso de verdad.
+
+    Es un 403 y no un 401: la credencial es válida, lo que no es válido es seguir sin cambiarla.
+    Un 401 haría que el panel la tomara por caducada y mandara a iniciar sesión otra vez, que es
+    exactamente el bucle del que no se sale.
+    """
+    if not getattr(principal, "cambio_pendiente", False):
+        return
+    if any(request.url.path.endswith(ruta) for ruta in _RUTAS_CON_CAMBIO_PENDIENTE):
+        return
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="CAMBIO_DE_CONTRASENA_PENDIENTE",
+    )
+
+
 async def get_current_user(
     request: Request,
     authorization: str | None = Header(default=None, alias="Authorization"),
@@ -53,9 +82,12 @@ async def get_current_user(
 
     request.state.pat_scopes = None
     try:
-        return decode_token(token)
+        principal = decode_token(token)
     except AuthenticationError as e:
         raise _unauthorized(str(e))
+
+    _exigir_el_cambio_pendiente(request, principal)
+    return principal
 
 
 async def get_current_user_optional(

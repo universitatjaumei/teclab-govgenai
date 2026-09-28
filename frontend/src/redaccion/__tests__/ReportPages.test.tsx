@@ -83,7 +83,7 @@ beforeEach(() => {
   } as unknown as ReturnType<typeof useCreateWorkspace>)
 
   vi.mocked(useAuth).mockReturnValue({
-    user: { user_id: 'u1', email: 'admin@test.com', role: 'admin' },
+    user: { user_id: 'u1', email: 'admin@test.com', role: 'admin', cambio_pendiente: false },
     isAuthenticated: true,
     login: vi.fn(),
     logout: vi.fn(),
@@ -112,7 +112,7 @@ describe('ReportTemplateBuilderPage', () => {
     } as unknown as ReturnType<typeof useListTemplates>)
 
     vi.mocked(useAuth).mockReturnValue({
-      user: { user_id: 'u2', email: 'user@test.com', role: 'user' },
+      user: { user_id: 'u2', email: 'user@test.com', role: 'user', cambio_pendiente: false },
       isAuthenticated: true,
       login: vi.fn(),
       logout: vi.fn(),

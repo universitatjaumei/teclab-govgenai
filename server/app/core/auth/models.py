@@ -54,6 +54,13 @@ class UserInfo:
     # `restricted` de `assert_chatbot_access`. Vacío en el login local, que no tiene grupos:
     # ahí la autorización fina se expresa con `allowed_roles`.
     saml_groups: tuple[str, ...] = field(default=())
+    #: Si esta sesión arrastra una contraseña que puso otra persona y está pendiente de cambio
+    #: (issue #94). Mientras sea cierto, el token **no sirve para nada más que cambiarla**: es lo
+    #: que acota a un solo uso el conocimiento de quien la restableció.
+    #:
+    #: Un token emitido antes de esto no trae el claim y se lee como `False` — quedarse fuera por
+    #: no traerlo sería echar de la aplicación a quien no ha hecho nada.
+    cambio_pendiente: bool = False
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "role", _validate_role(self.role))
@@ -69,6 +76,9 @@ class UserInfo:
             "role": self.role,
             "organizacion_ids": list(self.organizacion_ids),
             "saml_groups": list(self.saml_groups),
+            # Issue #94 — para que el panel sepa qué pintar al recargar la página: el token
+            # sigue en el navegador y la marca viaja dentro, pero el cliente no lo abre.
+            "cambio_pendiente": self.cambio_pendiente,
         }
 
     @property

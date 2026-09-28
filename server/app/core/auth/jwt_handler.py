@@ -34,6 +34,11 @@ def create_token(user: UserInfo, expires_in_minutes: int | None = None) -> str:
         "iat": datetime.now(timezone.utc),
     }
 
+    # Issue #94 — sólo cuando es cierto. Un claim que viaja siempre engorda todos los
+    # tokens para decir «nada pendiente».
+    if user.cambio_pendiente:
+        payload["cambio_pendiente"] = True
+
     return jwt.encode(
         payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm
     )
@@ -75,4 +80,7 @@ def decode_token(token: str) -> UserInfo:
         # como acceso total: lo contrario convertiria un token viejo en una llave maestra.
         organizacion_ids=tuple(payload.get("orgs") or ()),
         saml_groups=tuple(payload.get("groups") or ()),
+        # Issue #94. Ausente = `False`, por lo mismo que `orgs`: un token viejo no puede
+        # quedarse fuera por no traer un claim que no existía.
+        cambio_pendiente=bool(payload.get("cambio_pendiente", False)),
     )

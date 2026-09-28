@@ -42,6 +42,7 @@ def _persona(
     activo: bool = True,
     role: str = "user",
     organizacion_id: str | None = ORG,
+    pendiente: bool = False,
 ) -> SimpleNamespace:
     return SimpleNamespace(
         id=uuid.uuid4(),
@@ -53,6 +54,9 @@ def _persona(
         hashed_password=hash_password(PASSWORD) if con_password else None,
         origen="manual",
         last_login_at=None,
+        # Issue #94 — la fila real lo tiene siempre, así que el doble también. Sin el campo,
+        # el login responde 500 y el motivo no aparece por ninguna parte.
+        debe_cambiar_contrasena=pendiente,
     )
 
 
@@ -247,6 +251,30 @@ class TestLasTresDefensas:
         _login(client, sesion)
 
         assert orden and orden[0] == "limite", f"orden real: {orden}"
+
+
+class TestLaContrasenaQuePusoOtro:
+    """Issue #94 — entrar con ella se puede; hacer cualquier otra cosa, no."""
+
+    def test_should_say_so_in_the_response(self, client):
+        """El panel lo lee de aquí: no lo deduce de nada."""
+        r = _login(client, _sesion(_persona(pendiente=True)))
+
+        assert r.status_code == 200, r.text
+        assert r.json()["cambio_pendiente"] is True
+
+    def test_should_carry_it_inside_the_token(self, client):
+        """Y va dentro del token, que es lo que el servidor mira en cada petición."""
+        r = _login(client, _sesion(_persona(pendiente=True)))
+
+        assert _sesion_del_token(r.json()["access_token"]).cambio_pendiente is True
+
+    def test_should_leave_an_ordinary_login_alone(self, client):
+        """Sin esto, lo de arriba se cumpliría marcando a todo el mundo."""
+        r = _login(client, _sesion(_persona()))
+
+        assert r.json()["cambio_pendiente"] is False
+        assert _sesion_del_token(r.json()["access_token"]).cambio_pendiente is False
 
 
 class TestElInterruptor:

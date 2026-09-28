@@ -57,6 +57,9 @@ class CambioDeContrasenaRequest(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    #: Si esta sesión entra con una contraseña que puso otra persona y tiene que cambiarla
+    #: (issue #94). **Lo dice el servidor**: el panel no lo deduce de nada, lo pinta.
+    cambio_pendiente: bool = False
 
 
 
@@ -278,11 +281,15 @@ async def login_usuario(
     # verificación de USR.4, y los tests de USR.2 no lo veían porque doblan la sesión.
     #
     # `login_admin` no tiene el problema porque no commitea; éste sí, porque anota la entrada.
+    # Issue #94 — también antes del commit, por lo que dice el comentario de arriba.
+    cambio_pendiente = bool(persona.debe_cambiar_contrasena)
+
     user_info = UserInfo(
         user_id=str(persona.id),
         email=persona.email,
         role=persona.role,
         organizacion_ids=(str(persona.organizacion_id),) if persona.organizacion_id else (),
+        cambio_pendiente=cambio_pendiente,
     )
 
     # La columna existe desde AUTH.2 y hasta ahora sólo la escribía el ACS. La pantalla de
@@ -292,7 +299,9 @@ async def login_usuario(
     session.add(persona)
     await session.commit()
 
-    return TokenResponse(access_token=create_token(user_info))
+    return TokenResponse(
+        access_token=create_token(user_info), cambio_pendiente=cambio_pendiente
+    )
 
 
 @router.patch(
@@ -416,6 +425,12 @@ async def cambiar_mi_password(
         )
 
     cuenta.hashed_password = hash_password(body.password_nueva)
+    # Issue #94 — aquí se acaba el pendiente, y sólo aquí: es la única vía en la que la
+    # contraseña nueva la elige su dueño. `hasattr` porque esta ruta sirve a las tres clases con
+    # login local y la marca sólo existe en `hub_users`; las otras dos son cuentas de
+    # administración de las tablas viejas, fuera del alcance de esta issue.
+    if hasattr(cuenta, "debe_cambiar_contrasena"):
+        cuenta.debe_cambiar_contrasena = False
     session.add(cuenta)
     await session.commit()
 
