@@ -222,6 +222,9 @@ jobs:
       - name: Copiar los ficheros de despliegue a la máquina
         run: |
           set -euo pipefail
+          # Issue #184 — la clave efímera puede no haber propagado; se reintenta la
+          # conexión y nada más. El comando de abajo va una sola vez.
+          bash scripts/vm_espera_ssh.sh
           # Se copian los artefactos, no el repositorio: en la VM no hay working copy que
           # pueda divergir de lo que se cree que está desplegado.
           tar czf despliegue.tgz \
@@ -274,6 +277,9 @@ jobs:
         id: anterior
         run: |
           set -euo pipefail
+          # Issue #184 — la clave efímera puede no haber propagado; se reintenta la
+          # conexión y nada más. El comando de abajo va una sola vez.
+          bash scripts/vm_espera_ssh.sh
           # Se guarda el fichero ENTERO, no sólo la etiqueta de `app`. La primera versión
           # rehacía con `sed` la línea de la imagen de la aplicación y dejaba las del frontend
           # y del sandbox apuntando a la versión nueva: una vuelta atrás a medias es un estado
@@ -287,6 +293,9 @@ jobs:
       - name: Escribir la configuración del despliegue
         run: |
           set -euo pipefail
+          # Issue #184 — la clave efímera puede no haber propagado; se reintenta la
+          # conexión y nada más. El comando de abajo va una sola vez.
+          bash scripts/vm_espera_ssh.sh
           # Estas NO son credenciales: son identificadores y rutas. Los secretos los baja la
           # propia máquina de Secret Manager (D.2) y nunca pasan por aquí.
           #
@@ -337,11 +346,17 @@ jobs:
       # `|| true` porque quedarse sin limpiar no es motivo para abortar un despliegue.
       - name: Hacer sitio en el disco antes de bajar las imágenes
         run: |
+          # Issue #184 — la clave efímera puede no haber propagado; se reintenta la
+          # conexión y nada más. El comando de abajo va una sola vez.
+          bash scripts/vm_espera_ssh.sh
           gcloud compute ssh "$VM_NOMBRE" --zone "$VM_ZONA" --tunnel-through-iap --quiet \
             --command "sudo docker image prune -af || true; df -h / | tail -1" || true
 
       - name: Bajar los secretos y levantar el proxy de Cloud SQL
         run: |
+          # Issue #184 — la clave efímera puede no haber propagado; se reintenta la
+          # conexión y nada más. El comando de abajo va una sola vez.
+          bash scripts/vm_espera_ssh.sh
           gcloud compute ssh "$VM_NOMBRE" --zone "$VM_ZONA" --tunnel-through-iap --quiet \
             --command "cd ${DESTINO} && sudo ./scripts/vm_fetch_secrets.sh \
               --project ${{ vars.GCP_PROJECT_ID }} --out ${DESTINO}/.env.runtime && \
@@ -351,6 +366,9 @@ jobs:
       - name: Migraciones (antes de cambiar la imagen)
         run: |
           set -euo pipefail
+          # Issue #184 — la clave efímera puede no haber propagado; se reintenta la
+          # conexión y nada más. El comando de abajo va una sola vez.
+          bash scripts/vm_espera_ssh.sh
           # Paso propio y con la salida en el log: si Alembic falla, el despliegue se detiene
           # aquí y la imagen vieja sigue sirviendo.
           gcloud compute ssh "$VM_NOMBRE" --zone "$VM_ZONA" --tunnel-through-iap --quiet \
@@ -380,6 +398,9 @@ jobs:
       - name: Sembrar el catálogo de plantillas (idempotente)
         run: |
           set -euo pipefail
+          # Issue #184 — la clave efímera puede no haber propagado; se reintenta la
+          # conexión y nada más. El comando de abajo va una sola vez.
+          bash scripts/vm_espera_ssh.sh
           gcloud compute ssh "$VM_NOMBRE" --zone "$VM_ZONA" --tunnel-through-iap --quiet \
             --command "cd ${DESTINO} && sudo docker compose --env-file ${DESTINO}/.env.despliegue \
               -f ${DESTINO}/docker-compose.vm.yml --profile migrate run --rm \
@@ -387,6 +408,9 @@ jobs:
 
       - name: Desplegar
         run: |
+          # Issue #184 — la clave efímera puede no haber propagado; se reintenta la
+          # conexión y nada más. El comando de abajo va una sola vez.
+          bash scripts/vm_espera_ssh.sh
           gcloud compute ssh "$VM_NOMBRE" --zone "$VM_ZONA" --tunnel-through-iap --quiet \
             --command "sudo systemctl restart govgenai && sleep 20 && \
               sudo docker compose --env-file ${DESTINO}/.env.despliegue \
@@ -412,6 +436,15 @@ jobs:
         if: always()
         run: |
           set -uo pipefail
+          # Issue #184 — la clave efímera puede no haber propagado; se reintenta la conexión y
+          # nada más.
+          #
+          # **Aquí la sonda NO puede ser mortal**, y es el único sitio donde eso importa: este
+          # paso es la red de seguridad, y con el `-e` que GitHub pone por omisión un fallo suyo
+          # abortaría el paso antes de intentar la reversión. O sea que arreglar el despliegue
+          # habría creado una forma nueva de quedarse caído sin volver atrás — justo lo que
+          # `if: always()` vino a impedir. Si no hay SSH, se sigue y lo dirá quien lo necesite.
+          bash scripts/vm_espera_ssh.sh || echo "::warning::sin SSH tras los reintentos; se sigue igualmente"
           HOST="${{ vars.GOVGENAI_HOST }}"
           ok=0
           for intento in 1 2 3 4 5 6; do
