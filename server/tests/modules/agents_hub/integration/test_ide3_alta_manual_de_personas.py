@@ -298,7 +298,7 @@ class TestEdicionYListado:
             await _entrar_por_sso(db_session, por_sso)
             respuesta = await cliente.get("/api/v1/hub/users")
 
-        origenes = {u["email"]: u["origen"] for u in respuesta.json()}
+        origenes = {u["email"]: u["origen"] for u in respuesta.json()["personas"]}
         assert origenes[manual] == "manual"
         assert origenes[por_sso] == "sso"
 

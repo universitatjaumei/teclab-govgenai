@@ -31,7 +31,9 @@ export function ModulosPage() {
 
   const { data: catalogo } = useGetCatalogoApiV1HubModulosCatalogoGet()
   const { data: concesiones } = useListConcesionesApiV1HubModulosGet()
-  const { data: personas } = useListUsersApiV1HubUsersGet()
+  // MT.9 — el listado pasó a venir en un sobre con el recuento de lo que el filtro deja
+  // fuera. Aquí no se filtra: esta pantalla concede módulos a cualquier persona.
+  const { data: listado } = useListUsersApiV1HubUsersGet()
   const { mutate: conceder, isPending: concediendo } = useConcederApiV1HubModulosPost()
   const { mutate: retirar } = useRetirarApiV1HubModulosConcesionIdDelete()
 
@@ -112,7 +114,7 @@ export function ModulosPage() {
               className="rounded-md border px-2 py-1 text-sm"
             >
               <option value="">—</option>
-              {(personas ?? []).map((p) => (
+              {(listado?.personas ?? []).map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.email}
                 </option>

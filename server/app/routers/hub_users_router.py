@@ -29,9 +29,9 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.app.api.deps import require_role
@@ -122,6 +122,20 @@ class UsuarioRead(BaseModel):
     #: De las dos salidas posibles ésta es la honesta: resolver el acceso efectivo de verdad
     #: exige datos que esta pantalla no tiene, y prometerlo con los que hay sería inventarlo.
     sin_concesion_directa: bool = False
+
+
+class PersonasListadas(BaseModel):
+    """El listado, con lo que la pantalla necesita saber de lo que **no** está viendo (MT.9).
+
+    Era una lista pelada, y con el filtro por organización dejó de bastar: estrechar esconde las
+    cuentas que no pertenecen a ninguna —las de arranque, entre otras— y **ocultar sin decirlo
+    no es acotar**. El recuento lo da el servidor; la pantalla lo pinta y no lo deduce, que es
+    la misma regla que `puede_borrarse` y `acciones_permitidas`.
+    """
+
+    personas: list[UsuarioRead]
+    #: Cuántas cuentas de nivel plataforma quedan fuera por el filtro. Cero cuando no se filtra.
+    de_plataforma_no_mostradas: int = 0
 
 
 class CapacidadesDePersonas(BaseModel):
@@ -407,11 +421,12 @@ async def capacidades_de_personas(
     return CapacidadesDePersonas(acciones_permitidas=acciones)
 
 
-@router.get("", response_model=list[UsuarioRead])
+@router.get("", response_model=PersonasListadas)
 async def list_users(
+    organizacion_id: uuid.UUID | None = Query(default=None),
     user: UserInfo = Depends(_require_admin),
     session: AsyncSession = Depends(get_async_session),
-) -> list[UsuarioRead]:
+) -> PersonasListadas:
     """Quién existe en esta plataforma —o en tu organización, si es lo que administras.
 
     **REV.8 — incluye las cuentas de `superadminaccount`**, en solo lectura. Antes el listado
@@ -429,6 +444,14 @@ async def list_users(
     pantalla lo dice, para que nadie lea el listado como «todas las cuentas».
     """
     consulta = scope_query_to_orgs(select(HubUser), user, HubUser).order_by(HubUser.email)
+
+    # MT.9 — el filtro va **después** de la tenencia y nunca en su lugar: el mismo orden que
+    # `list_sites` (SEC.8.1) y `list_chatbots` (MT.8). Pedir una organización que no se gestiona
+    # es 403 y no una lista vacía, que sería una respuesta afirmativa a «¿existe?».
+    if organizacion_id is not None:
+        assert_org_access(user, organizacion_id)
+        consulta = consulta.where(HubUser.organizacion_id == organizacion_id)
+
     filas = (await session.execute(consulta)).scalars().all()
     # En una sola consulta para todas: es la pantalla donde se ve que alguien se quedó sin
     # acceso, y hacerlo persona a persona la volvería lenta justo cuando hay gente que mirar.
@@ -436,9 +459,27 @@ async def list_users(
     personas = [
         _a_lectura(f, quien=user, modulos=concesiones.get(str(f.id), [])) for f in filas
     ]
-    if user.role != UserRole.SUPERADMIN.value:
-        return personas
-    return await _superadmins_de_arranque(session) + personas
+    de_arranque = (
+        await _superadmins_de_arranque(session)
+        if user.role == UserRole.SUPERADMIN.value
+        else []
+    )
+
+    if organizacion_id is None:
+        return PersonasListadas(personas=de_arranque + personas)
+
+    # Estrechado: las de plataforma no se enseñan, y **se dice cuántas son**. Las de arranque
+    # son de plataforma por definición —no pertenecen a ninguna organización—, así que entran
+    # en el recuento y no en la lista.
+    sin_organizacion = await session.scalar(
+        select(func.count())
+        .select_from(HubUser)
+        .where(HubUser.organizacion_id.is_(None))
+    )
+    return PersonasListadas(
+        personas=personas,
+        de_plataforma_no_mostradas=(sin_organizacion or 0) + len(de_arranque),
+    )
 
 
 @router.post("", response_model=UsuarioRead, status_code=status.HTTP_201_CREATED)

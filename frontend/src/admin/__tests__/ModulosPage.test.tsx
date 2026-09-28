@@ -73,7 +73,7 @@ beforeEach(() => {
     data: CONCESIONES,
   } as never)
   vi.mocked(useListUsersApiV1HubUsersGet).mockReturnValue({
-    data: [{ id: 'aaa', email: 'alguien@uji.es' }],
+    data: { personas: [{ id: 'aaa', email: 'alguien@uji.es' }], de_plataforma_no_mostradas: 0 },
   } as never)
   vi.mocked(useConcederApiV1HubModulosPost).mockReturnValue({
     mutate: conceder,

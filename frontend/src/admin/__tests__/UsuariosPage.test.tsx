@@ -14,6 +14,7 @@ import {
 } from '@/shared/api/generated/hub-users/hub-users'
 import type { UsuarioRead } from '@/shared/api/generated/model'
 import { useAutoridadDelRol } from '@/shared/auth/useAutoridadDelRol'
+import { useOrganizacionElegida } from '@/shared/organizacion/useOrganizacionElegida'
 
 /**
  * IDE.4 — quién existe en esta plataforma.
@@ -93,9 +94,14 @@ const mutar = vi.fn()
 const borrar = vi.fn()
 const fijarContrasena = vi.fn()
 
-function conPersonas(personas: UsuarioRead[] = PERSONAS, autoridad = 'app') {
+function conPersonas(
+  personas: UsuarioRead[] = PERSONAS,
+  autoridad = 'app',
+  fuera = 0,
+) {
   vi.mocked(useListUsersApiV1HubUsersGet).mockReturnValue({
-    data: personas,
+    // MT.9 — el listado viene en un sobre con el recuento de lo que el filtro deja fuera.
+    data: { personas, de_plataforma_no_mostradas: fuera },
     isLoading: false,
     error: null,
   } as never)
@@ -135,6 +141,16 @@ beforeEach(() => {
   fijarContrasena.mockClear()
   conPersonas()
 })
+
+/** Cambia la organización elegida como lo hace la cabecera: por la elección compartida. */
+function CambiadorDeOrganizacion() {
+  const { elegir } = useOrganizacionElegida()
+  return (
+    <button type="button" data-testid="elegir-otra" onClick={() => elegir('org-dipu')}>
+      otra
+    </button>
+  )
+}
 
 function renderPage(autoridadDelRol: 'app' | 'idp' = 'app') {
   vi.mocked(useAutoridadDelRol).mockReturnValue(autoridadDelRol)
@@ -581,5 +597,79 @@ describe('USR.9 — lo que cada administrador puede hacer lo dice el servidor', 
     const fila = screen.getByTestId('persona-manual@uji.es')
     expect(within(fila).getByRole('button', { name: /eliminar/i })).toBeTruthy()
     expect(within(fila).getByRole('button', { name: /desactivar/i })).toBeTruthy()
+  })
+
+  describe('MT.9 — estrechar a la organización elegida (issue #186)', () => {
+    it('should_ask_the_server_for_the_chosen_organisation', () => {
+      // El control es **el de la cabecera**: MT.8 acabó de hacer que la organización elegida
+      // sea una sola para todo el panel, y un selector propio aquí sería una segunda fuente de
+      // verdad para la misma pregunta.
+      localStorage.setItem('organizacion-elegida', 'org-uji')
+      conPersonas()
+      renderPage()
+
+      expect(vi.mocked(useListUsersApiV1HubUsersGet)).toHaveBeenCalledWith({
+        organizacion_id: 'org-uji',
+      })
+    })
+
+    it('should_offer_a_way_out_of_the_filter', () => {
+      // **Con organizaciones dadas de alta siempre hay una elegida** —sin elección previa se
+      // aterriza en la primera—, así que sin esta salida las cuentas que no pertenecen a
+      // ninguna dejarían de ser alcanzables desde el panel. Entre ellas la de arranque, que es
+      // la única cuenta real de una instalación recién creada y que REV.8 trajo a este listado
+      // justo porque no aparecía en ninguna parte. Estrechar no puede convertirse en esconder.
+      localStorage.setItem('organizacion-elegida', 'org-uji')
+      conPersonas(PERSONAS, 'app', 2)
+      renderPage()
+
+      fireEvent.click(screen.getByRole('button', { name: /ver todas/i }))
+
+      expect(vi.mocked(useListUsersApiV1HubUsersGet)).toHaveBeenLastCalledWith(undefined)
+      expect(screen.getByTestId('personas-sin-acotar')).toBeTruthy()
+    })
+
+    it('should_say_how_many_accounts_the_filter_leaves_out', () => {
+      // Estrechar esconde las cuentas que no son de ninguna organización —las de arranque
+      // entre otras—, y **ocultar sin decirlo no es acotar**. El recuento lo da el servidor.
+      localStorage.setItem('organizacion-elegida', 'org-uji')
+      conPersonas(PERSONAS, 'app', 2)
+      renderPage()
+
+      expect(screen.getByTestId('personas-fuera-del-filtro').textContent).toMatch(/2/)
+    })
+
+    it('should_stay_quiet_when_nothing_is_left_out', () => {
+      // Sin esto, lo de arriba se cumpliría enseñando siempre el aviso.
+      localStorage.setItem('organizacion-elegida', 'org-uji')
+      conPersonas(PERSONAS, 'app', 0)
+      renderPage()
+
+      expect(screen.queryByTestId('personas-fuera-del-filtro')).toBeNull()
+    })
+    it('should_narrow_again_when_another_organisation_is_chosen', () => {
+      // Un interruptor suelto sobreviviría al cambio de organización, así que elegir otra no
+      // cambiaría nada de lo que se ve: es el mismo defecto que en MT.8 dejaba elegido un
+      // chatbot de la organización anterior. Se cambia como en el panel —por la elección
+      // compartida—, no manipulando el estado de la pantalla.
+      localStorage.setItem('organizacion-elegida', 'org-uji')
+      conPersonas(PERSONAS, 'app', 2)
+      render(
+        <QueryClientProvider client={new QueryClient()}>
+          <MemoryRouter>
+            <CambiadorDeOrganizacion />
+            <UsuariosPage />
+          </MemoryRouter>
+        </QueryClientProvider>,
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: /ver todas/i }))
+      expect(screen.getByTestId('personas-sin-acotar')).toBeTruthy()
+
+      fireEvent.click(screen.getByTestId('elegir-otra'))
+
+      expect(screen.queryByTestId('personas-sin-acotar')).toBeNull()
+    })
+
   })
 })
