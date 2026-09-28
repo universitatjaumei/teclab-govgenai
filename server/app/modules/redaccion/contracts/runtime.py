@@ -165,6 +165,10 @@ class WorkspaceState(BaseModel):
     user_edits: dict[str, dict] = Field(default_factory=dict)
     final_document: str | None = None
     final_document_hash: str | None = None
+    #: Lo que una persona escribió en los campos de los bloques `USER_INPUT` (issue #86).
+    #: Va aparte de `inputs`, que son ficheros: mezclarlos haría que un texto apareciera en la
+    #: pantalla como un fichero subido y en el registro como una entrada corrupta.
+    manual_inputs: dict[str, str] = Field(default_factory=dict)
     regenerate_blocks: set[str] = Field(default_factory=set)
     skip_blocks: set[str] = Field(default_factory=set)
     # Fase 13 — NER reversible. `anonymization_mode` se carga del workspace en

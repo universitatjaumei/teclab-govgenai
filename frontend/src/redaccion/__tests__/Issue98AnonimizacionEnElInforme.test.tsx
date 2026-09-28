@@ -51,6 +51,7 @@ vi.mock('@/shared/api/download', () => ({
 vi.mock('@/shared/api/generated/redaccion-workspaces/redaccion-workspaces', () => ({
   useResumeWorkspace: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
   useRunWorkspace: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+  useSetWorkspaceFields: vi.fn(() => ({ mutateAsync: vi.fn().mockResolvedValue({}), isPending: false })),
   useUploadWorkspaceInput: vi.fn(() => ({
     mutateAsync: vi.fn().mockResolvedValue({}),
     isPending: false,

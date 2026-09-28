@@ -37,6 +37,12 @@ interface Props {
    * satisfecho no se vuelve a exigir: si no, reejecutar obligaría a resubir el mismo fichero.
    */
   satisfiedSlots?: string[]
+  /**
+   * Issue #86 — lo que ya se escribió en los campos manuales. Sin esto, reejecutar un informe
+   * manda el formulario vacío y **borra** lo guardado, porque el endpoint de campos es un `PUT`.
+   * Es el equivalente de `satisfiedSlots` para lo que se teclea.
+   */
+  savedFields?: Record<string, string>
   /** Hay una subida o una generación en marcha: se bloquea el envío y se dice. */
   submitting?: boolean
 }
@@ -45,6 +51,7 @@ export function ReportUIContractRenderer({
   contract,
   onSubmit,
   satisfiedSlots = [],
+  savedFields = {},
   submitting = false,
 }: Props) {
   const { i18n, t } = useTranslation('common')
@@ -58,7 +65,7 @@ export function ReportUIContractRenderer({
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm({ resolver: zodResolver(schema) })
+  } = useForm({ resolver: zodResolver(schema), values: savedFields })
 
   function handleFileChange(slotId: string, newFiles: File[]) {
     setFiles(prev => ({ ...prev, [slotId]: newFiles }))

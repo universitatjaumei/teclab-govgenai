@@ -29,6 +29,7 @@ from server.app.modules.redaccion.graph.nodes.init_anonymization import InitAnon
 from server.app.modules.redaccion.graph.nodes.load_template import LoadTemplateNode
 from server.app.modules.redaccion.graph.nodes.missing_data_question import MissingDataQuestionNode
 from server.app.modules.redaccion.graph.nodes.review_gate import UserReviewGateNode, review_gate_router
+from server.app.modules.redaccion.graph.nodes.user_input_fill import UserInputFillNode
 from server.app.modules.redaccion.graph.nodes.validate_inputs import ValidateInputContractNode
 from server.app.modules.redaccion.graph.tracing import NoOpTracingService, traced_node
 
@@ -67,6 +68,10 @@ def build_core_graph(
 
     load_node = LoadTemplateNode(template_version_repo)
     validate_node = ValidateInputContractNode()
+    # Issue #86 — lo que escribió una persona en los bloques `USER_INPUT`. No depende de
+    # ningún fichero ni de ninguna extracción, así que va pronto: así está disponible para
+    # los bloques de IA que lo citen.
+    user_input_node = UserInputFillNode()
     normalize_node = FileNormalizationNode(storage_service)
     extract_node = DeterministicExtractionNode(
         extraction_factory,
@@ -108,6 +113,7 @@ def build_core_graph(
     graph = StateGraph(WorkspaceState)
     graph.add_node("load_template",           _t(load_node,      "load_template"))
     graph.add_node("validate_inputs",         _t(validate_node,  "validate_inputs"))
+    graph.add_node("user_input_fill",         _t(user_input_node, "user_input_fill"))
     graph.add_node("file_normalization",      _t(normalize_node, "file_normalization"))
     graph.add_node("deterministic_extraction",_t(extract_node,     "deterministic_extraction"))
     graph.add_node("data_transformation",     _t(transform_node,  "data_transformation"))
@@ -125,7 +131,8 @@ def build_core_graph(
 
     graph.set_entry_point("load_template")
     graph.add_edge("load_template", "validate_inputs")
-    graph.add_edge("validate_inputs", "file_normalization")
+    graph.add_edge("validate_inputs", "user_input_fill")
+    graph.add_edge("user_input_fill", "file_normalization")
     graph.add_edge("file_normalization", "deterministic_extraction")
     # **La anonimización va aquí, justo detrás de la extracción** (issue #170). Estaba entre
     # `data_quality_check` y `ai_assist_draft`, y su propio docstring decía «antes de cualquier

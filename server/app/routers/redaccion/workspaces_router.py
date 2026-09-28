@@ -433,6 +433,67 @@ async def upload_workspace_input(
     )
 
 
+class ManualInputsIn(BaseModel):
+    """Lo que se escribió en los campos de los bloques `USER_INPUT` (issue #86)."""
+
+    fields: dict[str, str]
+
+
+class ManualInputsOut(BaseModel):
+    fields: dict[str, str]
+
+
+@router.put(
+    "/{workspace_id}/fields",
+    response_model=ManualInputsOut,
+    operation_id="setWorkspaceFields",
+)
+async def set_workspace_fields(
+    workspace_id: uuid.UUID,
+    body: ManualInputsIn,
+    user: UserInfo = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> ManualInputsOut:
+    """Guarda los valores de los campos manuales del informe (issue #86).
+
+    Los bloques `USER_INPUT` estaban en el contrato de la plantilla y **no había dónde
+    escribirlos ni dónde guardarlos**: la sección salía vacía en el informe del doctorado y
+    nadie podía hacer nada. Este endpoint es el sitio donde se guardan.
+
+    **Van a su propia columna y no a `inputs_json`**, que es la de los ficheros: `uploaded_slots`
+    devuelve las claves de aquélla como ficheros ya subidos —así que un texto aparecería en la
+    pantalla como un fichero— y el runner valida cada entrada como `InputArtifact`, con lo que
+    además lo registraría como entrada corrupta.
+
+    **Sustituye el conjunto entero**, no fusiona: un campo que se vacía tiene que quedar vacío,
+    y fusionar dejaría el valor anterior vivo sin que nadie lo viera. Es un `PUT` por eso.
+
+    Diccionario **nuevo** al asignar, por lo mismo que en la subida de ficheros: mutar el JSONB
+    en sitio no marca la columna como sucia y el `UPDATE` no se emite.
+    """
+    workspace = await _get_workspace(workspace_id, user, session)
+
+    valores = {str(k): str(v) for k, v in body.fields.items() if v is not None and str(v) != ""}
+    workspace.manual_inputs_json = valores
+
+    session.add(
+        HubWorkspaceAuditEvent(
+            workspace_id=workspace_id,
+            block_id=None,
+            event="fields_saved",
+            from_status=workspace.status,
+            to_status=workspace.status,
+            actor=user.user_id,
+            # Los nombres de los campos sí; lo escrito no, que puede ser dato personal y el
+            # registro de auditoría no es sitio para guardarlo.
+            metadata_json={"slot_ids": sorted(valores)},
+        )
+    )
+    await session.commit()
+
+    return ManualInputsOut(fields=valores)
+
+
 @router.post(
     "/{workspace_id}/run",
     response_model=RunStartedOut,

@@ -179,6 +179,12 @@ def _estado_inicial(
         status="drafting",
         warnings=[],
         spec=spec,
+        # Issue #86 — lo que se escribió en los campos de los bloques `USER_INPUT`.
+        manual_inputs={
+            str(k): str(v)
+            for k, v in (workspace.manual_inputs_json or {}).items()
+            if v is not None
+        },
         # El modo se resuelve al ejecutar contra el suelo de la organización (#170); la
         # columna del informe es lo que se pidió, no necesariamente lo que se aplica.
         anonymization_mode=modo_anonimizacion or workspace.anonymization_mode,
