@@ -1067,3 +1067,9 @@ class HubActividadIA(HubOperationalBase):
     )
     #: SHA-256 del contenido procesado, si el caso lo exige. Nunca el contenido.
     payload_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    #: AUT.5 — SHA-256 del **programa** que se ejecutó, si está en el catálogo como función de
+    #: origen externo. Es `HubFuncionVersion.code_sha256`, y es lo que permite cruzar «qué
+    #: cuadernos existen» con «cuándo corrieron». Indexado porque ése es justamente el cruce.
+    funcion_sha256: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, index=True
+    )

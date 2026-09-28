@@ -97,6 +97,19 @@ class ActividadIAEvent(BaseModel):
     #: SHA-256 del contenido procesado, si el caso exige poder cotejarlo. **Nunca el contenido.**
     payload_hash: str | None = None
 
+    #: AUT.5 — SHA-256 del **programa** que se ejecutó, cuando está registrado en el catálogo
+    #: como función de origen externo (AUT.3). Es `HubFuncionVersion.code_sha256`, y cierra el
+    #: circuito: el catálogo dice qué cuadernos existen y el registro dice cuándo corrieron.
+    #:
+    #: **Campo propio y no `payload_hash`.** Aquél significa «el contenido que se procesó», y
+    #: darle un segundo significado dejaría el único campo que sirve para cotejar un tratamiento
+    #: concreto sin poder leerse. Un campo nuevo cuesta una migración; uno ambiguo cuesta una
+    #: auditoría.
+    #:
+    #: Si no casa con ninguna versión del catálogo, tampoco pasa nada y es información: consta
+    #: que se ejecutó algo que no está registrado.
+    funcion_sha256: str | None = None
+
     @model_validator(mode="before")
     @classmethod
     def _explica_lo_que_sobra(cls, datos):
@@ -160,12 +173,18 @@ class ActividadIAEvent(BaseModel):
             )
         return valor
 
-    @field_validator("payload_hash")
+    @field_validator("payload_hash", "funcion_sha256")
     @classmethod
-    def _es_un_sha256(cls, valor: str | None) -> str | None:
+    def _es_un_sha256(cls, valor: str | None, info) -> str | None:
+        """La forma de los dos hashes, con la misma regla y por el mismo motivo.
+
+        La minúscula no es estética: `code_sha256` se guarda así, y dos formas del mismo hash no
+        se cruzan solas. Un hash que no va a casar con nada es mejor saberlo al registrar que en
+        la auditoría, cuando ya no se puede rehacer.
+        """
         if valor is not None and not _SHA256.match(valor):
             raise ValueError(
-                "`payload_hash` tiene que ser un SHA-256 en hexadecimal minúscula (64 "
+                f"`{info.field_name}` tiene que ser un SHA-256 en hexadecimal minúscula (64 "
                 "caracteres). Un hash mal formado no sirve para cotejar nada."
             )
         return valor

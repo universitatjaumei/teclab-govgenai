@@ -57,7 +57,8 @@ nada y es mejor saberlo al registrar que en la auditoría.
 | `finalidad` | `str` (≤500) | sí | Para qué. Es el campo que hace útil el registro en una auditoría: sin él, sólo consta que hubo uso |
 | `modelo_usado` | `str` (≤100) | no | El modelo, si se conoce |
 | `categorias_datos` | `list[str]` | no (vacía) | Categorías de datos personales tocadas. **Vocabulario abierto**, no un `Enum`: quien registra sabe qué trató, y una lista cerrada en nuestro código haría que un caso legítimo se registrara mal o no se registrara. Pide los códigos a `GET /api/v1/actividad/categorias` — ver §2.bis |
-| `payload_hash` | `str` | no | SHA-256 en minúscula, si hace falta evidencia |
+| `payload_hash` | `str` | no | SHA-256 en minúscula, si hace falta evidencia del **contenido** procesado |
+| `funcion_sha256` | `str` | no | SHA-256 en minúscula del **programa** que se ejecutó, cuando está registrado en el catálogo como función de origen externo (AUT.3). Es lo que cruza «qué cuadernos existen» con «cuándo corrieron». Campo propio y no `payload_hash`: aquél significa el contenido, y un campo con dos significados deja una auditoría sin poder leerse |
 
 La respuesta es `201` con `{id, registrado_en}`. Se devuelve `registrado_en` y no sólo el `id`
 porque es lo que quien integra necesita para conciliar: su reloj y el nuestro no son el mismo, y la
@@ -193,6 +194,76 @@ curl -sS -X POST https://normativa.uji.es/api/v1/actividad \
 **La escritura exige un PAT, no una sesión.** Una sesión de navegador con permiso de escritura
 aquí permitiría fabricar entradas del registro desde el panel, que es justo lo que un registro de
 gobernanza no puede admitir. Un intento con sesión recibe `403 PAT_REQUIRED`.
+
+### 4.2.bis Desde un cuaderno, en tres líneas (AUT.5)
+
+Un cuaderno que se ejecuta fuera de la plataforma —en el equipo de una persona, en un servicio de
+cuadernos en la nube— puede registrar su ejecución al terminar **sin instalar nada**: `requests` y
+`hashlib` ya están donde hay un cuaderno.
+
+**La URL y el token van como parámetros del cuaderno**, no incrustados. Es la primera celda, y en
+los servicios de cuadernos que tienen formulario de parámetros aparece como tal:
+
+```python
+GOVGENAI_URL = ""   # p. ej. https://normativa.uji.es
+GOVGENAI_PAT = ""   # token con scope actividad:write
+ACTOR = ""          # identificador estable de quien lo ejecuta, opaco
+```
+
+Y ésta es la última celda, la que registra:
+
+```python
+import hashlib, json, requests
+from datetime import datetime, timezone
+
+# El hash del propio cuaderno: es lo que lo enlaza con su registro en el catálogo.
+with open(NOMBRE_DEL_CUADERNO, "rb") as f:
+    huella = hashlib.sha256(f.read()).hexdigest()
+
+requests.post(
+    f"{GOVGENAI_URL}/api/v1/actividad",
+    headers={"Authorization": f"Bearer {GOVGENAI_PAT}"},
+    json={
+        "ocurrido_en": datetime.now(timezone.utc).isoformat(),
+        "actor": ACTOR,
+        "herramienta": "jupyter",
+        "finalidad": "Extracción anual de subvenciones nominativas del presupuesto",
+        "categorias_datos": ["sin_datos_personales"],
+        "funcion_sha256": huella,
+    },
+    timeout=10,
+).raise_for_status()
+```
+
+**`funcion_sha256` es lo que cierra el circuito.** El cuaderno calcula su propio hash sin saber
+nada de la plataforma —ni identificadores, ni versiones— y ese hash es exactamente el
+`code_sha256` que el catálogo guardó al registrarlo como función de origen externo (§AUT.3, ver
+[`CATALOGO_FUNCIONES.md`](CATALOGO_FUNCIONES.md)). Con eso, el catálogo dice **qué cuadernos
+existen** y el registro dice **cuándo corrieron**.
+
+Si el cuaderno no está registrado, el hash no casa con nada y **no pasa nada**: el uso queda
+registrado igual. Eso también es información — consta que se ejecutó algo que no está en el
+catálogo, que es lo que las normas de desarrollo ciudadano llaman distribución informal.
+
+**Tres advertencias que ahorran una tarde:**
+
+- **El hash es del fichero guardado, no del que está en memoria.** Si se edita el cuaderno y no
+  se guarda antes de ejecutar la última celda, la huella es la de la versión anterior. Guardar y
+  volver a ejecutar esa celda basta.
+- **`raise_for_status()` está a propósito.** Un registro que falla en silencio es peor que no
+  registrar: nadie lo echa en falta hasta la auditoría. Si el token no tiene el scope o la
+  categoría va mal escrita, conviene enterarse en la celda.
+- **Nada del contenido puede viajar aquí.** El contrato rechaza `payload`, `texto`, `input` y
+  compañía con un 422 que lo explica (§1). Si hace falta poder cotejar un contenido concreto, va
+  su SHA-256 en `payload_hash`, que es otro campo y significa otra cosa.
+
+Si además el cuaderno manda texto a un modelo externo y el contrato con ese proveedor lo exige,
+la anonimización se pide igual, con el mismo token y un scope más (§4.4).
+
+**No hay paquete que instalar, y es una decisión.** Publicar una biblioteca para tres líneas es
+más mantenimiento —versionado, compatibilidad, una dependencia más en cada cuaderno— que valor.
+Si algún día aparece un segundo consumidor con la misma necesidad, se reconsidera con ese caso
+delante.
 
 ### 4.3 Registrar un uso, por MCP
 
