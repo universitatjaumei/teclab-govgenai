@@ -108,3 +108,36 @@ describe('REV.10 — la organización elegida', () => {
     }
   })
 })
+
+describe('la elección es una sola para todo el panel', () => {
+  /**
+   * **Issue #11, y lo encontró el navegador.** El hook guardaba la elección en un `useState`
+   * propio, así que **cada llamada tenía la suya**: la cabecera cambiaba la suya y la escribía en
+   * `localStorage`, y el consumidor de otra parte del árbol seguía con la anterior hasta que se
+   * volviera a montar. En el panel se veía exactamente así — el selector cambiaba, el
+   * almacenamiento cambiaba, y **no salía ninguna petición nueva**.
+   *
+   * Los tests no podían verlo: el de `useChatbotsDeLaOrganizacion` dobla este hook, y los de
+   * aquí montaban un consumidor solo. Hace falta montar **dos** y elegir en uno.
+   */
+  it('should_propagar_la_eleccion_a_los_demas_consumidores', () => {
+    conOrganizaciones([UJI, DIPU])
+    const cabecera = renderHook(() => useOrganizacionElegida())
+    const pantalla = renderHook(() => useOrganizacionElegida())
+
+    act(() => cabecera.result.current.elegir(DIPU.id))
+
+    expect(cabecera.result.current.elegida).toBe(DIPU.id)
+    expect(pantalla.result.current.elegida).toBe(DIPU.id)
+  })
+
+  it('should_seguir_recordandola_entre_sesiones', () => {
+    /** El camino bueno de siempre: compartirla no puede costar la persistencia. */
+    conOrganizaciones([UJI, DIPU])
+    const { result } = renderHook(() => useOrganizacionElegida())
+
+    act(() => result.current.elegir(DIPU.id))
+
+    expect(localStorage.getItem(CLAVE_GUARDADA)).toBe(DIPU.id)
+  })
+})
