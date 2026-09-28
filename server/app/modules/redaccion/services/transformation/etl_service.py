@@ -1,8 +1,12 @@
 """ETLService — orquestador asíncrono que envuelve los dos modos del módulo (9R.5.8).
 
-Capa fina sobre `DeterministicETLService` y `ETLFactory`. La invoca tanto el
-`DataTransformHandler` (bloque DATA_TRANSFORM) como cualquier consumidor que
-necesite aplicar transformaciones sobre un DataFrame ya en memoria.
+Capa fina sobre `DeterministicETLService` y `ETLFactory`. La invoca
+`DataTransformationNode` (bloque DATA_TRANSFORM) y cualquier consumidor que necesite
+aplicar transformaciones sobre un DataFrame ya en memoria.
+
+Decía «la invoca el `DataTransformHandler`», y ese handler **no lo ejecutaba nadie**: se
+retiró en la issue #180. Un docstring que nombra a un consumidor muerto manda a leer el
+sitio equivocado.
 """
 from __future__ import annotations
 

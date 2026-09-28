@@ -224,7 +224,7 @@ class TestElServidorDiceQuienPuedeFijarla:
         async with _cliente(db_session, _principal()) as c:
             listado = await c.get("/api/v1/hub/users")
 
-        personas = [f for f in listado.json() if f["origen"] == "manual"]
+        personas = [f for f in listado.json()["personas"] if f["origen"] == "manual"]
         assert personas, "no hay ninguna persona en el listado"
         assert all(f["puede_fijar_contrasena"] for f in personas)
 
@@ -246,7 +246,7 @@ class TestElServidorDiceQuienPuedeFijarla:
         async with _cliente(db_session, _principal()) as c:
             listado = await c.get("/api/v1/hub/users")
 
-        de_arranque = [f for f in listado.json() if f["origen"] == "superadmin"]
+        de_arranque = [f for f in listado.json()["personas"] if f["origen"] == "superadmin"]
         assert de_arranque, "la cuenta de arranque no aparece en el listado"
         assert not any(f["puede_fijar_contrasena"] for f in de_arranque)
 

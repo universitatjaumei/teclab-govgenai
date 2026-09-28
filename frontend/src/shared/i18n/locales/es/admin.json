@@ -456,7 +456,12 @@
       "modulos_del_alta": "Módulos a los que tendrá acceso",
       "pista_modulos": "El rol dice qué puede hacer; el módulo, dónde puede entrar. Sin ningún módulo marcado, esta persona no podrá entrar en nada.",
       "sin_concesion_directa": "Sin concesión directa",
-      "sin_concesion_directa_ayuda": "Esta persona no tiene ninguna concesión de módulo propia. Si entra por SSO podría tener acceso por un grupo del IdP, que no se ve desde aquí. Concédeselos al darla de alta, o desde Plataforma → Módulos."
+      "sin_concesion_directa_ayuda": "Esta persona no tiene ninguna concesión de módulo propia. Si entra por SSO podría tener acceso por un grupo del IdP, que no se ve desde aquí. Concédeselos al darla de alta, o desde Plataforma → Módulos.",
+      "de_plataforma_no_mostradas_one": "No se muestra 1 cuenta que no pertenece a ninguna organización.",
+      "de_plataforma_no_mostradas_other": "No se muestran {{count}} cuentas que no pertenecen a ninguna organización.",
+      "ver_todas": "Ver todas",
+      "sin_acotar": "Se muestran las personas de todas las organizaciones.",
+      "volver_a_la_organizacion": "Ver solo la organización elegida"
     },
     "modulos_nav": "Módulos",
     "modulos": {

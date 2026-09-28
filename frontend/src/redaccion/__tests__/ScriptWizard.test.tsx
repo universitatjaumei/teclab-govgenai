@@ -245,7 +245,7 @@ function setupDefaultHooks() {
 
 function setupAuth(role: string) {
   vi.mocked(useAuth).mockReturnValue({
-    user: { user_id: 'u1', email: `${role}@test.com`, role },
+    user: { user_id: 'u1', email: `${role}@test.com`, role, cambio_pendiente: false },
     isAuthenticated: true,
     login: vi.fn(),
     logout: vi.fn(),

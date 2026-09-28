@@ -54,7 +54,48 @@ export function UsuariosPage() {
   // Quién manda sobre el rol lo dice el servidor (IDE.1), como los módulos concedidos.
   const autoridadDelRol = useAutoridadDelRol()
   const queryClient = useQueryClient()
-  const { data: personas, isLoading } = useListUsersApiV1HubUsersGet()
+  /**
+   * La organizacion elegida en la cabecera. Sirve para dos cosas y **es el mismo control**
+   * (MT.9): estrechar este listado y arrancar el alta donde ya se esta trabajando (REV.10).
+   * Un selector propio de esta pantalla seria una segunda fuente de verdad para la misma
+   * pregunta, que es el defecto que MT.8 acaba de quitar del panel.
+   */
+  const { organizaciones, elegida } = useOrganizacionElegida()
+  /**
+   * MT.9 — el listado se estrecha a la organizacion elegida.
+   *
+   * **La frontera no la pone esto**: quien administra una organizacion ya veia solo la suya
+   * desde USR.9, y lo hace `scope_query_to_orgs` en el servidor. Esto es la comodidad de mirar
+   * una cada vez cuando se pueden ver varias.
+   *
+   * Y el sobre trae `de_plataforma_no_mostradas` porque estrechar **esconde** las cuentas que
+   * no pertenecen a ninguna organizacion —las de arranque entre otras—: ocultar sin decirlo no
+   * es acotar. El recuento lo da el servidor; aqui solo se pinta.
+   */
+  /**
+   * Y la salida, que es lo que impide que estrechar se convierta en esconder.
+   *
+   * Con organizaciones dadas de alta **siempre hay una elegida** —sin eleccion previa se
+   * aterriza en la primera, decision del 2026-09-27—, asi que sin esta salida las cuentas que
+   * no pertenecen a ninguna organizacion dejarian de ser alcanzables desde el panel. Entre
+   * ellas la de arranque, que es la unica cuenta real de una instalacion recien creada y que
+   * REV.8 trajo a este listado justo porque no aparecia en ninguna parte.
+   *
+   * Es un interruptor de esta pantalla y **no** un segundo selector de organizacion: no dice
+   * cual se mira, dice si se mira una o todas.
+   *
+   * **Se guarda para que organizacion se pidio, y se deriva.** Un booleano suelto sobreviviria
+   * al cambio de organizacion en la cabecera, asi que elegir otra no cambiaria nada de lo que
+   * se ve — el mismo defecto que en MT.8 dejaba elegido un chatbot de la organizacion anterior.
+   * Comparando, el interruptor se apaga solo, sin efecto y sin render de mas.
+   */
+  const [todasPara, setTodasPara] = useState<string | null>(null)
+  const viendoTodas = todasPara !== null && todasPara === elegida
+  const filtrando = Boolean(elegida) && !viendoTodas
+  const { data: listado, isLoading } = useListUsersApiV1HubUsersGet(
+    filtrando ? { organizacion_id: elegida } : undefined,
+  )
+  const personas = listado?.personas
   /**
    * Qué puede hacer **quien mira** (USR.9). Lo dice el servidor y la pantalla itera.
    *
@@ -115,8 +156,6 @@ export function UsuariosPage() {
     reset: limpiarContrasena,
     formState: { errors: erroresContrasena },
   } = useForm<ValoresContrasena>({ resolver: zodResolver(esquemaContrasena) })
-  /** El alta arranca en la organizacion sobre la que ya se esta trabajando (REV.10). */
-  const { organizaciones, elegida } = useOrganizacionElegida()
   // **Se deriva, no se copia.** El efecto copiaba `elegida` en el estado la primera vez que
   // llegaba, y eso tenía un hueco: `elegida` viene de una petición, así que entre el primer
   // render y su llegada el desplegable mostraba «sin organización». Si alguien abría el alta
@@ -327,6 +366,34 @@ export function UsuariosPage() {
           {t('plataforma.usuarios.sin_contrasena')}
         </p>
       </form>
+      )}
+
+      {(listado?.de_plataforma_no_mostradas ?? 0) > 0 && (
+        <p data-testid="personas-fuera-del-filtro" className="text-sm text-muted-foreground">
+          {t('plataforma.usuarios.de_plataforma_no_mostradas', {
+            count: listado?.de_plataforma_no_mostradas ?? 0,
+          })}{' '}
+          <button
+            type="button"
+            onClick={() => setTodasPara(elegida)}
+            className="underline"
+          >
+            {t('plataforma.usuarios.ver_todas')}
+          </button>
+        </p>
+      )}
+
+      {viendoTodas && (
+        <p data-testid="personas-sin-acotar" className="text-sm text-muted-foreground">
+          {t('plataforma.usuarios.sin_acotar')}{' '}
+          <button
+            type="button"
+            onClick={() => setTodasPara(null)}
+            className="underline"
+          >
+            {t('plataforma.usuarios.volver_a_la_organizacion')}
+          </button>
+        </p>
       )}
 
       {isLoading ? (

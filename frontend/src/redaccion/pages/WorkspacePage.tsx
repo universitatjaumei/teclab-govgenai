@@ -10,6 +10,7 @@ import {
 } from '@/shared/api/generated/hub-redaccion/hub-redaccion'
 import {
   useRunWorkspace,
+  useSetWorkspaceFields,
   useUploadWorkspaceInput,
 } from '@/shared/api/generated/redaccion-workspaces/redaccion-workspaces'
 import type { ReportUIContract, WorkspaceOut } from '@/shared/api/generated/model'
@@ -103,6 +104,7 @@ export function WorkspacePage() {
   const contrato = contratoRaw as unknown as ReportUIContract | undefined
 
   const subir = useUploadWorkspaceInput()
+  const guardarCampos = useSetWorkspaceFields()
   const { mutate: generar, isPending: generando } = useRunWorkspace()
   const [subiendo, setSubiendo] = useState(false)
 
@@ -121,6 +123,13 @@ export function WorkspacePage() {
           await subir.mutateAsync({ workspaceId: id, slotId, data: { file: fichero } })
         }
       }
+      // Issue #86 — lo escrito en los campos se guarda **antes** de lanzar, porque el grafo lo
+      // lee del informe, no de la petición. Iba a ninguna parte: el formulario los recogía y
+      // `enviar` los tiraba, así que la seccion «Datos aportados por la coordinacion» salia
+      // vacia hiciera uno lo que hiciera.
+      //
+      // Se manda siempre, tambien vacio: es un `PUT`, y es lo que permite borrar un campo.
+      await guardarCampos.mutateAsync({ workspaceId: id, data: { fields: datos.fields ?? {} } })
     } catch (fallo) {
       setAviso({ texto: (fallo as Error).message, bloques: [] })
       return
@@ -171,6 +180,7 @@ export function WorkspacePage() {
             contract={contrato}
             onSubmit={enviar}
             satisfiedSlots={workspace.uploaded_slots ?? []}
+            savedFields={workspace.manual_inputs ?? {}}
             submitting={subiendo || generando || enMarcha}
           />
           {enMarcha && (

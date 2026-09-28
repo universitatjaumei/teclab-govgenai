@@ -71,7 +71,7 @@ describe('DynamicFieldRenderer', () => {
         onSubmit={vi.fn()}
       />
     )
-    expect(screen.getByLabelText('Título del informe')).toBeDefined()
+    expect(screen.getByLabelText(/Título del informe/)).toBeDefined()
     expect(screen.getByLabelText('Notas adicionales')).toBeDefined()
   })
 
@@ -101,7 +101,7 @@ describe('DynamicFieldRenderer', () => {
       />
     )
 
-    const titleInput = screen.getByLabelText('Título del informe')
+    const titleInput = screen.getByLabelText(/Título del informe/)
     // Touch the field and leave empty
     fireEvent.blur(titleInput)
     fireEvent.click(screen.getByRole('button', { name: /continuar/i }))

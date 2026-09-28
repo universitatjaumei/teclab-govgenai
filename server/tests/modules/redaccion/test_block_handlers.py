@@ -47,43 +47,20 @@ def _make_workspace(blocks: dict | None = None):
 
 
 # ---------------------------------------------------------------------------
-# 9R.3.1 — Handlers
+# 9R.3.1 — El handler que queda montado
+#
+# Issue #180 — aquí había ocho tests sobre diez clases que **nadie ejecutaba**, y son los que
+# se fueron con ellas: banderas `uses_ai`/`requires_approval` que sólo leían estos asserts, y
+# `to_manifest` de clases cuyo manifiesto construye `audit_log` a partir del estado.
+#
+# Dos garantías merecían quedarse y **no se han perdido**: la puerta de revisión la comprueba
+# `test_final_assembler_blocks_when_required_block_not_approved`, más abajo en este fichero,
+# sobre el camino que de verdad corre; y quién atiende a cada tipo de bloque lo fija la tabla
+# de `test_issue180_los_handlers_que_nadie_montaba.py`.
 # ---------------------------------------------------------------------------
 
-class TestBlockHandlerContract:
-    def test_block_contract_has_required_fields(self):
-        from server.app.modules.redaccion.blocks.handlers import (
-            StaticTextHandler,
-            AIAssistedTextHandler,
-            DeterministicDataHandler,
-        )
-        assert hasattr(StaticTextHandler, "uses_ai")
-        assert hasattr(StaticTextHandler, "requires_approval")
-        assert StaticTextHandler.uses_ai is False
-
-        assert AIAssistedTextHandler.uses_ai is True
-        assert AIAssistedTextHandler.requires_approval is True
-
-        assert DeterministicDataHandler.uses_ai is False
-
-    def test_ai_block_requires_review_policy(self):
-        from server.app.modules.redaccion.blocks.handlers import (
-            AIAssistedTextHandler,
-            AISummaryHandler,
-            AIRewriteHandler,
-        )
-        for cls in (AIAssistedTextHandler, AISummaryHandler, AIRewriteHandler):
-            assert cls.requires_approval is True, f"{cls.__name__} must require approval"
-
-    def test_data_block_requires_extraction_source(self):
-        from server.app.modules.redaccion.blocks.handlers import (
-            DeterministicDataHandler,
-        )
-        from server.app.modules.redaccion.contracts.blocks import DeterministicDataBlock
-        handler = DeterministicDataHandler()
-        block = DeterministicDataBlock(id="b1", title="Datos", source_pipeline="EXCEL")
-        # valid block passes
-        handler.validate(block)
+class TestChartHandler:
+    """El único con consumidor vivo: `ChartRenderNode._dibujar`."""
 
     def test_chart_block_depends_on_data_block(self):
         from server.app.modules.redaccion.blocks.handlers import ChartHandler
@@ -94,7 +71,7 @@ class TestBlockHandlerContract:
         handler.validate(block)
 
     def test_chart_handler_rejects_missing_data_block_ref(self):
-        """ChartHandler.validate raises if data_block_ref not present in workspace blocks."""
+        """ChartHandler.validate_in_context raises if data_block_ref is not in the workspace."""
         from server.app.modules.redaccion.blocks.handlers import (
             ChartHandler,
             BlockHandlerValidationError,
@@ -105,47 +82,6 @@ class TestBlockHandlerContract:
         ws = _make_workspace(blocks={})  # b_missing not in workspace
         with pytest.raises(BlockHandlerValidationError, match="data_block_ref"):
             handler.validate_in_context(block, ws)
-
-    def test_review_gate_blocks_final_assembly_until_approved(self):
-        from server.app.modules.redaccion.blocks.handlers import (
-            ReviewGateHandler,
-            BlockHandlerValidationError,
-        )
-        from server.app.modules.redaccion.contracts.blocks import ReviewGateBlock
-        from server.app.modules.redaccion.contracts.block_io import BlockReference
-        handler = ReviewGateHandler()
-        block = ReviewGateBlock(
-            id="b_gate", title="Porta", review_policy_id="rp-1",
-            depends_on=[BlockReference(block_id="b_ai", projection="raw")],
-        )
-        # workspace has b_ai in needs_review → gate should block
-        ws = _make_workspace(blocks={"b_ai": _make_state("needs_review", "b_ai")})
-        with pytest.raises(BlockHandlerValidationError, match="not approved"):
-            handler.validate_in_context(block, ws)
-
-    def test_block_contract_is_serializable(self):
-        from server.app.modules.redaccion.blocks.handlers import StaticTextHandler
-        from server.app.modules.redaccion.contracts.blocks import StaticTextBlock
-        handler = StaticTextHandler()
-        block = StaticTextBlock(id="b1", title="Intro", content="Hola")
-        manifest = handler.to_manifest(block)
-        assert isinstance(manifest, dict)
-        assert manifest["block_id"] == "b1"
-        assert manifest["kind"] == "STATIC_TEXT"
-
-    def test_ai_handler_records_model_and_prompt_version_to_manifest(self):
-        from server.app.modules.redaccion.blocks.handlers import AIAssistedTextHandler
-        from server.app.modules.redaccion.contracts.blocks import AIAssistedTextBlock
-        handler = AIAssistedTextHandler()
-        block = AIAssistedTextBlock(
-            id="b_ai", title="Text IA",
-            ai_prompt_template_id="generic_report_v1",
-            review_policy_id="rp-1",
-        )
-        manifest = handler.to_manifest(block)
-        assert "ai_prompt_template_id" in manifest
-        assert manifest["ai_prompt_template_id"] == "generic_report_v1"
-        assert "review_policy_id" in manifest
 
 
 # ---------------------------------------------------------------------------

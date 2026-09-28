@@ -43,6 +43,9 @@ from server.app.modules.redaccion.database.repos import (
     WorkspaceBlockRepo,
     WorkspaceRepo,
 )
+from server.app.modules.redaccion.services.campos_manuales import (
+    con_los_campos_de_los_bloques,
+)
 from server.app.modules.redaccion.services.block_actions import (
     _DESTINO_DE_LA_ACCION,
     acciones_permitidas,
@@ -118,6 +121,10 @@ class WorkspaceOut(BaseModel):
     # obligaría a resubir el mismo fichero cada vez que se reejecuta un informe. Van solo los
     # `slot_id`, no las rutas: la pantalla necesita saber qué está satisfecho, no dónde vive.
     uploaded_slots: list[str] = []
+    # Issue #86 — lo que ya se escribió en los campos manuales, para que la pantalla lo vuelva a
+    # pintar. Sin esto, reejecutar un informe manda el formulario vacío y **borra** lo que había:
+    # el endpoint de campos es un `PUT`, que es lo que permite vaciar uno a propósito.
+    manual_inputs: dict[str, str] = {}
 
 
 class BlockPatchRequest(BaseModel):
@@ -626,15 +633,18 @@ async def get_template_ui_contract(
     spec = ReportTemplateSpec.model_validate(version.spec_json)
 
     obligatorios = {s.slot_id for s in spec.input_contract.required_slots}
-    contrato = spec.ui_contract.model_copy(
+    # Issue #86 — los campos de los bloques `USER_INPUT` se derivan aquí por lo mismo que el
+    # `required` de arriba: las versiones son inmutables y la plantilla que tiene el problema ya
+    # está sembrada, así que un arreglo que dependa de volver a sembrar no le llega.
+    base = con_los_campos_de_los_bloques(spec)
+    return base.model_copy(
         update={
             "dropzones": [
                 dz.model_copy(update={"required": dz.slot_id in obligatorios})
-                for dz in spec.ui_contract.dropzones
+                for dz in base.dropzones
             ]
         }
     )
-    return contrato
 
 
 @router.get(
@@ -667,6 +677,9 @@ async def get_workspace_by_id(
         created_at=workspace.created_at,
         updated_at=workspace.updated_at,
         uploaded_slots=sorted(workspace.inputs_json or {}),
+        manual_inputs={
+            str(k): str(v) for k, v in (workspace.manual_inputs_json or {}).items()
+        },
     )
 
 

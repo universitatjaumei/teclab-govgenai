@@ -180,7 +180,7 @@ class TestLaPantallaNoDecideSiSePuedeBorrar:
         persona = await _persona(db_session, entro=False)
 
         async with _cliente(db_session) as cliente:
-            cuerpo = (await cliente.get("/api/v1/hub/users")).json()
+            cuerpo = (await cliente.get("/api/v1/hub/users")).json()["personas"]
 
         fila = next(f for f in cuerpo if f["email"] == persona.email)
         assert fila["puede_borrarse"] is True
@@ -191,7 +191,7 @@ class TestLaPantallaNoDecideSiSePuedeBorrar:
         persona = await _persona(db_session, entro=True)
 
         async with _cliente(db_session) as cliente:
-            cuerpo = (await cliente.get("/api/v1/hub/users")).json()
+            cuerpo = (await cliente.get("/api/v1/hub/users")).json()["personas"]
 
         fila = next(f for f in cuerpo if f["email"] == persona.email)
         assert fila["puede_borrarse"] is False
@@ -206,7 +206,7 @@ class TestElSuperadministradorSeVe:
         cuenta = await _superadmin_de_arranque(db_session)
 
         async with _cliente(db_session) as cliente:
-            cuerpo = (await cliente.get("/api/v1/hub/users")).json()
+            cuerpo = (await cliente.get("/api/v1/hub/users")).json()["personas"]
 
         fila = next((f for f in cuerpo if f["email"] == cuenta.email), None)
         assert fila is not None, "el superadministrador de arranque tiene que verse"
@@ -219,7 +219,7 @@ class TestElSuperadministradorSeVe:
         cuenta = await _superadmin_de_arranque(db_session)
 
         async with _cliente(db_session) as cliente:
-            cuerpo = (await cliente.get("/api/v1/hub/users")).json()
+            cuerpo = (await cliente.get("/api/v1/hub/users")).json()["personas"]
 
         fila = next(f for f in cuerpo if f["email"] == cuenta.email)
         assert fila["origen"] == "superadmin"

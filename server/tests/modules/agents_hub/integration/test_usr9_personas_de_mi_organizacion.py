@@ -104,7 +104,7 @@ class TestQuienPuedeListar:
             r = await c.get("/api/v1/hub/users")
 
         assert r.status_code == 200, r.text
-        assert [p["email"] for p in r.json()] == ["probadora@uji.es"]
+        assert [p["email"] for p in r.json()["personas"]] == ["probadora@uji.es"]
 
     async def test_should_not_show_people_of_another_organization(self, db_session):
         """La acotación por tenencia, vista desde donde se nota."""
@@ -116,7 +116,7 @@ class TestQuienPuedeListar:
         async with _cliente(db_session, _principal("admin", (str(mia.id),))) as c:
             r = await c.get("/api/v1/hub/users")
 
-        assert [p["email"] for p in r.json()] == ["dentro@uji.es"]
+        assert [p["email"] for p in r.json()["personas"]] == ["dentro@uji.es"]
 
     async def test_should_show_nothing_to_an_admin_without_organizations(self, db_session):
         """`IN ()` y no «sin filtro»: es el hallazgo A2, y aquí es donde se comprueba."""
@@ -127,7 +127,7 @@ class TestQuienPuedeListar:
             r = await c.get("/api/v1/hub/users")
 
         assert r.status_code == 200, r.text
-        assert r.json() == []
+        assert r.json()["personas"] == []
 
     async def test_should_still_show_everyone_to_a_superadmin(self, db_session):
         """Lo que ya funcionaba sigue igual: el superadministrador no se acota."""
@@ -139,7 +139,7 @@ class TestQuienPuedeListar:
         async with _cliente(db_session, _principal("superadmin")) as c:
             r = await c.get("/api/v1/hub/users")
 
-        correos = [p["email"] for p in r.json()]
+        correos = [p["email"] for p in r.json()["personas"]]
         assert "dentro@uji.es" in correos
         assert "fuera@demo.es" in correos
 
@@ -166,7 +166,7 @@ class TestQuienPuedeListar:
         async with _cliente(db_session, _principal("admin", (str(org.id),))) as c:
             r = await c.get("/api/v1/hub/users")
 
-        assert [p["email"] for p in r.json()] == ["dentro@uji.es"]
+        assert [p["email"] for p in r.json()["personas"]] == ["dentro@uji.es"]
 
     async def test_should_keep_refusing_a_plain_user(self, db_session):
         org = await _organizacion(db_session, "UJI")

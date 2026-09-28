@@ -84,6 +84,11 @@ class ChartRenderNode:
         handler = ChartHandler(
             llm=self._llm, model_name=self._model_name, sandbox_client=self._sandbox_client
         )
+        # Issue #180 — `validate_in_context` comprueba que el bloque de datos al que apunta el
+        # grafico exista, y **no lo llamaba nadie**: un `data_block_ref` equivocado no fallaba,
+        # dibujaba un lienzo vacio. Aqui lo que lance sale como aviso `chart_failed` y el bloque
+        # queda `failed`, que es lo que ya hace el `except` de quien llama.
+        handler.validate_in_context(contrato, state)
         resultado = await handler.execute(contrato, state)
         imagen = resultado.pop("image_bytes")
         if not imagen:

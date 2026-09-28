@@ -82,7 +82,8 @@ function montar(
   acciones: string[] = ['listar', 'crear', 'editar', 'borrar']
 ) {
   vi.mocked(useListUsersApiV1HubUsersGet).mockReturnValue({
-    data: personas,
+    // MT.9 — el listado viene en un sobre con el recuento de lo que el filtro deja fuera.
+    data: { personas, de_plataforma_no_mostradas: 0 },
     isLoading: false,
     error: null,
   } as never)

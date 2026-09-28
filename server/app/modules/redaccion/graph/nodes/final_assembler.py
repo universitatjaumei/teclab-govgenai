@@ -61,6 +61,15 @@ def contenido_a_markdown(content: dict | None) -> str:
     if content.get("free_text"):
         partes.append(str(content["free_text"]))
 
+    # Issue #180 — el apartado de fuentes. `CitationBlockHandler` producia este contenido y
+    # nadie lo montaba, asi que aqui tampoco habia quien lo imprimiera: un bloque de citas
+    # saldria en blanco incluso teniendo citas dentro.
+    for cita in content.get("citations") or []:
+        origen = cita.get("source_document", "")
+        pagina = f", p. {cita['page']}" if cita.get("page") else ""
+        extracto = f": {cita['excerpt']}" if cita.get("excerpt") else ""
+        partes.append(f"- **{origen}**{pagina}{extracto}")
+
     return "\n\n".join(p for p in partes if p)
 
 

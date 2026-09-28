@@ -117,7 +117,7 @@ beforeEach(() => {
   } as unknown as ReturnType<typeof useValidateLlmDraft>)
 
   vi.mocked(useAuth).mockReturnValue({
-    user: { user_id: 'u1', email: 'admin@test.com', role: 'admin' },
+    user: { user_id: 'u1', email: 'admin@test.com', role: 'admin', cambio_pendiente: false },
     isAuthenticated: true,
     login: vi.fn(),
     logout: vi.fn(),

@@ -55,7 +55,7 @@ vacío»), sin lo cual no se puede vaciar un valor heredado desde la pantalla.
 | `hub_widget_keys` | `derivada` | `chatbot_id` | La credencial pública de un asistente concreto (SEC.8.5). |
 | `hub_activity_prompts` | `heredable` | `organizacion_id` | MT.6. Cadena organización → plataforma → **código**; el texto del código nunca se copia a una fila. |
 | `hub_themes` | `heredable` | `organizacion_id` | La cascada visual, de la que salió el patrón. |
-| `hub_users` | `heredable` | `organizacion_id` | Nulo = cuenta que no pertenece a ninguna. **El filtro del listado falta**: es MT.9, fase 2. |
+| `hub_users` | `heredable` | `organizacion_id` | Nulo = cuenta que no pertenece a ninguna. El filtro del listado lo puso MT.9 (issue #186), **diciendo cuántas deja fuera y ofreciendo verlas**: en herencia, filtrar y callarse es esconder. |
 | `hub_module_grants` | `heredable` | `organizacion_id` | MT.5. **Nulo = en todas**, que es lo que valen las concesiones de siempre. Eje perpendicular al de `subject_type`. |
 | `hub_personal_access_tokens` | `heredable` | `organizacion_id` | MT.5. Nulo = donde valga su dueño. Cuando lo declara **acota, nunca amplía**. |
 
@@ -129,7 +129,7 @@ filtrar y añadirá el filtro, rompiendo la herencia.
 | Temas (identidad visual) | **No, y no debe** | `heredable`. La pantalla trabaja con los **tres niveles a la vez** —plataforma, organización, chatbot— porque eso es la cascada. Filtrar por organización ocultaría la fila de plataforma que se hereda, o sea que rompería lo que la pantalla existe para enseñar. |
 | Configuraciones de modelo | **No, y no debe** | `heredable`, mismo motivo: nulo significa «de plataforma, y se hereda». |
 | Concesiones de módulo | **No, y no debe** | `heredable` con una vuelta más: **nulo = en todas**. Un filtro por organización escondería justamente las concesiones que valen para todo el mundo. |
-| Personas | **No, y falta** | `heredable`. Es **MT.9**, fase 2, y no entra en MT.8: el listado ya está acotado por tenencia —quien administra una organización sólo ve la suya— y lo que falta es que un superadministrador pueda estrecharlo a la elegida. |
+| Personas | **Sí, con salida** | `heredable`, y por eso es el caso distinto (**MT.9**, issue #186). El listado ya estaba acotado por tenencia; esto es estrecharlo a la elegida. Lo que en herencia no se puede hacer es filtrar y callarse: nulo significa «de plataforma», así que la pantalla **dice cuántas cuentas deja fuera** —el servidor manda el recuento— y ofrece verlas. Sin esa salida, con organizaciones dadas de alta siempre hay una elegida y la cuenta de arranque dejaría de ser alcanzable. |
 
 **La regla que resume la tabla**: se filtra lo que es `organizacion`; **no** se filtra lo
 `heredable`, porque en herencia «nulo» no es «de nadie», es «de todos». Confundir las dos cosas

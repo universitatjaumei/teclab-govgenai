@@ -21,6 +21,7 @@ import { useFocusStore } from '@/shared/layout/useFocusStore'
 vi.mock('@/shared/api/generated/redaccion-workspaces/redaccion-workspaces', () => ({
   useRunWorkspace: () => ({ mutate: vi.fn(), isPending: false }),
   useResumeWorkspace: () => ({ mutate: vi.fn(), isPending: false }),
+  useSetWorkspaceFields: vi.fn(() => ({ mutateAsync: vi.fn().mockResolvedValue({}), isPending: false })),
   useUploadWorkspaceInput: () => ({ mutate: vi.fn(), isPending: false }),
   useTransitionBlock: () => ({ mutate: vi.fn(), isPending: false }),
 }))

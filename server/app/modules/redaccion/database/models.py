@@ -189,6 +189,15 @@ class HubWorkspace(HubOperationalBase):
     )
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="draft")
     inputs_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    # Issue #86 — lo que una persona escribe en los campos de los bloques `USER_INPUT`.
+    #
+    # **Columna propia y no una clave más de `inputs_json`**, que es de ficheros: `uploaded_slots`
+    # devuelve sus claves como ficheros ya subidos —así que un texto saldría en la pantalla como
+    # un fichero— y el runner valida cada entrada como `InputArtifact`, con lo que además lo
+    # registraría como entrada corrupta.
+    manual_inputs_json: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default="{}"
+    )
     warnings_json: Mapped[list[Any]] = mapped_column(JSONB, nullable=False, default=list)
     # Sin FK a hub_run_manifests para evitar FK circular; se aplica en app
     run_manifest_id: Mapped[uuid.UUID | None] = mapped_column(

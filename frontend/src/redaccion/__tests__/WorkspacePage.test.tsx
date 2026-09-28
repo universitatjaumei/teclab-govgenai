@@ -8,7 +8,11 @@ import {
   useGetWorkspaceById,
   useGetTemplateUiContractApiV1HubRedaccionTemplateVersionsVersionIdUiContractGet as useGetTemplateUiContract,
 } from '@/shared/api/generated/hub-redaccion/hub-redaccion'
-import { useRunWorkspace, useUploadWorkspaceInput } from '@/shared/api/generated/redaccion-workspaces/redaccion-workspaces'
+import {
+  useRunWorkspace,
+  useSetWorkspaceFields,
+  useUploadWorkspaceInput,
+} from '@/shared/api/generated/redaccion-workspaces/redaccion-workspaces'
 
 /**
  * VER.4 — la pantalla donde se trabaja un informe.
@@ -34,6 +38,7 @@ vi.mock('@/shared/api/download', () => ({
 vi.mock('@/shared/api/generated/redaccion-workspaces/redaccion-workspaces', () => ({
   useResumeWorkspace: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
   useRunWorkspace: vi.fn(),
+  useSetWorkspaceFields: vi.fn(),
   useUploadWorkspaceInput: vi.fn(),
   useApproveBlock: vi.fn(),
   // SEG.4 — el panel de revisión ya edita, y editar es una mutación más de este módulo.
@@ -75,6 +80,8 @@ const WORKSPACE = {
 }
 
 const runMutate = vi.fn()
+/** Issue #86 — lo escrito en los campos manuales, que antes se recogía y se tiraba. */
+const guardarCampos = vi.fn().mockResolvedValue({})
 
 beforeAll(async () => {
   await i18n.changeLanguage('es')
@@ -85,6 +92,10 @@ beforeEach(() => {
   vi.mocked(useRunWorkspace).mockReturnValue({ mutate: runMutate, isPending: false } as any)
   vi.mocked(useUploadWorkspaceInput).mockReturnValue({
     mutateAsync: vi.fn().mockResolvedValue({}), isPending: false,
+  } as any)
+  guardarCampos.mockClear().mockResolvedValue({})
+  vi.mocked(useSetWorkspaceFields).mockReturnValue({
+    mutateAsync: guardarCampos, isPending: false,
   } as any)
 })
 
@@ -140,6 +151,41 @@ describe('WorkspacePage', () => {
         expect.objectContaining({ workspaceId: WORKSPACE_ID }),
         expect.anything(),
       ),
+    )
+  })
+
+  /**
+   * Issue #86 — lo escrito en los campos manuales **se guarda**, y antes de lanzar.
+   *
+   * El formulario los recogia y `enviar` los tiraba: la seccion «Datos aportados por la
+   * coordinacion» del informe del doctorado salia vacia hiciera uno lo que hiciera, y sin
+   * ningun aviso. El grafo los lee del informe, no de la peticion de generacion, asi que
+   * guardarlos despues de lanzar seria guardarlos para la vez siguiente.
+   */
+  it('should_save_what_was_typed_before_running', async () => {
+    renderPage({ ...WORKSPACE, uploaded_slots: ['datos_excel'] })
+
+    fireEvent.change(screen.getByLabelText(/periodo/i), { target: { value: '2026' } })
+    fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
+
+    await waitFor(() =>
+      expect(guardarCampos).toHaveBeenCalledWith({
+        workspaceId: WORKSPACE_ID,
+        data: { fields: { periodo: '2026' } },
+      }),
+    )
+    expect(guardarCampos.mock.invocationCallOrder[0]).toBeLessThan(
+      runMutate.mock.invocationCallOrder[0],
+    )
+  })
+
+  it('should_bring_back_what_was_already_typed', async () => {
+    // Issue #86 — sin esto, reejecutar manda el formulario vacío y **borra** lo guardado: el
+    // endpoint de campos es un `PUT`, que es lo que permite vaciar uno a propósito.
+    renderPage({ ...WORKSPACE, uploaded_slots: ['datos_excel'], manual_inputs: { periodo: '2025' } })
+
+    await waitFor(() =>
+      expect((screen.getByLabelText(/periodo/i) as HTMLInputElement).value).toBe('2025'),
     )
   })
 

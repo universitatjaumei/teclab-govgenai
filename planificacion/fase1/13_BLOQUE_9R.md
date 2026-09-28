@@ -474,6 +474,14 @@ Para cada kind en BlockKind, implementar en server/app/modules/redaccion/blocks/
 - registro en RunManifest: dict (qué se serializa)
 
 Handlers mínimos:
+
+> **Retirados el 2026-09-28 (issue #180): de estos once sólo quedó `ChartHandler`.** Los otros
+> diez nunca tuvieron quien los ejecutara —lo que atiende a cada tipo de bloque son los nodos
+> del grafo— y ocho eran duplicados de un nodo que hace lo mismo y más. Las dos capacidades que
+> sólo vivían aquí (el texto estático de la plantilla y el apartado de fuentes) se cablearon en
+> los nodos antes de retirarlas. **No los vuelvas a crear**: la tabla de quién atiende cada tipo
+> está en `test_issue180_los_handlers_que_nadie_montaba.py`.
+
 - StaticTextHandler
 - UserInputHandler
 - DeterministicDataHandler  (delega en ExtractionPipeline)
