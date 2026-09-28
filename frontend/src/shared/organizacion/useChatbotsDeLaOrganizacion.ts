@@ -24,7 +24,13 @@ import { useOrganizacionElegida } from './useOrganizacionElegida'
 export function useChatbotsDeLaOrganizacion() {
   const { elegida } = useOrganizacionElegida()
 
+  // **Y no se pregunta hasta saber de qué organización** (revisión de la PR #187). Mientras
+  // `useOrganizacionElegida` carga la lista, `elegida` vale `''`, y una consulta sin filtro que
+  // llegara antes que esa lista permitiría a una pantalla autoseleccionar un chatbot de otra
+  // organización y seguir cargando sus datos después de aplicarse el filtro. Sin organización no
+  // hay pregunta que hacer.
   return useListChatbotsApiV1HubChatbotsGet(
     elegida ? { organizacion_id: elegida } : undefined,
+    { query: { enabled: Boolean(elegida) } },
   )
 }

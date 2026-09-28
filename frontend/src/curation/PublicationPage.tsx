@@ -17,6 +17,7 @@ import {
 import type { CandidatePageView, SiteView } from '@/shared/api/generated/model'
 import { PageContentDialog } from './PageContentDialog'
 import { useChatbotsDeLaOrganizacion } from '@/shared/organizacion/useChatbotsDeLaOrganizacion'
+import { useSeleccionValida } from '@/shared/organizacion/useSeleccionValida'
 
 const selSchema = z.object({
   rule_type: z.enum(['path_prefix', 'sitemap_section', 'manual']).default('path_prefix'),
@@ -57,6 +58,10 @@ export function PublicationPage() {
 
   const { data: sites = [] } = useListSites()
   const { data: chatbots = [] } = useChatbotsDeLaOrganizacion()
+
+  // Issue #11 — al cambiar de organización, un chatbot de la anterior no puede quedarse
+  // elegido: la consulta dependiente y las mutaciones irían contra otra organización.
+  useSeleccionValida(chatbots, selectedChatbotId, setSelectedChatbotId)
   const { data: selections = [] } = useListSelections(selectedChatbotId, {
     query: { enabled: !!selectedChatbotId },
   })

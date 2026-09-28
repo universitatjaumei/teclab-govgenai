@@ -30,7 +30,7 @@ set -uo pipefail
 : "${VM_ZONA:?falta VM_ZONA}"
 
 # Tres, que es lo que la issue #184 acordó. Nació con cuatro por descuido mío y lo señaló la
-# revisión de la PR #185: no cambia la seguridad de nada, pero el codigo no hacía lo que su
+# revisión de la PR #185: no cambia la seguridad de nada, pero el código no hacía lo que su
 # propia issue prometía, y eso es lo que acaba haciendo que nadie se crea lo escrito.
 INTENTOS="${SSH_INTENTOS:-3}"
 espera=5

@@ -10,6 +10,7 @@ import {
 } from '@/shared/api/generated/hub-ingestion/hub-ingestion'
 import type { ChatbotRead, DocumentVigenciaOut } from '@/shared/api/generated/model'
 import { useChatbotsDeLaOrganizacion } from '@/shared/organizacion/useChatbotsDeLaOrganizacion'
+import { useSeleccionValida } from '@/shared/organizacion/useSeleccionValida'
 
 const MOTIU_ESTAT_NO_VIGENT = 'estat_no_vigent'
 
@@ -47,6 +48,10 @@ export function VigenciaPage() {
 
   const { data: chatbotsRaw, isLoading: isLoadingChatbots } = useChatbotsDeLaOrganizacion()
   const chatbots: ChatbotRead[] = (chatbotsRaw as unknown as ChatbotRead[] | undefined) ?? []
+
+  // Issue #11 — al cambiar de organización, un chatbot de la anterior no puede quedarse
+  // elegido: la consulta dependiente y las mutaciones irían contra otra organización.
+  useSeleccionValida(chatbots, selectedChatbotId, setSelectedChatbotId)
 
   if (!selectedChatbotId && chatbots.length > 0) {
     setSelectedChatbotId(chatbots[0].id)

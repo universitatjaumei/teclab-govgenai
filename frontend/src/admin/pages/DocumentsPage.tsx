@@ -30,6 +30,7 @@ import { RetrievalBanner } from '@/admin/documents/RetrievalBanner'
 import { UploadDropzone } from '@/admin/documents/UploadDropzone'
 import { useBorradoDeDocumento } from '@/admin/documents/useBorradoDeDocumento'
 import { useChatbotsDeLaOrganizacion } from '@/shared/organizacion/useChatbotsDeLaOrganizacion'
+import { useSeleccionValida } from '@/shared/organizacion/useSeleccionValida'
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
@@ -63,6 +64,10 @@ export function DocumentsPage() {
 
   const { data: chatbotsRaw, isLoading: isLoadingChatbots } = useChatbotsDeLaOrganizacion()
   const chatbots: ChatbotRead[] = (chatbotsRaw as unknown as ChatbotRead[] | undefined) ?? []
+
+  // Issue #11 — al cambiar de organización, un chatbot de la anterior no puede quedarse
+  // elegido: la consulta dependiente y las mutaciones irían contra otra organización.
+  useSeleccionValida(chatbots, selectedChatbotId, setSelectedChatbotId)
 
   if (!selectedChatbotId && chatbots.length > 0) {
     setSelectedChatbotId(chatbots[0].id)
