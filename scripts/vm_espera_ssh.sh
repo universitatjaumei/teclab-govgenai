@@ -29,7 +29,10 @@ set -uo pipefail
 : "${VM_NOMBRE:?falta VM_NOMBRE}"
 : "${VM_ZONA:?falta VM_ZONA}"
 
-INTENTOS="${SSH_INTENTOS:-4}"
+# Tres, que es lo que la issue #184 acordó. Nació con cuatro por descuido mío y lo señaló la
+# revisión de la PR #185: no cambia la seguridad de nada, pero el codigo no hacía lo que su
+# propia issue prometía, y eso es lo que acaba haciendo que nadie se crea lo escrito.
+INTENTOS="${SSH_INTENTOS:-3}"
 espera=5
 
 for intento in $(seq 1 "$INTENTOS"); do
