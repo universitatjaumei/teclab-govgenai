@@ -111,6 +111,34 @@ No son lo mismo y es fácil confundirlas:
 devuelve nada. Es intencionado, y es la diferencia entre «no ve nada» y «no se filtra»: devolver
 el listado entero cuando el claim viene vacío era el hallazgo A2 de SEC.2.
 
+## Qué pantalla acota qué listado
+
+Lo de arriba dice **quién puede ver qué**. Esto es la capa de encima: desde REV.10 la organización
+se elige **una vez** en la cabecera, y aquí queda escrito a qué listados llega esa elección — y,
+lo que más se pierde, **a cuáles no debe llegar**.
+
+Medido el 2026-09-28 al cerrar MT.8. Sin esta sección, quien lea la issue verá cinco listados sin
+filtrar y añadirá el filtro, rompiendo la herencia.
+
+| Listado | ¿Acota por la organización elegida? | Por qué |
+|---|---|---|
+| Chatbots | **Sí** | `organizacion`: un asistente es siempre de una. Lo pide `useChatbotsDeLaOrganizacion` y lo aplica el servidor. **Nueve pantallas dependen de él**: casi ninguna lista «lo suyo», listan chatbots para elegir uno y pedir después sus documentos, sus escenarios o sus interacciones. |
+| Sitios de curación | **Sí** | `organizacion`. Fue el primero, en SEC.8.1, y de ahí sale el patrón. |
+| Prompts de chatbot | **Sí, por herencia** | `derivada` de `chatbot_id`: al acotar los chatbots queda acotado solo. No lleva filtro propio. |
+| Organizaciones | **No, y no debe** | Es el eje sobre el que se acota todo lo demás, no algo acotable. |
+| Temas (identidad visual) | **No, y no debe** | `heredable`. La pantalla trabaja con los **tres niveles a la vez** —plataforma, organización, chatbot— porque eso es la cascada. Filtrar por organización ocultaría la fila de plataforma que se hereda, o sea que rompería lo que la pantalla existe para enseñar. |
+| Configuraciones de modelo | **No, y no debe** | `heredable`, mismo motivo: nulo significa «de plataforma, y se hereda». |
+| Concesiones de módulo | **No, y no debe** | `heredable` con una vuelta más: **nulo = en todas**. Un filtro por organización escondería justamente las concesiones que valen para todo el mundo. |
+| Personas | **No, y falta** | `heredable`. Es **MT.9**, fase 2, y no entra en MT.8: el listado ya está acotado por tenencia —quien administra una organización sólo ve la suya— y lo que falta es que un superadministrador pueda estrecharlo a la elegida. |
+
+**La regla que resume la tabla**: se filtra lo que es `organizacion`; **no** se filtra lo
+`heredable`, porque en herencia «nulo» no es «de nadie», es «de todos». Confundir las dos cosas
+convierte un acotado en una ocultación.
+
+Lo vigila `test_issue11_el_listado_de_chatbots_no_se_desacota.py`, que además impide que una
+pantalla nueva vuelva a pedir la lista de chatbots sin acotar — con salida declarada
+(`lista-sin-acotar:`) para el consumidor que de verdad necesite todas.
+
 ## Qué sigue abierto (fase 2, después del piloto)
 
 La fase 1 metió el **esquema** antes del piloto porque añadir una columna a una tabla casi vacía

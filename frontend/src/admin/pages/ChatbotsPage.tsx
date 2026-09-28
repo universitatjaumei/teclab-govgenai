@@ -8,7 +8,6 @@ import {
   useCreateChatbotApiV1HubChatbotsPost,
   useUpdateChatbotApiV1HubChatbotsChatbotIdPatch,
   useDeleteChatbotApiV1HubChatbotsChatbotIdDelete,
-  useListChatbotsApiV1HubChatbotsGet,
   useGetCorpusStatsApiV1HubChatbotsChatbotIdCorpusStatsGet,
   useListChildrenApiV1HubChatbotsChatbotIdChildrenGet,
   useRegenerateChunksApiV1HubChatbotsChatbotIdRegenerateChunksPost,
@@ -23,6 +22,7 @@ import { useListOrganizacionesApiV1HubOrganizacionesGet } from '@/shared/api/gen
 import { chatbotCreateSchema, type FormValues } from '../chatbots/schemas/chatbotSchemas'
 import { mapApiErrorsToFormErrors } from '@/shared/utils/formErrors'
 import { SelectorDeModoDeLengua } from '../components/SelectorDeModoDeLengua'
+import { useChatbotsDeLaOrganizacion } from '@/shared/organizacion/useChatbotsDeLaOrganizacion'
 
 // PLG.3 — la lista de modos **ya no vive aquí**: llega de `/hub/chatbots/opciones-de-grafo`,
 // porque desde PLG.1 depende de qué paquetes haya instalados en el servidor.
@@ -126,7 +126,7 @@ export function ChatbotsPage() {
   const [assignOpen, setAssignOpen] = useState(false)
   const [selectedChildId, setSelectedChildId] = useState('')
 
-  const { data: chatbotsRaw, isLoading } = useListChatbotsApiV1HubChatbotsGet()
+  const { data: chatbotsRaw, isLoading } = useChatbotsDeLaOrganizacion()
   const chatbots: ChatbotRead[] = (chatbotsRaw as unknown as ChatbotRead[] | undefined) ?? []
 
   // FIX.1: los dos catálogos que antes eran constantes escritas a mano.

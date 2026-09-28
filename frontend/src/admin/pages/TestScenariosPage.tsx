@@ -4,7 +4,6 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useQueryClient } from '@tanstack/react-query'
-import { useListChatbotsApiV1HubChatbotsGet } from '@/shared/api/generated/hub-chatbots/hub-chatbots'
 import {
   useListScenariosApiV1HubChatbotsChatbotIdTestScenariosGet,
   useListRunsApiV1HubChatbotsChatbotIdTestScenariosScenarioIdRunsGet,
@@ -17,6 +16,8 @@ import {
   getListRunsApiV1HubChatbotsChatbotIdTestScenariosScenarioIdRunsGetQueryKey,
 } from '@/shared/api/generated/hub-test-scenarios/hub-test-scenarios'
 import type { RunRead, ScenarioRead } from '@/shared/api/generated/model'
+import { useChatbotsDeLaOrganizacion } from '@/shared/organizacion/useChatbotsDeLaOrganizacion'
+import { useSeleccionValida } from '@/shared/organizacion/useSeleccionValida'
 
 /**
  * RAG.13 — escenarios de prueba y veredicto humano.
@@ -50,7 +51,11 @@ export function TestScenariosPage() {
   const [capturarContexto, setCapturarContexto] = useState(false)
   const [expandido, setExpandido] = useState<string | null>(null)
 
-  const { data: chatbots = [] } = useListChatbotsApiV1HubChatbotsGet()
+  const { data: chatbots = [] } = useChatbotsDeLaOrganizacion()
+
+  // Issue #11 — al cambiar de organización, un chatbot de la anterior no puede quedarse
+  // elegido: la consulta dependiente y las mutaciones irían contra otra organización.
+  useSeleccionValida(chatbots, chatbotId, setChatbotId)
   const { data: escenarios = [] } =
     useListScenariosApiV1HubChatbotsChatbotIdTestScenariosGet(chatbotId, {
       query: { enabled: !!chatbotId },

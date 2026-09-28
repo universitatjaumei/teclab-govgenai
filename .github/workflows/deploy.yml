@@ -240,6 +240,7 @@ jobs:
             "${VM_NOMBRE}:/tmp/despliegue.tgz" \
             --zone "$VM_ZONA" --tunnel-through-iap --quiet
 
+          bash scripts/vm_espera_ssh.sh
           gcloud compute ssh "$VM_NOMBRE" --zone "$VM_ZONA" --tunnel-through-iap --quiet \
             --command "sudo mkdir -p ${DESTINO}/scripts/lib ${DESTINO}/deploy/vm/sites.d ${DESTINO}/sites.d ${DESTINO}/tls && sudo tar xzf /tmp/despliegue.tgz -C /tmp && \
               sudo cp /tmp/deploy/vm/docker-compose.vm.yml ${DESTINO}/ && \
@@ -376,6 +377,7 @@ jobs:
               -f ${DESTINO}/docker-compose.vm.yml --profile migrate run --rm migrate"
 
           echo '--- revisión aplicada ---'
+          bash scripts/vm_espera_ssh.sh
           gcloud compute ssh "$VM_NOMBRE" --zone "$VM_ZONA" --tunnel-through-iap --quiet \
             --command "cd ${DESTINO} && sudo docker compose --env-file ${DESTINO}/.env.despliegue \
               -f ${DESTINO}/docker-compose.vm.yml --profile migrate run --rm --entrypoint alembic migrate current"
@@ -489,6 +491,7 @@ jobs:
             # `starting` cuenta como fallo a propósito: si tras el reinicio y la espera sigue
             # arrancando, algo va mal. `sin-sonda` también, porque significa que la imagen
             # desplegada es anterior a este arreglo o que alguien quitó el HEALTHCHECK.
+            bash scripts/vm_espera_ssh.sh || echo "::warning::sin SSH tras los reintentos; se sigue igualmente"
             salud_mcp="$(gcloud compute ssh "$VM_NOMBRE" --zone "$VM_ZONA" --tunnel-through-iap \
               --quiet --command "sudo docker inspect -f '{{.State.Health.Status}}' govgenai_mcp 2>/dev/null || echo sin-sonda" | tr -d '\r\n')"
             echo "el MCP dice estar «$salud_mcp» (se espera healthy)"
@@ -506,6 +509,7 @@ jobs:
             # de la MÁQUINA —donde no existe— y el `sed` dejaba `GOVGENAI_IMAGE=` vacío. A
             # partir de ahí compose no podía interpolar ni para levantar ni para bajar, y como
             # `ExecStop` es el mismo compose, la pila se quedó a medias.
+            bash scripts/vm_espera_ssh.sh || echo "::warning::sin SSH tras los reintentos; se sigue igualmente"
             gcloud compute ssh "$VM_NOMBRE" --zone "$VM_ZONA" --tunnel-through-iap --quiet \
               --command "sudo cp ${DESTINO}/.env.despliegue.anterior ${DESTINO}/.env.despliegue && sudo systemctl restart govgenai"
             echo "::error::Despliegue revertido. Mira los logs de la aplicación antes de reintentar."

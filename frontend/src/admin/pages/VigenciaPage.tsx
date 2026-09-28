@@ -3,13 +3,14 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { AlertTriangle, CheckCircle2, ExternalLink, Loader2 } from 'lucide-react'
 
-import { useListChatbotsApiV1HubChatbotsGet } from '@/shared/api/generated/hub-chatbots/hub-chatbots'
 import {
   useListPendingVigenciaApiV1HubIngestionChatbotIdVigenciaGet,
   useValidarVigenciaApiV1HubIngestionChatbotIdVigenciaDocumentIdValidarPost as useValidarVigencia,
   getListPendingVigenciaApiV1HubIngestionChatbotIdVigenciaGetQueryKey as claveDeVigencia,
 } from '@/shared/api/generated/hub-ingestion/hub-ingestion'
 import type { ChatbotRead, DocumentVigenciaOut } from '@/shared/api/generated/model'
+import { useChatbotsDeLaOrganizacion } from '@/shared/organizacion/useChatbotsDeLaOrganizacion'
+import { useSeleccionValida } from '@/shared/organizacion/useSeleccionValida'
 
 const MOTIU_ESTAT_NO_VIGENT = 'estat_no_vigent'
 
@@ -45,8 +46,12 @@ export function VigenciaPage() {
   const [motiuFilter, setMotiuFilter] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
 
-  const { data: chatbotsRaw, isLoading: isLoadingChatbots } = useListChatbotsApiV1HubChatbotsGet()
+  const { data: chatbotsRaw, isLoading: isLoadingChatbots } = useChatbotsDeLaOrganizacion()
   const chatbots: ChatbotRead[] = (chatbotsRaw as unknown as ChatbotRead[] | undefined) ?? []
+
+  // Issue #11 — al cambiar de organización, un chatbot de la anterior no puede quedarse
+  // elegido: la consulta dependiente y las mutaciones irían contra otra organización.
+  useSeleccionValida(chatbots, selectedChatbotId, setSelectedChatbotId)
 
   if (!selectedChatbotId && chatbots.length > 0) {
     setSelectedChatbotId(chatbots[0].id)

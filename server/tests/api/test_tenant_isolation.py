@@ -695,3 +695,88 @@ class TestNingunEndpointSeSaltaLaFrontera:
             "hay más de una lectura directa de HubChatbot: la comprobación de organización "
             "vive en `_get_chatbot_or_404` y saltársela es el hallazgo A2"
         )
+
+
+# ---------------------------------------------------------------------------
+# Issue #11 (MT.8) — la organización elegida en la cabecera acota los listados
+# ---------------------------------------------------------------------------
+#
+# Estos tests viven aquí y no en un fichero propio porque este módulo **ya posee esta materia**:
+# tiene el andamiaje de tenencia, tiene la frontera de listados y tiene escrita la razón de por
+# qué aquí se afirma sobre el SQL y no sobre las filas. `tests/api` no es paquete, así que un
+# fichero nuevo obligaría a duplicar ese andamiaje, y dos copias del doble de sesión divergirán.
+
+
+class TestLaOrganizacionElegidaAcotaElListado:
+    """Issue #11 — la frontera está hecha; lo que falta es que la elección de la cabecera llegue.
+
+    **Lo que NO es esto.** La frontera de datos —quién *puede* ver qué— está cerrada y es el
+    invariante I5: los tests de arriba la cubren. Esto es la capa de encima: desde REV.10 la
+    organización se elige **una vez** en la cabecera, y esa elección tiene que acotar lo que se
+    lista.
+
+    **Medido el 2026-09-28.** De las pantallas que listan datos de organización acotaba **una**:
+    `SitesPage` de curación. Las demás no, así que un superadministrador con la organización A
+    elegida seguía viendo los chatbots de B en el desplegable — y a partir de ahí sus documentos,
+    sus escenarios y sus interacciones. Casi ninguna de esas pantallas lista «lo suyo»: listan
+    chatbots para elegir uno, y por eso el filtro en este endpoint arregla la mayoría de una vez.
+
+    **El patrón no se decide aquí, ya estaba elegido.** `list_sites` acepta un `organizacion_id`
+    opcional, aplica primero `scope_query_to_orgs` —la tenencia, que no se negocia— y después
+    `assert_org_access` más el filtro. Se copia tal cual.
+    """
+
+    def _sql(self, session) -> str:
+        consulta = session.execute.await_args.args[0]
+        return str(consulta.compile(compile_kwargs={"literal_binds": True}))
+
+    def test_should_narrow_the_listing_to_the_chosen_organisation(self):
+        """El caso que motiva la issue: quien ve varias tiene que poder mirar una."""
+        from fastapi.testclient import TestClient
+
+        session = _sesion_que_devuelve(filas=[])
+        cliente = TestClient(_app_con(chatbots_router, _superadmin(), session))
+
+        respuesta = cliente.get(f"/api/v1/hub/chatbots?organizacion_id={ORG_A}")
+
+        assert respuesta.status_code == 200, respuesta.text
+        assert uuid.UUID(ORG_A).hex in self._sql(session), (
+            "la consulta no lleva la organización elegida: el listado saldría con los chatbots "
+            "de todas, que es justo lo que el selector promete acotar"
+        )
+
+    def test_should_keep_the_filter_optional(self):
+        """Opcional a propósito: hay consumidores que listan de todas las organizaciones."""
+        from fastapi.testclient import TestClient
+
+        session = _sesion_que_devuelve(filas=[])
+        cliente = TestClient(_app_con(chatbots_router, _superadmin(), session))
+
+        assert cliente.get("/api/v1/hub/chatbots").status_code == 200
+        assert "organizacion_id IN" not in self._sql(session)
+
+    def test_should_forbid_filtering_by_someone_elses_organisation(self):
+        from fastapi.testclient import TestClient
+
+        session = _sesion_que_devuelve(filas=[])
+        cliente = TestClient(_app_con(chatbots_router, _admin(ORG_A), session))
+
+        respuesta = cliente.get(f"/api/v1/hub/chatbots?organizacion_id={ORG_B}")
+
+        assert respuesta.status_code == 403, (
+            "sin esto el filtro sería una forma de pedir los chatbots de otra organización: "
+            "pasar un id ajeno no puede ser una consulta legítima"
+        )
+
+    def test_should_scope_by_tenancy_with_and_without_the_filter(self):
+        """`scope_query_to_orgs` va **antes** del filtro, no en su lugar."""
+        from fastapi.testclient import TestClient
+
+        session = _sesion_que_devuelve(filas=[])
+        cliente = TestClient(_app_con(chatbots_router, _admin(ORG_A), session))
+
+        cliente.get(f"/api/v1/hub/chatbots?organizacion_id={ORG_A}")
+        sql = self._sql(session)
+
+        assert uuid.UUID(ORG_A).hex in sql
+        assert uuid.UUID(ORG_B).hex not in sql

@@ -105,6 +105,19 @@ class TestLaSondaNoSabeHacerNadaMas:
             "eso es exactamente lo que no puede repetirse"
         )
 
+    def test_los_intentos_son_los_que_la_issue_acordo(self):
+        """Tres, no cuatro. La issue decía «hasta tres intentos» y el guion nació con cuatro.
+
+        No es una diferencia de seguridad —un intento más no rompe nada— pero sí es que el código
+        no hacía lo que su propia issue prometía, y ésa es la clase de discrepancia que acaba
+        haciendo que nadie se crea lo escrito. Lo señaló la revisión de la PR #185.
+        """
+        codigo = SONDA.read_text(encoding="utf-8")
+
+        assert "SSH_INTENTOS:-3" in codigo, (
+            "los intentos por omisión no son tres, que es lo que se acordó en la issue"
+        )
+
     def test_la_sonda_reintenta_de_verdad(self):
         codigo = SONDA.read_text(encoding="utf-8")
 
@@ -118,21 +131,34 @@ class TestLaSondaNoSabeHacerNadaMas:
 
 class TestNingunPasoEntraSinSondear:
 
-    def test_cada_paso_que_entra_por_ssh_sondea_primero(self):
+    def test_cada_conexion_sondea_antes(self):
+        """**Cada una**, no la primera de cada paso.
+
+        La primera versión miraba sólo la primera coincidencia de cada paso, y por eso pasaba en
+        verde con cinco conexiones sin proteger: las dos de «Copiar los ficheros» —`scp` y
+        `ssh`—, las dos de «Migraciones» y las tres de comprobación y reversión. Lo señaló la
+        revisión de la PR #185, y es la misma forma de medir flojo que este guardarraíl existe
+        para evitar: comprobar el primer caso y afirmar el conjunto.
+
+        Si la clave puede no haber propagado en cualquier invocación —y el despliegue del
+        2026-09-23 lo demostró fallando en el cuarto paso—, la sonda va delante de cada una o la
+        garantía no es uniforme.
+        """
         sin_sondear = []
         for nombre, cuerpo in _bloques_run():
-            encuentro = _ENTRA_POR_SSH.search(cuerpo)
-            if encuentro is None:
-                continue
-            antes = cuerpo[: encuentro.start()]
-            if "vm_espera_ssh.sh" not in antes:
-                sin_sondear.append(nombre)
+            fin_anterior = 0
+            for encuentro in _ENTRA_POR_SSH.finditer(cuerpo):
+                entre = cuerpo[fin_anterior : encuentro.start()]
+                if "vm_espera_ssh.sh" not in entre:
+                    linea = cuerpo[encuentro.start() : encuentro.start() + 60].split("\n")[0]
+                    sin_sondear.append(f"{nombre}: {linea.strip()}")
+                fin_anterior = encuentro.end()
 
         assert not sin_sondear, (
-            "estos pasos entran por SSH sin sondear antes:\n"
+            "estas conexiones entran por SSH sin sondear antes:\n"
             + "\n".join(f"  - {n}" for n in sin_sondear)
-            + "\n\nLa clave efímera puede no haber propagado en cualquiera de ellos, no sólo en "
-            "el primero: el despliegue del 2026-09-23 murió en el cuarto."
+            + "\n\nCada invocación de `gcloud compute ssh|scp` propaga su propia clave: la sonda "
+            "va delante de cada una."
         )
 
     def test_ningun_comando_de_verdad_queda_dentro_de_un_bucle(self):

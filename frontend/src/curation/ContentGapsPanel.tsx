@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
-import { useListChatbotsApiV1HubChatbotsGet } from '@/shared/api/generated/hub-chatbots/hub-chatbots'
+import { useChatbotsDeLaOrganizacion } from '@/shared/organizacion/useChatbotsDeLaOrganizacion'
+import { useSeleccionValida } from '@/shared/organizacion/useSeleccionValida'
 import {
   useListContentGaps,
   useAnalyzeContentGaps,
@@ -41,7 +42,11 @@ export function ContentGapsPanel() {
   const qc = useQueryClient()
   const [chatbotId, setChatbotId] = useState('')
 
-  const { data: chatbots = [] } = useListChatbotsApiV1HubChatbotsGet()
+  const { data: chatbots = [] } = useChatbotsDeLaOrganizacion()
+
+  // Issue #11 — al cambiar de organización, un chatbot de la anterior no puede quedarse
+  // elegido: la consulta dependiente y las mutaciones irían contra otra organización.
+  useSeleccionValida(chatbots, chatbotId, setChatbotId)
   const { data: gaps = [] } = useListContentGaps(
     { chatbot_id: chatbotId },
     { query: { enabled: !!chatbotId } }

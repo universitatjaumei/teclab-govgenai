@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useMemo } from 'react'
+import { create } from 'zustand'
 import { useListOrganizacionesApiV1HubOrganizacionesGet } from '@/shared/api/generated/hub-organizaciones/hub-organizaciones'
 
 /** Dónde se recuerda la elección. Por navegador y por persona que usa ese navegador. */
@@ -36,6 +37,46 @@ export interface EleccionDeOrganizacion {
  * Se lee con el hook que ya existía para listar organizaciones, así que no añade una petición:
  * react-query devuelve la consulta cacheada.
  */
+function _leerGuardada(): string {
+  try {
+    return localStorage.getItem(CLAVE_GUARDADA) ?? ''
+  } catch {
+    // Un navegador con el almacenamiento bloqueado no es motivo para no funcionar.
+    return ''
+  }
+}
+
+/**
+ * La elección, **compartida por todo el panel** (issue #11).
+ *
+ * Estaba en un `useState` dentro del hook, así que **cada llamada tenía la suya**: la cabecera
+ * cambiaba la suya y la escribía en `localStorage`, y el consumidor de otra parte del árbol
+ * seguía con la anterior hasta volver a montarse. En el panel se veía exactamente así — el
+ * selector cambiaba, el almacenamiento cambiaba, y no salía ninguna petición nueva. Lo encontró
+ * la verificación en el navegador; los tests no podían, porque montaban un consumidor solo.
+ *
+ * `zustand` y no un contexto porque ya es el patrón del proyecto (`useFocusStore`) y no obliga a
+ * envolver el árbol en un proveedor más.
+ */
+const _usarEleccion = create<{ elegida: string; elegir: (id: string) => void }>((set) => ({
+  // Arranca **vacía**, no con lo guardado, y el hook cae a `localStorage` mientras siga así.
+  //
+  // Es la diferencia entre «nadie ha elegido en esta sesión» y «no hay elección guardada». Leer
+  // aquí ataría el valor al instante en que se **importa el módulo**, y entonces cualquier
+  // escritura posterior —otra pestaña, o un test que prepara el estado antes de pintar— quedaría
+  // invisible para siempre. Así la tienda manda en cuanto alguien elige, y hasta entonces manda
+  // lo guardado, que es el comportamiento de siempre.
+  elegida: '',
+  elegir: (id: string) => {
+    set({ elegida: id })
+    try {
+      localStorage.setItem(CLAVE_GUARDADA, id)
+    } catch {
+      /* sin persistencia, pero con elección */
+    }
+  },
+}))
+
 export function useOrganizacionElegida(): EleccionDeOrganizacion {
   const { data } = useListOrganizacionesApiV1HubOrganizacionesGet()
 
@@ -53,23 +94,9 @@ export function useOrganizacionElegida(): EleccionDeOrganizacion {
     [data],
   )
 
-  const [elegida, setElegida] = useState<string>(() => {
-    try {
-      return localStorage.getItem(CLAVE_GUARDADA) ?? ''
-    } catch {
-      // Un navegador con el almacenamiento bloqueado no es motivo para no funcionar.
-      return ''
-    }
-  })
-
-  const elegir = useCallback((id: string) => {
-    setElegida(id)
-    try {
-      localStorage.setItem(CLAVE_GUARDADA, id)
-    } catch {
-      /* sin persistencia, pero con elección */
-    }
-  }, [])
+  const elegidaEnSesion = _usarEleccion((s) => s.elegida)
+  const elegir = _usarEleccion((s) => s.elegir)
+  const elegida = elegidaEnSesion || _leerGuardada()
 
   // **Cuál rige ahora mismo: la guardada si sigue existiendo y, si no, la primera.** Se
   // DERIVA; no se guarda.
