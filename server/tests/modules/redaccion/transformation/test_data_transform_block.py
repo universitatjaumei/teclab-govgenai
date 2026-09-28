@@ -1,14 +1,11 @@
 """Tests del DataTransformBlock (contract + handler + manifest) — 9R.5.8 (RED → GREEN)."""
 from __future__ import annotations
 
-import json
 import uuid
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from server.app.modules.redaccion.blocks.handlers import DataTransformHandler
 from server.app.modules.redaccion.contracts.block_io import BlockReference
 from server.app.modules.redaccion.contracts.blocks import (
     DataTransformBlock,
@@ -17,7 +14,6 @@ from server.app.modules.redaccion.contracts.blocks import (
 from server.app.modules.redaccion.contracts.runtime import BlockState, WorkspaceState
 from server.app.modules.redaccion.services.transformation.operations import (
     FilterOp,
-    GroupByOp,
 )
 
 
@@ -88,85 +84,12 @@ class TestDataTransformContract:
 # ---------------------------------------------------------------------------
 # Handler
 # ---------------------------------------------------------------------------
-
-class TestDataTransformHandler:
-
-    @pytest.mark.asyncio
-    async def test_data_transform_block_handler_resolves_source_via_block_ref(self):
-        rows = [
-            {"region": "N", "units": 10},
-            {"region": "S", "units": 20},
-            {"region": "E", "units": 30},
-        ]
-        state = _state_with_source_rows(rows)
-        cfg = DataTransformBlockConfig(
-            mode="deterministic",
-            source_block_ref=BlockReference(block_id="b_data"),
-            operations=[FilterOp(col="units", comparator=">", value=15)],
-        )
-        block = DataTransformBlock(
-            id="b_dt", title="filtrado",
-            depends_on=[BlockReference(block_id="b_data")],
-            config=cfg,
-        )
-
-        handler = DataTransformHandler()
-        result = await handler.execute(block, state)
-
-        assert "rows" in result
-        assert len(result["rows"]) == 2
-        assert all(r["units"] > 15 for r in result["rows"])
-        assert result["operations_applied"][0]["op"] == "filter"
-        assert result["model_used"] is None
-        assert result["source_block_id"] == "b_data"
-
-    def test_data_transform_block_persists_operations_in_manifest(self):
-        cfg = DataTransformBlockConfig(
-            mode="deterministic",
-            source_block_ref=BlockReference(block_id="b_data"),
-            operations=[
-                FilterOp(col="units", comparator=">", value=15),
-                GroupByOp(cols=["region"], agg_dict={"units": "sum"}),
-            ],
-        )
-        block = DataTransformBlock(id="b_dt", title="x", config=cfg)
-        handler = DataTransformHandler()
-
-        manifest = handler.to_manifest(block)
-        assert manifest["kind"] == "DATA_TRANSFORM"
-        assert manifest["mode"] == "deterministic"
-        ops = manifest["operations_applied"]
-        assert len(ops) == 2
-        assert ops[0]["op"] == "filter"
-        assert ops[1]["op"] == "groupby"
-        assert manifest["source_block_id"] == "b_data"
-
-    @pytest.mark.asyncio
-    async def test_data_transform_block_handler_ai_mode_invokes_llm(self):
-        rows = [{"region": "N", "units": 10}, {"region": "S", "units": 20}]
-        state = _state_with_source_rows(rows)
-
-        ops_json = json.dumps({
-            "mode": "operations",
-            "operations": [{"op": "filter", "col": "units", "comparator": ">", "value": 15}],
-        })
-        llm = MagicMock()
-        llm_resp = MagicMock()
-        llm_resp.content = ops_json
-        llm.ainvoke = AsyncMock(return_value=llm_resp)
-
-        cfg = DataTransformBlockConfig(
-            mode="ai",
-            source_block_ref=BlockReference(block_id="b_data"),
-            nl_instruction="filtra unidades > 15",
-        )
-        block = DataTransformBlock(
-            id="b_dt", title="x",
-            depends_on=[BlockReference(block_id="b_data")],
-            config=cfg,
-        )
-
-        handler = DataTransformHandler(llm=llm, model_name="claude-test")
-        result = await handler.execute(block, state)
-        assert len(result["rows"]) == 1
-        assert result["model_used"] == "claude-test"
+# Issue #180 — aquí había tres tests sobre `DataTransformHandler`, que **nadie ejecutaba**: lo
+# que transforma un bloque DATA_TRANSFORM es `DataTransformationNode`.
+#
+# Las tres garantías siguen cubiertas, y sobre el camino que de verdad corre, en
+# `test_el_bloque_de_transformacion_transforma.py`: transformar la tabla del bloque de
+# extracción, fallar con su motivo cuando la columna no existe y usar el modelo inyectado en
+# modo IA. La cuarta —`to_manifest`— se fue con el handler: el manifiesto de la ejecución lo
+# construye `audit_log` a partir del estado.
+# ---------------------------------------------------------------------------

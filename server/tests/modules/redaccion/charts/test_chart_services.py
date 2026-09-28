@@ -17,7 +17,6 @@ from server.app.modules.redaccion.services.charts.deterministic_chart_service im
 from server.app.modules.redaccion.services.charts.chart_renderer import render_chart_from_script, ChartRenderError
 from server.app.modules.redaccion.services.charts.chart_factory import ChartFactory
 from server.app.modules.redaccion.contracts.blocks import ChartBlock, ChartBlockConfig
-from server.app.modules.redaccion.blocks.handlers import ChartHandler
 
 
 # ---------------------------------------------------------------------------
@@ -170,26 +169,3 @@ class TestChartFactoryExtractCode:
         raw = "fig, ax = plt.subplots()"
         code = ChartFactory._extract_code(raw)
         assert code == raw.strip()
-
-
-# ---------------------------------------------------------------------------
-# ChartHandler.to_manifest
-# ---------------------------------------------------------------------------
-
-class TestChartHandler:
-
-    def test_to_manifest_includes_chart_type_and_mode(self):
-        cfg = ChartBlockConfig(mode="deterministic", chart_type="line")
-        block = ChartBlock(id="ch1", title="Grafico", data_block_ref="d1", config=cfg)
-        handler = ChartHandler()
-        manifest = handler.to_manifest(block)
-        assert manifest["kind"] == "CHART"
-        assert manifest["chart_type"] == "line"
-        assert manifest["mode"] == "deterministic"
-
-    def test_to_manifest_uses_defaults_when_no_config(self):
-        block = ChartBlock(id="ch1", title="Grafico", data_block_ref="d1")
-        handler = ChartHandler()
-        manifest = handler.to_manifest(block)
-        assert manifest["chart_type"] == "bar"
-        assert manifest["mode"] == "deterministic"

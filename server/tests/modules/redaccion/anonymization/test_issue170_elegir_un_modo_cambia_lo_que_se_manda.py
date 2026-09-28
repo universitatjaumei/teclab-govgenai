@@ -569,7 +569,7 @@ class TestElContextoExisteAntesDeQueNadieLlameAlModelo:
         nodos = {n for n in grafo.nodes if not n.startswith("__")}
 
         esperados = {
-            "load_template", "validate_inputs", "user_input_fill", "file_normalization",
+            "load_template", "validate_inputs", "fill_direct_blocks", "file_normalization",
             "deterministic_extraction", "data_transformation", "chart_render",
             "table_render", "data_quality_check", "missing_data_question",
             "init_anonymization", "ai_assist_draft", "citation_traceability",

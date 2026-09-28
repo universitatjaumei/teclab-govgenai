@@ -198,12 +198,12 @@ class TestElValorLlegaAlInforme:
 
     @pytest.mark.asyncio
     async def test_lo_escrito_acaba_en_el_contenido_del_bloque(self):
-        from server.app.modules.redaccion.graph.nodes.user_input_fill import (
-            UserInputFillNode,
+        from server.app.modules.redaccion.graph.nodes.fill_direct_blocks import (
+            FillDirectBlocksNode,
         )
 
         estado = self._estado(valores={"campo_quejas": "Ninguna en el curso"})
-        cambios = await UserInputFillNode()(estado)
+        cambios = await FillDirectBlocksNode()(estado)
 
         bloque = cambios["blocks"]["campo_quejas"]
         assert bloque.content == {"text": "Ninguna en el curso"}
@@ -216,12 +216,12 @@ class TestElValorLlegaAlInforme:
         from server.app.modules.redaccion.graph.nodes.final_assembler import (
             contenido_a_markdown,
         )
-        from server.app.modules.redaccion.graph.nodes.user_input_fill import (
-            UserInputFillNode,
+        from server.app.modules.redaccion.graph.nodes.fill_direct_blocks import (
+            FillDirectBlocksNode,
         )
 
         estado = self._estado(valores={"campo_quejas": "Ninguna en el curso"})
-        cambios = await UserInputFillNode()(estado)
+        cambios = await FillDirectBlocksNode()(estado)
 
         assert (
             contenido_a_markdown(cambios["blocks"]["campo_quejas"].content)
@@ -231,11 +231,11 @@ class TestElValorLlegaAlInforme:
     @pytest.mark.asyncio
     async def test_un_obligatorio_sin_rellenar_se_dice(self):
         """Callarlo dejaría la misma sección vacía de antes, ahora sin explicación."""
-        from server.app.modules.redaccion.graph.nodes.user_input_fill import (
-            UserInputFillNode,
+        from server.app.modules.redaccion.graph.nodes.fill_direct_blocks import (
+            FillDirectBlocksNode,
         )
 
-        cambios = await UserInputFillNode()(self._estado(valores={}))
+        cambios = await FillDirectBlocksNode()(self._estado(valores={}))
 
         assert cambios["blocks"]["campo_movilidad"].status == "missing_input"
         assert any(
@@ -246,23 +246,23 @@ class TestElValorLlegaAlInforme:
     @pytest.mark.asyncio
     async def test_no_toca_los_bloques_que_no_son_suyos(self):
         """Sin esto, lo de arriba se cumpliría pisando el informe entero."""
-        from server.app.modules.redaccion.graph.nodes.user_input_fill import (
-            UserInputFillNode,
+        from server.app.modules.redaccion.graph.nodes.fill_direct_blocks import (
+            FillDirectBlocksNode,
         )
 
         estado = self._estado(valores={"campo_quejas": "algo"})
-        cambios = await UserInputFillNode()(estado)
+        cambios = await FillDirectBlocksNode()(estado)
 
         assert cambios["blocks"]["campo_movilidad"].content is None
 
     @pytest.mark.asyncio
     async def test_un_valor_que_no_corresponde_a_ningun_bloque_se_ignora(self):
         """Lo que manda es la plantilla, no lo que llegue en el diccionario."""
-        from server.app.modules.redaccion.graph.nodes.user_input_fill import (
-            UserInputFillNode,
+        from server.app.modules.redaccion.graph.nodes.fill_direct_blocks import (
+            FillDirectBlocksNode,
         )
 
-        cambios = await UserInputFillNode()(self._estado(valores={"inventado": "x"}))
+        cambios = await FillDirectBlocksNode()(self._estado(valores={"inventado": "x"}))
 
         assert "inventado" not in cambios["blocks"]
 
