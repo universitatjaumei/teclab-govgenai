@@ -29,6 +29,7 @@ import uuid
 
 import pytest
 from sqlalchemy import select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from server.app.modules.agents_hub.database.operational_models import HubDocument
 
@@ -491,16 +492,69 @@ class TestElAmbitoNoSePuedeFalsear:
         with pytest.raises(SystemExit):
             _construir_parser().parse_args([*base, "--chatbot-id", str(uuid.uuid4())])
 
-    def test_el_ambito_sale_de_la_organizacion_y_de_ningun_otro_sitio(self, db_session):
-        """El que da sentido al de arriba: quitar la bandera no puede dejar la operación sin ámbito."""
-        import inspect
+    @pytest.mark.asyncio
+    async def test_el_cli_solo_toca_los_documentos_de_su_organizacion(self, db_url, monkeypatch):
+        """El camino del CLI ejecutado de verdad, con dos organizaciones.
 
+        **Aquí había un test que leía el código fuente** —comprobaba que `_run_sustitucion`
+        nombra a `_chatbots_de` y no a la bandera— y la revisión de la PR #182 lo tumbó con
+        razón: eso fija la **forma**, no el efecto. Una regresión que llamara al auxiliar y luego
+        mandara otro ámbito seguiría pasando en verde.
+
+        Es, otra vez, el error que esta misma tanda de commits estaba arreglando, cometido en el
+        test que lo arreglaba. Así que este ejecuta el camino entero y mira **qué documentos
+        cambian**.
+        """
+        from sqlalchemy.ext.asyncio import create_async_engine as _crear_motor
+
+        from server.app.modules.agents_hub.database import connection
         from server.app.modules.agents_hub.vocabulary import load
 
-        fuente = inspect.getsource(load._run_sustitucion)
+        motor = _crear_motor(db_url)
+        try:
+            async with AsyncSession(motor) as siembra:
+                propia, ajena = uuid.uuid4(), uuid.uuid4()
+                await _sembrar_terminos(siembra, propia, "submateria", "vella", "nova")
+                await _sembrar_terminos(siembra, ajena, "submateria", "vella", "nova")
+                chatbot_propio = await _chatbot(siembra, propia)
+                chatbot_ajeno = await _chatbot(siembra, ajena)
+                meu = await _documento(siembra, chatbot_id=chatbot_propio, submateries=["vella"])
+                seu = await _documento(siembra, chatbot_id=chatbot_ajeno, submateries=["vella"])
+                # Los identificadores **antes** del commit: después, `expire_on_commit` deja el
+                # atributo expirado y leerlo dispara IO donde no toca.
+                id_meu, id_seu = meu.id, seu.id
+                await siembra.commit()
 
-        assert "_chatbots_de" in fuente, (
-            "el CLI tiene que resolver el ámbito desde la organización: sin eso, o barre todo o "
-            "no barre nada"
-        )
-        assert "args.chatbot_id" not in fuente, "queda la puerta de atrás"
+            # El CLI abre su propio motor: se le da el de la base desechable, no el del entorno.
+            monkeypatch.setattr(connection, "create_async_engine", lambda: _crear_motor(db_url))
+            monkeypatch.setattr(
+                connection,
+                "create_session_factory",
+                lambda m: (lambda: AsyncSession(m)),
+            )
+
+            args = load._construir_parser().parse_args(
+                [
+                    "--axis", "submateria",
+                    "--organizacion-id", str(propia),
+                    "--substituir", "vella",
+                    "--per", "nova",
+                ]
+            )
+            assert await load._run_sustitucion(args) == 0
+
+            async with AsyncSession(motor) as comprobacion:
+                from server.app.modules.agents_hub.database.operational_models import HubDocument
+
+                despues_meu = await comprobacion.get(HubDocument, id_meu)
+                despues_seu = await comprobacion.get(HubDocument, id_seu)
+
+                assert despues_meu.submateries == ["nova"], (
+                    "el CLI resolvió el ámbito pero no reclasificó lo suyo"
+                )
+                assert despues_seu.submateries == ["vella"], (
+                    "el CLI tocó los documentos de otra organización: el ámbito que resuelve no "
+                    "es el que acaba usando"
+                )
+        finally:
+            await motor.dispose()
