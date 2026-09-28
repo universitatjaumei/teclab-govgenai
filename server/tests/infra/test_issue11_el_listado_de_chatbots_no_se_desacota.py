@@ -22,7 +22,6 @@ salida, un guardarraíl se desactiva el primer día que estorba.
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parents[3] / "frontend" / "src"
