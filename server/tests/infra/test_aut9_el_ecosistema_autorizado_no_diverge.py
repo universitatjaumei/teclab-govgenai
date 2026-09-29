@@ -39,33 +39,24 @@ import pytest
 RAIZ = pathlib.Path(__file__).resolve().parents[3]
 SANDBOX = RAIZ / "services" / "script_sandbox"
 
-#: De qué distribución instalable viene cada módulo permitido, o `None` si es de la biblioteca
-#: estándar y no hay nada que instalar.
-#:
-#: **La tabla es obligatoriamente completa**, y un test lo comprueba: añadir un módulo a la lista
-#: blanca sin decir de dónde sale deja esta comprobación sin poder mirarlo, que es exactamente
-#: cómo `fitz` pasó meses permitido y ausente.
-DISTRIBUCION_DE: dict[str, str | None] = {
-    # Biblioteca estándar: no se instala nada.
-    "base64": None,
-    "collections": None,
-    "datetime": None,
-    "io": None,
-    "json": None,
-    "math": None,
-    "re": None,
-    "typing": None,
-    "unicodedata": None,
-    # De terceros: la imagen del sandbox tiene que declararlas.
-    "docx": "python-docx",
-    "fitz": "pymupdf",
-    "matplotlib": "matplotlib",
-    "numpy": "numpy",
-    "openpyxl": "openpyxl",
-    "pandas": "pandas",
-    "pdfplumber": "pdfplumber",
-    "seaborn": "seaborn",
-}
+
+def DISTRIBUCION_DE() -> dict[str, str | None]:
+    """De qué distribución instalable viene cada módulo permitido (`None` si es estándar).
+
+    **Esto nació como una tabla en este fichero y duró una hora.** La escribí aquí y acto seguido
+    el mismo dato hizo falta en el contrato, porque quien escribe el guion fuera necesita saber
+    que `import fitz` se instala como `pymupdf`. Un dato que la aplicación sirve no puede tener
+    su copia en un test: serían dos listas más que pueden divergir, y este fichero existe
+    precisamente para que no haya listas que divergen en silencio.
+
+    Así que se lee de `CATALOGO_DE_MODULOS`, que es producción. Y el test de que está **completa**
+    se queda, sólo que ahora vigila la ficha de verdad: un módulo permitido sin ficha se queda
+    fuera de esta comprobación, que es exactamente cómo `fitz` pasó meses permitido y ausente.
+    """
+    from server.app.modules.redaccion.services.script_auditor import CATALOGO_DE_MODULOS
+
+    return {ficha.modulo: ficha.instala for ficha in CATALOGO_DE_MODULOS}
+
 
 #: Dependencias que la imagen instala **para el servicio**, no para los guiones: son el propio
 #: microservicio HTTP. No están en la lista blanca, y no deben estarlo — `fastapi` y `uvicorn`
@@ -105,7 +96,7 @@ def _del_ecosistema() -> set[str]:
     """Las distribuciones que hay que instalar **porque** un módulo permitido las necesita."""
     return {
         distribucion.replace("_", "-").lower()
-        for modulo, distribucion in DISTRIBUCION_DE.items()
+        for modulo, distribucion in DISTRIBUCION_DE().items()
         if distribucion is not None and modulo in _lista_de_la_api()
     }
 
@@ -129,22 +120,24 @@ def _dependencias_de_la_imagen() -> set[str]:
 
 
 class TestLaTablaSeMantieneCompleta:
-    """Sin esto, lo demás se cumple por no mirar: un módulo sin entrada no se comprueba."""
+    """Sin esto, lo demás se cumple por no mirar: un módulo sin ficha no se comprueba.
+
+    Que la ficha **exista** para cada módulo permitido, que **diga para qué sirve** y que no
+    sobre ninguna lo comprueba el contrato, en
+    `tests/modules/redaccion/test_aut9_la_caja_dice_para_que_sirve_cada_modulo.py`. Aquí se
+    vuelve a mirar sólo lo que este fichero necesita para que su conclusión valga: que no haya
+    un permitido del que no sepamos qué se instala. Es una línea, y es la que sostiene todo lo
+    de abajo.
+    """
 
     def test_todo_modulo_permitido_dice_de_donde_sale(self):
-        sin_clasificar = sorted(_lista_de_la_api() - DISTRIBUCION_DE.keys())
+        sin_clasificar = sorted(_lista_de_la_api() - DISTRIBUCION_DE().keys())
 
         assert not sin_clasificar, (
             f"estos módulos están permitidos y no dicen de qué distribución vienen: "
-            f"{sin_clasificar}. Añádelos a DISTRIBUCION_DE —con `None` si son de la biblioteca "
-            f"estándar— o el resto de este fichero no puede mirarlos."
+            f"{sin_clasificar}. Les falta la ficha en CATALOGO_DE_MODULOS —con `instala=None` si "
+            f"son de la biblioteca estándar— y sin ella el resto de este fichero no los mira."
         )
-
-    def test_la_tabla_no_arrastra_modulos_que_ya_nadie_permite(self):
-        """Una entrada sobrante no es inocua: hace creer que algo sigue autorizado."""
-        sobrantes = sorted(DISTRIBUCION_DE.keys() - _lista_de_la_api())
-
-        assert not sobrantes, f"ya no están en la lista blanca: {sobrantes}"
 
 
 class TestLoPermitidoEstaInstalado:
@@ -201,7 +194,7 @@ class TestLasDosCopiasDelAuditor:
             f"duplicación sólo es segura en un sentido: si divergen, el sandbox es el estricto."
         )
 
-    @pytest.mark.parametrize("modulo", sorted(DISTRIBUCION_DE))
+    @pytest.mark.parametrize("modulo", sorted(DISTRIBUCION_DE()))
     def test_y_hoy_permiten_exactamente_lo_mismo(self, modulo):
         """Ser más estricto está permitido; serlo **por olvido** es lo que se quiere cazar.
 

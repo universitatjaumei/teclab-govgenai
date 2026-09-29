@@ -89,6 +89,26 @@ class TestLasReglasDelAuditorSalenDelCodigo:
                 f"({regla.nivel.value}): «{linea.strip()}»"
             )
 
+    def test_should_name_the_distribution_of_every_third_party_module(self, documento, caja):
+        """AUT.9 — `import fitz` se instala como `pymupdf`, y §5 tiene que decirlo.
+
+        **El «para qué sirve» no se comprueba aquí y es deliberado**: no está en el documento,
+        lo sirve la API. Lo que sí está —porque es una decisión y no un dato de uso— es con qué
+        nombre se instala cada módulo y qué licencia arrastra, y eso sí puede quedarse viejo.
+        El caso real: alguien aprueba una librería cuyo nombre de importación no es el de la
+        distribución, y quien escribe el guion fuera pone el `pip install` equivocado.
+        """
+        faltan = [
+            f"{m.modulo}→{m.instala}"
+            for m in caja.modulos
+            if m.instala and f"`{m.instala}`" not in documento
+        ]
+
+        assert faltan == [], (
+            f"módulos de terceros cuyo nombre de instalación no aparece en el documento: "
+            f"{faltan}"
+        )
+
     def test_should_not_invent_rules_the_auditor_does_not_have(self, documento, caja):
         """La otra mitad: una regla en el documento que el auditor no aplica es una promesa
         falsa, y es peor que una que falte."""

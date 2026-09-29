@@ -222,6 +222,28 @@ de los asistentes informativos. Recorre su propio procedimiento, y ningún dato 
 El razonamiento completo, con las cinco piezas del vínculo y cómo se dan de alta más tipos de
 trámite, está en [`docs/DECISION_TRAMITES_ASISTIDOS.md`](docs/DECISION_TRAMITES_ASISTIDOS.md).
 
+### 9. Utilidades de uso directo — Previsto
+
+Los otros ocho temas son capacidades que la plataforma construye. Éste es más corto de explicar:
+hay operaciones que la gente necesita a diario y que **hoy resuelve subiendo el documento a una
+aplicación online que no asegura el cumplimiento del RGPD**. Unir cinco anexos en un PDF. Partir
+un expediente. Quitarle los datos personales a un listado antes de mandárselo a otra unidad.
+
+No es un problema de capacidad —las dos cosas ya se saben hacer aquí, y las dos existían en la
+aplicación anterior— sino de **trayecto**: mientras no estén donde la persona las necesita, la
+alternativa es la web. Y el documento suele llevar datos personales, a menudo de terceros.
+
+| Hito | Estado | Qué entrega | Issues |
+|---|---|---|---|
+| [1 — Lo que hoy se hace fuera](https://github.com/universitatjaumei/teclab-govgenai/milestone/18) | Previsto | Unir, dividir y optimizar PDF sin que el fichero salga; anonimizar un fichero tabular y descargarlo, como utilidad suelta y no como paso de un flujo | [#190](https://github.com/universitatjaumei/teclab-govgenai/issues/190), [#191](https://github.com/universitatjaumei/teclab-govgenai/issues/191) |
+
+Las dos issues llevan **lo que hay que decidir antes de escribir**, y no es poco: si van como
+funciones del catálogo —con declaración, auditoría y registro, pero entonces dependen de que una
+función pueda producir ficheros— o como utilidad aparte; si queda constancia de que un documento
+pasó por aquí; y, en la anonimización, qué se le promete a quien descarga. **Lo que no se
+promete es que el resultado sea anónimo**: es seudonimización asistida, y la responsabilidad de
+publicar sigue siendo de quien publica.
+
 ## Lo que no se hace
 
 Límites deliberados, con su razón en

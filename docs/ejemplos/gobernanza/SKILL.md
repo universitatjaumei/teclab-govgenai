@@ -27,6 +27,18 @@ Llama a **`reglas_de_auditoria`**. Devuelve la caja de herramientas real: qué m
 lista blanca, qué patrones son críticos y con qué versión del auditor. Escribir primero y
 descubrir después que `csv` no está permitido cuesta una reescritura entera.
 
+**Cada módulo viene con su ficha, y no es adorno**, en `modulos`:
+
+- **`instala`** — con qué nombre se instala, que no siempre es el que se importa: `import fitz`
+  sale de `pymupdf` y `import docx` de `python-docx`. Es `null` en la biblioteca estándar.
+- **`para`** — para qué sirve. Léelo antes de elegir: para PDF hay **dos** lectores y **no son
+  alternativas**. `pdfplumber` recupera mejor las tablas con líneas y `fitz` llega a la
+  maquetación; leer con los dos y componer las dos lecturas es lo que más información deja.
+- **`copyleft`** — si arrastra copyleft fuerte. Hoy sólo `fitz`, que es AGPL-3.0. A la
+  plataforma no le afecta, **al código que escribes fuera sí**: si acaba en un producto que no
+  es AGPL, la pregunta aparece allí. Si el documento se deja leer con `pdfplumber`, no se
+  plantea. Dilo si eliges `fitz` teniendo alternativa, en vez de decidirlo por dentro.
+
 No hace falta para código de usar y tirar que no va a salir de tu máquina.
 
 ### 2. Antes de compartirlo
@@ -96,7 +108,8 @@ módulos, está conectado.
 > Escribe un script que cruce el fichero de gastos con el de proveedores y lo suba al
   repositorio del servicio.
 
-[reglas_de_auditoria]  → 17 módulos permitidos, 6 reglas, version_auditor 3f9c…
+[reglas_de_auditoria]  → 17 módulos permitidos con su ficha, 6 reglas,
+                         version_auditor 3f9c…
 
   `csv` no está en la lista blanca, así que lo hago con `pandas`, que sí está.
 

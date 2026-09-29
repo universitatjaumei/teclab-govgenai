@@ -162,7 +162,7 @@ fuera herede la misma vara. Las tres son **deterministas**: la misma entrada da 
 | `verificar_citas` | Si un texto cumple «ninguna afirmación sin fuente resoluble», con el texto ya corregido y el desglose de qué se degradó y qué perdió el enlace |
 | `consultar_vigencia` | Si la plataforma pondría un aviso de vigencia sobre un documento del corpus, y **el texto del aviso** |
 | `auditar_codigo` | El nivel de riesgo de un script, cada hallazgo con su línea, y si puede pasar a revisión humana |
-| `reglas_de_auditoria` | La caja de herramientas: con qué se puede escribir código que pase |
+| `reglas_de_auditoria` | La caja de herramientas: con qué se puede escribir código que pase. Cada módulo con su ficha —con qué nombre se instala, para qué sirve y si arrastra copyleft—, que es lo que hace falta para **escribir** y no sólo para comprobar |
 
 Tres cosas que conviene saber antes de usarlas:
 
@@ -187,7 +187,8 @@ Es el caso de la Instrucció 02/2026: un script de nivel 2 que **no** va a corre
 > Antes de subir este script al repositorio del servicio, pásalo por la auditoría de la
   plataforma y dime si algo no pasaría.
 
-[reglas_de_auditoria]  → 17 módulos permitidos, 6 reglas, version_auditor 3f9c…
+[reglas_de_auditoria]  → 17 módulos permitidos con su ficha, 6 reglas,
+                         version_auditor 3f9c…
 [auditar_codigo]       → CRITICAL
                          · forbidden-call, línea 12: llamada peligrosa 'eval()'
                          · module-not-whitelisted, línea 1: 'csv' no está en la lista blanca

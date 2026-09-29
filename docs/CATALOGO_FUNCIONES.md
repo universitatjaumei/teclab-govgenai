@@ -361,6 +361,36 @@ meses **permitido y sin instalar**, así que un guion que lo importara moría co
 `ModuleNotFoundError` dentro del sandbox. Lo que **no** entró son `requests` y `beautifulsoup4`:
 la red saliente no es una librería, es una capacidad, y espera a su propia decisión (AUT.8).
 
+### Con qué nombre se instala cada una, y cuál arrastra copyleft
+
+**El «para qué sirve» de cada módulo no se copia aquí: lo sirve la API**, en
+`GET /api/v1/verificaciones/codigo/reglas` y en la herramienta MCP `reglas_de_auditoria`, con una
+ficha por módulo. Es el mismo criterio que con las reglas del auditor — quien escribe el guion
+**fuera** lee la API, no este documento, y una segunda copia en prosa divergiría en semanas.
+
+Lo que sí va aquí son las dos cosas que son **decisiones** y no datos de uso:
+
+| Módulo | Se instala como | Licencia |
+|---|---|---|
+| `pandas`, `numpy`, `seaborn` | `pandas`, `numpy`, `seaborn` | BSD-3-Clause |
+| `openpyxl`, `pdfplumber` | `openpyxl`, `pdfplumber` | MIT |
+| `docx` | `python-docx` | MIT |
+| `fitz` | `pymupdf` | **AGPL-3.0** (o comercial de Artifex) |
+| `matplotlib` | `matplotlib` | PSF-based |
+| `base64`, `collections`, `datetime`, `io`, `json`, `math`, `re`, `typing`, `unicodedata` | — | Biblioteca estándar |
+
+**Las dos librerías de PDF son complementarias y están las dos a propósito.** En la aplicación
+anterior el módulo de extracción **leía con las dos y componía las dos lecturas** antes de
+dárselas al modelo, precisamente para que tuviera más de donde agarrarse al escribir el guion; y
+según cómo esté estructurado el documento, interesa una o la otra. **No son alternativas entre
+las que haya que decidirse una vez**, y por eso ninguna de las dos sobra.
+
+**`fitz` es la única con copyleft fuerte**, y conviene saberlo antes de escribir, no después. No
+afecta a la plataforma —que ya es AGPL-3.0-or-later y ya distribuye GPL en el modelo de spaCy de
+la anonimización—, pero **sí afecta al guion que escribas fuera**: si ese mismo código acaba
+viviendo en un producto que no sea AGPL, la pregunta aparece allí. Si el documento se deja leer
+con `pdfplumber`, esa pregunta no llega a plantearse.
+
 **Capacidades denegadas** — las tres familias, y por qué cada una:
 
 * **Salir de la máquina**: `socket`, `requests`, `httpx`, `urllib`, `http`, `ssl`. Un script de
