@@ -203,6 +203,42 @@ Queda constancia en el registro de actividad de tu organización, con el hash y 
 Lo que **no** hace: ejecutar el script. La auditoría es estática; ejecutar es el sandbox, y eso
 vive dentro de la plataforma.
 
+### El paquete de gobernanza, listo para pegar (AUT.4)
+
+Las tres tools de arriba existen desde REG.4 y VAS.4, y hasta aquí quien quería que un agente de
+código las usara tenía que **saber que existen**, emitir el PAT con los scopes correctos y
+explicárselo al agente cada vez. `docs/ejemplos/gobernanza/` es lo que quita esos tres pasos:
+
+| Fichero | Qué es |
+|---|---|
+| `.mcp.json` | La configuración del transporte HTTP, con el token por variable de entorno y **nunca escrito dentro** |
+| `SKILL.md` | Las instrucciones del ciclo, en el formato que un agente carga solo cuando hace falta |
+
+El ciclo que fija la skill, que es el de la Instrucció 02/2026 y no una invención nuestra:
+
+1. **Antes de escribir** código destinado a compartirse: `reglas_de_auditoria`. Descubrir después
+   que un módulo no está en la lista blanca cuesta una reescritura entera.
+2. **Antes de compartirlo**: `auditar_codigo`, y se adjunta el resultado a lo que se entregue.
+3. **Si el texto va a un modelo externo y el contrato con el proveedor lo exige**:
+   `anonimizar_texto`. La skill dice explícitamente que **esto no lo decide ella**: depende de la
+   sensibilidad del dato y de lo que la organización haya firmado.
+4. **Al terminar**: `registrar_actividad`, con categoría y sin payloads.
+
+**Y lo que hay que decir sin rodeos: por MCP el cumplimiento es voluntario.** Un agente puede no
+llamar a ninguna herramienta, y el paquete no lo impide. El modelo de las normas de desarrollo
+ciudadano asume eso —responsabilidad del autor, revisión posterior—, y el papel de la plataforma
+es hacer del cumplimiento **el camino fácil**, no imponerlo. La imposición sólo existe donde la
+ejecución ocurre dentro, que es el catálogo de funciones.
+
+Los scopes son `verificaciones:use`, `anonimizacion:use` y `actividad:write`, y **los tres los
+puede emitir un administrador de organización**: si hiciera falta un superadministrador, el
+paquete no sería instalable por quien lo va a usar y el camino fácil dejaría de serlo.
+
+Un guardarraíl (`test_aut4_el_paquete_de_gobernanza_no_envejece.py`) comprueba que las
+herramientas que la skill nombra existen de verdad en el servidor y que los scopes están en el
+catálogo. Un ejemplo que envejece es peor que no tenerlo: quien lo copia no tiene forma de saber
+que ya no vale.
+
 ## 4. Registro en Claude Code
 
 ```bash

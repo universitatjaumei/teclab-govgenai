@@ -103,7 +103,12 @@ def acciones_permitidas(funcion: Any, version: Any, *, principal: Any) -> list[s
     la autorización escrita por segunda vez, y el día que cambiara dirían cosas distintas.
     """
     estado = getattr(version, "estado", "draft")
-    de_paquete = getattr(funcion, "origen", "autoservicio") == "paquete"
+    origen = getattr(funcion, "origen", "autoservicio")
+    de_paquete = origen == "paquete"
+    # AUT.3 — una función externa **no se adopta**: adoptar es anclarla en una plantilla, y una
+    # plantilla la ejecuta. Ofrecer el botón sería ofrecer la acción que la garantía de este
+    # origen —se registra, no se ejecuta— existe para impedir.
+    de_fuera = origen == "externa"
     superadmin = _es_superadmin(principal)
     de_la_casa = _es_de_su_organizacion(funcion, principal)
     admin_de_la_casa = de_la_casa and bool(getattr(principal, "is_admin", False))
@@ -114,7 +119,7 @@ def acciones_permitidas(funcion: Any, version: Any, *, principal: Any) -> list[s
 
     # Usar lo publicado por otra organización es el caso de la consumidora: puede anclar una
     # versión y nada más.
-    if _publicada(funcion) or de_la_casa:
+    if (_publicada(funcion) or de_la_casa) and not de_fuera:
         if estado == "registrada":
             acciones.add("adoptar_version")
 

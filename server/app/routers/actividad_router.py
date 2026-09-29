@@ -73,6 +73,7 @@ COLUMNAS_CSV = (
     "modelo_usado",
     "categorias_datos",
     "payload_hash",
+    "funcion_sha256",
 )
 
 #: El módulo que abre la lectura del registro. **Solo la lectura**: el POST lo autentica un PAT
@@ -137,6 +138,7 @@ async def registrar_actividad(
         modelo_usado=evento.modelo_usado,
         categorias_datos=evento.categorias_datos,
         payload_hash=evento.payload_hash,
+        funcion_sha256=evento.funcion_sha256,
     )
     session.add(fila)
     await session.commit()
@@ -166,6 +168,8 @@ class EventoRegistrado(BaseModel):
     modelo_usado: str | None
     categorias_datos: list[str]
     payload_hash: str | None
+    #: AUT.5 — con qué función registrada del catálogo se corresponde, si con alguna.
+    funcion_sha256: str | None = None
 
 
 class PaginaDeActividad(BaseModel):
@@ -292,6 +296,7 @@ async def exportar_actividad(
                 # celda en dos columnas al abrirla en una hoja de cálculo.
                 ";".join(fila.categorias_datos or ()),
                 fila.payload_hash or "",
+                fila.funcion_sha256 or "",
             ]
         )
 

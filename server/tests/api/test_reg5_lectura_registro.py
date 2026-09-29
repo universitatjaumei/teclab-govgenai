@@ -311,6 +311,9 @@ class TestLaExportacion:
             "modelo_usado",
             "categorias_datos",
             "payload_hash",
+            # AUT.5 — con qué función registrada del catálogo se corresponde el uso, si con
+            # alguna. Se añade al final: quien cruce el CSV por posición no se rompe.
+            "funcion_sha256",
         ]
 
     async def test_should_carry_the_filtered_events(self, db_session):

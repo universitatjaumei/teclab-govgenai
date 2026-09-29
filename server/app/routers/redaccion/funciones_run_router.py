@@ -204,6 +204,29 @@ async def ejecutar_funcion_por_api(
             detail=f"«{funcion.nombre}» no tiene versión {body.version}",
         )
 
+    if funcion.origen == "externa":
+        # AUT.3 — se registra, no se ejecuta. **Y va antes de mirar el estado**: una
+        # versión externa suspendida devolvía 423 «espera o cambia de versión», que
+        # contradice lo que este mismo bloque documenta —suspender una externa es un aviso,
+        # no un cerrojo— y le dice a quien integra que esperando podría llegar a ejecutarse.
+        # Lo señaló la revisión de la PR #189. **409 y no 423**: un 423 dice «existe y está
+        # detenida», o sea espera o cambia de versión, y aquí no hay nada que esperar. Esta
+        # función no va a correr aquí nunca, y quien integra necesita distinguirlo para no
+        # reintentar contra una puerta que no existe.
+        #
+        # Y la respuesta dice **dónde sí corre**, que es el dato que el registro guarda
+        # justamente para esto.
+        donde = version.entorno_ejecucion or "fuera de la plataforma"
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"«{funcion.nombre}» es una función de origen externo: la plataforma la "
+                f"registra y no la ejecuta. Corre en {donde}, con las credenciales de quien la "
+                f"usa. Lo que la plataforma aporta aquí es el registro, la declaración "
+                f"responsable y la revisión posterior."
+            ),
+        )
+
     if version.estado != "registrada":
         # 423 «locked»: existe y está detenida. Con el motivo, que es lo que quien integra
         # necesita para saber si esperar o cambiar de versión.

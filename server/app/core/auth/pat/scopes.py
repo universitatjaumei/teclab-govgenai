@@ -34,6 +34,15 @@ VERIFICACIONES_USE = "verificaciones:use"
 # Instrucció 02/2026). Lo que sigue reservado a la plataforma es promover una función a nivel 3,
 # y eso no se hace con un token.
 FUNCIONES_EXECUTE = "funciones:execute"
+# AUT.6: depositar el manifiesto de una ejecución hecha fuera. **Aparte de `actividad:write`**
+# porque son dos capacidades: registrar que hubo un uso —«quién, qué, cuándo, con qué
+# finalidad»— y depositar la evidencia de esa ejecución —modelo, prompt, citas, aprobaciones—.
+# Una aplicación puede querer la primera sin la segunda, y un token que sólo anota usos no tiene
+# por qué poder escribir evidencia con la que luego se responde en una auditoría.
+#
+# Lo emite también un admin de organización, como `actividad:write`: es añadir evidencia de lo
+# propio, append-only, y no muta nada de la plataforma.
+MANIFIESTOS_WRITE = "manifiestos:write"
 
 ALL_SCOPES: frozenset[str] = frozenset(
     {
@@ -48,6 +57,7 @@ ALL_SCOPES: frozenset[str] = frozenset(
         ANONIMIZACION_USE,
         VERIFICACIONES_USE,
         FUNCIONES_EXECUTE,
+        MANIFIESTOS_WRITE,
     }
 )
 

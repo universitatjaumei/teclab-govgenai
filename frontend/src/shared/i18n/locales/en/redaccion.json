@@ -240,6 +240,7 @@
     "todas_las_filas": "All",
     "usada_por_plantillas_one": "Used by {{count}} template",
     "usada_por_plantillas_other": "Used by {{count}} templates",
-    "valorada_como": "Promotion assessment"
+    "valorada_como": "Promotion assessment",
+    "origen_externa": "Runs elsewhere, registered here"
   }
 }

@@ -240,6 +240,7 @@
     "todas_las_filas": "Totes",
     "usada_por_plantillas_one": "La fa servir {{count}} plantilla",
     "usada_por_plantillas_other": "La fan servir {{count}} plantilles",
-    "valorada_como": "Valoració de la promoció"
+    "valorada_como": "Valoració de la promoció",
+    "origen_externa": "S'executa fora, registrada ací"
   }
 }
