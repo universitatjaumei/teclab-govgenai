@@ -205,9 +205,15 @@ sustituye al circuito que la Instrucció prevé para lo que excede un servicio.
   extracción de una tabla de gastos al embudo reproduciría la burocracia que empuja al *Shadow
   IT*.
 
-### Lo que la Instrucció exige y la plataforma todavía no hace
+### Lo que la Instrucció exige: tres decisiones tomadas y una cosa de forma pendiente
 
-Va aquí y no en un apartado de mejoras porque son huecos frente a la norma, no ideas.
+Esto fue una lista de **huecos** frente a la norma —no de ideas, y por eso vivía aquí y no en un
+apartado de mejoras—. **Los tres se cerraron el 2026-09-29** (issues #122 y #123), y se dejan
+tachados en vez de borrados: quien vuelva a preguntarse por qué el plazo son 30 días o por qué no
+hay una bandeja para la OIATI encuentra aquí la pregunta y la respuesta, que es más útil que
+encontrar sólo la respuesta.
+
+**La cuarta, que cierra la sección, sigue abierta** y no tiene fecha.
 
 1. ~~**No hay plazo de revisión.**~~ **Cerrado el 2026-09-29 (issue #122): 30 días naturales.**
    §10 encarga fijar un compromiso de plazo máximo para la revisión posterior, «a fin de que el
@@ -220,13 +226,36 @@ Va aquí y no en un apartado de mejoras porque son huecos frente a la norma, no 
    Bloquear al vencer sería aprobación previa con retardo, que es lo que el nivel 2 prohíbe.
 
    Cada despliegue lo cambia con `PLAZO_REVISION_POSTERIOR_DIAS`, sin tocar código.
-2. **No hay ruta automática a la OIATI.** §9 le asigna validar el tratamiento de datos personales
-   y §8.4 la llama «cuando haya tratamiento de datos personales». La plataforma ya sabe qué
-   categorías declara cada función: con ese campo la cola podría encaminarse sola. Hoy no lo
-   hace.
-3. **Quién puede ordenar una suspensión no coincide.** En §9 es el Responsable institucional de
-   IA. En el catálogo, el administrador de la organización o el superadministrador. No está
-   dicho que esté mal — está dicho que hay que decidirlo, porque una suspensión detiene informes.
+2. ~~**No hay ruta automática a la OIATI.**~~ **Cerrado el 2026-09-29 (issue #123): no va a
+   haberla, y es una decisión, no un hueco.** La revisión de la OIATI **se hace fuera de la
+   plataforma**, a partir de la autodeclaración de categorías que la función ya lleva, o por
+   petición previa de quien registra cuando tenga dudas.
+
+   Lo que la plataforma aporta a esa revisión es el dato: cada versión declara sus categorías y
+   la cola las enseña. Lo que **no** hace es encaminar, avisar ni esperar.
+
+   **Y esperar era la opción que había que descartar explícitamente**: una función que no se
+   pudiera usar hasta que la OIATI se pronunciara sería aprobación previa, que es justo lo que
+   el nivel 2 prohíbe y lo que la decisión de la #121 acaba de ratificar.
+
+   **El acceso de la OIATI**, si lo quiere, es el rol de administrador de la organización UJI.
+   Conviene saber qué concede eso, porque es bastante más que leer la cola: configurar chatbots
+   y prompts, listar a las personas de esa organización y **fijarles la contraseña**, emitir
+   tokens de máquina y leer el registro de actividad. Es una decisión tomada con eso delante; se
+   anota aquí para que no haya que redescubrirlo. (Desde la issue #94, fijar una contraseña deja
+   marca y obliga a cambiarla en la primera entrada, así que ese uso no pasa desapercibido.)
+3. ~~**Quién puede ordenar una suspensión no coincide.**~~ **Cerrado el 2026-09-29 (issue
+   #123): se queda como está.** Suspender —y revisar— son del **administrador de la organización
+   autora** o del **superadministrador**, que revisa las de todas. Nunca de quien escribió la
+   función: revisar es de otra persona, y eso ya estaba y sigue.
+
+   No coincide literalmente con §9, que lo asigna al Responsable institucional de IA, y la
+   decisión es consciente: quien administra una organización es quien puede juzgar el impacto de
+   detener sus informes, y el superadministrador cubre el nivel institucional.
+
+   **Se sabe lo que cuesta**: una suspensión detiene informes —una plantilla anclada a esa
+   versión falla en alto y dice por qué—, y en una función promovida a nivel de plataforma la
+   puede ordenar la unidad autora aunque la estén usando otras. Queda dicho, no descubierto.
 
 Y una cuarta, de forma: **§8.2 pide la declaración responsable acompañada de un «estudio de
 integración simplificado» (Anexo I del Reglamento)**, y la declaración del catálogo son dos
@@ -309,9 +338,9 @@ ciudadano, y esto no lo es. Lo que quedaría por decidir es **qué control previ
 sobre un sistema corporativo que acepta código de sus usuarios, que es una conversación distinta
 y más sencilla que una excepción a una regla.
 
-**Nada de esto lo puede decidir la plataforma.** Hace falta un «sí» explícito de la UADTI y de la
-OIATI —y, para la regla 2, del Responsable institucional de IA, que es quien §9 faculta para
-autorizar el flujo simplificado de bajo riesgo—, no un silencio.
+**Nada de esto lo puede decidir la plataforma.** Hacía falta un «sí» explícito, no un silencio,
+y **llegó el 2026-09-29**: la regla de ejecución local es un suelo y no un techo, así que usar la
+plataforma es preferible y voluntario. Está contestado más arriba, en «Contestada el 2026-09-29».
 
 ---
 
