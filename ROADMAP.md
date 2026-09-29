@@ -78,16 +78,27 @@ autorizado, revisión posterior y anonimización**. A eso se dedican los cuatro 
 | Hito | Estado | Qué entrega | Issues |
 |---|---|---|---|
 | [1 — Cerrar lo que ya no se hace](https://github.com/universitatjaumei/teclab-govgenai/milestone/9) | ✅ Completo | La especificación declara como límite deliberado que no se ejecuta nada en el equipo de quien la usa; los planes de fase 2 se cierran | [#112](https://github.com/universitatjaumei/teclab-govgenai/issues/112), [#113](https://github.com/universitatjaumei/teclab-govgenai/issues/113) |
-| [2 — Registrar lo que corre fuera](https://github.com/universitatjaumei/teclab-govgenai/milestone/10) | Previsto | Funciones de **origen externo** (un cuaderno se registra por su hash sin ejecutarlo); paquete MCP y *skill* de gobernanza para agentes de código; registro de la ejecución de un cuaderno en tres líneas; depósito del manifiesto de una ejecución hecha fuera | [#114](https://github.com/universitatjaumei/teclab-govgenai/issues/114), [#115](https://github.com/universitatjaumei/teclab-govgenai/issues/115), [#124](https://github.com/universitatjaumei/teclab-govgenai/issues/124), [#116](https://github.com/universitatjaumei/teclab-govgenai/issues/116) |
-| [3 — Funciones de tarea](https://github.com/universitatjaumei/teclab-govgenai/milestone/11) | Previsto | Una función produce **ficheros**; red saliente sólo hacia **orígenes declarados**; el ecosistema de módulos ampliado y vigilado; los dos cuadernos reales como casos guía con datos sintéticos | [#117](https://github.com/universitatjaumei/teclab-govgenai/issues/117), [#118](https://github.com/universitatjaumei/teclab-govgenai/issues/118), [#119](https://github.com/universitatjaumei/teclab-govgenai/issues/119), [#120](https://github.com/universitatjaumei/teclab-govgenai/issues/120) |
-| [4 — Decisiones de la institución](https://github.com/universitatjaumei/teclab-govgenai/milestone/12) | **Bloqueado** | El régimen de ejecución frente a la regla de soberanía local; la lista del ecosistema autorizado y el plazo de revisión; quién revisa, quién suspende y la ruta a protección de datos | [#121](https://github.com/universitatjaumei/teclab-govgenai/issues/121), [#122](https://github.com/universitatjaumei/teclab-govgenai/issues/122), [#123](https://github.com/universitatjaumei/teclab-govgenai/issues/123) |
+| [2 — Registrar lo que corre fuera](https://github.com/universitatjaumei/teclab-govgenai/milestone/10) | ✅ Completo | Funciones de **origen externo** (un cuaderno se registra por su hash sin ejecutarlo); paquete MCP y *skill* de gobernanza para agentes de código; registro de la ejecución de un cuaderno en tres líneas; depósito del manifiesto de una ejecución hecha fuera | [#114](https://github.com/universitatjaumei/teclab-govgenai/issues/114), [#115](https://github.com/universitatjaumei/teclab-govgenai/issues/115), [#124](https://github.com/universitatjaumei/teclab-govgenai/issues/124), [#116](https://github.com/universitatjaumei/teclab-govgenai/issues/116) |
+| [3 — Funciones de tarea](https://github.com/universitatjaumei/teclab-govgenai/milestone/11) | En curso | Una función produce **ficheros**; red saliente sólo hacia **orígenes declarados**; el ecosistema de módulos ampliado y vigilado; los dos cuadernos reales como casos guía con datos sintéticos | [#117](https://github.com/universitatjaumei/teclab-govgenai/issues/117), [#118](https://github.com/universitatjaumei/teclab-govgenai/issues/118), [#119](https://github.com/universitatjaumei/teclab-govgenai/issues/119), [#120](https://github.com/universitatjaumei/teclab-govgenai/issues/120) |
+| [4 — Decisiones de la institución](https://github.com/universitatjaumei/teclab-govgenai/milestone/12) | ✅ Completo | El régimen de ejecución frente a la regla de soberanía local; la lista del ecosistema autorizado y el plazo de revisión; quién revisa, quién suspende y la ruta a protección de datos | [#121](https://github.com/universitatjaumei/teclab-govgenai/issues/121), [#122](https://github.com/universitatjaumei/teclab-govgenai/issues/122), [#123](https://github.com/universitatjaumei/teclab-govgenai/issues/123) |
 | [5 — Agentes de unidad sobre el asistente general](https://github.com/universitatjaumei/teclab-govgenai/milestone/17) | Previsto | Una unidad publica un **agente** —prompt, carpeta de documentos, índice y colectivo— y la plataforma lo cataloga, lo acota, selecciona los documentos de cada consulta y registra el uso; el modelo lo ejecuta el asistente general de la organización | [#172](https://github.com/universitatjaumei/teclab-govgenai/issues/172), [#173](https://github.com/universitatjaumei/teclab-govgenai/issues/173), [#174](https://github.com/universitatjaumei/teclab-govgenai/issues/174), [#175](https://github.com/universitatjaumei/teclab-govgenai/issues/175), [#176](https://github.com/universitatjaumei/teclab-govgenai/issues/176) |
 
-El orden recomendado es 1, 2, 3: el hito 2 es el más barato y ataca el problema real de una
-organización que trabaja con cuadernos, saber cuáles circulan; el 3 es el de más diseño. El 4 no
-depende del código y condiciona el alcance final del 3: si la institución no da por equivalente
-la ejecución central, el catálogo autoservicio se acota y las funciones de origen externo pasan a
-ser el canal principal.
+**El hito 4 se resolvió el 2026-09-29, y con él la pregunta que condicionaba a los demás.** La
+institución no ha tenido que declarar equivalente la ejecución central, porque la pregunta no se
+plantea así: la regla de soberanía local de su norma es **un suelo y no un techo** — no obliga a
+ejecutar en la plataforma y tampoco lo impide, así que no hacía falta ninguna excepción escrita.
+Como ejecutar dentro da más control, es **preferible**; y como es voluntario, **las funciones de
+origen externo del hito 2 no son un plan B, son la otra mitad permanente**: quien prefiera seguir
+ejecutando en su equipo registra ahí, y la institución sabe igualmente qué circula.
+
+Con la misma decisión quedaron fijados el **ecosistema autorizado** —los módulos que una función
+puede usar, ampliados y, desde el hito 3, vigilados para que la lista y lo que la imagen instala
+no se separen—, un **plazo de revisión posterior de 30 días naturales** que avisa sin bloquear, y
+**quién revisa y suspende**. Lo que **no** se abrió es la red saliente, que espera a su propia
+decisión: no es una librería, es una capacidad, y es la que hoy hace que una función no pueda
+hablar con nada.
+
+Queda el **hito 3**, el de más diseño, con tres de sus cuatro issues por delante.
 
 #### El hito 5, y por qué encaja aquí
 

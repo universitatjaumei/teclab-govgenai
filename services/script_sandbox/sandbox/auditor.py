@@ -42,6 +42,9 @@ WHITELIST_MODULES: frozenset[str] = frozenset({
     "typing", "io", "openpyxl", "pdfplumber", "unicodedata",
     "fitz",
     "matplotlib", "seaborn", "numpy", "base64",
+    # AUT.9 — documentos de Word. Va aquí **y** en la copia de la API: si sólo estuviera allí,
+    # esta barrera rechazaría lo que la otra aprueba y el guion moriría en el `exec`.
+    "docx",
 })
 
 

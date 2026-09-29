@@ -96,7 +96,7 @@ módulos, está conectado.
 > Escribe un script que cruce el fichero de gastos con el de proveedores y lo suba al
   repositorio del servicio.
 
-[reglas_de_auditoria]  → 16 módulos permitidos, 6 reglas, version_auditor 3f9c…
+[reglas_de_auditoria]  → 17 módulos permitidos, 6 reglas, version_auditor 3f9c…
 
   `csv` no está en la lista blanca, así que lo hago con `pandas`, que sí está.
 

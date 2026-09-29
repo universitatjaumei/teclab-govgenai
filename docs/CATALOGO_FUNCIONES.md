@@ -189,7 +189,7 @@ sustituye al circuito que la Instrucció prevé para lo que excede un servicio.
   test que pide la misma versión a las dos superficies: aparece en la cola como `sin_revisar`
   **y** el resolutor la ejecuta, a la vez.
 * **Regla 3, traza en la compartición**: no hay forma de compartir una función sin registrarla.
-* **Regla 1, ecosistema autorizado**: los 16 módulos permitidos y las 63 capacidades denegadas de
+* **Regla 1, ecosistema autorizado**: los 17 módulos permitidos y las 63 capacidades denegadas de
   §5, servidos por API además de documentados. **Ratificados por la institución el 2026-09-29**
   (issue #122), junto con la ampliación prevista de librerías —`python-docx`, `pymupdf`— que
   AUT.9 aplicará.
@@ -350,9 +350,16 @@ Para quien vaya a escribir o revisar una función de autoservicio. **Estas lista
 código** (`services/script_auditor.py`) y las sirve `GET /api/v1/verificaciones/codigo/reglas`; un
 test comprueba que este documento no se desvía de ellas.
 
-**Módulos permitidos** (16): `base64`, `collections`, `datetime`, `fitz`, `io`, `json`, `math`,
-`matplotlib`, `numpy`, `openpyxl`, `pandas`, `pdfplumber`, `re`, `seaborn`, `typing`,
+**Módulos permitidos** (17): `base64`, `collections`, `datetime`, `docx`, `fitz`, `io`, `json`,
+`math`, `matplotlib`, `numpy`, `openpyxl`, `pandas`, `pdfplumber`, `re`, `seaborn`, `typing`,
 `unicodedata`.
+
+**La lista la fija la institución, no la plataforma.** Los dieciséis primeros se ratificaron el
+2026-09-29 (issue #122) y en el mismo acto se aprobó la ampliación que AUT.9 aplicó: `docx` —
+que se instala como `python-docx`— y la instalación real de `fitz` — que es `pymupdf` y llevaba
+meses **permitido y sin instalar**, así que un guion que lo importara moría con
+`ModuleNotFoundError` dentro del sandbox. Lo que **no** entró son `requests` y `beautifulsoup4`:
+la red saliente no es una librería, es una capacidad, y espera a su propia decisión (AUT.8).
 
 **Capacidades denegadas** — las tres familias, y por qué cada una:
 

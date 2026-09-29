@@ -80,12 +80,24 @@ MODULOS_PROHIBIDOS: frozenset[str] = frozenset({
 # servidor. La lista del legacy decía lo mismo, y esta es ya la única que queda.
 
 # Módulos permitidos (lista blanca)
+#
+# **Esta lista es el «ecosistema autorizado» y lo fija la institución**, no quien programa la
+# plataforma; aquí sólo se aplica. Los dieciséis primeros se ratificaron el 2026-09-29 (issue
+# #122) junto con la ampliación que AUT.9 añade abajo.
+#
+# Se escribe tres veces —aquí, en la copia defensiva del sandbox y en lo que la imagen
+# instala— y las tres pueden divergir. Lo vigila
+# `tests/infra/test_aut9_el_ecosistema_autorizado_no_diverge.py`, que nació porque ya habían
+# divergido: `fitz` llevaba meses permitido y sin instalar.
 WHITELIST_MODULES: frozenset[str] = frozenset({
     "pandas", "json", "re", "math", "datetime", "collections",
     "typing", "io", "openpyxl", "pdfplumber", "unicodedata",
     "fitz",
     # Charts (9R.5.7)
     "matplotlib", "seaborn", "numpy", "base64",
+    # AUT.9 — leer y escribir documentos de Word. Lo que **no** entra con esto es la red:
+    # `requests` y `beautifulsoup4` siguen fuera, y esperan a la decisión de AUT.8 (#118).
+    "docx",
 })
 
 # PRO.1 — rutas absolutas, antes del AST y sobre el texto (comentarios incluidos: una ruta

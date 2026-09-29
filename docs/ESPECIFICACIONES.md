@@ -634,8 +634,8 @@ falta excepción escrita. Usar la plataforma **vale como la declaración** que e
 **es voluntario**: por eso las funciones de origen externo son la otra mitad permanente del
 catálogo y no un plan B.
 
-Con ello quedan fijados: el **ecosistema autorizado** (los 16 módulos ratificados, más
-`python-docx` y `pymupdf` cuando AUT.9 los aplique; **la red saliente no entra**, y eso espera a
+Con ello quedan fijados: el **ecosistema autorizado** (17 módulos desde que AUT.9 aplicó la
+ampliación aprobada —`python-docx` y `pymupdf`—; **la red saliente no entra**, y eso espera a
 su propia decisión porque es lo que sostiene la respuesta anterior), el **plazo de revisión
 posterior** —30 días naturales, que avisan sin bloquear— y **quién revisa y suspende**: el
 administrador de la organización autora o el superadministrador, nunca quien escribió.
