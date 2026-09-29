@@ -190,7 +190,16 @@ sustituye al circuito que la Instrucció prevé para lo que excede un servicio.
   **y** el resolutor la ejecuta, a la vez.
 * **Regla 3, traza en la compartición**: no hay forma de compartir una función sin registrarla.
 * **Regla 1, ecosistema autorizado**: los 16 módulos permitidos y las 63 capacidades denegadas de
-  §5, servidos por API además de documentados.
+  §5, servidos por API además de documentados. **Ratificados por la institución el 2026-09-29**
+  (issue #122), junto con la ampliación prevista de librerías —`python-docx`, `pymupdf`— que
+  AUT.9 aplicará.
+
+  **La red saliente hacia orígenes declarados NO entra, y es una decisión de la misma fecha.**
+  No es una librería, es una capacidad, y es la que hoy hace que una función **no pueda hablar
+  con nada**: lee un fichero y devuelve cifras. Esa imposibilidad estructural es lo que sostiene
+  que ejecutar dentro sea más seguro que ejecutar fuera —el argumento con el que se contestó la
+  regla 2—, así que abrirla cambiaría esa respuesta y no se abre de paso en una ampliación de
+  librerías. AUT.8 espera a su propia decisión.
 * **§7, el nivel 2 no pasa por el embudo de innovación**: el circuito del catálogo es interno y
   no toca Teclab ni CEDIA. Estamos de acuerdo con el motivo que da la Instrucció — someter la
   extracción de una tabla de gastos al embudo reproduciría la burocracia que empuja al *Shadow
@@ -200,10 +209,17 @@ sustituye al circuito que la Instrucció prevé para lo que excede un servicio.
 
 Va aquí y no en un apartado de mejoras porque son huecos frente a la norma, no ideas.
 
-1. **No hay plazo de revisión.** §10 encarga a las Guías Operativas Técnicas fijar un compromiso
-   de plazo máximo para la revisión posterior, «a fin de que el control no se convierta en un
-   cuello de botella». La cola ya muestra los días que lleva cada versión sin revisar; falta el
-   número a partir del cual avisa, y ese número lo fija la UADTI.
+1. ~~**No hay plazo de revisión.**~~ **Cerrado el 2026-09-29 (issue #122): 30 días naturales.**
+   §10 encarga fijar un compromiso de plazo máximo para la revisión posterior, «a fin de que el
+   control no se convierta en un cuello de botella» — o sea que **el plazo no protege a la
+   plataforma, protege a quien registra**. La cola marca `fuera_de_plazo` al superarlo y enseña
+   cuál es el plazo, porque quien ve un incumplimiento sin saber contra qué no puede juzgar si
+   la cola va mal o el número es corto.
+
+   **Avisa y no bloquea**: vencer no retira la versión, no la suspende y no impide usarla.
+   Bloquear al vencer sería aprobación previa con retardo, que es lo que el nivel 2 prohíbe.
+
+   Cada despliegue lo cambia con `PLAZO_REVISION_POSTERIOR_DIAS`, sin tocar código.
 2. **No hay ruta automática a la OIATI.** §9 le asigna validar el tratamiento de datos personales
    y §8.4 la llama «cuando haya tratamiento de datos personales». La plataforma ya sabe qué
    categorías declara cada función: con ese campo la cola podría encaminarse sola. Hoy no lo
@@ -244,6 +260,29 @@ centralizar? Si es un medio, el catálogo llega al mismo fin por otro camino, y 
 por uno mejor: el código queda versionado con su hash, con declaración, con revisión y con rastro
 de cada ejecución, cosas que no existen cuando el script vive en el portátil de alguien. Si es un
 fin, hace falta una excepción escrita.
+
+#### Contestada el 2026-09-29 (issue #121)
+
+**La regla es un suelo, no un techo.** La institución que despliega ha decidido que la ejecución
+local del nivel 2 significa que **no hay obligación** de ejecutar en la plataforma, y no que esté
+prohibido hacerlo. Como ejecutar dentro da más control, es **preferible**. No hace falta ninguna
+excepción escrita.
+
+Cuatro consecuencias, y conviene leerlas juntas porque una sola se malinterpreta:
+
+1. **Registrar en la plataforma vale como la declaración** que el nivel 2 exige. Esto ya era así
+   por construcción —registrar una función *es* el acto de declararla, y sin declaración
+   responsable no se registra—, así que la decisión ratifica el diseño en vez de cambiarlo.
+2. **Es voluntaria.** Se animará a quien declare un desarrollo de nivel 2 a usarla, y no se le
+   obligará. Por eso **las funciones de origen externo (AUT.3) no son un plan B**: son la otra
+   mitad permanente del catálogo. Quien prefiera seguir ejecutando en su equipo registra ahí, y
+   la institución sabe igualmente qué circula.
+3. **La Instrucció no va a nombrar la plataforma**, porque es un desarrollo experimental y no
+   está en producción a efectos institucionales. Así que **esta sección es nuestra lectura del
+   texto, no algo que el texto prevea**, y conviene no leerla al revés: nada de lo que hay aquí
+   puede citarse como «la Instrucció contempla la plataforma».
+4. **Y la comparación de arriba sigue en pie tal cual.** No se ha matizado que la ejecución sea
+   central: lo es. Lo que se ha decidido es que eso no incumple la regla.
 
 ### Y una pregunta anterior a todas: ¿esto es desarrollo ciudadano?
 
