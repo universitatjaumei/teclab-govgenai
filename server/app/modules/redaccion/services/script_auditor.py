@@ -80,12 +80,24 @@ MODULOS_PROHIBIDOS: frozenset[str] = frozenset({
 # servidor. La lista del legacy decía lo mismo, y esta es ya la única que queda.
 
 # Módulos permitidos (lista blanca)
+#
+# **Esta lista es el «ecosistema autorizado» y lo fija la institución**, no quien programa la
+# plataforma; aquí sólo se aplica. Los dieciséis primeros se ratificaron el 2026-09-29 (issue
+# #122) junto con la ampliación que AUT.9 añade abajo.
+#
+# Se escribe tres veces —aquí, en la copia defensiva del sandbox y en lo que la imagen
+# instala— y las tres pueden divergir. Lo vigila
+# `tests/infra/test_aut9_el_ecosistema_autorizado_no_diverge.py`, que nació porque ya habían
+# divergido: `fitz` llevaba meses permitido y sin instalar.
 WHITELIST_MODULES: frozenset[str] = frozenset({
     "pandas", "json", "re", "math", "datetime", "collections",
     "typing", "io", "openpyxl", "pdfplumber", "unicodedata",
     "fitz",
     # Charts (9R.5.7)
     "matplotlib", "seaborn", "numpy", "base64",
+    # AUT.9 — leer y escribir documentos de Word. Lo que **no** entra con esto es la red:
+    # `requests` y `beautifulsoup4` siguen fuera, y esperan a la decisión de AUT.8 (#118).
+    "docx",
 })
 
 # PRO.1 — rutas absolutas, antes del AST y sobre el texto (comentarios incluidos: una ruta
@@ -278,6 +290,31 @@ def _resultado(findings: list[AuditFinding]) -> AuditResult:
 # ─────────────────────────── La caja de herramientas publicada (VAS.3) ─────
 
 
+class ModuloPermitido(BaseModel):
+    """Un módulo de la lista blanca, explicado para quien va a escribir el guion **fuera**.
+
+    Desde AUT.4 la extracción se escribe fuera —una persona con un agente de código— y luego se
+    importa, se declara o se ejecuta desde la plataforma. Ese agente pide `reglas_de_auditoria`
+    antes de escribir, y una lista de diecisiete nombres no le dice cuál de los dos lectores de
+    PDF le conviene ni con qué nombre se instala.
+
+    Va en el contrato y no en un `.md` por lo mismo que las reglas: **el agente lee la API**. Y
+    la herramienta MCP es un pasamuros, así que esto le llega sin tocar el paquete repartido.
+    """
+
+    modulo: str
+    #: Con qué nombre se instala, que **no** es siempre el que se importa: `import fitz` sale de
+    #: `pymupdf` y `import docx` de `python-docx`. `None` en la biblioteca estándar — y `None` y
+    #: no `""`, porque «no hay nada que instalar» y «no lo sé» no son lo mismo.
+    instala: str | None
+    para: str
+    licencia: str
+    #: Si arrastra copyleft fuerte. **No afecta a la plataforma** —que ya es AGPL-3.0-or-later—
+    #: sino al guion que se escriba fuera: si ese código acaba en un producto que no es AGPL, la
+    #: pregunta aparece allí. Por eso viaja con el módulo y no en una nota al pie.
+    copyleft: bool = False
+
+
 class Regla(BaseModel):
     """Una regla del auditor, tal como se le explica a quien va a escribir código.
 
@@ -355,6 +392,94 @@ REGLAS: tuple[Regla, ...] = (
 )
 
 
+#: La ficha de cada módulo de `WHITELIST_MODULES`. Un test comprueba que no falta ninguna y que
+#: no sobra ninguna: una ficha ausente deja un módulo mudo, y una sobrante ofrece una librería
+#: que el auditor rechazaría.
+#:
+#: **`fitz` y `pdfplumber` están las dos a propósito.** En la aplicación anterior el módulo de
+#: extracción leía con las dos y componía las dos lecturas antes de dárselas al modelo, para que
+#: tuviera más de donde agarrarse; según cómo esté estructurado el documento interesa una o la
+#: otra. No son alternativas entre las que haya que decidirse una vez.
+CATALOGO_DE_MODULOS: tuple[ModuloPermitido, ...] = (
+    ModuloPermitido(
+        modulo="pandas", instala="pandas", licencia="BSD-3-Clause",
+        para="Tablas y series. El resultado de una extracción casi siempre sale de aquí.",
+    ),
+    ModuloPermitido(
+        modulo="numpy", instala="numpy", licencia="BSD-3-Clause",
+        para="Cálculo numérico, debajo de casi todo lo demás.",
+    ),
+    ModuloPermitido(
+        modulo="openpyxl", instala="openpyxl", licencia="MIT",
+        para="Hojas de cálculo «.xlsx»: leerlas y escribirlas.",
+    ),
+    ModuloPermitido(
+        modulo="pdfplumber", instala="pdfplumber", licencia="MIT",
+        para=(
+            "PDF: texto y **tablas**, con las coordenadas de cada palabra. Es la lectura que "
+            "mejor recupera una tabla con líneas."
+        ),
+    ),
+    ModuloPermitido(
+        modulo="fitz", instala="pymupdf", licencia="AGPL-3.0 (o comercial de Artifex)",
+        copyleft=True,
+        para=(
+            "PDF: la otra lectura. Más rápida, y llega a cosas de la maquetación que pdfplumber "
+            "no da. **Se usa junto con pdfplumber, no en vez de**: leer con las dos y componer "
+            "las dos lecturas es lo que más información deja para escribir la extracción."
+        ),
+    ),
+    ModuloPermitido(
+        modulo="docx", instala="python-docx", licencia="MIT",
+        para="Documentos de Word: leerlos y escribirlos.",
+    ),
+    ModuloPermitido(
+        modulo="matplotlib", instala="matplotlib", licencia="PSF-based (matplotlib)",
+        para="Gráficos. Es lo que pinta los bloques de gráfico de un informe.",
+    ),
+    ModuloPermitido(
+        modulo="seaborn", instala="seaborn", licencia="BSD-3-Clause",
+        para="Gráficos estadísticos, encima de matplotlib.",
+    ),
+    ModuloPermitido(
+        modulo="json", instala=None, licencia="PSF",
+        para="Leer y escribir JSON.",
+    ),
+    ModuloPermitido(
+        modulo="re", instala=None, licencia="PSF",
+        para="Expresiones regulares.",
+    ),
+    ModuloPermitido(
+        modulo="math", instala=None, licencia="PSF",
+        para="Aritmética que no necesita numpy.",
+    ),
+    ModuloPermitido(
+        modulo="datetime", instala=None, licencia="PSF",
+        para="Fechas y horas.",
+    ),
+    ModuloPermitido(
+        modulo="collections", instala=None, licencia="PSF",
+        para="Contadores y diccionarios con comportamiento.",
+    ),
+    ModuloPermitido(
+        modulo="typing", instala=None, licencia="PSF",
+        para="Anotaciones de tipo.",
+    ),
+    ModuloPermitido(
+        modulo="io", instala=None, licencia="PSF",
+        para="Ficheros en memoria, para no tocar el disco.",
+    ),
+    ModuloPermitido(
+        modulo="base64", instala=None, licencia="PSF",
+        para="Codificar binarios como texto; así viaja un gráfico en el resultado.",
+    ),
+    ModuloPermitido(
+        modulo="unicodedata", instala=None, licencia="PSF",
+        para="Normalizar acentos y signos antes de comparar textos.",
+    ),
+)
+
+
 class CajaDeHerramientas(BaseModel):
     """Con qué se puede escribir código que pase la auditoría, y con qué no.
 
@@ -364,6 +489,11 @@ class CajaDeHerramientas(BaseModel):
     """
 
     modulos_permitidos: list[str]
+    #: La misma lista con su ficha: para qué sirve cada uno, con qué nombre se instala y qué
+    #: licencia arrastra. `modulos_permitidos` **se conserva** —los nombres a secas siguen
+    #: sirviendo para comprobar «¿está permitido esto?»— y esto es lo que hace falta para
+    #: **escribir** el guion fuera, que es el caso de AUT.4.
+    modulos: list[ModuloPermitido]
     capacidades_denegadas: list[str]
     reglas: list[Regla]
     version_auditor: str
@@ -388,10 +518,22 @@ def caja_de_herramientas() -> CajaDeHerramientas:
         | set(getattr(modulo, "_DANGEROUS_ATTRS"))
     )
     reglas = list(getattr(modulo, "REGLAS"))
+    fichas = sorted(
+        (f for f in getattr(modulo, "CATALOGO_DE_MODULOS") if f.modulo in set(permitidos)),
+        key=lambda f: f.modulo,
+    )
 
     canonico = "\n".join(
         [
             "modulos:" + ",".join(permitidos),
+            # Las fichas entran en el hash **enteras**. `version_auditor` sirve para saber si la
+            # caja cambió desde la última consulta; si sólo entraran los nombres, un agente que
+            # cachea por esa versión seguiría escribiendo con la explicación vieja —y con la
+            # licencia vieja— sin enterarse.
+            "fichas:" + ",".join(
+                f"{f.modulo}|{f.instala or ''}|{f.licencia}|{int(f.copyleft)}|{f.para}"
+                for f in fichas
+            ),
             "denegados:" + ",".join(denegados),
             "reglas:" + ",".join(f"{r.id}={r.nivel.value}" for r in reglas),
         ]
@@ -400,6 +542,7 @@ def caja_de_herramientas() -> CajaDeHerramientas:
 
     return CajaDeHerramientas(
         modulos_permitidos=permitidos,
+        modulos=fichas,
         capacidades_denegadas=denegados,
         reglas=reglas,
         version_auditor=version,

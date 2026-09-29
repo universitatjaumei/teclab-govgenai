@@ -248,3 +248,50 @@ def promover(funcion: Any, *, valoracion: str, publicada_por: uuid.UUID) -> None
     funcion.publicada_en = datetime.now(timezone.utc)
     funcion.publicada_por = publicada_por
     funcion.valoracion_promocion = valoracion.strip()
+
+
+# ── El plazo de la revisión posterior (AUT.12, issue #122) ────────────────────────────
+
+#: Días naturales que puede pasar una versión registrada sin que nadie la revise.
+#:
+#: **Lo fija la institución que despliega, no quien desarrolla la plataforma**, que es lo que
+#: pedía la issue #122. Treinta días naturales es la decisión del 2026-09-29.
+#:
+#: La §10 de la Instrucció lo pide «a fin de que el control no se convierta en un cuello de
+#: botella», así que **este plazo no protege a la plataforma, protege a quien registra**: es el
+#: compromiso de que su trabajo no se queda esperando indefinidamente a que alguien lo mire.
+PLAZO_REVISION_POR_DEFECTO = 30
+
+#: La variable con la que cada despliegue lo cambia sin tocar código.
+VARIABLE_DEL_PLAZO = "PLAZO_REVISION_POSTERIOR_DIAS"
+
+
+def plazo_de_revision_en_dias() -> int:
+    """El plazo vigente en este despliegue.
+
+    **Un valor ilegible cae al de por defecto en vez de reventar.** Esto lo lee el endpoint que
+    pinta la cola, y una variable mal escrita no puede dejar sin pantalla a quien revisa: el
+    resultado sería que nadie revisa nada, que es peor que revisar con el plazo equivocado.
+    """
+    import os
+
+    crudo = os.getenv(VARIABLE_DEL_PLAZO)
+    if crudo is None:
+        return PLAZO_REVISION_POR_DEFECTO
+    try:
+        dias = int(str(crudo).strip())
+    except ValueError:
+        return PLAZO_REVISION_POR_DEFECTO
+    return dias if dias > 0 else PLAZO_REVISION_POR_DEFECTO
+
+
+def fuera_de_plazo(dias_desde_el_registro: int, *, plazo: int | None = None) -> bool:
+    """Si esta versión lleva **más** del plazo sin revisar.
+
+    Estrictamente mayor: treinta días es el plazo, no el primer día de incumplimiento.
+
+    **Y esto avisa, no bloquea.** Vencer no retira la versión, no la suspende y no impide
+    usarla: bloquear al vencer sería convertir la revisión posterior en aprobación previa con
+    retardo, que es justo lo que el nivel 2 prohíbe.
+    """
+    return dias_desde_el_registro > (plazo if plazo is not None else plazo_de_revision_en_dias())

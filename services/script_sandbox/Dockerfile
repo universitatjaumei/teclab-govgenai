@@ -3,8 +3,9 @@
 #
 # Comprobado construyendo y arrancando: Python 3.13.15, `/health` a **200** igual que con la
 # 3.12, y las bibliotecas pesadas en la misma versión (`pandas` 3.0.6, `numpy` 2.5.3,
-# `matplotlib` 3.11.2). Hacía falta comprobarlo a mano porque el job `imagen` de CI
-# **construye esta imagen y no la arranca**.
+# `matplotlib` 3.11.2). Entonces hizo falta comprobarlo a mano porque el job `imagen` de CI
+# construía esta imagen sin arrancarla; **desde la issue #91 sí la arranca** y espera un
+# `/health` a 200, así que esa comprobación manual ya no hace falta.
 FROM python:3.13-slim
 
 # Dependencias del sistema mínimas (libgomp1 lo necesita numpy/pandas en algunos entornos).

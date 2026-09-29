@@ -40,7 +40,9 @@ from server.app.modules.redaccion.funciones_acciones import (
     acciones_permitidas,
     aplicar_revision,
     candidata_a_nivel_3,
+    fuera_de_plazo,
     muestra_para_revisar,
+    plazo_de_revision_en_dias,
     promover,
     reactivar,
     suspender,
@@ -125,6 +127,11 @@ class VersionEnRevision(BaseModel):
     #: Cuántas plantillas la referencian. Es lo que dice si revisarla es urgente.
     plantillas_que_la_usan: int = 0
     dias_desde_el_registro: int = 0
+    #: AUT.12 — el plazo vigente en este despliegue y si esta versión ya lo pasó. **Los dos
+    #: campos y no sólo el segundo**: quien ve «fuera de plazo» sin saber cuál es el plazo no
+    #: puede juzgar si la cola va mal o el plazo es corto.
+    plazo_en_dias: int = 0
+    fuera_de_plazo: bool = False
     acciones_permitidas: list[str] = Field(default_factory=list)
 
 
@@ -532,6 +539,9 @@ async def cola_de_revision(
         candidatas = muestra_para_revisar(candidatas, cuantas=muestra)
 
     ahora = datetime.now(timezone.utc)
+    # Se lee **una vez** por petición y no por fila: es una variable de entorno, y leerla en
+    # cada versión haría que una misma cola pudiera pintarse con dos plazos distintos.
+    plazo = plazo_de_revision_en_dias()
     filas = []
     for version in candidatas:
         funcion = por_funcion[version.funcion_id]
@@ -549,7 +559,9 @@ async def cola_de_revision(
                 plantillas_que_la_usan=await _cuantas_plantillas_la_usan(
                     session, funcion.id, version.version
                 ),
-                dias_desde_el_registro=max((ahora - creada).days, 0),
+                dias_desde_el_registro=(dias := max((ahora - creada).days, 0)),
+                plazo_en_dias=plazo,
+                fuera_de_plazo=fuera_de_plazo(dias, plazo=plazo),
                 acciones_permitidas=acciones_permitidas(
                     funcion, version, principal=principal
                 ),

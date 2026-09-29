@@ -89,6 +89,26 @@ class TestLasReglasDelAuditorSalenDelCodigo:
                 f"({regla.nivel.value}): «{linea.strip()}»"
             )
 
+    def test_should_name_the_distribution_of_every_third_party_module(self, documento, caja):
+        """AUT.9 — `import fitz` se instala como `pymupdf`, y §5 tiene que decirlo.
+
+        **El «para qué sirve» no se comprueba aquí y es deliberado**: no está en el documento,
+        lo sirve la API. Lo que sí está —porque es una decisión y no un dato de uso— es con qué
+        nombre se instala cada módulo y qué licencia arrastra, y eso sí puede quedarse viejo.
+        El caso real: alguien aprueba una librería cuyo nombre de importación no es el de la
+        distribución, y quien escribe el guion fuera pone el `pip install` equivocado.
+        """
+        faltan = [
+            f"{m.modulo}→{m.instala}"
+            for m in caja.modulos
+            if m.instala and f"`{m.instala}`" not in documento
+        ]
+
+        assert faltan == [], (
+            f"módulos de terceros cuyo nombre de instalación no aparece en el documento: "
+            f"{faltan}"
+        )
+
     def test_should_not_invent_rules_the_auditor_does_not_have(self, documento, caja):
         """La otra mitad: una regla en el documento que el auditor no aplica es una promesa
         falsa, y es peor que una que falte."""
@@ -98,8 +118,18 @@ class TestLasReglasDelAuditorSalenDelCodigo:
         # Los ids de regla son kebab-case y en el documento van en la tabla de §5.
         seccion = documento.split("## 5.")[1].split("## 6.")[0]
         citados = set(re.findall(r"`([a-z]+(?:-[a-z]+)+)`", seccion))
-        # Se filtran los nombres de módulo y capacidad, que comparten la forma.
-        candidatos = citados - set(caja.modulos_permitidos) - set(caja.capacidades_denegadas)
+        # Se filtran los nombres de módulo y capacidad, que comparten la forma. Y los de
+        # **distribución**, que también: un módulo se importa como `docx` y se instala como
+        # `python-docx`, y §5 nombra las dos cosas a propósito —quien lea la lista tiene que
+        # saber qué poner en el `pyproject.toml`—. Se enumeran en vez de aflojar el patrón:
+        # añadir uno aquí es un acto visible, y una regla inventada sigue cayendo.
+        distribuciones = {"python-docx"}
+        candidatos = (
+            citados
+            - set(caja.modulos_permitidos)
+            - set(caja.capacidades_denegadas)
+            - distribuciones
+        )
 
         inventados = candidatos - ids_reales
 
@@ -192,14 +222,22 @@ class TestLoQueElDocumentoNoPuedeDejarDePreguntar:
         # Y el argumento que la hace contestable: la función no puede hablar con nada.
         assert "no puede hablar con nada" in prosa
 
-    def test_should_confess_the_three_gaps_against_the_norm(self, prosa):
-        """Los huecos frente a la norma van en el documento y no en un cajón de mejoras: sin
-        plazo de revisión (§10), sin ruta a la OIATI (§9 y §8.4) y sin decidir quién suspende
-        (§9)."""
-        assert "Lo que la Instrucció exige y la plataforma todavía no hace" in prosa
+    def test_should_keep_the_three_closed_gaps_with_their_decision(self, prosa):
+        """Los tres huecos frente a la norma —plazo de revisión (§10), ruta a la OIATI (§9 y
+        §8.4) y quién suspende (§9)— se cerraron el 2026-09-29 con las issues #122 y #123.
+
+        **Este test cambió de sentido y no de sitio.** Antes exigía que los huecos se
+        confesaran; ahora exige que la **decisión** siga escrita donde estaba la pregunta. Es lo
+        mismo que protegía antes: que nadie tenga que reconstruir por qué el plazo son 30 días
+        o por qué no hay una bandeja para la OIATI. Borrar los huecos al cerrarlos habría dejado
+        el documento con las respuestas y sin las preguntas, que es como se vuelven a abrir.
+        """
+        assert "tres decisiones tomadas" in prosa
         assert "No hay plazo de revisión" in prosa
         assert "No hay ruta automática a la OIATI" in prosa
+        # La tensión con §9 sigue nombrada: la decisión fue **no** coincidir con ella.
         assert "Responsable institucional de IA" in prosa
+        assert "se hace fuera de la plataforma" in prosa
 
     def test_should_name_the_simplified_integration_study(self, prosa):
         """§8.2 pide la declaración **acompañada** de un estudio de integración simplificado

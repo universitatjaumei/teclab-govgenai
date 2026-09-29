@@ -627,13 +627,26 @@ aprobación, dos plantillas ancladas a v1, publicar v2 sin tocarlas, adoptar v2 
 con motivo y ver fallar sólo esa, reactivar), más el paquete demo instalado y desinstalado de
 verdad. Sin desplegar. El contrato completo está en `docs/CATALOGO_FUNCIONES.md`.
 
-**Abierto.** La **equivalencia con la regla 2 de la Instrucció** necesita un «sí» explícito de la
-UADTI y de la OIATI: la Instrucció prevé que el código del desarrollo ciudadano se quede en el
-equipo de la persona, y aquí se registra en la plataforma y corre sobre los datos
-institucionales. Es un régimen distinto —más controlado en unas cosas y más expuesto en otras— y
-la plataforma no puede decidir por su cuenta que equivale. La comparación honesta está en
-`docs/CATALOGO_FUNCIONES.md` §4. También pendiente: contrastar las reglas del auditor AST con las
-Guías Operativas Técnicas de la UADTI.
+**Decidido el 2026-09-29** (issues #121, #122 y #123), que era el punto abierto de este bloque.
+La **regla de ejecución local del nivel 2 es un suelo y no un techo**: no obliga a ejecutar en la
+plataforma y tampoco lo impide, y como ejecutar dentro da más control, es **preferible**. No hace
+falta excepción escrita. Usar la plataforma **vale como la declaración** que el nivel 2 exige, y
+**es voluntario**: por eso las funciones de origen externo son la otra mitad permanente del
+catálogo y no un plan B.
+
+Con ello quedan fijados: el **ecosistema autorizado** (17 módulos desde que AUT.9 aplicó la
+ampliación aprobada —`python-docx` y `pymupdf`—; **la red saliente no entra**, y eso espera a
+su propia decisión porque es lo que sostiene la respuesta anterior), el **plazo de revisión
+posterior** —30 días naturales, que avisan sin bloquear— y **quién revisa y suspende**: el
+administrador de la organización autora o el superadministrador, nunca quien escribió.
+
+**Y la revisión de la OIATI se hace fuera de la plataforma**, a partir de la autodeclaración de
+categorías. No hay encaminamiento automático ni lo va a haber: una función que esperase a ese
+pronunciamiento sería aprobación previa, que es lo que el nivel 2 prohíbe.
+
+La comparación honesta con la Instrucció sigue en `docs/CATALOGO_FUNCIONES.md` §4 — y es **una
+lectura nuestra del texto, no algo que el texto prevea**: la Instrucció no nombrará la
+plataforma mientras sea un desarrollo experimental.
 
 ---
 
