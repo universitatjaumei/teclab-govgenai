@@ -123,6 +123,19 @@ class ResolvedorDeFuncion:
             # informe sin decírselo a nadie.
             return await self._resolver_paquete(funcion, fila)
 
+        if funcion.origen == "externa":
+            # AUT.3 — **la puerta que faltaba cerrar.** Todo lo que no era `paquete` caía en la
+            # rama de abajo y salía como código ejecutable en el sandbox, así que un cuaderno
+            # registrado «para no ejecutarlo» se ejecutaba en cuanto una plantilla lo anclaba.
+            # La revisión de la PR #189 lo encontró; el `409` del endpoint de ejecución no
+            # bastaba, porque ésta es otra entrada.
+            raise FuncionNoEjecutable(
+                f"«{funcion.nombre}» es de origen externo: se registra en la plataforma y se "
+                f"ejecuta fuera "
+                f"({fila.entorno_ejecucion or 'donde la tenga su autora'}), con las "
+                f"credenciales de quien la usa. Una plantilla no puede anclarla."
+            )
+
         if fila.estado != "registrada":
             motivo = _POR_QUE_NO.get(fila.estado, f"está en estado «{fila.estado}»")
             detalle = ""

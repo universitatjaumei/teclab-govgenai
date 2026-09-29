@@ -292,8 +292,6 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-if __name__ == "__main__":  # pragma: no cover
-    raise SystemExit(main())
 
 
 async def _anclas_del_diario(session, chatbot_id):
@@ -352,3 +350,11 @@ async def _anclas_del_diario(session, chatbot_id):
     for url in refresco.sin_articulos:
         print(f"      AVISO: sin artículos en {url}", file=sys.stderr)
     return refresco
+
+
+# **El guardián va al final del módulo, y no es estilo.** Estaba encima de
+# `_anclas_del_diario`, así que `python -m … --confirmar` llamaba a `main()` antes de que
+# Python hubiera ejecutado esa definición y moría con `NameError` — el refresco de anclas no se
+# aplicaba nunca. Un `--dry-run` no lo tocaba, que es por lo que pasó desapercibido.
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())

@@ -142,17 +142,21 @@ async def comprobar_enlaces(
             if not mapa:
                 continue
 
-            deberia = mapa.get(citado)
-            if deberia is not None and deberia != a:
-                etiqueta = next(
-                    (nuestra for nuestra, suya in mapa.items() if suya == a), "?"
-                )
+            # **Se mira por el ancla, no por el artículo citado**, y esa es la diferencia
+            # que la revisión de la PR #189 señaló: preguntando `mapa.get(citado)` se escapa
+            # el caso peor —el artículo citado ya no existe en la página porque lo derogaron,
+            # así que no está en el mapa, pero su ancla vieja sigue existiendo y hoy etiqueta
+            # otro artículo—. Ahí `mapa.get(citado)` es `None` y no se decía nada, aunque la
+            # búsqueda inversa demuestra que el enlace lleva a otro sitio.
+            etiqueta = next((nuestra for nuestra, suya in mapa.items() if suya == a), None)
+            if etiqueta is not None and etiqueta != citado:
+                deberia = mapa.get(citado)
+                hoy = f", que hoy es `{deberia}`" if deberia else " y hoy no está en la página"
                 hallazgos_de_la_pagina.append(
                     Hallazgo(
                         url,
                         "ancla_de_otro_articulo",
-                        f"`{a}` etiqueta `{etiqueta}` y la cita dice `{citado}`, "
-                        f"que hoy es `{deberia}`",
+                        f"`{a}` etiqueta `{etiqueta}` y la cita dice `{citado}`{hoy}",
                     )
                 )
 

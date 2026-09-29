@@ -405,3 +405,148 @@ class TestElDetectorComprubaCorrespondencia:
         )
 
         assert [h.motivo for h in hallazgos] == ["ancla_ausente"]
+
+
+class TestSoloSePideAlDiarioDeVerdad:
+    """Hallazgo de la revisión de la PR #189: la URL viene del corpus y nadie validaba su host.
+
+    `url_oficial` llega del front-matter de un `.md` y se descargaba con
+    `"boe.es" in url`, que es una subcadena y no un nombre. Con eso pasaban
+    `https://boe.es.attacker.example/` y `http://169.254.169.254/latest/boe.es`, y la pasada de
+    ingesta los habría pedido — convirtiendo el refresco de anclas en un lector del servidor de
+    metadatos de la nube.
+
+    Son dos comprobaciones distintas y las dos hacen falta: **la forma** —que el host sea el
+    diario— aquí, y **el destino resuelto** justo antes de pedir la página, con
+    `assert_destino_publico`, que es el invariante I15 y se aplica en cada salto porque un
+    nombre puede resolver a otra cosa en la petición siguiente.
+    """
+
+    def _documento(self, url: str):
+        from types import SimpleNamespace
+
+        return SimpleNamespace(doc_metadata={"url_oficial": url}, canonical_url=None)
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://boe.es.attacker.example/act.php?id=x",
+            "http://169.254.169.254/latest/boe.es",
+            "https://noboe.es/act.php",
+            "https://example.test/?ref=boe.es",
+        ],
+    )
+    def test_un_host_que_solo_contiene_el_nombre_no_cuela(self, url):
+        from server.app.modules.agents_hub.ingestion.ancores_del_diari import (
+            url_del_diari,
+        )
+
+        assert url_del_diari(self._documento(url)) is None
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://www.boe.es/buscar/act.php?id=BOE-A-2017-12902",
+            "https://boe.es/eli/es/l/2017/11/08/9",
+            "https://BOE.ES/buscar/act.php?id=x",
+        ],
+    )
+    def test_el_diario_de_verdad_si(self, url):
+        """Sin esto, lo de arriba se cumpliría dejando fuera al BOE entero."""
+        from server.app.modules.agents_hub.ingestion.ancores_del_diari import (
+            url_del_diari,
+        )
+
+        assert url_del_diari(self._documento(url)) is not None
+
+    @pytest.mark.asyncio
+    async def test_no_se_descarga_una_direccion_privada(self):
+        """I15 — y **se comprueba en cada salto**, no una vez al validar la forma.
+
+        Un host del diario que resolviera a una dirección privada es el patrón del rebinding, y
+        aquí se descarta antes de pedir nada.
+        """
+        from server.app.modules.agents_hub.ingestion.ancores_del_diari import (
+            refrescar_ancores,
+        )
+
+        pedidas = []
+
+        async def fetch(url: str):
+            pedidas.append(url)
+            return 200, _CONTRATOS
+
+        from types import SimpleNamespace
+
+        doc = SimpleNamespace(
+            doc_metadata={"url_oficial": "https://boe.es/x"}, canonical_url=None
+        )
+
+        async def _privado(url, **kwargs):
+            from server.app.core.red_publica import DestinoNoPublico
+
+            raise DestinoNoPublico("resuelve a una direccion privada")
+
+        import server.app.modules.agents_hub.ingestion.ancores_del_diari as modulo
+
+        original = modulo.assert_destino_publico
+        modulo.assert_destino_publico = _privado
+        try:
+            refresco = await refrescar_ancores([doc], fetch)
+        finally:
+            modulo.assert_destino_publico = original
+
+        assert pedidas == [], "se pidio la pagina antes de comprobar el destino"
+        assert refresco.no_se_pudo, "y ademas se callo, que es peor"
+
+
+class TestElMapaEnvejecidoCuyoArticuloYaNoExiste:
+    """El caso peor, y el que la primera versión del detector se saltaba.
+
+    Se preguntaba `mapa.get(citado)`: si el artículo citado **ya no está en la página** —lo
+    derogaron y el texto consolidado dejó de renderizarlo— la respuesta es `None` y no se decía
+    nada. Pero su ancla vieja puede seguir existiendo y etiquetar hoy **otro artículo**, que es
+    exactamente el fallo invisible que esta issue venía a impedir.
+
+    Lo señaló la revisión de la PR #189. Se mira por el ancla y no por el artículo: la búsqueda
+    inversa lo demuestra sin depender de que el citado siga vivo.
+    """
+
+    def _fetch_de(self, respuestas):
+        async def fetch(url: str):
+            return respuestas.get(url, (599, ""))
+
+        return fetch
+
+    @pytest.mark.asyncio
+    async def test_el_ancla_de_un_articulo_derogado_que_hoy_etiqueta_otro(self):
+        from server.app.modules.agents_hub.evaluation.verificar_enlaces import (
+            comprobar_enlaces,
+        )
+
+        # `a1-10` existe y hoy etiqueta el artículo 18. La cita dice `art-114`, que la página
+        # ya no trae: el mapa que la ingestó era de antes de la reforma.
+        hallazgos = await comprobar_enlaces(
+            [f"{_URL}#a1-10"],
+            self._fetch_de({_URL: (200, _CONTRATOS)}),
+            articulo_citado={f"{_URL}#a1-10": "art-114"},
+        )
+
+        assert [h.motivo for h in hallazgos] == ["ancla_de_otro_articulo"]
+        assert "art-18" in hallazgos[0].detalle
+        assert "no está en la página" in hallazgos[0].detalle
+
+    @pytest.mark.asyncio
+    async def test_el_ancla_correcta_sigue_sin_dar_hallazgo(self):
+        """Sin esto, lo de arriba se cumpliría marcando todas las citas como equivocadas."""
+        from server.app.modules.agents_hub.evaluation.verificar_enlaces import (
+            comprobar_enlaces,
+        )
+
+        hallazgos = await comprobar_enlaces(
+            [f"{_URL}#a1-10"],
+            self._fetch_de({_URL: (200, _CONTRATOS)}),
+            articulo_citado={f"{_URL}#a1-10": "art-18"},
+        )
+
+        assert hallazgos == []

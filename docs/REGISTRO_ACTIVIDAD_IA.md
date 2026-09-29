@@ -205,10 +205,15 @@ cuadernos en la nube— puede registrar su ejecución al terminar **sin instalar
 los servicios de cuadernos que tienen formulario de parámetros aparece como tal:
 
 ```python
-GOVGENAI_URL = ""   # p. ej. https://normativa.uji.es
-GOVGENAI_PAT = ""   # token con scope actividad:write
-ACTOR = ""          # identificador estable de quien lo ejecuta, opaco
+GOVGENAI_URL = ""          # p. ej. https://normativa.uji.es
+GOVGENAI_PAT = ""          # token con scope actividad:write
+ACTOR = ""                 # identificador estable de quien lo ejecuta, opaco
+NOMBRE_DEL_CUADERNO = ""   # la ruta de este mismo fichero .ipynb
 ```
+
+El cuaderno tiene que **nombrarse a sí mismo** porque no hay forma fiable de que lo averigüe: un
+cuaderno no conoce su propia ruta —`__file__` no existe ahí— y los servicios de cuadernos la
+exponen cada uno a su manera, cuando la exponen.
 
 Y ésta es la última celda, la que registra:
 

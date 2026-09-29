@@ -244,3 +244,140 @@ class TestElScopePropio:
         )
 
         assert MANIFIESTOS_WRITE in allowed_scopes_for_role("admin")
+
+
+class TestLosHallazgosDeLaRevision:
+    """Tres cosas que la revisión de la PR #189 encontró en este router.
+
+    Las dos primeras las tenía que haber cazado un test mío y no las cazó, por la misma razón:
+    **probé el contrato y la lectura, y nunca llamé al endpoint de depósito**. Un contrato que
+    valida no dice nada sobre si el endpoint que lo usa se puede llamar.
+    """
+
+    def _principal_pat(self, organizacion):
+        from server.app.core.auth.models import UserInfo
+
+        return UserInfo(
+            user_id=f"pat-{uuid.uuid4()}",
+            email="cliente@example.test",
+            role="admin",
+            organizacion_ids=[str(organizacion)],
+        )
+
+    @pytest.mark.asyncio
+    async def test_un_pat_valido_puede_depositar(self, db_session):
+        """El scope lo comprueba `require_pat_scopes`, que deja los scopes en `request.state`.
+
+        La versión anterior leía `principal.pat_scopes`, que **no existe** —`UserInfo` es
+        congelado y no lo declara—, así que todo PAT válido recibía `PAT_REQUIRED` y el endpoint
+        no se podía usar. Este test llama al endpoint, que es lo que faltaba.
+        """
+        from server.app.modules.redaccion.database.models import HubManifiestoExterno
+        from server.app.routers.governanca_router import depositar_manifiesto
+
+        organizacion = uuid.uuid4()
+        respuesta = await depositar_manifiesto(
+            _manifiesto(),
+            principal=self._principal_pat(organizacion),
+            session=db_session,
+        )
+
+        assert respuesta.depositado_en is not None
+        fila = await db_session.get(HubManifiestoExterno, respuesta.id)
+        assert fila.organizacion_id == organizacion
+
+    @pytest.mark.asyncio
+    async def test_leer_la_evidencia_es_de_quien_administra(self, db_session):
+        """El módulo concede la pantalla; el rol, el dato. Sin el rol, cualquier persona con el
+        módulo `registro` leería quién aprobó qué en cada ejecución."""
+        import inspect
+
+        from server.app.routers.governanca_router import listar_manifiestos_externos
+
+        firma = inspect.signature(listar_manifiestos_externos)
+        dependencia = firma.parameters["principal"].default
+
+        assert dependencia is not None
+        assert "require_role" in repr(dependencia.dependency) or callable(
+            dependencia.dependency
+        )
+
+    @pytest.mark.asyncio
+    async def test_la_evidencia_entera_se_puede_leer(self, db_session):
+        """El listado da las columnas por las que se filtra; esto, lo que el manifiesto guarda.
+
+        Sin el detalle, la promesa de «leer qué pasó dentro de la ejecución» se quedaba sin
+        cumplir: versiones de prompt, citas y aprobaciones sólo vivían en `payload_json`.
+        """
+        from server.app.core.auth.models import UserInfo
+        from server.app.modules.redaccion.database.models import HubManifiestoExterno
+        from server.app.routers.governanca_router import ver_manifiesto_externo
+
+        organizacion = uuid.uuid4()
+        completo = _manifiesto(
+            versiones_de_prompt=["informe_v3"],
+            citas=[{"fuente": "https://www.boe.es/x"}],
+            aprobaciones=[
+                {
+                    "actor": "u-1",
+                    "aprobado_en": _AHORA,
+                    "que_aprobo": "bloque de valoración",
+                }
+            ],
+        )
+        fila = HubManifiestoExterno(
+            organizacion_id=organizacion,
+            ocurrido_en=_AHORA,
+            aplicacion="informes-uadti",
+            finalidad="Redacción",
+            payload_json=completo.model_dump(mode="json"),
+        )
+        db_session.add(fila)
+        await db_session.commit()
+
+        visto = await ver_manifiesto_externo(
+            fila.id,
+            principal=UserInfo(
+                user_id=str(uuid.uuid4()),
+                email="admin@uji.es",
+                role="admin",
+                organizacion_ids=[str(organizacion)],
+            ),
+            session=db_session,
+        )
+
+        assert visto.manifiesto.versiones_de_prompt == ["informe_v3"]
+        assert visto.manifiesto.aprobaciones[0].que_aprobo == "bloque de valoración"
+
+    @pytest.mark.asyncio
+    async def test_el_detalle_de_otra_organizacion_es_404(self, db_session):
+        """404 y no 403: decir «existe pero no es tuyo» ya es decir que existe."""
+        from fastapi import HTTPException
+
+        from server.app.core.auth.models import UserInfo
+        from server.app.modules.redaccion.database.models import HubManifiestoExterno
+        from server.app.routers.governanca_router import ver_manifiesto_externo
+
+        fila = HubManifiestoExterno(
+            organizacion_id=uuid.uuid4(),
+            ocurrido_en=_AHORA,
+            aplicacion="la-de-otros",
+            finalidad="Redacción",
+            payload_json=_manifiesto().model_dump(mode="json"),
+        )
+        db_session.add(fila)
+        await db_session.commit()
+
+        with pytest.raises(HTTPException) as fallo:
+            await ver_manifiesto_externo(
+                fila.id,
+                principal=UserInfo(
+                    user_id=str(uuid.uuid4()),
+                    email="admin@uji.es",
+                    role="admin",
+                    organizacion_ids=[str(uuid.uuid4())],
+                ),
+                session=db_session,
+            )
+
+        assert fallo.value.status_code == 404

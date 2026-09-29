@@ -41,8 +41,13 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from server.app.api.deps import get_current_user, get_session, require_module
-from server.app.core.auth.models import UserInfo
+from server.app.api.deps import (
+    get_session,
+    require_module,
+    require_pat_scopes,
+    require_role,
+)
+from server.app.core.auth.models import UserInfo, UserRole
 from server.app.core.auth.pat.scopes import MANIFIESTOS_WRITE
 from server.app.core.auth.tenancy import organizacion_unica_de, scope_query_to_orgs
 from server.app.modules.redaccion.contracts.manifiesto_externo import ManifiestoExterno
@@ -50,6 +55,9 @@ from server.app.modules.redaccion.database.models import HubManifiestoExterno
 
 #: El mismo módulo que abre la lectura del registro de actividad: es la misma capacidad.
 MODULO_REGISTRO = "registro"
+
+#: Leer evidencia es de quien administra. El módulo concede la pantalla; el rol, el dato.
+_require_admin = require_role(UserRole.SUPERADMIN.value, UserRole.ADMIN.value)
 
 router = APIRouter(prefix="/governanca", tags=["governanca"])
 
@@ -84,6 +92,18 @@ class ManifiestoEnLista(BaseModel):
     origen: str = "externo"
 
 
+class ManifiestoCompleto(BaseModel):
+    """El manifiesto tal como se depositó, con la marca que puso la plataforma.
+
+    El contrato de entrada **es** el de salida: devolver una copia con otros nombres crearía un
+    segundo esquema que divergiría del primero, y quien lo consuma tendría que traducir.
+    """
+
+    id: uuid.UUID
+    depositado_en: datetime
+    manifiesto: ManifiestoExterno
+
+
 @router.post(
     "/manifests",
     response_model=ManifiestoDepositado,
@@ -92,7 +112,7 @@ class ManifiestoEnLista(BaseModel):
 )
 async def depositar_manifiesto(
     body: ManifiestoExterno,
-    principal: UserInfo = Depends(get_current_user),
+    principal: UserInfo = Depends(require_pat_scopes(MANIFIESTOS_WRITE)),
     session: AsyncSession = Depends(get_session),
 ) -> ManifiestoDepositado:
     """Deposita el manifiesto de una generación hecha fuera de la plataforma.
@@ -100,29 +120,14 @@ async def depositar_manifiesto(
     La organización **se deriva del token**: no viaja en el cuerpo, y mandarla es un 422 que lo
     explica en vez de ignorarse en silencio — ignorarla haría creer a quien integra que la está
     eligiendo.
-    """
-    scopes = getattr(principal, "pat_scopes", None)
-    if scopes is None:
-        raise HTTPException(
-            status_code=403,
-            detail={
-                "code": "PAT_REQUIRED",
-                "message": (
-                    "Depositar un manifiesto exige un token de acceso personal con el scope "
-                    f"`{MANIFIESTOS_WRITE}`. Una sesión de navegador con permiso de escritura "
-                    "aquí permitiría fabricar evidencia desde el panel."
-                ),
-            },
-        )
-    if MANIFIESTOS_WRITE not in scopes:
-        raise HTTPException(
-            status_code=403,
-            detail={
-                "code": "SCOPE_REQUIRED",
-                "message": f"Este token no lleva el scope `{MANIFIESTOS_WRITE}`.",
-            },
-        )
 
+    **El scope lo comprueba `require_pat_scopes`, que es la dependencia que ya existe.** Aquí
+    hubo una reimplementación que leía `principal.pat_scopes`, y ese atributo **no existe**:
+    `get_current_user` deja los scopes en `request.state` y devuelve un `UserInfo` congelado sin
+    ese campo, así que todo PAT válido recibía `PAT_REQUIRED` y el endpoint no se podía usar. Lo
+    encontró la revisión de la PR #189, no un test — porque los tests probaban el contrato y la
+    lectura, y nunca llamaron a este endpoint.
+    """
     organizacion = organizacion_unica_de(principal)
     if organizacion is None:
         raise HTTPException(
@@ -163,7 +168,7 @@ async def depositar_manifiesto(
 )
 async def listar_manifiestos_externos(
     limite: int = Query(default=50, ge=1, le=200),
-    principal: UserInfo = Depends(get_current_user),
+    principal: UserInfo = Depends(_require_admin),
     session: AsyncSession = Depends(get_session),
 ) -> list[ManifiestoEnLista]:
     """Los manifiestos depositados, acotados por tenencia y del más reciente al más antiguo.
@@ -171,6 +176,11 @@ async def listar_manifiestos_externos(
     La acotación la hace `scope_query_to_orgs` y no un `if` de aquí: la regla vive en un solo
     sitio, y un principal sin organizaciones recibe `IN ()` —o sea nada—, que es la diferencia
     entre «no ve nada» y «no se filtra».
+
+    **Y además del módulo, el rol.** `require_module` es una concesión de organización, no una
+    comprobación de rol: sin `_require_admin`, cualquier persona con el módulo `registro`
+    concedido leería quién aprobó qué en cada ejecución. Es el mismo par que usa
+    `listar_actividad`, y aquí importa más, porque esto es la evidencia y aquello el índice.
     """
     consulta = scope_query_to_orgs(
         select(HubManifiestoExterno), principal, HubManifiestoExterno
@@ -191,3 +201,40 @@ async def listar_manifiestos_externos(
         )
         for f in filas
     ]
+
+
+@router.get(
+    "/manifests/{manifiesto_id}",
+    response_model=ManifiestoCompleto,
+    operation_id="verManifiestoExterno",
+    dependencies=[Depends(require_module(MODULO_REGISTRO))],
+)
+async def ver_manifiesto_externo(
+    manifiesto_id: uuid.UUID,
+    principal: UserInfo = Depends(_require_admin),
+    session: AsyncSession = Depends(get_session),
+) -> ManifiestoCompleto:
+    """Un manifiesto entero: **lo que pasó dentro de aquella ejecución**.
+
+    El listado da las columnas por las que se filtra y se ordena; esto da lo que el manifiesto
+    existe para guardar —versiones de prompt, fuentes citadas, aprobaciones humanas, categorías
+    de datos—, que vive en `payload_json`. Sin este endpoint, el panel sólo podía enseñar el
+    resumen y la promesa de «leer qué pasó dentro» se quedaba sin cumplir.
+
+    Acotado por tenencia como el listado: un identificador de otra organización responde **404**
+    y no 403, porque decir «existe pero no es tuyo» ya es decir que existe.
+    """
+    consulta = scope_query_to_orgs(
+        select(HubManifiestoExterno).where(HubManifiestoExterno.id == manifiesto_id),
+        principal,
+        HubManifiestoExterno,
+    )
+    fila = (await session.execute(consulta)).scalar_one_or_none()
+    if fila is None:
+        raise HTTPException(status_code=404, detail="No hay ningún manifiesto con ese id")
+
+    return ManifiestoCompleto(
+        id=fila.id,
+        depositado_en=fila.depositado_en,
+        manifiesto=ManifiestoExterno.model_validate(fila.payload_json or {}),
+    )

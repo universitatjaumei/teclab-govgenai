@@ -26,6 +26,9 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Awaitable, Callable
+from urllib.parse import urlsplit
+
+from server.app.core.red_publica import assert_destino_publico
 
 #: Cada bloque del texto consolidado, con su ancla. El `(?=...)` corta en el siguiente bloque en
 #: vez de tragárselo: sin eso, el encabezado de un bloque acabaría asignado al anterior y el mapa
@@ -82,9 +85,22 @@ def mapa_de_ancores(html: str) -> dict[str, str]:
 #: borrarlo y reponerlo; está en `_METADATOS_QUE_NO_VIENEN_DEL_CORPUS`.
 CLAVE = "ancores_del_diari"
 
-#: De qué diarios se sabe leer. El DOGV usa otro marcado y es trabajo aparte: hoy sus citas van
-#: sin fragmento, igual que antes, en vez de con uno inventado.
+#: De qué diarios se sabe leer, **por nombre de host exacto o subdominio**. El DOGV usa otro
+#: marcado y es trabajo aparte: hoy sus citas van sin fragmento, igual que antes, en vez de con
+#: uno inventado.
 _DIARIOS_QUE_SE_LEEN = ("boe.es",)
+
+
+def _es_del_diario(host: str) -> bool:
+    """Si el host **es** uno de los diarios, o un subdominio suyo.
+
+    Comprobar `"boe.es" in url` —que es lo que hacía— acepta
+    `https://boe.es.attacker.example/` y `http://169.254.169.254/latest/boe.es`, y la ingesta
+    los descargaría: `url_oficial` viene del front-matter del corpus y nadie valida su host por
+    el camino. Se compara el **nombre resuelto de la URL**, no una subcadena.
+    """
+    host = (host or "").lower().rstrip(".")
+    return any(host == d or host.endswith(f".{d}") for d in _DIARIOS_QUE_SE_LEEN)
 
 
 def url_del_diari(documento) -> str | None:
@@ -92,6 +108,11 @@ def url_del_diari(documento) -> str | None:
 
     Mismo orden de preferencia que `citations._url_en_el_diario_oficial`, y sin fragmento: lo
     que se descarga es el documento entero.
+
+    **Sólo la forma.** Que el destino resuelto sea público lo comprueba `assert_destino_publico`
+    justo antes de pedir la página (invariante I15): un nombre que hoy resuelve a una dirección
+    pública puede resolver a una privada en la petición siguiente, así que la comprobación va en
+    cada salto y no aquí.
     """
     metadatos = getattr(documento, "doc_metadata", None) or {}
     base = (
@@ -103,7 +124,7 @@ def url_del_diari(documento) -> str | None:
     base = str(base).split("#", 1)[0].strip()
     if not base.startswith(("http://", "https://")):
         return None
-    return base if any(d in base for d in _DIARIOS_QUE_SE_LEEN) else None
+    return base if _es_del_diario(urlsplit(base).hostname or "") else None
 
 
 @dataclass
@@ -171,6 +192,11 @@ async def refrescar_ancores(
     async def _una(url: str) -> tuple[str, dict[str, str] | None, str | None]:
         async with limite:
             try:
+                # Invariante I15 — el servidor sólo pide direcciones de la red pública, y lo
+                # comprueba **en cada salto**. La ingesta lee una URL que viene del front-matter
+                # del corpus, así que sin esto un `url_oficial` manipulado convertiría la pasada
+                # de ingesta en un lector del servidor de metadatos de la nube.
+                await assert_destino_publico(url)
                 estado, cuerpo = await fetch(url)
             except Exception as exc:  # noqa: BLE001
                 # Una excepción NO es «no hay artículos»: sin este `except` un fallo de red

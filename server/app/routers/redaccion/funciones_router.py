@@ -292,7 +292,11 @@ class RegistrarExternaRequest(BaseModel):
     entorno_ejecucion: str = Field(min_length=1)
     #: `persona` | `ia`. Igual que en autoservicio: no hay ninguna rama según quién escribió, se
     #: guarda porque la revisión posterior quiere verlo.
-    autoria: str = Field(default="persona")
+    #:
+    #: `Literal` y no `str`: el comentario prometía dos valores y el tipo aceptaba cualquiera,
+    #: así que una cadena de más de 20 caracteres no fallaba como 422 de contrato sino como 500
+    #: al escribir en la columna. Lo que el docstring promete, lo exige el tipo.
+    autoria: Literal["persona", "ia"] = "persona"
     #: Para registrar una versión más de una función externa que ya existe.
     funcion_id: uuid.UUID | None = None
 
@@ -384,11 +388,50 @@ async def registrar_funcion_externa(
             detail={"code": "DECLARACION_INCOMPLETA", "message": str(fallo)},
         ) from fallo
 
+    organizacion = organizacion_unica_de(principal)
+
+    # **Versionar una función existente se autoriza antes de tocarla.** `registrar_version` sólo
+    # hace un `session.get`, así que sin esto un `funcion_id` de otra organización colaba una
+    # versión en su catálogo — y, peor, permitía añadir código auditado **de forma informativa**
+    # a una función de autoservicio, que sí se ejecuta en el sandbox. Las dos cosas las encontró
+    # la revisión de la PR #189.
+    if body.funcion_id is not None:
+        destino = await session.get(HubFuncion, body.funcion_id)
+        if destino is None:
+            raise HTTPException(
+                status_code=404,
+                detail={
+                    "code": "FUNCION_NO_ENCONTRADA",
+                    "message": f"no hay ninguna función {body.funcion_id} en el catálogo",
+                },
+            )
+        if not principal.is_superadmin and destino.organizacion_id != organizacion:
+            # 404 y no 403: decir «existe pero no es tuya» ya es decir que existe.
+            raise HTTPException(
+                status_code=404,
+                detail={
+                    "code": "FUNCION_NO_ENCONTRADA",
+                    "message": f"no hay ninguna función {body.funcion_id} en el catálogo",
+                },
+            )
+        if destino.origen != "externa":
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "ORIGEN_DISTINTO",
+                    "message": (
+                        f"«{destino.nombre}» es de origen «{destino.origen}» y esto registra "
+                        "funciones externas. Añadirle una versión con auditoría informativa "
+                        "metería código sin filtro en algo que la plataforma sí ejecuta."
+                    ),
+                },
+            )
+
     try:
         funcion, _version = await registrar_version(
             session,
             nombre=body.nombre,
-            organizacion_id=organizacion_unica_de(principal),
+            organizacion_id=organizacion,
             code=body.fichero,
             contrato=contrato,
             declarada_por=quien,

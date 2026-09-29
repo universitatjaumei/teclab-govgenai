@@ -204,20 +204,12 @@ async def ejecutar_funcion_por_api(
             detail=f"«{funcion.nombre}» no tiene versión {body.version}",
         )
 
-    if version.estado != "registrada":
-        # 423 «locked»: existe y está detenida. Con el motivo, que es lo que quien integra
-        # necesita para saber si esperar o cambiar de versión.
-        detalle = f"la versión {version.version} de «{funcion.nombre}» no está en servicio"
-        if version.estado == "suspendida" and version.motivo_suspension:
-            detalle += f": {version.motivo_suspension}"
-        elif version.estado == "no_instalada":
-            detalle += ": su paquete no está instalado en este despliegue"
-        else:
-            detalle += f" (estado «{version.estado}»)"
-        raise HTTPException(status_code=status.HTTP_423_LOCKED, detail=detalle)
-
     if funcion.origen == "externa":
-        # AUT.3 — se registra, no se ejecuta. **409 y no 423**: un 423 dice «existe y está
+        # AUT.3 — se registra, no se ejecuta. **Y va antes de mirar el estado**: una
+        # versión externa suspendida devolvía 423 «espera o cambia de versión», que
+        # contradice lo que este mismo bloque documenta —suspender una externa es un aviso,
+        # no un cerrojo— y le dice a quien integra que esperando podría llegar a ejecutarse.
+        # Lo señaló la revisión de la PR #189. **409 y no 423**: un 423 dice «existe y está
         # detenida», o sea espera o cambia de versión, y aquí no hay nada que esperar. Esta
         # función no va a correr aquí nunca, y quien integra necesita distinguirlo para no
         # reintentar contra una puerta que no existe.
@@ -234,6 +226,18 @@ async def ejecutar_funcion_por_api(
                 f"responsable y la revisión posterior."
             ),
         )
+
+    if version.estado != "registrada":
+        # 423 «locked»: existe y está detenida. Con el motivo, que es lo que quien integra
+        # necesita para saber si esperar o cambiar de versión.
+        detalle = f"la versión {version.version} de «{funcion.nombre}» no está en servicio"
+        if version.estado == "suspendida" and version.motivo_suspension:
+            detalle += f": {version.motivo_suspension}"
+        elif version.estado == "no_instalada":
+            detalle += ": su paquete no está instalado en este despliegue"
+        else:
+            detalle += f" (estado «{version.estado}»)"
+        raise HTTPException(status_code=status.HTTP_423_LOCKED, detail=detalle)
 
     contrato = ContratoFuncion.model_validate(version.contrato_entrada or {})
 
