@@ -94,9 +94,11 @@ ejecutando en su equipo registra ahí, y la institución sabe igualmente qué ci
 Con la misma decisión quedaron fijados el **ecosistema autorizado** —los módulos que una función
 puede usar, ampliados y, desde el hito 3, vigilados para que la lista y lo que la imagen instala
 no se separen—, un **plazo de revisión posterior de 30 días naturales** que avisa sin bloquear, y
-**quién revisa y suspende**. Lo que **no** se abrió es la red saliente, que espera a su propia
-decisión: no es una librería, es una capacidad, y es la que hoy hace que una función no pueda
-hablar con nada.
+**quién revisa y suspende**. La **red saliente** se decidió un día después, el 2026-09-30, y se
+abrió con dos cerrojos: **sólo lectura** y **sólo hacia los servidores que cada función declara**.
+No hizo falta tocar la respuesta anterior, porque quien baja el documento es la plataforma y no
+el guion: una función sigue sin poder hablar con nada, y lo que necesita de fuera se lo piden por
+ella.
 
 Queda el **hito 3**, el de más diseño, con tres de sus cuatro issues por delante.
 

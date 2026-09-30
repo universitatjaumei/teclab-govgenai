@@ -300,6 +300,7 @@ async def ejecutar_funcion(
     parametros: dict[str, Any] | None = None,
     sandbox: Any,
     timeout_seconds: int | None = None,
+    contenidos: dict[str, bytes] | None = None,
 ) -> Any:
     """Valida la entrada contra el contrato y **después** ejecuta (FUN.2).
 
@@ -316,20 +317,55 @@ async def ejecutar_funcion(
     él—, pero en FUN.5 el `run` de un paquete de un tercero devuelve lo que haya escrito ese
     tercero, y la costura tiene que aguantarlo sin reventar de forma opaca.
     """
-    from server.app.modules.redaccion.contracts.funciones import validar_entrada
+    from server.app.modules.redaccion.contracts.funciones import (
+        EntradaNoCumpleElContrato,
+        validar_entrada,
+    )
     from server.app.modules.redaccion.pipelines.contracts import (
         ExtractionProvenance,
         ExtractionResult,
         ExtractionWarning,
     )
 
-    entrada = validar_entrada(contrato, ficheros=ficheros, parametros=parametros)
+    entrada = validar_entrada(
+        contrato,
+        ficheros=ficheros,
+        parametros=parametros,
+        # AUT.8 — un slot que la plataforma ya bajó cuenta como presente.
+        slots_ya_traidos=set(contenidos or {}),
+    )
 
     # El primer slot es el fichero que el protocolo actual pasa como `file_path`; el resto viaja
     # en `options`, que es donde un script que ya funcionaba busca lo suyo.
     primer_slot = contrato.slots[0].slot_id if getattr(contrato, "slots", None) else None
     file_path = entrada.ficheros.get(primer_slot) if primer_slot else None
     options: dict[str, Any] = {**entrada.parametros, "ficheros": entrada.ficheros}
+
+    # AUT.8 — el contenido que la plataforma bajó de un origen declarado viaja por el camino de
+    # PRO.2 (`file_bytes`), que es el mismo por el que va un fichero subido a mano. **Así el
+    # guion no se entera de que hubo red**: no cambia su protocolo ni lo que el auditor le
+    # permite.
+    #
+    # **Y sólo el primer slot**, porque es el único que el protocolo materializa: el resto viaja
+    # como referencias en `options`, y una referencia de algo que sólo existe en memoria no la
+    # puede resolver nadie. Se falla en alto en vez de aceptar la URL y no entregar el fichero,
+    # que es la forma de esto que se descubre depurando un `KeyError` dentro del sandbox.
+    traidos = contenidos or {}
+    if traidos:
+        de_mas = sorted(set(traidos) - {primer_slot})
+        if de_mas:
+            raise EntradaNoCumpleElContrato(
+                f"sólo el primer slot puede venir de una URL, y aquí es «{primer_slot}». "
+                f"Los slots {de_mas} tendrían que llegar como referencia de almacenamiento: el "
+                f"protocolo del guion sólo materializa un fichero, así que un documento bajado "
+                f"para otro slot no llegaría a ninguna parte."
+            )
+    file_bytes = traidos.get(primer_slot) if primer_slot else None
+    file_name = ""
+    if file_bytes is not None:
+        # El nombre importa: pandas elige el motor por la extensión. Sale del slot, que es lo
+        # único que se sabe aquí; el nombre real de la descarga lo conoce quien la hizo.
+        file_name = f"{primer_slot}.bin"
 
     # AUT.7 — el camino con artefactos **sólo** si el contrato los declara.
     #
@@ -345,6 +381,8 @@ async def ejecutar_funcion(
             raw_text=None,
             options=options,
             timeout_seconds=timeout_seconds,
+            file_bytes=file_bytes,
+            file_name=file_name,
             artefactos_maximo=declarados.maximo,
             artefactos_maximo_bytes=declarados.maximo_bytes,
         )
@@ -355,6 +393,8 @@ async def ejecutar_funcion(
             raw_text=None,
             options=options,
             timeout_seconds=timeout_seconds,
+            file_bytes=file_bytes,
+            file_name=file_name,
         )
 
     if isinstance(salida, ExtractionResult):

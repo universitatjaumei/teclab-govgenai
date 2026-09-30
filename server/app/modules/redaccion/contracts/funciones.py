@@ -156,6 +156,15 @@ class ContratoFuncion(BaseModel):
     #: puede producirlos: sin eso el tope sería un consejo y cualquier guion escribiría lo que
     #: quisiera en el directorio de salida.
     artefactos: ArtefactosDeSalida | None = None
+    #: AUT.8 — los **servidores** de los que esta función puede pedir documentos. Forma parte de
+    #: la declaración responsable: enumerar de dónde se lee es decir de dónde vienen los datos.
+    #:
+    #: **Lista vacía por omisión**, que es «de ninguna parte»: igual que con los artefactos, la
+    #: capacidad se pide. Y son servidores y no URL — ver `_origenes_son_servidores`.
+    #:
+    #: Quien baja es la plataforma, no el guion: la red del sandbox sigue cerrada. Detalle en
+    #: `funciones_origenes.py`.
+    origenes: list[str] = Field(default_factory=list)
 
     # ── Declaración responsable (Instrucció §8.2) ──
     finalidad: str = Field(min_length=1)
@@ -174,6 +183,44 @@ class ContratoFuncion(BaseModel):
                         "diccionario y el segundo pisaría al primero"
                     )
                 vistos.add(elemento.slot_id)
+        return self
+
+    @model_validator(mode="after")
+    def _origenes_son_servidores(self) -> "ContratoFuncion":
+        """Cada origen es un **nombre de servidor**: ni URL, ni comodín, ni dirección IP.
+
+        Las tres exclusiones vienen de cómo se salta una lista blanca, no de purismo:
+
+        * **URL**: habría que declarar cada documento —imposible— o aceptar prefijos, y un
+          prefijo invita a `https://sede.gva.es@atacante.example/`, que lleva el origen
+          declarado dentro y apunta a otro sitio.
+        * **Comodín**: `*.gva.es` parece razonable hasta que alguien consigue un subdominio.
+        * **Dirección IP**: no dice de quién es el servidor, y salta la comprobación de nombre
+          que es la que resuelve y valida cada dirección.
+        """
+        import ipaddress
+        import re
+
+        forma = re.compile(r"^(?=.{1,253}$)[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$")
+        for origen in self.origenes:
+            crudo = (origen or "").strip()
+            normalizado = crudo.lower()
+            try:
+                ipaddress.ip_address(normalizado)
+            except ValueError:
+                pass
+            else:
+                raise ValueError(
+                    f"«{crudo}» es una dirección IP, y un origen se declara por nombre de "
+                    "servidor: una IP no dice de quién es y salta la comprobación del nombre"
+                )
+            if not forma.match(normalizado):
+                raise ValueError(
+                    f"«{crudo}» no es un nombre de servidor. Se declara el servidor —"
+                    "`sede.gva.es`— y no una URL ni un comodín: un prefijo de URL se burla con "
+                    "`https://sede.gva.es@atacante.example/`, y un comodín lo hereda cualquiera "
+                    "que consiga un subdominio"
+                )
         return self
 
     @model_validator(mode="after")
@@ -320,22 +367,30 @@ def validar_entrada(
     ficheros: dict[str, str] | None = None,
     parametros: dict[str, Any] | None = None,
     almacen: Any = None,
+    slots_ya_traidos: set[str] | None = None,
 ) -> EntradaValidada:
     """La entrada comprobada contra el contrato, **antes** de invocar nada.
 
     Levanta `EntradaNoCumpleElContrato` con el nombre de lo que falla. Validar después sería
     pagar un subproceso para obtener un error peor.
+
+    `slots_ya_traidos` (AUT.8) son los slots que la plataforma **ya bajó** de un origen
+    declarado: cuentan como presentes aunque no tengan referencia de almacenamiento. Va como
+    parámetro explícito y no metiendo un marcador falso en `ficheros`, que es la otra forma de
+    conseguirlo: ese marcador viaja luego al guion dentro de `options["ficheros"]` y sería una
+    ruta que no existe con aspecto de ruta.
     """
     ficheros = dict(ficheros or {})
     parametros = dict(parametros or {})
+    traidos = set(slots_ya_traidos or ())
 
     declarados = {slot.slot_id: slot for slot in contrato.slots}
     for slot_id, slot in declarados.items():
-        if slot.required and not ficheros.get(slot_id):
+        if slot.required and not ficheros.get(slot_id) and slot_id not in traidos:
             raise EntradaNoCumpleElContrato(
                 f"falta el slot «{slot_id}», que el contrato declara obligatorio"
             )
-    for slot_id in ficheros:
+    for slot_id in set(ficheros) | traidos:
         if slot_id not in declarados:
             raise EntradaNoCumpleElContrato(
                 f"el slot «{slot_id}» no está en el contrato de esta función: o alguien lo "

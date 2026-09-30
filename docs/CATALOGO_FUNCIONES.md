@@ -194,12 +194,19 @@ sustituye al circuito que la Instrucció prevé para lo que excede un servicio.
   (issue #122), junto con la ampliación prevista de librerías —`python-docx`, `pymupdf`— que
   AUT.9 aplicará.
 
-  **La red saliente hacia orígenes declarados NO entra, y es una decisión de la misma fecha.**
-  No es una librería, es una capacidad, y es la que hoy hace que una función **no pueda hablar
-  con nada**: lee un fichero y devuelve cifras. Esa imposibilidad estructural es lo que sostiene
-  que ejecutar dentro sea más seguro que ejecutar fuera —el argumento con el que se contestó la
-  regla 2—, así que abrirla cambiaría esa respuesta y no se abre de paso en una ampliación de
-  librerías. AUT.8 espera a su propia decisión.
+  ~~**La red saliente hacia orígenes declarados NO entra.**~~ **Decidido el 2026-09-30 (issue
+  #118): entra, con dos cerrojos.** Escribir hacia fuera no tiene sentido para una función de
+  extracción; leer sí —bajar un PDF de una sede, el tomo de un presupuesto—, así que se abre
+  **sólo por `GET`** y **sólo a los servidores que la declaración responsable enumera**.
+
+  La razón por la que no entró con la ampliación de librerías sigue siendo buena: no es una
+  librería, es una capacidad, y sostenía el argumento con el que se contestó la regla 2. Lo que
+  pasó es que **se puede abrir sin tocar ese argumento**: quien baja el documento es la
+  plataforma, no el guion, así que `requests` y `urllib` **siguen denegados** y la red del
+  sandbox sigue cerrada. El detalle está en §4 y en `funciones_origenes.py`.
+
+  Y `beautifulsoup4` **tampoco entró con esto**: parsear HTML es otra cosa que leer de la red, y
+  nadie lo ha pedido todavía para una función.
 * **§7, el nivel 2 no pasa por el embudo de innovación**: el circuito del catálogo es interno y
   no toca Teclab ni CEDIA. Estamos de acuerdo con el motivo que da la Instrucció — someter la
   extracción de una tabla de gastos al embudo reproduciría la burocracia que empuja al *Shadow
@@ -279,9 +286,36 @@ matiza.
 
 **Dónde encaja mejor que el supuesto de la regla**: no hay credenciales que centralizar ni
 identidad que suplantar, porque **una función no puede hablar con nada**. El auditor le prohíbe
-`socket`, `requests`, `urllib`, `os`, `open` y `subprocess`, entre otras 63 capacidades; una
-función lee un fichero y devuelve cifras. El riesgo que la regla 2 mitiga —lo que se *introduce*
-en los sistemas corporativos— es estructuralmente imposible, no improbable.
+`socket`, `requests`, `urllib`, `os`, `open` y `subprocess`, entre otras 63 capacidades, y la red
+del sandbox está cerrada en producción. El riesgo que la regla 2 mitiga —lo que se *introduce* en
+los sistemas corporativos— es estructuralmente imposible, no improbable.
+
+**Y desde AUT.8 eso sigue siendo verdad, aunque una función ya pueda leer de fuera.** La decisión
+del 2026-09-30 abrió la red saliente con dos cerrojos —sólo `GET`, sólo a orígenes declarados—,
+pero **no le abrió la red al guion**: quien baja el documento es la plataforma, y el guion lo
+recibe como un fichero de entrada más. La frase completa, que es la que hay que citar:
+
+> Una función **no puede hablar con nada**. Lo que necesita de fuera lo pide la plataforma por
+> ella, **sólo por `GET`** y **sólo a los servidores que su declaración responsable enumera**.
+
+Tres razones por las que se hizo así y no dándole red al sandbox, porque la diferencia es toda la
+garantía:
+
+1. **La lista blanca se defiende fuera del proceso del guion.** Dentro, estaría escrita en Python
+   corriendo junto al código del usuario, que es el peor sitio posible para un límite de
+   seguridad.
+2. **La red del sandbox sigue cerrada** (`internal: true`), así que un intento de salida no llega
+   a ninguna parte en vez de llegar y ser rechazado.
+3. **La comprobación del destino es la de I15**, que ya estaba escrita y probada, y que mira **en
+   cada salto**: un origen declarado que redirige a una dirección privada no la burla.
+
+**Por qué la lista blanca y no sólo el `GET`.** Un `GET` lleva datos en la URL:
+`https://donde-sea.example/?nif=12345678Z` es una exfiltración completa y es una petición de
+lectura. Lo que protege el dato no es el método, es el destino — y por eso los orígenes son parte
+de la **declaración responsable** y no una opción de configuración.
+
+**Y lo que no hace**: un guion no puede pedir una URL a mitad de ejecución. Bajar una página,
+buscar enlaces dentro y bajar ésos son dos rondas.
 
 **La pregunta, acotada así para que se pueda contestar**: ¿la regla 2 exige la ejecución local
 **como fin**, o **como medio** para mantener la responsabilidad atribuible y las credenciales sin
@@ -359,7 +393,9 @@ test comprueba que este documento no se desvía de ellas.
 que se instala como `python-docx`— y la instalación real de `fitz` — que es `pymupdf` y llevaba
 meses **permitido y sin instalar**, así que un guion que lo importara moría con
 `ModuleNotFoundError` dentro del sandbox. Lo que **no** entró son `requests` y `beautifulsoup4`:
-la red saliente no es una librería, es una capacidad, y espera a su propia decisión (AUT.8).
+la red saliente no es una librería, es una capacidad. **Se abrió el 2026-09-30 (AUT.8, issue
+#118) sin añadir ninguna librería**: el documento lo baja la plataforma y el guion lo recibe como
+fichero de entrada, así que `requests` y `urllib` siguen denegados. Ver §4.
 
 ### Con qué nombre se instala cada una, y cuál arrastra copyleft
 
@@ -708,6 +744,83 @@ alguien lo suponga.
 
 Y esto **no es la política de retención de la plataforma**, que sigue sin existir. Es el tramo
 estrecho que hacía falta para que `retencion_dias` no fuera una promesa sin nada detrás.
+
+---
+
+## 7.ter. Pedir documentos de fuera (AUT.8)
+
+Una función puede necesitar un documento que no está en la plataforma: el tomo de un presupuesto
+en la sede de la GVA, una resolución del BOE. Desde el 2026-09-30 puede pedirlo, con dos
+cerrojos: **sólo lectura** y **sólo de los servidores que declare**.
+
+### Declarar los servidores
+
+Va en el contrato, y **forma parte de la declaración responsable**: enumerar de dónde se lee es
+decir de dónde vienen los datos.
+
+```python
+ContratoFuncion(
+    slots=[SlotDeFichero(slot_id="tomo", kind="pdf", required=True)],
+    parametros=[],
+    finalidad="Contar las subvenciones nominativas del tomo",
+    categorias_datos=["sin_datos_personales"],
+    origenes=["sede.gva.es", "www.boe.es"],
+)
+```
+
+Tres cosas que un origen **no** puede ser, y las tres son formas conocidas de saltarse una lista
+blanca:
+
+| No vale | Por qué |
+|---|---|
+| Una URL (`https://sede.gva.es/docs`) | Habría que declarar cada documento, o aceptar prefijos — y un prefijo se burla con `https://sede.gva.es@atacante.example/`, que lleva el origen dentro y apunta a otro sitio |
+| Un comodín (`*.gva.es`) | Lo hereda cualquiera que consiga un subdominio |
+| Una dirección IP | No dice de quién es el servidor, y salta la comprobación del nombre |
+
+Y la coincidencia es **exacta**: declarar `gva.es` no autoriza `otra.gva.es`. Si hace falta un
+subdominio, se declara.
+
+### Pedirlo
+
+`POST /funciones/{id}/run` acepta `urls`, una por slot:
+
+```json
+{
+  "version": 1,
+  "urls": {"tomo": "https://sede.gva.es/documentos/tomo.pdf"}
+}
+```
+
+Va aparte de `ficheros` a propósito: una referencia de almacenamiento es un documento que ya
+tienes, y una URL es uno que le pides a la plataforma que traiga. Mezclarlas obligaría a adivinar
+cuál es cuál por la forma de la cadena.
+
+Una URL de un servidor no declarado responde **422 y no toca el sandbox**, igual que cuando la
+entrada no cumple el contrato: una URL rechazada no puede haber gastado una ejecución. Si el
+origen sí está declarado y el servidor remoto falla, es un **502** — el problema no es de tu
+petición.
+
+### Lo que el guion ve
+
+**Nada distinto.** El documento le llega como `file_path`, el mismo camino por el que llega un
+fichero subido a mano. Su protocolo no cambia y lo que el auditor le permite tampoco:
+`requests`, `urllib` y `socket` **siguen denegados**.
+
+Eso no es una comodidad, es la garantía: quien baja es la plataforma, la red del sandbox sigue
+cerrada, y la lista blanca se comprueba fuera del proceso donde corre el código del usuario. El
+razonamiento completo está en §4.
+
+### Lo que no hace
+
+- **No se puede pedir una URL a mitad de ejecución.** Bajar una página, buscar enlaces dentro y
+  bajar ésos son **dos rondas**: la primera devuelve los enlaces, la segunda los pide. Afecta al
+  caso de las subvenciones nominativas.
+- **Sólo el primer slot puede venir de una URL**, porque es el único que el protocolo
+  materializa. Pedirlo para otro slot falla en alto en vez de aceptar la URL y no entregar el
+  fichero.
+- **Una función empaquetada no acepta `urls`**: corre en el proceso del servidor y se trae lo
+  que necesita por su cuenta. Se rechaza en vez de ignorarlo.
+- **No se escribe nada hacia fuera.** Sólo `GET`, y sólo `http`/`https`.
 
 ---
 

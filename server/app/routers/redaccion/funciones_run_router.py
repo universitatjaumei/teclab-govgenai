@@ -52,6 +52,10 @@ from server.app.modules.redaccion.contracts.funciones import (
     EntradaNoCumpleElContrato,
 )
 from server.app.modules.redaccion.database.models import HubFuncion, HubFuncionVersion
+from server.app.modules.redaccion.funciones_origenes import (
+    OrigenNoDeclarado,
+    descargar_de_un_origen_declarado,
+)
 from server.app.modules.redaccion.funciones_artefactos import (
     ArtefactoNoDisponible,
     artefacto_para_descargar,
@@ -81,6 +85,15 @@ class EjecutarRequest(BaseModel):
     #: Referencias de almacenamiento por slot, tal como las declara el contrato. Son rutas o
     #: claves, **no contenido**: el fichero ya está en el almacenamiento de la organización.
     ficheros: dict[str, str] = Field(default_factory=dict)
+    #: AUT.8 — URL por slot, para los documentos que hay que **bajar de fuera**. Cada una tiene
+    #: que salir de un servidor que la función declara en `origenes`; si no, 422 y el sandbox no
+    #: se toca.
+    #:
+    #: Va aparte de `ficheros` y no mezclado con él porque son dos cosas distintas para quien
+    #: integra: una referencia de almacenamiento es un documento que ya tiene, y una URL es uno
+    #: que le pide a la plataforma que traiga. Mezclarlas obligaría a adivinar cuál es cuál por
+    #: la forma de la cadena.
+    urls: dict[str, str] = Field(default_factory=dict)
     parametros: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -270,11 +283,57 @@ async def ejecutar_funcion_por_api(
 
     contrato = ContratoFuncion.model_validate(version.contrato_entrada or {})
 
+    # AUT.8 — lo que hay que traer de fuera se trae **aquí**, antes de tocar el sandbox y antes
+    # de validar la entrada contra el contrato: una URL rechazada no puede haber gastado una
+    # ejecución ni dejado rastro de algo que no ocurrió. Es el mismo orden que ya tenía la
+    # validación de entrada, y por la misma razón.
+    #
+    # El guion recibe el contenido por el camino de un fichero subido a mano, así que **no se
+    # entera de que hubo red**: abrir la red no cambia el protocolo del guion ni lo que el
+    # auditor le permite.
+    bajados: dict[str, bytes] = {}
+    if body.urls:
+        for slot, url in body.urls.items():
+            try:
+                contenido, _nombre = await descargar_de_un_origen_declarado(
+                    url, origenes=contrato.origenes
+                )
+            except OrigenNoDeclarado as fallo:
+                raise HTTPException(status_code=422, detail=str(fallo)) from fallo
+            except Exception as fallo:  # noqa: BLE001 — se traduce, no se deja subir opaco
+                # 502 y no 500: el fallo es del servidor de fuera, no de la petición. Quien
+                # integra necesita distinguirlo para saber si reintentar.
+                raise HTTPException(
+                    status_code=502,
+                    detail=(
+                        f"no se pudo traer «{url}» para el slot «{slot}»: {fallo}. El origen "
+                        f"está declarado, así que el problema es del servidor remoto."
+                    ),
+                ) from fallo
+            bajados[slot] = contenido
+
     if funcion.origen == "paquete":
         # In-process, por el camino de FUN.5. No pasa por el sandbox y no se finge lo contrario.
         from server.app.modules.redaccion.funciones_paquete import ejecutar_empaquetada
 
         try:
+            # AUT.8 — una función **empaquetada** no recibe documentos bajados, y no es un
+            # olvido: corre **en el proceso del servidor** y con acceso a `StorageService`, así
+            # que su `run` puede traerse lo que necesite por su cuenta. Darle además el
+            # contenido aquí sería un segundo camino para lo mismo, y el que sobra es éste.
+            #
+            # Se rechaza en vez de ignorarlo: aceptar `urls` y no entregar nada dejaría a quien
+            # integra buscando por qué su slot llega vacío.
+            if bajados:
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"«{funcion.nombre}» es una función empaquetada: corre en el proceso "
+                        "del servidor y se trae lo que necesita por su cuenta, así que no "
+                        "acepta `urls`. Los orígenes declarados son para las de autoservicio, "
+                        "que corren en el sandbox y no tienen red."
+                    ),
+                )
             salida = await ejecutar_empaquetada(
                 funcion.entry_point or "",
                 ficheros=body.ficheros,
@@ -296,6 +355,7 @@ async def ejecutar_funcion_por_api(
                 contrato=contrato,
                 code=version.code or "",
                 ficheros=body.ficheros,
+                contenidos=bajados,
                 parametros=body.parametros,
                 sandbox=sandbox,
                 timeout_seconds=TIMEOUT_SEGUNDOS,
