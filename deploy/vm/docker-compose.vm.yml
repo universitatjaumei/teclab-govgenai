@@ -152,6 +152,11 @@ services:
       # responde 404. Un login a medio configurar es peor que ninguno.
       GOOGLE_OAUTH_ALLOWED_DOMAIN: ${GOOGLE_OAUTH_ALLOWED_DOMAIN:-}
       GOOGLE_OAUTH_REDIRECT_URI: ${GOOGLE_OAUTH_REDIRECT_URI:-}
+      # Adónde vuelve el navegador tras entrar, con el token en el *fragment* (issue #195). Sin
+      # ella el callback devuelve la sesión como JSON y el usuario se queda mirando su token. La
+      # comparten Google y el ACS de SAML. En despliegue lleva el prefijo del panel (DOM.2):
+      # https://<dominio>/panel/auth/callback.
+      SAML_FRONTEND_RETURN_URL: ${SAML_FRONTEND_RETURN_URL:-}
     volumes:
       - /opt/govgenai/cloudsql:/cloudsql:ro
     depends_on:
