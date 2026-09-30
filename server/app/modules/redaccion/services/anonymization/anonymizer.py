@@ -109,6 +109,42 @@ class AnonymizationAuditEvent:
     source_description: str = ""
 
 
+#: Etiquetas de campo de formulario. **No sirven para detectar: sirven para saber dónde acaba
+#: el valor del campo anterior** (issue #193).
+#:
+#: El defecto que arreglan: los anclajes capturaban «una palabra capitalizada y opcionalmente
+#: una segunda», y en un formulario de una línea esa segunda palabra es la etiqueta siguiente.
+#: «Nombre: Luis Apellidos: Pérez Martínez» hacía que el ancla de nombre abarcara
+#: `«Luis Apellidos»`, y como el ancla se sustituye entera, el rótulo desaparecía: la salida era
+#: `«Nombre: Manuela: Cantón»`. En un formulario, el rótulo es la estructura del documento y no
+#: contenido personal.
+#:
+#: **Van aquí y no dentro de cada patrón** porque son las mismas para los tres, y arreglar un
+#: patrón sería arreglar el ejemplo en vez del defecto.
+#:
+#: Sólo hacen falta las que un ojo humano leería como etiqueta **y** encajan en
+#: `[A-Z][a-z]+`: `DNI` o `NIF` van en mayúsculas y el patrón del valor no las toma nunca.
+ETIQUETAS_DE_FORMULARIO: tuple[str, ...] = (
+    # Las de los propios anclajes: son las que aparecen juntas en un formulario.
+    "Nombre", "Nom", "Apellidos", "Apellido", "Cognoms", "Cognom", "Surname",
+    "Titular", "Solicitante", "Interesado", "Firmante", "Contacto", "Representante",
+    # Y el resto de campos con los que conviven en la misma línea.
+    "Correo", "Email", "Teléfono", "Telefono", "Telèfon", "Fax",
+    "Dirección", "Direccion", "Adreça", "Domicilio", "Localidad", "Municipio",
+    "Provincia", "Código", "Codigo", "Fecha", "Data", "Cargo", "Puesto",
+    "Empresa", "Entidad", "Unidad", "Servicio", "Departamento", "Observaciones",
+    "Expediente", "Referencia", "Asunto", "Motivo", "Importe", "Cuantía", "Cuantia",
+)
+
+#: El *lookahead* que corta el valor. Se compone una vez y se interpola en los tres patrones.
+_NO_ES_ETIQUETA = r"(?!(?:" + "|".join(ETIQUETAS_DE_FORMULARIO) + r")\b)"
+
+#: Una palabra capitalizada que **no** sea una etiqueta de formulario.
+_PALABRA = (
+    _NO_ES_ETIQUETA + r"[A-ZÁÉÍÓÚÑÀÈÌÒÙÇ][a-záéíóúñàèìòùç]+"
+)
+
+
 class AnonymizationContext:
     """Motor de anonimización híbrido: regex + spaCy NER + anclajes de formulario.
 
@@ -149,21 +185,27 @@ class AnonymizationContext:
         "orientada", "carácter", "caracter", "multidisciplinar", "interdisciplinar",
     })
 
+    #: El valor de cada ancla se corta ante una **etiqueta de formulario** (issue #193): la
+    #: primera palabra puede serlo —es el valor que la etiqueta anterior introduce— pero las
+    #: siguientes no, porque ahí empieza el campo de al lado.
+    #:
+    #: Y siguen admitiendo dos palabras (cinco en el nombre completo) cuando la segunda no es
+    #: una etiqueta: «Nombre: Luis Manuel» es exactamente para lo que estaban.
     ANCHOR_PATTERNS: dict[str, str] = {
         "ANCHOR_FIRSTNAME": (
             r"(?i)(Nombre|Nom|First\s*Name|Nombre\s*de\s*pila)"
             r"\s*[:=]?\s*"
-            r"([A-ZÁÉÍÓÚÑÀÈÌÒÙÇ][a-záéíóúñàèìòùç]+(?:\s+[A-ZÁÉÍÓÚÑÀÈÌÒÙÇ][a-záéíóúñàèìòùç]+)?)"
+            r"([A-ZÁÉÍÓÚÑÀÈÌÒÙÇ][a-záéíóúñàèìòùç]+(?:\s+" + _PALABRA + r")?)"
         ),
         "ANCHOR_LASTNAME": (
             r"(?i)(Apellidos?|Cognoms?|Surname|Last\s*Name|Primer\s*Apellido|Segundo\s*Apellido)"
             r"\s*[:=]?\s*"
-            r"([A-ZÁÉÍÓÚÑÀÈÌÒÙÇ][a-záéíóúñàèìòùç]+(?:\s+[A-ZÁÉÍÓÚÑÀÈÌÒÙÇ][a-záéíóúñàèìòùç]+)?)"
+            r"([A-ZÁÉÍÓÚÑÀÈÌÒÙÇ][a-záéíóúñàèìòùç]+(?:\s+" + _PALABRA + r")?)"
         ),
         "ANCHOR_FULLNAME": (
             r"(?i)(Representante\s*Legal|Contacto|Titular|Solicitante|Interesado|Firmante)"
             r"\s*[:=]?\s*"
-            r"([A-ZÁÉÍÓÚÑÀÈÌÒÙÇ][a-záéíóúñàèìòùç]+(?:\s+[A-ZÁÉÍÓÚÑÀÈÌÒÙÇ][a-záéíóúñàèìòùç]+){1,4})"
+            r"([A-ZÁÉÍÓÚÑÀÈÌÒÙÇ][a-záéíóúñàèìòùç]+(?:\s+" + _PALABRA + r"){1,4})"
         ),
     }
 

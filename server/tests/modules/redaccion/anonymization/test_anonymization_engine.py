@@ -94,12 +94,12 @@ def test_pii_detector_uses_form_anchors_for_field_context(
     un anonimizador que no tocara nada también podría dar un texto sin la palabra si el azar
     ayudaba. Lo que se comprueba ahora es lo que se quiere garantizar.
 
-    **Y al escribirlo apareció un defecto de verdad, que este test deja anotado y no arregla.**
-    El ancla de nombre abarca `«Luis Apellidos»` —se come la etiqueta del campo siguiente—, así
-    que la salida de este mismo caso es `«Nombre: Manuela: Cantón»`: el formulario anonimizado
-    pierde el rótulo «Apellidos» y queda estructuralmente roto. El `startswith` de abajo es
-    deliberado: afirma lo que hoy pasa, sin fingir que pasa lo correcto. Está en la issue #193,
-    y arreglarlo toca la detección de anclas, que no es este bloque.
+    **Y al escribirlo apareció un defecto de verdad**, que quedó anotado aquí unas horas: el
+    ancla de nombre abarcaba `«Luis Apellidos»` —se comía la etiqueta del campo siguiente— y la
+    salida de este mismo caso era `«Nombre: Manuela: Cantón»`, sin el rótulo «Apellidos».
+    Arreglado en la issue #193, con su propio fichero de tests; **por eso la igualdad de abajo
+    vuelve a ser una igualdad**. Mientras el defecto estuvo vivo fue un `startswith`, para
+    afirmar lo que pasaba sin fingir que pasaba lo correcto.
     """
     text = "Nombre: Luis Apellidos: Pérez Martínez"
     anonymized = ctx.anonymize(text)
@@ -112,7 +112,7 @@ def test_pii_detector_uses_form_anchors_for_field_context(
     # el trozo equivocado y ningún assert sobre el texto de salida lo vería.
     nombre = next(a for a in anchors if a["field_type"] == "firstname")
     apellidos = next(a for a in anchors if a["field_type"] == "lastname")
-    assert text[nombre["value_start"] : nombre["value_end"]].startswith("Luis")
+    assert text[nombre["value_start"] : nombre["value_end"]] == "Luis"
     assert text[apellidos["value_start"] : apellidos["value_end"]] == "Pérez Martínez"
 
     # Y algo se sustituyó de verdad: sin esto, un anonimizador que no tocara nada pasaría.
