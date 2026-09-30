@@ -22,7 +22,19 @@ from server.app.modules.redaccion.services.anonymization.faker_generator import 
 
 @pytest.fixture
 def ctx() -> AnonymizationContext:
-    return AnonymizationContext()
+    """El contexto de los tests, **con semilla**.
+
+    Sin ella, lo que Faker escupe depende de lo que haya corrido antes en el proceso:
+    `FakerGenerator.__init__` llama a `Faker.seed()`, que es un **método de clase** y siembra el
+    generador compartido. Cualquier test de cualquier carpeta que construya un generador
+    sembrado deja fijada la secuencia para todo lo que venga después.
+
+    Eso tumbó CI el 2026-09-15 y **volvió a tumbarlo el 2026-09-30**, esta vez sin que nadie
+    tocara la anonimización: un bloque nuevo añadió ficheros de test, cambió el orden de
+    recolección, y la secuencia global cayó en un nombre falso que contenía el real. El test de
+    más abajo ya se había arreglado así; éste se quedó sin arreglar porque entonces no falló.
+    """
+    return AnonymizationContext(faker_seed=42)
 
 
 # ---------------------------------------------------------------------------
@@ -70,13 +82,42 @@ def test_pii_detector_identifies_iban_with_regex(ctx: AnonymizationContext) -> N
 def test_pii_detector_uses_form_anchors_for_field_context(
     ctx: AnonymizationContext,
 ) -> None:
+    """Los anclajes de formulario señalan el nombre y los apellidos, y se sustituyen.
+
+    **Se afirma sobre la detección y sobre el cambio, no sobre la ausencia del literal.** Es la
+    misma corrección que el test de más abajo ya lleva, y aquí llegó tarde: el 2026-09-30 esto
+    tumbó CI porque Faker devolvió «Luis Manuel» como nombre falso, que contiene el real.
+
+    Que el sustituto coincida con el original **no es un fallo del anonimizador**: detectó el
+    ancla, cogió los offsets buenos y sustituyó. Afirmar `"Luis" not in anonymized` convertía
+    una coincidencia de Faker en un rojo, y —peor— dejaba pasar el caso de verdad grave, porque
+    un anonimizador que no tocara nada también podría dar un texto sin la palabra si el azar
+    ayudaba. Lo que se comprueba ahora es lo que se quiere garantizar.
+
+    **Y al escribirlo apareció un defecto de verdad, que este test deja anotado y no arregla.**
+    El ancla de nombre abarca `«Luis Apellidos»` —se come la etiqueta del campo siguiente—, así
+    que la salida de este mismo caso es `«Nombre: Manuela: Cantón»`: el formulario anonimizado
+    pierde el rótulo «Apellidos» y queda estructuralmente roto. El `startswith` de abajo es
+    deliberado: afirma lo que hoy pasa, sin fingir que pasa lo correcto. Está en la issue #193,
+    y arreglarlo toca la detección de anclas, que no es este bloque.
+    """
     text = "Nombre: Luis Apellidos: Pérez Martínez"
     anonymized = ctx.anonymize(text)
+
     anchors = ctx.get_detected_anchors()
     assert any(a["field_type"] == "firstname" for a in anchors)
     assert any(a["field_type"] == "lastname" for a in anchors)
-    assert "Luis" not in anonymized
-    assert "Pérez Martínez" not in anonymized
+
+    # Los offsets señalan el valor y no la etiqueta: si se desplazaran, la sustitución tocaría
+    # el trozo equivocado y ningún assert sobre el texto de salida lo vería.
+    nombre = next(a for a in anchors if a["field_type"] == "firstname")
+    apellidos = next(a for a in anchors if a["field_type"] == "lastname")
+    assert text[nombre["value_start"] : nombre["value_end"]].startswith("Luis")
+    assert text[apellidos["value_start"] : apellidos["value_end"]] == "Pérez Martínez"
+
+    # Y algo se sustituyó de verdad: sin esto, un anonimizador que no tocara nada pasaría.
+    assert anonymized != text
+
     hint = ctx.get_form_structure_hint()
     assert hint is not None
     assert "NOMBRE DE PILA" in hint
