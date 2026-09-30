@@ -14,11 +14,14 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import binascii
+import hashlib
 import json
 import os
 import subprocess
 import sys
 import tempfile
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal, Protocol
@@ -139,6 +142,118 @@ def _parse_extraction_json(data: dict, pipeline_id: str) -> ExtractionResult:
     )
 
 
+@dataclass(frozen=True)
+class ArtefactoEnBruto:
+    """Un fichero producido por un guion, **con su contenido**, tal como vuelve del sandbox.
+
+    Existe para no meter bytes en `Artefacto`, que es el contrato: ese viaja en las respuestas
+    de la API y en el manifiesto, y un campo de contenido ahí acabaría devolviendo un Excel
+    entero dentro de un JSON de metadatos. Aquí el contenido es de paso — el orquestador lo
+    guarda y se queda con la clave.
+    """
+
+    nombre: str
+    media_type: str
+    bytes: int
+    sha256: str
+    contenido: bytes
+
+
+def _parse_artefactos(data: dict) -> list[ArtefactoEnBruto]:
+    """Los artefactos del JSON del sandbox, con el hash **recomprobado aquí**.
+
+    El sandbox ya lo calcula, y se vuelve a calcular sobre lo que llega: es lo único que
+    distingue «este es el fichero que se produjo» de «este es el fichero que dijeron que se
+    produjo». Si no cuadra, el artefacto no pasa — con su aviso, que lo pone quien llama.
+    """
+    salida: list[ArtefactoEnBruto] = []
+    for bruto in data.get("artefactos", []) or []:
+        try:
+            contenido = base64.b64decode(bruto.get("contenido_b64", ""), validate=True)
+        except (ValueError, binascii.Error):
+            continue
+        real = hashlib.sha256(contenido).hexdigest()
+        if real != bruto.get("sha256"):
+            continue
+        salida.append(
+            ArtefactoEnBruto(
+                nombre=bruto.get("nombre", ""),
+                media_type=bruto.get("media_type") or "application/octet-stream",
+                bytes=len(contenido),
+                sha256=real,
+                contenido=contenido,
+            )
+        )
+    return salida
+
+
+def _artefactos_del_directorio(
+    directorio: Path,
+    resultado: ExtractionResult,
+    *,
+    maximo: int,
+    maximo_bytes: int,
+) -> tuple[ExtractionResult, list[ArtefactoEnBruto]]:
+    """Recoge los ficheros del directorio de salida en modo local, con sus topes.
+
+    Pasarse **no recorta**: se devuelve el resultado con un aviso de error y ningún artefacto.
+    Entregar tres de los cinco que se escribieron sería un resultado parcial con aspecto de
+    completo.
+    """
+    import mimetypes
+
+    def con_aviso(code: str, mensaje: str) -> tuple[ExtractionResult, list[ArtefactoEnBruto]]:
+        return (
+            resultado.model_copy(
+                update={
+                    "warnings": [
+                        *resultado.warnings,
+                        ExtractionWarning(code=code, message=mensaje, severity="error"),
+                    ]
+                }
+            ),
+            [],
+        )
+
+    entradas = sorted(directorio.iterdir(), key=lambda p: p.name)
+    if any(p.is_dir() for p in entradas):
+        return con_aviso(
+            "ARTEFACTOS_EN_SUBDIRECTORIO",
+            "sólo son artefactos los ficheros que quedan directamente en `output_dir`.",
+        )
+
+    ficheros = [p for p in entradas if p.is_file()]
+    if not ficheros:
+        return resultado, []
+
+    if len(ficheros) > maximo:
+        return con_aviso(
+            "ARTEFACTOS_DE_MAS",
+            f"el guion produjo {len(ficheros)} ficheros y el contrato declara {maximo}.",
+        )
+
+    total = sum(p.stat().st_size for p in ficheros)
+    if total > maximo_bytes:
+        return con_aviso(
+            "ARTEFACTOS_DEMASIADO_GRANDES",
+            f"los ficheros pesan {total} bytes y el contrato declara {maximo_bytes}.",
+        )
+
+    brutos = []
+    for p in ficheros:
+        contenido = p.read_bytes()
+        brutos.append(
+            ArtefactoEnBruto(
+                nombre=p.name,
+                media_type=mimetypes.guess_type(p.name)[0] or "application/octet-stream",
+                bytes=len(contenido),
+                sha256=hashlib.sha256(contenido).hexdigest(),
+                contenido=contenido,
+            )
+        )
+    return resultado, brutos
+
+
 def _extraction_with_warning(code: str, message: str, pipeline_id: str) -> ExtractionResult:
     return ExtractionResult(
         warnings=[ExtractionWarning(code=code, message=message, severity="error")],
@@ -182,6 +297,63 @@ class HttpSandboxClient:
         file_bytes: bytes | None = None,
         file_name: str = "",
     ) -> ExtractionResult:
+        resultado, _artefactos = await self._extraccion(
+            code=code,
+            file_path=file_path,
+            raw_text=raw_text,
+            options=options,
+            timeout_seconds=timeout_seconds,
+            file_bytes=file_bytes,
+            file_name=file_name,
+        )
+        return resultado
+
+    async def execute_extraction_con_artefactos(
+        self,
+        *,
+        code: str,
+        file_path: str | None,
+        raw_text: str | None,
+        options: dict[str, Any],
+        timeout_seconds: int | None = None,
+        file_bytes: bytes | None = None,
+        file_name: str = "",
+        artefactos_maximo: int,
+        artefactos_maximo_bytes: int,
+    ) -> tuple[ExtractionResult, list[ArtefactoEnBruto]]:
+        """Como `execute_extraction_script`, y además los ficheros que el guion produjo (AUT.7).
+
+        **Es un método aparte y no un parámetro del otro** por una razón concreta: la firma de
+        `execute_extraction_script` la implementan varios dobles de test y la consume media
+        aplicación. Quien no produce ficheros sigue llamando a la de siempre y no se entera de
+        que esto existe, que es lo que hace el cambio retrocompatible de verdad y no sólo sobre
+        el papel.
+        """
+        return await self._extraccion(
+            code=code,
+            file_path=file_path,
+            raw_text=raw_text,
+            options=options,
+            timeout_seconds=timeout_seconds,
+            file_bytes=file_bytes,
+            file_name=file_name,
+            artefactos_maximo=artefactos_maximo,
+            artefactos_maximo_bytes=artefactos_maximo_bytes,
+        )
+
+    async def _extraccion(
+        self,
+        *,
+        code: str,
+        file_path: str | None,
+        raw_text: str | None,
+        options: dict[str, Any],
+        timeout_seconds: int | None = None,
+        file_bytes: bytes | None = None,
+        file_name: str = "",
+        artefactos_maximo: int = 0,
+        artefactos_maximo_bytes: int = 0,
+    ) -> tuple[ExtractionResult, list[ArtefactoEnBruto]]:
         t = timeout_seconds or self._default_timeout
         payload = {
             "code": code,
@@ -193,11 +365,56 @@ class HttpSandboxClient:
                 base64.b64encode(file_bytes).decode("ascii") if file_bytes else ""
             ),
             "file_name": file_name,
+            "artefactos_maximo": artefactos_maximo,
+            "artefactos_maximo_bytes": artefactos_maximo_bytes,
         }
         resp = await self._post_with_retry("/execute-extraction", payload, script_timeout=t)
 
         if resp.status_code == 200:
-            return _parse_extraction_json(resp.json(), self._PIPELINE_ID)
+            cuerpo = resp.json()
+            resultado = _parse_extraction_json(cuerpo, self._PIPELINE_ID)
+            brutos = _parse_artefactos(cuerpo)
+            descartados = int(cuerpo.get("artefactos_descartados") or 0)
+            if descartados:
+                # El guion escribió ficheros que nadie espera. **Se dice**, porque quien lo
+                # escribió cree que se están entregando: es un aviso, no un fallo, porque el
+                # resto del resultado es bueno.
+                resultado = resultado.model_copy(
+                    update={
+                        "warnings": [
+                            *resultado.warnings,
+                            ExtractionWarning(
+                                code="ARTEFACTOS_NO_DECLARADOS",
+                                message=(
+                                    f"el guion escribió {descartados} fichero(s) y esta función "
+                                    "no declara artefactos de salida, así que se han "
+                                    "descartado. Declara `artefactos` en el contrato."
+                                ),
+                                severity="warning",
+                            ),
+                        ]
+                    }
+                )
+            perdidos = len(cuerpo.get("artefactos") or []) - len(brutos)
+            if perdidos > 0:
+                # Llegó un artefacto cuyo hash no cuadra con su contenido. No se entrega y no
+                # se calla: es la única señal de que algo lo alteró por el camino.
+                resultado = resultado.model_copy(
+                    update={
+                        "warnings": [
+                            *resultado.warnings,
+                            ExtractionWarning(
+                                code="ARTEFACTO_CON_HASH_QUE_NO_CUADRA",
+                                message=(
+                                    f"{perdidos} fichero(s) no se entregan: el hash recibido no "
+                                    "coincide con el contenido recibido."
+                                ),
+                                severity="error",
+                            ),
+                        ]
+                    }
+                )
+            return resultado, brutos
 
         body = resp.json()
         error_code: str = body.get("code", "UNKNOWN")
@@ -205,23 +422,37 @@ class HttpSandboxClient:
         if resp.status_code == 422 and error_code == "SCRIPT_AUDIT_FAILED":
             findings = body.get("findings", [])
             msg = "; ".join(findings)[:500]
-            return _extraction_with_warning("SCRIPT_SECURITY_VIOLATION", msg, self._PIPELINE_ID)
+            return (
+                _extraction_with_warning("SCRIPT_SECURITY_VIOLATION", msg, self._PIPELINE_ID),
+                [],
+            )
 
         if resp.status_code == 422:
-            return _extraction_with_warning(error_code, body.get("message", ""), self._PIPELINE_ID)
+            return (
+                _extraction_with_warning(
+                    error_code, body.get("message", ""), self._PIPELINE_ID
+                ),
+                [],
+            )
 
         if resp.status_code == 504:
-            return _extraction_with_warning(
-                "SCRIPT_TIMEOUT",
-                f"El script excedió el tiempo límite de {t}s.",
-                self._PIPELINE_ID,
+            return (
+                _extraction_with_warning(
+                    "SCRIPT_TIMEOUT",
+                    f"El script excedió el tiempo límite de {t}s.",
+                    self._PIPELINE_ID,
+                ),
+                [],
             )
 
         # 500 SCRIPT_EXECUTION_ERROR
-        return _extraction_with_warning(
-            "SCRIPT_EXECUTION_ERROR",
-            body.get("stderr_truncated", resp.text[:500]),
-            self._PIPELINE_ID,
+        return (
+            _extraction_with_warning(
+                "SCRIPT_EXECUTION_ERROR",
+                body.get("stderr_truncated", resp.text[:500]),
+                self._PIPELINE_ID,
+            ),
+            [],
         )
 
     async def execute_chart_script(
@@ -337,7 +568,11 @@ class LocalSandboxClient:
                 destino.write_bytes(file_bytes)
                 ruta = str(destino)
 
-            wrapper = _build_local_extraction_wrapper(code, ruta, raw_text or "", options)
+            salida = Path(tmpdir) / "salida"
+            salida.mkdir()
+            wrapper = _build_local_extraction_wrapper(
+                code, ruta, raw_text or "", options, str(salida)
+            )
 
             try:
                 sub = await asyncio.to_thread(_run_sync, wrapper, timeout)
@@ -347,6 +582,71 @@ class LocalSandboxClient:
                 )
 
             return _resultado_local(sub, self._PIPELINE_ID)
+
+    async def execute_extraction_con_artefactos(
+        self,
+        *,
+        code: str,
+        file_path: str | None,
+        raw_text: str | None,
+        options: dict[str, Any],
+        timeout_seconds: int | None = None,
+        file_bytes: bytes | None = None,
+        file_name: str = "",
+        artefactos_maximo: int,
+        artefactos_maximo_bytes: int,
+    ) -> tuple[ExtractionResult, list[ArtefactoEnBruto]]:
+        """El mismo camino en modo local (AUT.7).
+
+        **Los topes se comprueban igual aquí.** Este modo es de desarrollo y de tests, y la
+        tentación es dejarlos para producción «porque el de verdad ya los comprueba»: entonces
+        un guion que se pasa del tope pasa en verde en los tests y falla al desplegarlo, que es
+        el orden equivocado de descubrirlo.
+        """
+        if not code or not code.strip():
+            return (
+                _extraction_with_warning(
+                    "SCRIPT_EMPTY", "El código de script está vacío.", self._PIPELINE_ID
+                ),
+                [],
+            )
+
+        timeout = timeout_seconds or 30
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            ruta = file_path or ""
+            if file_bytes is not None:
+                destino = Path(tmpdir) / (Path(file_name or "entrada.bin").name or "entrada.bin")
+                destino.write_bytes(file_bytes)
+                ruta = str(destino)
+
+            salida = Path(tmpdir) / "salida"
+            salida.mkdir()
+            wrapper = _build_local_extraction_wrapper(
+                code, ruta, raw_text or "", options, str(salida)
+            )
+
+            try:
+                sub = await asyncio.to_thread(_run_sync, wrapper, timeout)
+            except TimeoutError:
+                return (
+                    _extraction_with_warning(
+                        "SCRIPT_TIMEOUT", f"Timeout tras {timeout}s.", self._PIPELINE_ID
+                    ),
+                    [],
+                )
+
+            resultado = _resultado_local(sub, self._PIPELINE_ID)
+            if any(w.severity == "error" for w in resultado.warnings):
+                # El guion falló: lo que haya dejado a medio escribir no se entrega.
+                return resultado, []
+
+            return _artefactos_del_directorio(
+                salida,
+                resultado,
+                maximo=artefactos_maximo,
+                maximo_bytes=artefactos_maximo_bytes,
+            )
 
     async def execute_chart_script(
         self,
@@ -443,8 +743,14 @@ def _resultado_local(sub: dict, pipeline_id: str) -> ExtractionResult:
 
 
 def _build_local_extraction_wrapper(
-    code: str, file_path: str, raw_text: str, options: dict
+    code: str, file_path: str, raw_text: str, options: dict, output_dir: str = ""
 ) -> str:
+    """El wrapper del modo local. **Tiene que declarar lo mismo que el del sandbox.**
+
+    Si aquí faltara `output_dir`, un guion que produce ficheros funcionaría en producción y
+    daría `NameError` en desarrollo y en los tests — o al revés, que es peor. Los dos wrappers
+    son el mismo protocolo escrito dos veces, y un guardarraíl comprueba que no divergen.
+    """
     return f"""\
 import sys, json, math, re, datetime, collections, typing, io
 try:
@@ -454,6 +760,7 @@ except ImportError:
 file_path = {file_path!r}
 raw_text = {raw_text!r}
 options = {options!r}
+output_dir = {output_dir!r}
 # --- script de usuario ---
 {code}
 # --- fin script de usuario ---

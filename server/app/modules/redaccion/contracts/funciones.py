@@ -104,6 +104,38 @@ class ParametroDeFuncion(UIFieldDescriptor):
         return self
 
 
+#: Techo de la retención de artefactos, en días. **Lo pone la plataforma, no quien declara.**
+#:
+#: Sin techo, «la retención se declara» sería «la retención se elige», y el primer contrato que
+#: quisiera guardar un año lo guardaría. Treinta días cubre el caso real —producir un fichero,
+#: descargarlo y volver a por él si se perdió— sin convertir el almacenamiento en un archivo de
+#: documentos ajenos que nadie decidió crear.
+#:
+#: **No es la política de retención de la plataforma**, que no existe (issue #162). Es el tramo
+#: estrecho que AUT.7 necesitaba para no dejar el silencio significando «para siempre».
+RETENCION_MAXIMA_DIAS = 30
+
+
+class ArtefactosDeSalida(BaseModel):
+    """Que esta función produce ficheros, cuántos y por cuánto tiempo se guardan (AUT.7).
+
+    **Los topes van en el contrato y no en una constante del servidor.** Una función que saca un
+    Excel de 200 KB y otra que saca cincuenta PDF no pueden compartir un número inventado a
+    medias entre las dos; y el tope declarado es además lo que la revisión posterior puede leer
+    para saber qué se autorizó.
+    """
+
+    model_config = {"extra": "forbid"}
+
+    #: Cuántos ficheros como máximo. **Al menos uno**: declarar «produzco hasta cero» sería una
+    #: segunda forma de decir «no produzco», y entonces el código tendría que tratar las dos.
+    maximo: int = Field(ge=1, le=100)
+    maximo_bytes: int = Field(ge=1, le=100_000_000)
+    #: Días que se conservan. **Sin defecto a propósito**: es la decisión que la issue dejaba
+    #: anotada, y un defecto aquí la tomaría en silencio.
+    retencion_dias: int = Field(ge=1, le=RETENCION_MAXIMA_DIAS)
+
+
 class ContratoFuncion(BaseModel):
     """Lo que una función pide, lo que devuelve y lo que declara.
 
@@ -119,6 +151,11 @@ class ContratoFuncion(BaseModel):
     #: La salida es siempre el esquema que ya consumen los nodos. Se declara para que el
     #: contrato sea legible por sí solo, no para poder cambiarla.
     salida: Literal["ExtractionResult"] = "ExtractionResult"
+    #: AUT.7 — **nulo significa «esta función no produce ficheros»**, y es el defecto. Las
+    #: funciones que ya existen no ganan una capacidad sin pedirla, y una que no lo declara no
+    #: puede producirlos: sin eso el tope sería un consejo y cualquier guion escribiría lo que
+    #: quisiera en el directorio de salida.
+    artefactos: ArtefactosDeSalida | None = None
 
     # ── Declaración responsable (Instrucció §8.2) ──
     finalidad: str = Field(min_length=1)

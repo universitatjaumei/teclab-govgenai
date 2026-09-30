@@ -18,7 +18,9 @@ from __future__ import annotations
 
 import base64
 import binascii
+import hashlib
 import json
+import mimetypes
 import os
 import sys
 import tempfile
@@ -114,11 +116,81 @@ def execute_extraction(req: ExecuteExtractionRequest):
             destino.write_bytes(contenido)
             ruta_del_fichero = str(destino)
 
-        return _ejecutar_extraccion(req, ruta_del_fichero)
+        # AUT.7 — el sitio donde el guion puede dejar ficheros. Va **dentro** del temporal de
+        # esta ejecución, así que se borra al salir del `with`: si persistiera, la siguiente
+        # ejecución entregaría los ficheros de la anterior, que es como un directorio de trabajo
+        # se convierte en una fuga entre organizaciones.
+        #
+        # Se crea siempre, aunque no se esperen artefactos: el guion referencia `output_dir` y
+        # un directorio que no existe le daría un fallo de escritura en vez de un descarte con
+        # su aviso.
+        salida = Path(tmpdir) / "salida"
+        salida.mkdir()
+
+        return _ejecutar_extraccion(req, ruta_del_fichero, salida)
 
 
-def _ejecutar_extraccion(req: ExecuteExtractionRequest, file_path: str):
-    wrapper_code = build_extraction_wrapper(req.code, file_path, req.raw_text, req.options)
+def _recoger_artefactos(directorio: Path, req: ExecuteExtractionRequest):
+    """Los ficheros que el guion dejó, o el error de tope. Devuelve `(lista, descartados, err)`.
+
+    **Pasarse falla en alto y no recorta.** Entregar tres de los cinco ficheros que se
+    escribieron sería un resultado parcial con aspecto de completo, y quien lo recibe no tiene
+    cómo notarlo.
+    """
+    entradas = sorted(directorio.iterdir(), key=lambda p: p.name)
+    if any(p.is_dir() for p in entradas):
+        return [], 0, _err(
+            422,
+            "ARTEFACTOS_EN_SUBDIRECTORIO",
+            detalle=(
+                "sólo son artefactos los ficheros que quedan directamente en `output_dir`. "
+                "Escribe ahí, sin crear subdirectorios: el nombre del artefacto no puede "
+                "llevar ruta."
+            ),
+        )
+
+    ficheros = [p for p in entradas if p.is_file()]
+
+    if req.artefactos_maximo <= 0:
+        # No se declararon: se descartan, **y se cuenta cuántos**.
+        return [], len(ficheros), None
+
+    if len(ficheros) > req.artefactos_maximo:
+        return [], 0, _err(
+            422,
+            "ARTEFACTOS_DE_MAS",
+            producidos=len(ficheros),
+            maximo=req.artefactos_maximo,
+        )
+
+    total = sum(p.stat().st_size for p in ficheros)
+    if total > req.artefactos_maximo_bytes:
+        return [], 0, _err(
+            422,
+            "ARTEFACTOS_DEMASIADO_GRANDES",
+            bytes=total,
+            maximo_bytes=req.artefactos_maximo_bytes,
+        )
+
+    producidos = []
+    for p in ficheros:
+        contenido = p.read_bytes()
+        producidos.append(
+            {
+                "nombre": p.name,
+                "media_type": mimetypes.guess_type(p.name)[0] or "application/octet-stream",
+                "bytes": len(contenido),
+                "sha256": hashlib.sha256(contenido).hexdigest(),
+                "contenido_b64": base64.b64encode(contenido).decode("ascii"),
+            }
+        )
+    return producidos, 0, None
+
+
+def _ejecutar_extraccion(req: ExecuteExtractionRequest, file_path: str, output_dir: Path):
+    wrapper_code = build_extraction_wrapper(
+        req.code, file_path, req.raw_text, req.options, str(output_dir)
+    )
     wrapper_path = _write_script(wrapper_code)
     try:
         try:
@@ -141,6 +213,13 @@ def _ejecutar_extraccion(req: ExecuteExtractionRequest, file_path: str):
         except (json.JSONDecodeError, ValueError):
             data = {}
 
+        # Se recogen **después** de comprobar el código de salida: un guion que revienta a mitad
+        # puede haber dejado un fichero a medio escribir, y entregarlo sería peor que no
+        # entregar nada.
+        artefactos, descartados, err = _recoger_artefactos(output_dir, req)
+        if err is not None:
+            return err
+
         return JSONResponse(
             status_code=200,
             content={
@@ -150,6 +229,8 @@ def _ejecutar_extraccion(req: ExecuteExtractionRequest, file_path: str):
                     "free_text": data.get("free_text"),
                 },
                 "stdout_truncated": result.stdout_truncated,
+                "artefactos": artefactos,
+                "artefactos_descartados": descartados,
             },
         )
     finally:

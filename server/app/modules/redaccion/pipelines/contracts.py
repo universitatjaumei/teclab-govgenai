@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal, Protocol, runtime_checkable
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # ---------------------------------------------------------------------------
@@ -137,6 +137,47 @@ class ExtractionProvenance(BaseModel):
 # Resultado agregado
 # ---------------------------------------------------------------------------
 
+class Artefacto(BaseModel):
+    """Un fichero que una función ha producido (AUT.7, issue #117).
+
+    Las tareas reales de una unidad no acaban en cifras: acaban en un Excel que alguien manda, un
+    Word maquetado o un CSV limpio. Mientras la salida fueran sólo cifras, esas tareas se
+    quedaban fuera del catálogo — y fuera del catálogo es sin declaración, sin auditoría, sin
+    versionado y sin registro.
+
+    **El hash no es adorno.** Es lo que permite decir meses después si el fichero que alguien
+    tiene es el que salió de aquí; va también al manifiesto de la ejecución. Un artefacto sin
+    hash es un adjunto sin procedencia, y entonces no se puede auditar lo que se entregó.
+    """
+
+    #: El nombre que propone el guion, así que es **entrada no confiable**. Sin ruta: ni
+    #: separadores, ni `..`, ni unidad de Windows. Se comprueba aquí y no sólo donde se sirve la
+    #: descarga, porque esa no va a ser la única capa que use este campo.
+    nombre: str = Field(min_length=1, max_length=200)
+    media_type: str = Field(min_length=1, max_length=120)
+    bytes: int = Field(ge=0)
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    #: Dónde quedó guardado, en el almacenamiento de la organización. Lo rellena el
+    #: orquestador —no el guion—, y por eso es opcional en el contrato: lo que el sandbox
+    #: devuelve todavía no está guardado en ninguna parte.
+    storage_key: str | None = None
+
+    @field_validator("nombre")
+    @classmethod
+    def _sin_ruta(cls, valor: str) -> str:
+        from pathlib import PurePosixPath, PureWindowsPath
+
+        if valor != PurePosixPath(valor).name or valor != PureWindowsPath(valor).name:
+            raise ValueError(
+                f"«{valor}» lleva ruta, y el nombre de un artefacto es sólo el nombre del "
+                "fichero: lo propone el guion de usuario, así que una ruta relativa aquí es "
+                "una escritura fuera del directorio de salida"
+            )
+        if valor in (".", ".."):
+            raise ValueError("«.» y «..» no son nombres de fichero")
+        return valor
+
+
 class ExtractionResult(BaseModel):
     """Resultado completo de la ejecución de un ExtractionPipeline."""
 
@@ -146,6 +187,9 @@ class ExtractionResult(BaseModel):
     warnings: list[ExtractionWarning] = Field(default_factory=list)
     provenance: ExtractionProvenance
     document: ExtractedDocument | None = None
+    #: AUT.7 — los ficheros producidos. **Lista vacía por omisión**, así que todo lo que ya
+    #: devuelve cifras sigue valiendo sin tocarlo.
+    artefactos: list[Artefacto] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
