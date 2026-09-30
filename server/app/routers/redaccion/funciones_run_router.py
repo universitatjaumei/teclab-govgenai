@@ -355,6 +355,7 @@ async def ejecutar_funcion_por_api(
                 contrato=contrato,
                 code=version.code or "",
                 ficheros=body.ficheros,
+                almacen=almacen,
                 contenidos=bajados,
                 parametros=body.parametros,
                 sandbox=sandbox,

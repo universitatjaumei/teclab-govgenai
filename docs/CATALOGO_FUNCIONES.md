@@ -530,6 +530,19 @@ Sigues asignando `result`, y sigues recibiendo `file_path`, `raw_text` y `option
 reescribir nada: cambiar el protocolo es lo que empuja a la gente a seguir trabajando por su
 cuenta, y es justo lo que el catálogo existe para evitar.
 
+Si la función pide **varios ficheros**, el primero sigue llegando como `file_path` y todos, el
+primero incluido, están en `options["ficheros"]` por su slot, **cada uno con su ruta real**:
+
+```python
+presupuesto = pandas.read_csv(options["ficheros"]["presupuesto"])
+clasificacion = pandas.read_csv(options["ficheros"]["clasificacion"])
+```
+
+Cada fichero conserva su nombre y su extensión (pandas elige el motor por ella), y va en su propia
+carpeta, así que dos slots con ficheros que se llamen igual no se pisan. Juntos, los documentos de
+entrada no pueden pasar de **64 MB**: el sandbox los guarda en un temporal de 128 MB que comparte
+con los ficheros que la función produzca. Pasarse se dice antes de ejecutar, con las dos cifras.
+
 ### La misma cosa, en código
 
 Si vas a integrar por API o a empaquetar una función (§7), el contrato que la pantalla rellena por
@@ -815,9 +828,6 @@ razonamiento completo está en §4.
 - **No se puede pedir una URL a mitad de ejecución.** Bajar una página, buscar enlaces dentro y
   bajar ésos son **dos rondas**: la primera devuelve los enlaces, la segunda los pide. Afecta al
   caso de las subvenciones nominativas.
-- **Sólo el primer slot puede venir de una URL**, porque es el único que el protocolo
-  materializa. Pedirlo para otro slot falla en alto en vez de aceptar la URL y no entregar el
-  fichero.
 - **Una función empaquetada no acepta `urls`**: corre en el proceso del servidor y se trae lo
   que necesita por su cuenta. Se rechaza en vez de ignorarlo.
 - **No se escribe nada hacia fuera.** Sólo `GET`, y sólo `http`/`https`.

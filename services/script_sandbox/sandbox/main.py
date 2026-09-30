@@ -127,7 +127,29 @@ def execute_extraction(req: ExecuteExtractionRequest):
         salida = Path(tmpdir) / "salida"
         salida.mkdir()
 
-        return _ejecutar_extraccion(req, ruta_del_fichero, salida)
+        # Issue #194 — los demás ficheros del contrato, cada uno en su sitio y con su nombre.
+        #
+        # Van a un subdirectorio **por slot** y no todos juntos: dos slots pueden traer ficheros
+        # que se llamen igual —`datos.csv` de dos fuentes distintas— y uno pisaría al otro sin
+        # que nada avisara.
+        entradas = Path(tmpdir) / "entradas"
+        rutas: dict[str, str] = {}
+        if req.file_slot and req.file_bytes_b64:
+            # El principal ya está escrito: su slot apunta ahí en vez de escribirlo otra vez.
+            rutas[req.file_slot] = ruta_del_fichero
+        for slot, fichero in (req.ficheros_b64 or {}).items():
+            try:
+                contenido = base64.b64decode(fichero.contenido_b64 or "", validate=True)
+            except (ValueError, binascii.Error):
+                return _err(422, "FILE_NOT_BASE64", slot=slot)
+            carpeta = entradas / _nombre_de_slot(slot)
+            carpeta.mkdir(parents=True, exist_ok=True)
+            nombre = Path(fichero.nombre or "entrada.bin").name or "entrada.bin"
+            destino = carpeta / nombre
+            destino.write_bytes(contenido)
+            rutas[slot] = str(destino)
+
+        return _ejecutar_extraccion(req, ruta_del_fichero, salida, rutas)
 
 
 def _recoger_artefactos(directorio: Path, req: ExecuteExtractionRequest):
@@ -187,9 +209,30 @@ def _recoger_artefactos(directorio: Path, req: ExecuteExtractionRequest):
     return producidos, 0, None
 
 
-def _ejecutar_extraccion(req: ExecuteExtractionRequest, file_path: str, output_dir: Path):
+def _nombre_de_slot(slot: str) -> str:
+    """El slot como nombre de carpeta, sin dejar que se salga de `entradas/`.
+
+    El slot lo declara el contrato de la función, así que no es entrada de cualquiera — pero un
+    `../` aquí escribiría fuera del temporal, y comprobarlo cuesta una línea.
+    """
+    limpio = "".join(c for c in slot if c.isalnum() or c in "-_")
+    return limpio or "slot"
+
+
+def _ejecutar_extraccion(
+    req: ExecuteExtractionRequest,
+    file_path: str,
+    output_dir: Path,
+    rutas_de_entrada: dict[str, str] | None = None,
+):
+    # Las rutas reales sustituyen a lo que viniera en `options["ficheros"]`, que eran
+    # referencias de almacenamiento inservibles aquí dentro (issue #194).
+    options = dict(req.options or {})
+    if rutas_de_entrada:
+        options["ficheros"] = rutas_de_entrada
+
     wrapper_code = build_extraction_wrapper(
-        req.code, file_path, req.raw_text, req.options, str(output_dir)
+        req.code, file_path, req.raw_text, options, str(output_dir)
     )
     wrapper_path = _write_script(wrapper_code)
     try:

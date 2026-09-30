@@ -61,6 +61,8 @@ class SandboxClient(Protocol):
         timeout_seconds: int | None = None,
         file_bytes: bytes | None = None,
         file_name: str = "",
+        ficheros_con_contenido: dict[str, tuple[str, bytes]] | None = None,
+        file_slot: str = "",
     ) -> ExtractionResult:
         """Ejecuta un script de extracción y devuelve ExtractionResult.
 
@@ -296,6 +298,8 @@ class HttpSandboxClient:
         timeout_seconds: int | None = None,
         file_bytes: bytes | None = None,
         file_name: str = "",
+        ficheros_con_contenido: dict[str, tuple[str, bytes]] | None = None,
+        file_slot: str = "",
     ) -> ExtractionResult:
         resultado, _artefactos = await self._extraccion(
             code=code,
@@ -305,6 +309,8 @@ class HttpSandboxClient:
             timeout_seconds=timeout_seconds,
             file_bytes=file_bytes,
             file_name=file_name,
+            ficheros_con_contenido=ficheros_con_contenido,
+            file_slot=file_slot,
         )
         return resultado
 
@@ -318,6 +324,8 @@ class HttpSandboxClient:
         timeout_seconds: int | None = None,
         file_bytes: bytes | None = None,
         file_name: str = "",
+        ficheros_con_contenido: dict[str, tuple[str, bytes]] | None = None,
+        file_slot: str = "",
         artefactos_maximo: int,
         artefactos_maximo_bytes: int,
     ) -> tuple[ExtractionResult, list[ArtefactoEnBruto]]:
@@ -337,6 +345,8 @@ class HttpSandboxClient:
             timeout_seconds=timeout_seconds,
             file_bytes=file_bytes,
             file_name=file_name,
+            ficheros_con_contenido=ficheros_con_contenido,
+            file_slot=file_slot,
             artefactos_maximo=artefactos_maximo,
             artefactos_maximo_bytes=artefactos_maximo_bytes,
         )
@@ -351,6 +361,8 @@ class HttpSandboxClient:
         timeout_seconds: int | None = None,
         file_bytes: bytes | None = None,
         file_name: str = "",
+        ficheros_con_contenido: dict[str, tuple[str, bytes]] | None = None,
+        file_slot: str = "",
         artefactos_maximo: int = 0,
         artefactos_maximo_bytes: int = 0,
     ) -> tuple[ExtractionResult, list[ArtefactoEnBruto]]:
@@ -365,6 +377,17 @@ class HttpSandboxClient:
                 base64.b64encode(file_bytes).decode("ascii") if file_bytes else ""
             ),
             "file_name": file_name,
+            # Issue #194 — de qué slot es el fichero principal, para que el sandbox ponga su
+            # ruta en `options["ficheros"]` sin que el contenido viaje dos veces.
+            "file_slot": file_slot,
+            # Y los demás slots, con su contenido y su nombre.
+            "ficheros_b64": {
+                slot: {
+                    "nombre": nombre,
+                    "contenido_b64": base64.b64encode(datos).decode("ascii"),
+                }
+                for slot, (nombre, datos) in (ficheros_con_contenido or {}).items()
+            },
             "artefactos_maximo": artefactos_maximo,
             "artefactos_maximo_bytes": artefactos_maximo_bytes,
         }
@@ -551,6 +574,8 @@ class LocalSandboxClient:
         timeout_seconds: int | None = None,
         file_bytes: bytes | None = None,
         file_name: str = "",
+        ficheros_con_contenido: dict[str, tuple[str, bytes]] | None = None,
+        file_slot: str = "",
     ) -> ExtractionResult:
         if not code or not code.strip():
             return _extraction_with_warning(
@@ -570,8 +595,11 @@ class LocalSandboxClient:
 
             salida = Path(tmpdir) / "salida"
             salida.mkdir()
+            opciones = _con_las_rutas_de_entrada(
+                options, Path(tmpdir), ficheros_con_contenido, file_slot, ruta
+            )
             wrapper = _build_local_extraction_wrapper(
-                code, ruta, raw_text or "", options, str(salida)
+                code, ruta, raw_text or "", opciones, str(salida)
             )
 
             try:
@@ -593,6 +621,8 @@ class LocalSandboxClient:
         timeout_seconds: int | None = None,
         file_bytes: bytes | None = None,
         file_name: str = "",
+        ficheros_con_contenido: dict[str, tuple[str, bytes]] | None = None,
+        file_slot: str = "",
         artefactos_maximo: int,
         artefactos_maximo_bytes: int,
     ) -> tuple[ExtractionResult, list[ArtefactoEnBruto]]:
@@ -622,8 +652,11 @@ class LocalSandboxClient:
 
             salida = Path(tmpdir) / "salida"
             salida.mkdir()
+            opciones = _con_las_rutas_de_entrada(
+                options, Path(tmpdir), ficheros_con_contenido, file_slot, ruta
+            )
             wrapper = _build_local_extraction_wrapper(
-                code, ruta, raw_text or "", options, str(salida)
+                code, ruta, raw_text or "", opciones, str(salida)
             )
 
             try:
@@ -740,6 +773,41 @@ def _resultado_local(sub: dict, pipeline_id: str) -> ExtractionResult:
         data = {}
 
     return _parse_extraction_json({"result": data}, pipeline_id)
+
+
+def _con_las_rutas_de_entrada(
+    options: dict,
+    tmpdir: Path,
+    ficheros: dict[str, tuple[str, bytes]] | None,
+    file_slot: str = "",
+    ruta_principal: str = "",
+) -> dict:
+    """Materializa cada fichero de entrada y deja su **ruta real** en `options["ficheros"]`.
+
+    El modo local tiene que hacer lo mismo que el microservicio (issue #194). Si sólo lo hiciera
+    el de verdad, un guion con varios ficheros pasaría desplegado y fallaría en los tests — o al
+    revés, que es como este defecto llegó hasta aquí.
+
+    Cada uno en su subcarpeta por slot: dos slots pueden traer ficheros que se llamen igual, y
+    uno pisaría al otro sin que nada avisara. El principal ya está materializado como
+    `file_path`, y su slot apunta a esa misma ruta en vez de escribirlo otra vez.
+    """
+    rutas: dict[str, str] = {}
+    if file_slot and ruta_principal:
+        rutas[file_slot] = ruta_principal
+    if not ficheros and not rutas:
+        return options
+
+    entradas = tmpdir / "entradas"
+    for slot, (nombre, datos) in (ficheros or {}).items():
+        limpio = "".join(c for c in slot if c.isalnum() or c in "-_") or "slot"
+        carpeta = entradas / limpio
+        carpeta.mkdir(parents=True, exist_ok=True)
+        destino = carpeta / (Path(nombre or "entrada.bin").name or "entrada.bin")
+        destino.write_bytes(datos)
+        rutas[slot] = str(destino)
+
+    return {**options, "ficheros": rutas}
 
 
 def _build_local_extraction_wrapper(
