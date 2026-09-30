@@ -620,3 +620,63 @@ class HubWorkspaceAuditEvent(HubOperationalBase):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_now
     )
+
+
+class HubFuncionArtefacto(HubOperationalBase):
+    """Un fichero que una función produjo al ejecutarse (AUT.7, issue #117).
+
+    **Por qué hay tabla y no basta con el almacenamiento.** Tres cosas necesitan una fila:
+
+    * **Autorizar la descarga.** Un artefacto es el resultado de correr código sobre datos de una
+      organización. Sin `organizacion_id` aquí, autorizar significaría parsear la clave de
+      almacenamiento, y una autorización que sale de una cadena de texto se rompe el día que la
+      clave cambie de forma.
+    * **Hacer cumplir la retención.** `retencion_dias` se declara en el contrato; sin `expira_en`
+      guardado, la declaración no tendría nada detrás — y una promesa sin mecanismo es peor que
+      no prometer, porque alguien la cita.
+    * **Decir qué se entregó.** El `sha256` es lo que permite afirmar meses después que el
+      fichero que alguien tiene es el que salió de aquí.
+
+    **Es `DERIVADA` por `funcion_id`** en el inventario de multitenencia, y además lleva
+    `organizacion_id` propio: la función puede ser de plataforma —publicada a nivel 3— y el
+    fichero que produce **no lo es nunca**, porque lo produjo corriendo sobre datos de alguien.
+    """
+
+    __tablename__ = "hub_funcion_artefactos"
+    __ambito__ = declarar(Ambito.DERIVADA, via="funcion_id")
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    funcion_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("hub_funciones.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    #: Quién lo ejecutó. **Nulo sólo si el PAT no tiene organización**, que es el caso de
+    #: plataforma; no se hereda de la función a propósito — ver el docstring.
+    organizacion_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True, index=True
+    )
+    #: Agrupa los ficheros de **una misma ejecución**. Es lo que permite entregar los tres
+    #: ficheros de una corrida sin confundirlos con los de la anterior.
+    ejecucion_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), nullable=False, index=True
+    )
+    nombre: Mapped[str] = mapped_column(String(200), nullable=False)
+    media_type: Mapped[str] = mapped_column(String(120), nullable=False)
+    bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    #: Dónde está en `StorageService`. Lleva la ejecución dentro, así que dos corridas de la
+    #: misma función con el mismo nombre de fichero no se pisan.
+    storage_key: Mapped[str] = mapped_column(Text, nullable=False)
+    creado_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_now
+    )
+    #: Cuándo deja de servirse. Sale de `retencion_dias` del contrato, que es obligatorio y
+    #: tiene techo: ver `ArtefactosDeSalida`.
+    expira_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )

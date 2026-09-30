@@ -67,7 +67,7 @@ Tres cosas que este origen hace distintas, y las tres a propósito:
 | `version_paquete` | Solo en `paquete`: la versión semver instalada. |
 | `entorno_ejecucion` | Solo en `externa`: **dónde corre**. Es el dato que distingue el origen, porque la plataforma no lo ejecuta; sin él el registro no dice de qué responde nadie ni con qué credenciales se toca el dato. Texto libre: es una declaración, no una taxonomía que se pueda comprobar desde aquí. |
 | `contrato_entrada` | El `ContratoFuncion`: slots de fichero, parámetros y la declaración responsable. |
-| `contrato_salida` | Siempre `ExtractionResult`. No se inventa un segundo esquema, porque dos esquemas divergen. |
+| `contrato_salida` | Siempre `ExtractionResult`. No se inventa un segundo esquema, porque dos esquemas divergen. Desde AUT.7 puede llevar **artefactos**: los ficheros que la función produjo. |
 | `audit_result_json` | Lo que vio el auditor, **incluidos los avisos que no bloquearon**: es lo que la revisión posterior tiene que poder leer. |
 | `estado` | `draft` · `registrada` · `suspendida` · `retirada` · `no_instalada`. |
 | `autoria` | `ia` o `persona`. **No es una puerta**: nada se ramifica por este campo. Consta porque la revisión posterior quiere verlo. |
@@ -602,6 +602,112 @@ viven en la plataforma, así que la necesitas como dependencia de desarrollo. Cu
 segundo consumidor se moverán a un `govgenai-sdk` ligero, y no cambiará nada más: ni el grupo del
 *entry point*, ni la forma del descriptor, ni el anclaje. Está dicho aquí para que no lo
 descubras a mitad del primer intento.
+
+---
+
+## 7.bis. Producir ficheros, y no sólo cifras (AUT.7)
+
+Hasta aquí la salida de una función eran **cifras**: tablas, métricas y texto para un bloque de
+informe. Las tareas reales de una unidad no acaban así — acaban en un Excel que alguien manda, un
+Word maquetado o un CSV limpio. Mientras la salida fueran sólo cifras, esas tareas se quedaban
+fuera del catálogo, y fuera del catálogo es **sin declaración, sin auditoría, sin versionado y
+sin registro**.
+
+### Declararlo, que es lo primero
+
+**Una función que no lo declara no puede producir ficheros**, y ése es el defecto. Se declara en
+el contrato:
+
+```python
+ContratoFuncion(
+    slots=[...],
+    parametros=[...],
+    finalidad="Sacar el CSV limpio del presupuesto",
+    categorias_datos=["dades_pressupostaries"],
+    artefactos=ArtefactosDeSalida(
+        maximo=2,              # cuántos ficheros como máximo
+        maximo_bytes=5_000_000,  # cuánto pueden pesar entre todos
+        retencion_dias=7,      # cuánto se guardan; obligatorio, con techo de 30
+    ),
+)
+```
+
+Los topes **van en el contrato y no en una constante del servidor**: una función que saca un
+Excel de 200 KB y otra que saca cincuenta PDF no pueden compartir un número inventado a medias
+entre las dos. Y son además lo que la revisión posterior lee para saber qué se autorizó.
+
+### Escribirlos
+
+El guion recibe una variable más, `output_dir`, y escribe ahí:
+
+```python
+import pandas
+df = pandas.read_csv(file_path)
+df[df["importe"] > 0].to_csv(output_dir + "/limpio.csv", index=False)
+result = {"metrics": [{"name": "filas", "value": len(df)}]}
+```
+
+Tres cosas que conviene saber antes de intentarlo de otra forma:
+
+* **No hay manera de escribir a mano.** El auditor deniega `open`, así que un fichero se produce
+  a través de una librería —`to_csv`, `to_excel`, `doc.save(...)`—. No es una incomodidad: es lo
+  que mantiene acotado qué puede aparecer ahí.
+* **Sin subdirectorios.** Sólo son artefactos los ficheros que quedan directamente en
+  `output_dir`; el nombre de un artefacto no puede llevar ruta.
+* **El directorio no sobrevive a la ejecución.** Ni para ti ni para nadie: si persistiera, la
+  siguiente ejecución entregaría tus ficheros.
+
+### Qué pasa si te pasas del tope
+
+**Falla en alto y no recorta.** Entregar tres de los cinco ficheros que escribiste sería un
+resultado parcial con aspecto de completo, y quien lo recibe no tiene cómo notarlo. El error dice
+los dos números, el tuyo y el declarado.
+
+Y si escribes ficheros **sin haberlos declarado**, se descartan y se te dice cuántos: descartar
+en silencio te dejaría creyendo que tu Excel se entrega.
+
+### Recogerlos
+
+`POST /funciones/{id}/run` los devuelve **por referencia, no por contenido** — devolver el Excel
+en base64 dentro del JSON haría que una respuesta de metadatos pesara megabytes:
+
+```json
+{
+  "metrics": [{"name": "filas", "value": 128}],
+  "artefactos": [
+    {
+      "id": "7f3a…",
+      "nombre": "limpio.csv",
+      "media_type": "text/csv",
+      "bytes": 4096,
+      "sha256": "9130c489…",
+      "expira_en": "2026-10-07T09:12:00Z",
+      "descarga": "/api/v1/funciones/artefactos/7f3a…"
+    }
+  ]
+}
+```
+
+El `sha256` está para que compruebes lo que descargas. **Y `expira_en` está porque la referencia
+caduca**: sin esa fecha, quien guarda el enlace descubre la retención el día que le devuelve un
+404.
+
+La descarga usa **el mismo scope que ejecutar**, `funciones:execute`. No hay uno aparte porque no
+tendría sentido en ninguna de las dos direcciones: sin ejecutar no hay fichero, y ejecutar sin
+poder recogerlo no sirve de nada.
+
+### La retención, y lo que todavía no hace
+
+Pasado el plazo, **el fichero deja de servirse**: responde 404, igual que si no existiera o fuera
+de otra organización — distinguirlos contaría que ese fichero existe en otra organización.
+
+Hay además una función de barrido que lo borra de verdad del almacenamiento, porque dejar de
+servirlo no libera el sitio y el argumento de esto es de protección de datos. **Lo que no hay es
+un programador que la llame sola**: hoy se ejecuta a mano. Se dice aquí en vez de dejar que
+alguien lo suponga.
+
+Y esto **no es la política de retención de la plataforma**, que sigue sin existir. Es el tramo
+estrecho que hacía falta para que `retencion_dias` no fuera una promesa sin nada detrás.
 
 ---
 

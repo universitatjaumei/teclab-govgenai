@@ -29,7 +29,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from server.app.core.storage import StorageService, get_storage_service
 from pydantic import BaseModel, Field
@@ -52,7 +52,15 @@ from server.app.modules.redaccion.contracts.funciones import (
     EntradaNoCumpleElContrato,
 )
 from server.app.modules.redaccion.database.models import HubFuncion, HubFuncionVersion
-from server.app.modules.redaccion.funciones_service import ejecutar_funcion
+from server.app.modules.redaccion.funciones_artefactos import (
+    ArtefactoNoDisponible,
+    artefacto_para_descargar,
+    guardar_artefactos,
+)
+from server.app.modules.redaccion.funciones_service import (
+    artefactos_en_bruto,
+    ejecutar_funcion,
+)
 from server.app.routers.verificaciones_router import MAXIMO_BYTES
 
 router = APIRouter(
@@ -89,6 +97,27 @@ class EjecutarResponse(BaseModel):
     free_text: str | None = None
     warnings: list[dict[str, Any]] = Field(default_factory=list)
     funcion: dict[str, Any] = Field(default_factory=dict)
+    #: AUT.7 — los ficheros producidos, **por referencia y no por contenido**. Devolver el
+    #: Excel en base64 dentro de este JSON haría que una respuesta de metadatos pesara
+    #: megabytes, y quien integra suele querer las cifras sin el fichero.
+    artefactos: list["ArtefactoEnLaRespuesta"] = Field(default_factory=list)
+
+
+class ArtefactoEnLaRespuesta(BaseModel):
+    """Un fichero producido: qué es, cuánto pesa, y por dónde se baja.
+
+    Lleva `sha256` para que quien integra pueda comprobar lo que descarga, y `expira_en` porque
+    **la referencia caduca**: sin esa fecha, un consumidor que guarda el enlace descubre la
+    retención el día que le devuelve un 404.
+    """
+
+    id: uuid.UUID
+    nombre: str
+    media_type: str
+    bytes: int
+    sha256: str
+    expira_en: datetime
+    descarga: str
 
 
 async def _visible_para(
@@ -304,11 +333,40 @@ async def ejecutar_funcion_por_api(
     # guarda: el consumidor recibiría un 500 sobre una ejecución que ocurrió, reintentaría, y
     # quedarían dos eventos para un solo uso. Mismo defecto que en `funciones_router` (FUN.4) y
     # que en ocho endpoints de `scripts_router`; lo destapó un `curl` real.
+    # AUT.7 — lo que el guion produjo se guarda **antes** de componer la respuesta: si el
+    # almacenamiento falla, es mejor un 5xx sin respuesta que una respuesta con referencias a
+    # ficheros que no están.
+    brutos = artefactos_en_bruto(salida)
+    guardados = []
+    if brutos:
+        declarados = contrato.artefactos
+        guardados = await guardar_artefactos(
+            session,
+            brutos,
+            almacen=almacen,
+            organizacion_id=organizacion,
+            funcion_id=funcion.id,
+            version=version.version,
+            retencion_dias=declarados.retencion_dias if declarados else 1,
+        )
+
     respuesta = EjecutarResponse(
         tables=[t.model_dump() for t in salida.tables],
         metrics=[m.model_dump() for m in salida.metrics],
         free_text=salida.free_text,
         warnings=[w.model_dump() for w in salida.warnings],
+        artefactos=[
+            ArtefactoEnLaRespuesta(
+                id=a.id,
+                nombre=a.nombre,
+                media_type=a.media_type,
+                bytes=a.bytes,
+                sha256=a.sha256,
+                expira_en=a.expira_en,
+                descarga=f"/api/v1/funciones/artefactos/{a.id}",
+            )
+            for a in guardados
+        ],
         funcion={
             "funcion_id": str(funcion.id),
             "nombre": funcion.nombre,
@@ -328,3 +386,56 @@ async def ejecutar_funcion_por_api(
     )
 
     return respuesta
+
+
+@router.get(
+    "/artefactos/{artefacto_id}",
+    operation_id="descargarArtefactoDeFuncion",
+    dependencies=[Depends(require_pat_scopes(FUNCIONES_EXECUTE))],
+    response_class=Response,
+)
+async def descargar_artefacto(
+    artefacto_id: uuid.UUID,
+    principal: UserInfo = Depends(require_pat_scopes(FUNCIONES_EXECUTE)),
+    session: AsyncSession = Depends(get_session),
+    almacen: StorageService = Depends(get_storage_service),
+) -> Response:
+    """Sirve un fichero producido por una ejecución (AUT.7).
+
+    **El mismo scope que ejecutar y no uno nuevo.** Quien puede ejecutar la función puede
+    llevarse lo que produce; un scope aparte sugeriría que se puede dar lo uno sin lo otro, y no
+    es cierto en ninguna de las dos direcciones — sin ejecutar no hay fichero, y ejecutar sin
+    poder recogerlo no sirve de nada.
+
+    **404 para lo que no existe, lo ajeno y lo caducado, sin distinguirlos.** Distinguirlos
+    contaría que ese fichero existe en otra organización, que es lo que el resto del catálogo
+    evita respondiendo 404 y no 403. Y el mensaje nombra la retención, porque «404» sobre algo
+    que alguien descargó ayer es desconcertante si no se sabe que caduca.
+    """
+    organizacion = organizacion_unica_de(principal)
+    try:
+        fila, datos = await artefacto_para_descargar(
+            session, artefacto_id, organizacion_id=organizacion, almacen=almacen
+        )
+    except ArtefactoNoDisponible as fallo:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "ese fichero no está disponible: o no existe, o no es de tu organización, o ha "
+                "pasado su plazo de retención. El plazo lo declara el contrato de la función."
+            ),
+        ) from fallo
+
+    # `filename*` en UTF-8 además de `filename`: el nombre lo pone el guion y puede llevar
+    # acentos, y sin la forma extendida algunos clientes lo rompen.
+    from urllib.parse import quote
+
+    seguro = quote(fila.nombre)
+    return Response(
+        content=datos,
+        media_type=fila.media_type,
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{seguro}",
+            "X-Artefacto-SHA256": fila.sha256,
+        },
+    )

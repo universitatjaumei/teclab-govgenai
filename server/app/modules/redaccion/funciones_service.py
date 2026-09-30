@@ -331,15 +331,38 @@ async def ejecutar_funcion(
     file_path = entrada.ficheros.get(primer_slot) if primer_slot else None
     options: dict[str, Any] = {**entrada.parametros, "ficheros": entrada.ficheros}
 
-    salida = await sandbox.execute_extraction_script(
-        code=code,
-        file_path=file_path,
-        raw_text=None,
-        options=options,
-        timeout_seconds=timeout_seconds,
-    )
+    # AUT.7 — el camino con artefactos **sólo** si el contrato los declara.
+    #
+    # No es una optimización: `execute_extraction_script` la implementan varios dobles de test
+    # y la consume media aplicación, así que preguntar por el contrato antes es lo que hace que
+    # nada de lo que ya funcionaba tenga que enterarse de que esto existe.
+    declarados = getattr(contrato, "artefactos", None)
+    brutos: list[Any] = []
+    if declarados is not None and hasattr(sandbox, "execute_extraction_con_artefactos"):
+        salida, brutos = await sandbox.execute_extraction_con_artefactos(
+            code=code,
+            file_path=file_path,
+            raw_text=None,
+            options=options,
+            timeout_seconds=timeout_seconds,
+            artefactos_maximo=declarados.maximo,
+            artefactos_maximo_bytes=declarados.maximo_bytes,
+        )
+    else:
+        salida = await sandbox.execute_extraction_script(
+            code=code,
+            file_path=file_path,
+            raw_text=None,
+            options=options,
+            timeout_seconds=timeout_seconds,
+        )
 
     if isinstance(salida, ExtractionResult):
+        # El contenido de los ficheros se cuelga **fuera del modelo**, en un atributo del
+        # objeto: `ExtractionResult` es el contrato y viaja en respuestas y manifiestos, así
+        # que un campo con bytes ahí acabaría devolviendo un Excel dentro de un JSON de
+        # metadatos. Quien orquesta lo recoge con `artefactos_en_bruto(...)`.
+        _colgar_brutos(salida, brutos)
         return salida
 
     try:
@@ -395,3 +418,28 @@ def consulta_de_catalogo(*, organizacion_id: uuid.UUID | None):
         .where(or_(HubFuncion.organizacion_id == organizacion_id, publicadas))
         .order_by(*orden)
     )
+
+
+# ── AUT.7: el contenido de los ficheros, de paso ─────────────────────────────────────
+
+#: Dónde se cuelga la lista de `ArtefactoEnBruto` en el `ExtractionResult` que se devuelve.
+#:
+#: **Va en un atributo y no en un campo del modelo** porque el modelo es el contrato: sale por
+#: la API y entra en el manifiesto, y un campo de bytes ahí devolvería el fichero entero dentro
+#: de un JSON de metadatos. Pydantic no serializa lo que no declara, así que esto viaja entre
+#: `ejecutar_funcion` y quien orquesta y no se cuela en ninguna respuesta.
+_ATRIBUTO_DE_BRUTOS = "_artefactos_en_bruto"
+
+
+def _colgar_brutos(salida: Any, brutos: list[Any]) -> None:
+    if brutos:
+        object.__setattr__(salida, _ATRIBUTO_DE_BRUTOS, brutos)
+
+
+def artefactos_en_bruto(salida: Any) -> list[Any]:
+    """Los ficheros que la ejecución produjo, con su contenido, o lista vacía.
+
+    Lista vacía y no `None` para que quien orquesta no tenga que distinguir «no produjo» de «no
+    declaró»: las dos cosas se guardan igual, que es no guardando nada.
+    """
+    return list(getattr(salida, _ATRIBUTO_DE_BRUTOS, []) or [])
