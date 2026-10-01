@@ -422,6 +422,35 @@ class TestEnModoLocalUnNombreNoSaleDeSuCarpeta:
         assert [w.code for w in salida.warnings] == ["FILE_NAME_INVALID"]
 
 
+class TestEnModoLocalDosSlotsNoCompartenCarpeta:
+    """`a/b` y `ab` se limpiaban igual y compartían carpeta (PR #210). En local, lo mismo."""
+
+    @pytest.mark.asyncio
+    async def test_cada_slot_lee_lo_suyo(self):
+        from server.app.core.sandbox_client import LocalSandboxClient
+
+        codigo = (
+            "import pandas\n"
+            "rutas = options['ficheros']\n"
+            "result = {'metrics': ["
+            "  {'name': 'a', 'value': len(pandas.read_csv(rutas['a/b']))},"
+            "  {'name': 'b', 'value': len(pandas.read_csv(rutas['ab']))}]}\n"
+        )
+
+        salida = await LocalSandboxClient().execute_extraction_script(
+            code=codigo,
+            file_path=None,
+            raw_text=None,
+            options={},
+            ficheros_con_contenido={
+                "a/b": ("datos.csv", b"x\n1\n2\n"),
+                "ab": ("datos.csv", b"x\n1\n2\n3\n4\n"),
+            },
+        )
+
+        assert {m.name: m.value for m in salida.metrics} == {"a": 2, "b": 4}, salida.warnings
+
+
 class TestElTopeDeLosDocumentosDeEntrada:
     """Cuánto puede pesar lo que se lee del almacenamiento antes de mandarlo al sandbox.
 

@@ -144,7 +144,41 @@ class TestUnNombreNoSaleDeSuCarpeta:
 
         assert resp.status_code == 200, resp.text
         metricas = {m["name"]: m["value"] for m in resp.json()["result"]["metrics"]}
-        assert metricas == {"nombre": "p.csv", "carpeta": "presupuesto"}
+        assert metricas["nombre"] == "p.csv"
+        # La carpeta lleva el slot delante, para que se lea, y una huella detrás, para que dos
+        # slots que se limpian igual no la compartan.
+        assert metricas["carpeta"].startswith("presupuesto-")
+
+
+def test_dos_slots_que_se_limpian_igual_no_comparten_carpeta(client) -> None:
+    """Quitar caracteres no es inyectivo: `a/b` y `ab` daban la misma carpeta (PR #210).
+
+    Con ficheros del mismo nombre, el segundo pisaba al primero y **los dos slots apuntaban al
+    mismo contenido**, sin que nada lo dijera.
+    """
+    codigo = (
+        "import pandas\n"
+        "rutas = options['ficheros']\n"
+        "a = pandas.read_csv(rutas['a/b'])\n"
+        "b = pandas.read_csv(rutas['ab'])\n"
+        "result = {'metrics': ["
+        "  {'name': 'filas_a', 'value': len(a)},"
+        "  {'name': 'filas_b', 'value': len(b)}]}\n"
+    )
+    resp = client.post(
+        "/execute-extraction",
+        json=_payload(
+            codigo,
+            ficheros_b64={
+                "a/b": _fichero("datos.csv", b"x\n1\n2\n"),
+                "ab": _fichero("datos.csv", b"x\n1\n2\n3\n4\n"),
+            },
+        ),
+    )
+
+    assert resp.status_code == 200, resp.text
+    metricas = {m["name"]: m["value"] for m in resp.json()["result"]["metrics"]}
+    assert metricas == {"filas_a": 2, "filas_b": 4}
 
 
 def test_un_contenido_que_no_es_base64_se_dice_con_el_slot(client) -> None:

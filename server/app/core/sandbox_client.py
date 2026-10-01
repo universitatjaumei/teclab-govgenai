@@ -848,8 +848,7 @@ def _materializar_entradas(
         rutas[file_slot] = ruta
     entradas = Path(tmpdir) / "entradas"
     for slot, (nombre, datos) in (ficheros or {}).items():
-        limpio = "".join(c for c in slot if c.isalnum() or c in "-_") or "slot"
-        carpeta = _dentro_de(entradas, limpio)
+        carpeta = _dentro_de(entradas, _carpeta_del_slot(slot))
         destino = _dentro_de(carpeta, nombre)
         carpeta.mkdir(parents=True, exist_ok=True)
         destino.write_bytes(datos)
@@ -858,6 +857,16 @@ def _materializar_entradas(
     if not rutas:
         return ruta, options
     return ruta, {**options, "ficheros": rutas}
+
+
+def _carpeta_del_slot(slot: str) -> str:
+    """El mismo nombre de carpeta que el microservicio (`sandbox.main._nombre_de_slot`).
+
+    Legible delante y con una huella del slot original detrás: quitar caracteres no es
+    inyectivo, y `a/b` y `ab` compartían carpeta (PR #210).
+    """
+    limpio = "".join(c for c in slot if c.isalnum() or c in "-_")[:40] or "slot"
+    return f"{limpio}-{hashlib.sha256(slot.encode('utf-8')).hexdigest()[:12]}"
 
 
 def _nombre_invalido(fallo: _NombreDeEntradaInvalido, pipeline_id: str) -> ExtractionResult:

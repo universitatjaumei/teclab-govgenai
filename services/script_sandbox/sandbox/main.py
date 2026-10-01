@@ -232,13 +232,17 @@ def _dentro_de(base: str | Path, nombre: str | None) -> Path | None:
 
 
 def _nombre_de_slot(slot: str) -> str:
-    """El slot como nombre de carpeta, sin dejar que se salga de `entradas/`.
+    """El slot como nombre de carpeta: legible delante y **único** detrás.
 
-    El slot lo declara el contrato de la función, así que no es entrada de cualquiera — pero un
-    `../` aquí escribiría fuera del temporal, y comprobarlo cuesta una línea.
+    Delante, el slot sin lo que no sea letra, cifra, `-` o `_`, para que no se salga de
+    `entradas/` y para que quien depure sepa de cuál se trata. Detrás, una huella del slot
+    **original**, porque quitar caracteres no es inyectivo: `a/b` y `ab` daban la misma carpeta, y
+    con ficheros del mismo nombre el segundo pisaba al primero sin que nada lo dijera (PR #210).
+
+    El servidor hace lo mismo en modo local (`sandbox_client._carpeta_del_slot`).
     """
-    limpio = "".join(c for c in slot if c.isalnum() or c in "-_")
-    return limpio or "slot"
+    limpio = "".join(c for c in slot if c.isalnum() or c in "-_")[:40] or "slot"
+    return f"{limpio}-{hashlib.sha256(slot.encode('utf-8')).hexdigest()[:12]}"
 
 
 def _ejecutar_extraccion(
