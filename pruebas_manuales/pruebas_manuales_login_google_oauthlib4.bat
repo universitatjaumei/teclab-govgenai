@@ -76,7 +76,10 @@ cd ..
 echo.
 echo QUE DEBES VER: oauthlib 4.0.0. Si dice 3.3.1, el entorno no esta
 echo sincronizado y lo que pruebes despues no vale: ejecuta
-echo   cd server ^&^& uv sync --locked --extra local-models
+echo   cd server
+echo   uv sync --locked --extra local-models
+echo   (dos ordenes por separado: asi valen en CMD y en PowerShell 5.1,
+echo   que no conoce el operador de encadenar)
 echo.
 pause
 echo.
