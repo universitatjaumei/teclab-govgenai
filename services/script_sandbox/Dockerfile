@@ -6,7 +6,7 @@
 # `matplotlib` 3.11.2). Entonces hizo falta comprobarlo a mano porque el job `imagen` de CI
 # construía esta imagen sin arrancarla; **desde la issue #91 sí la arranca** y espera un
 # `/health` a 200, así que esa comprobación manual ya no hace falta.
-FROM python:3.13-slim
+FROM python:3.14-slim
 
 # Dependencias del sistema mínimas (libgomp1 lo necesita numpy/pandas en algunos entornos).
 RUN apt-get update && apt-get install -y --no-install-recommends \
