@@ -157,8 +157,12 @@ class TestSoloSeBajaDeLoDeclarado:
 
 class TestSoloLectura:
 
-    def test_solo_se_permite_http_y_https(self):
-        """`file://` leería el disco del servidor, y `ftp://` no es lo que se decidió."""
+    def test_solo_se_permite_https(self):
+        """`file://` leería el disco del servidor, y `ftp://` no es lo que se decidió.
+
+        `http` tampoco desde la PR #210: la #118 dice «esquema `https`», y lo cubre
+        `test_pr210_aut8_la_red_saliente_revisada`.
+        """
         from server.app.modules.redaccion.funciones_origenes import (
             OrigenNoDeclarado,
             comprobar_contra_los_origenes,

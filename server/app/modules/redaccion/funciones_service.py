@@ -302,6 +302,7 @@ async def ejecutar_funcion(
     timeout_seconds: int | None = None,
     contenidos: dict[str, bytes] | None = None,
     almacen: Any = None,
+    nombres_de_los_traidos: dict[str, str] | None = None,
 ) -> Any:
     """Valida la entrada contra el contrato y **después** ejecuta (FUN.2).
 
@@ -383,8 +384,15 @@ async def ejecutar_funcion(
     file_bytes = traidos.get(primer_slot) if primer_slot else None
     file_name = ""
     file_slot = ""
+
+    def _referencia(slot: str) -> str | None:
+        # De dónde sale el nombre: la clave de almacenamiento, o el nombre real de lo que se
+        # bajó de un origen declarado (PR #210). Sin el segundo, un documento bajado llegaba al
+        # guion como `<slot>.bin` y pandas no sabía con qué motor abrirlo.
+        return entrada.ficheros.get(slot) or (nombres_de_los_traidos or {}).get(slot)
+
     if file_bytes is not None and primer_slot:
-        file_name = _nombre_del_documento(entrada.ficheros.get(primer_slot), primer_slot)
+        file_name = _nombre_del_documento(_referencia(primer_slot), primer_slot)
         file_slot = primer_slot
 
     # Y los demás, cada uno con su nombre: el sandbox los materializa y le pone al guion su ruta
@@ -396,7 +404,7 @@ async def ejecutar_funcion(
     # temporal de 128 MB, y un solo fichero de 60 MB —que cabe en el tope— dejaría sin sitio a
     # los artefactos, que es justo lo que el tope existe para evitar.
     ficheros_con_contenido = {
-        slot: (_nombre_del_documento(entrada.ficheros.get(slot), slot), datos)
+        slot: (_nombre_del_documento(_referencia(slot), slot), datos)
         for slot, datos in traidos.items()
         if slot != file_slot
     }

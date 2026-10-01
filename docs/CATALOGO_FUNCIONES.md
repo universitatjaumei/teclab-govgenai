@@ -816,6 +816,19 @@ entrada no cumple el contrato: una URL rechazada no puede haber gastado una ejec
 origen sí está declarado y el servidor remoto falla, es un **502** — el problema no es de tu
 petición.
 
+**Y lo que se puede rechazar sin red, se rechaza sin red**: un slot que el contrato no declara, o
+`urls` para una función empaquetada, dan 422 **antes** de pedir nada fuera.
+
+Lo que comprueba cada descarga:
+
+- **Cada salto, no sólo el primero.** La lista blanca y la red pública se comprueban en la
+  petición inicial **y en cada redirección**. Un origen declarado que redirige a otro servidor
+  se para en ese salto, antes de hablar con él.
+- **Hasta el tope, y no más.** Se lee a trozos y se deja de leer al pasarse: 50 MB por
+  documento, y entre todos los de una ejecución, lo que quede de los 64 MB de entrada.
+- **Con su nombre.** El documento llega al guion con el nombre de la URL final, extensión
+  incluida, porque pandas elige el motor por ella.
+
 ### Lo que el guion ve
 
 **Nada distinto.** El documento le llega como `file_path`, el mismo camino por el que llega un
@@ -833,7 +846,8 @@ razonamiento completo está en §4.
   caso de las subvenciones nominativas.
 - **Una función empaquetada no acepta `urls`**: corre en el proceso del servidor y se trae lo
   que necesita por su cuenta. Se rechaza en vez de ignorarlo.
-- **No se escribe nada hacia fuera.** Sólo `GET`, y sólo `http`/`https`.
+- **No se escribe nada hacia fuera.** Sólo `GET`, y sólo `https`: un documento en claro se
+  puede alterar por el camino.
 
 ---
 

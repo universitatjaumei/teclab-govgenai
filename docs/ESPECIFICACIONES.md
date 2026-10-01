@@ -636,8 +636,9 @@ catálogo y no un plan B.
 
 Con ello quedan fijados: el **ecosistema autorizado** (17 módulos desde que AUT.9 aplicó la
 ampliación aprobada —`python-docx` y `pymupdf`—; **la red saliente entró después**, el
-2026-09-30, y sin tocar la respuesta anterior: sólo `GET`, sólo a orígenes declarados, y la baja
-la plataforma y no el guion), el **plazo de revisión
+2026-09-30, y sin tocar la respuesta anterior: sólo `GET`, sólo `https`, sólo a orígenes
+declarados **comprobados en cada redirección**, con tope de tamaño aplicado mientras se lee, y la
+baja la plataforma y no el guion), el **plazo de revisión
 posterior** —30 días naturales, que avisan sin bloquear— y **quién revisa y suspende**: el
 administrador de la organización autora o el superadministrador, nunca quien escribió.
 

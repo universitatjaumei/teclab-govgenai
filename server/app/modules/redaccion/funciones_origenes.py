@@ -37,8 +37,10 @@ from urllib.parse import urlsplit
 
 from server.app.core.red_publica import DestinoNoPublico, assert_forma_publica
 
-#: Lo que se puede pedir. `file://` leería el disco del servidor y `ftp://` no es lo decidido.
-ESQUEMAS = ("http", "https")
+#: Lo que se puede pedir: **sólo `https`**, que es lo que dice la #118. Un documento en claro se
+#: puede alterar por el camino, y lo que entra aquí es la entrada de una función que alguien
+#: firmó como declaración responsable. `file://` leería el disco del servidor (PR #210).
+ESQUEMAS = ("https",)
 
 #: Tope de lo que se baja, por documento. Un tomo de presupuesto son unos pocos megabytes; el
 #: tope está para que una URL equivocada no llene la memoria del servidor, no para acotar el uso.
@@ -114,17 +116,14 @@ async def descargar_de_un_origen_declarado(
 ) -> tuple[bytes, str]:
     """Baja el documento y devuelve `(contenido, nombre)`. Sólo `GET`.
 
-    La comprobación del destino se hace **dos veces y no por duplicado**: la lista blanca aquí
-    delante, y la de I15 en cada petición y en cada redirección por el hook de `httpx`. La
-    primera dice «de este servidor no se pide»; la segunda, «esta dirección no es pública». Un
-    origen declarado que redirige a `127.0.0.1` lo para la segunda, y sólo la segunda.
+    Las dos comprobaciones del destino van **en cada petición, redirecciones incluidas**, por
+    los hooks de `httpx` (`hooks_de_la_descarga`): la lista blanca dice «de este servidor no se
+    pide» y la de I15, «esta dirección no es pública». Un origen declarado que redirige a
+    `127.0.0.1` lo para la segunda; uno que redirige a otro dominio, la primera.
     """
     import httpx
 
-    from server.app.core.red_publica import (
-        hook_de_destino_publico,
-        transporte_a_la_direccion_validada,
-    )
+    from server.app.core.red_publica import transporte_a_la_direccion_validada
 
     comprobar_contra_los_origenes(url, origenes=origenes)
 
@@ -132,21 +131,50 @@ async def descargar_de_un_origen_declarado(
         timeout=timeout,
         follow_redirects=True,
         transport=transporte_a_la_direccion_validada(),
-        event_hooks={"request": [hook_de_destino_publico()]},
+        event_hooks={"request": hooks_de_la_descarga(origenes=origenes)},
     ) as cliente:
-        respuesta = await cliente.get(url)
-        respuesta.raise_for_status()
+        async with cliente.stream("GET", url) as respuesta:
+            respuesta.raise_for_status()
+            contenido = await leer_con_tope(respuesta, maximo_bytes=maximo_bytes)
+            final = str(respuesta.url)
 
-        # **La redirección puede haber cambiado de servidor.** El hook comprueba que cada salto
-        # sea público, no que siga estando declarado: un origen declarado que redirige a otro
-        # dominio sacaría el documento de un sitio que nadie autorizó. Se comprueba el final.
-        comprobar_contra_los_origenes(str(respuesta.url), origenes=origenes)
-
-        contenido = respuesta.content
-        if len(contenido) > maximo_bytes:
-            raise OrigenNoDeclarado(
-                f"el documento pesa {len(contenido)} bytes y el tope es {maximo_bytes}."
-            )
-
-    nombre = (urlsplit(str(respuesta.url)).path.rsplit("/", 1)[-1] or "descarga").strip()
+    nombre = (urlsplit(final).path.rsplit("/", 1)[-1] or "descarga").strip()
     return contenido, nombre
+
+
+def hooks_de_la_descarga(*, origenes: list[str], resolver=None) -> list:
+    """Los hooks de petición: **la lista blanca primero**, la red pública después.
+
+    `httpx` los dispara en la petición inicial **y en cada redirección**, y ése es el sitio
+    donde tiene que estar la lista (PR #210). Comprobar sólo la primera URL y la última dejaba
+    pasar A (declarado) → B (no declarado) → A: el servidor hablaba con B antes de que nada lo
+    parara, y la garantía de AUT.8 es justo que eso no pasa.
+
+    La lista va primero porque no necesita resolver nada: un salto no declarado ni siquiera
+    llega a la consulta de DNS.
+    """
+    from server.app.core.red_publica import hook_de_destino_publico
+
+    async def comprobar_la_lista(request) -> None:
+        comprobar_contra_los_origenes(str(request.url), origenes=origenes)
+
+    return [comprobar_la_lista, hook_de_destino_publico(resolver=resolver)]
+
+
+async def leer_con_tope(respuesta, *, maximo_bytes: int) -> bytes:
+    """Lee el cuerpo a trozos y **deja de leer** en cuanto se pasa del tope.
+
+    Comprobarlo sobre `respuesta.content` llegaba tarde: para entonces la respuesta entera ya
+    estaba en memoria, y un servidor declarado podía hacer que el proceso reservara lo que
+    quisiera antes de que el tope dijera nada (PR #210).
+    """
+    trozos: list[bytes] = []
+    total = 0
+    async for trozo in respuesta.aiter_bytes():
+        total += len(trozo)
+        if total > maximo_bytes:
+            raise OrigenNoDeclarado(
+                f"el documento pasa de {maximo_bytes} bytes, que es el tope; se deja de leer ahí."
+            )
+        trozos.append(trozo)
+    return b"".join(trozos)

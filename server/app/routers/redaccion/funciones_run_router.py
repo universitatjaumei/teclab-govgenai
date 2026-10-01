@@ -53,6 +53,7 @@ from server.app.modules.redaccion.contracts.funciones import (
 )
 from server.app.modules.redaccion.database.models import HubFuncion, HubFuncionVersion
 from server.app.modules.redaccion.funciones_origenes import (
+    MAXIMO_BYTES as MAXIMO_BYTES_DESCARGA,
     OrigenNoDeclarado,
     descargar_de_un_origen_declarado,
 )
@@ -62,6 +63,7 @@ from server.app.modules.redaccion.funciones_artefactos import (
     guardar_artefactos,
 )
 from server.app.modules.redaccion.funciones_service import (
+    MAXIMO_BYTES_DE_ENTRADA,
     artefactos_en_bruto,
     ejecutar_funcion,
 )
@@ -292,11 +294,45 @@ async def ejecutar_funcion_por_api(
     # entera de que hubo red**: abrir la red no cambia el protocolo del guion ni lo que el
     # auditor le permite.
     bajados: dict[str, bytes] = {}
+    nombres_bajados: dict[str, str] = {}
     if body.urls:
+        # **Todo lo que se pueda rechazar sin red, se rechaza antes de salir a red** (PR #210).
+        # Una petición que va a dar 422 no puede haber hablado antes con un servidor de fuera:
+        # el GET habría ocurrido igual, y el registro diría que no pasó nada.
+        if funcion.origen == "paquete":
+            # Una empaquetada corre en el proceso del servidor y se trae lo que necesita por su
+            # cuenta: darle además el contenido sería un segundo camino para lo mismo. Se
+            # rechaza en vez de ignorarlo, porque aceptar `urls` y no entregar nada dejaría a
+            # quien integra buscando por qué su slot llega vacío.
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"«{funcion.nombre}» es una función empaquetada: corre en el proceso "
+                    "del servidor y se trae lo que necesita por su cuenta, así que no "
+                    "acepta `urls`. Los orígenes declarados son para las de autoservicio, "
+                    "que corren en el sandbox y no tienen red."
+                ),
+            )
+        declarados = {s.slot_id for s in contrato.slots}
+        ajenos = sorted(set(body.urls) - declarados)
+        if ajenos:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"el contrato no declara los slots {ajenos}, así que no se baja nada para "
+                    f"ellos. Declara: {sorted(declarados)}."
+                ),
+            )
+
+        # El tope **acumulado** de la entrada se aplica mientras se baja, no al final: cada
+        # descarga lee como mucho lo que queda. Si no, cinco URLs de 50 MB ocupaban 250 MB antes
+        # de que el tope de 64 dijera nada.
+        restante = MAXIMO_BYTES_DE_ENTRADA
         for slot, url in body.urls.items():
+            tope = min(MAXIMO_BYTES_DESCARGA, restante)
             try:
-                contenido, _nombre = await descargar_de_un_origen_declarado(
-                    url, origenes=contrato.origenes
+                contenido, nombre = await descargar_de_un_origen_declarado(
+                    url, origenes=contrato.origenes, maximo_bytes=tope
                 )
             except OrigenNoDeclarado as fallo:
                 raise HTTPException(status_code=422, detail=str(fallo)) from fallo
@@ -311,29 +347,16 @@ async def ejecutar_funcion_por_api(
                     ),
                 ) from fallo
             bajados[slot] = contenido
+            # El nombre real de la descarga, con su extensión: pandas elige el motor por ella,
+            # y sin él el documento llegaba al guion como `<slot>.bin`.
+            nombres_bajados[slot] = nombre
+            restante -= len(contenido)
 
     if funcion.origen == "paquete":
         # In-process, por el camino de FUN.5. No pasa por el sandbox y no se finge lo contrario.
         from server.app.modules.redaccion.funciones_paquete import ejecutar_empaquetada
 
         try:
-            # AUT.8 — una función **empaquetada** no recibe documentos bajados, y no es un
-            # olvido: corre **en el proceso del servidor** y con acceso a `StorageService`, así
-            # que su `run` puede traerse lo que necesite por su cuenta. Darle además el
-            # contenido aquí sería un segundo camino para lo mismo, y el que sobra es éste.
-            #
-            # Se rechaza en vez de ignorarlo: aceptar `urls` y no entregar nada dejaría a quien
-            # integra buscando por qué su slot llega vacío.
-            if bajados:
-                raise HTTPException(
-                    status_code=422,
-                    detail=(
-                        f"«{funcion.nombre}» es una función empaquetada: corre en el proceso "
-                        "del servidor y se trae lo que necesita por su cuenta, así que no "
-                        "acepta `urls`. Los orígenes declarados son para las de autoservicio, "
-                        "que corren en el sandbox y no tienen red."
-                    ),
-                )
             salida = await ejecutar_empaquetada(
                 funcion.entry_point or "",
                 ficheros=body.ficheros,
@@ -357,6 +380,7 @@ async def ejecutar_funcion_por_api(
                 ficheros=body.ficheros,
                 almacen=almacen,
                 contenidos=bajados,
+                nombres_de_los_traidos=nombres_bajados,
                 parametros=body.parametros,
                 sandbox=sandbox,
                 timeout_seconds=TIMEOUT_SEGUNDOS,
