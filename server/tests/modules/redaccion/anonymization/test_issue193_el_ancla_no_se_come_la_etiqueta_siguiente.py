@@ -109,3 +109,27 @@ class TestElNombreCompletoIgual:
         # `del` va en minúscula, así que el patrón corta ahí y eso es previo a esta issue;
         # lo que se comprueba es que **no se queda sólo en la primera palabra**.
         assert _ancla(ctx, texto, "fullname").startswith("María")
+
+
+class TestLasEtiquetasDeVariasPalabras:
+    """Las que los propios anclajes reconocen y la lista de cortes no tenía (PR #210).
+
+    `ETIQUETAS_DE_FORMULARIO` son palabras sueltas, y `First Name`, `Last Name`, `Primer
+    Apellido` o `Segundo Apellido` no empiezan por ninguna de ellas: «Nombre: Luis First Name: Ana»
+    seguía capturando `Luis First`. Se reconocen **enteras** y no por su primera palabra, porque
+    «Primer» o «Segundo» solos no son etiquetas.
+    """
+
+    @pytest.mark.parametrize(
+        "etiqueta", ["First Name", "Last Name", "Primer Apellido", "Segundo Apellido"]
+    )
+    def test_no_se_traga_la_primera_palabra_de_la_etiqueta(self, ctx, etiqueta):
+        texto = f"Nombre: Luis {etiqueta}: Ana"
+
+        assert _ancla(ctx, texto, "firstname") == "Luis"
+
+    def test_y_una_palabra_que_solo_empieza_igual_sigue_contando(self, ctx):
+        """«Primer» sin «Apellido» detrás no es una etiqueta: no se corta ahí."""
+        texto = "Nombre: Luis Primero Apellidos: Pérez"
+
+        assert _ancla(ctx, texto, "firstname") == "Luis Primero"

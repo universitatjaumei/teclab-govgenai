@@ -136,8 +136,23 @@ ETIQUETAS_DE_FORMULARIO: tuple[str, ...] = (
     "Expediente", "Referencia", "Asunto", "Motivo", "Importe", "Cuantía", "Cuantia",
 )
 
+#: Las etiquetas de **varias palabras** que los propios anclajes reconocen (PR #210).
+#:
+#: No empiezan por ninguna de las de arriba, así que «Nombre: Luis First Name: Ana» seguía
+#: capturando `Luis First`. Van **enteras** y como expresión —el mismo `\s*` que usan los
+#: anclajes—, no por su primera palabra: «Primer» o «Segundo» solos no son etiquetas, y cortar
+#: ahí dejaría medio nombre sin anonimizar.
+ETIQUETAS_DE_VARIAS_PALABRAS: tuple[str, ...] = (
+    r"First\s*Name",
+    r"Last\s*Name",
+    r"Primer\s*Apellido",
+    r"Segundo\s*Apellido",
+)
+
 #: El *lookahead* que corta el valor. Se compone una vez y se interpola en los tres patrones.
-_NO_ES_ETIQUETA = r"(?!(?:" + "|".join(ETIQUETAS_DE_FORMULARIO) + r")\b)"
+_NO_ES_ETIQUETA = (
+    r"(?!(?:" + "|".join((*ETIQUETAS_DE_VARIAS_PALABRAS, *ETIQUETAS_DE_FORMULARIO)) + r")\b)"
+)
 
 #: Una palabra capitalizada que **no** sea una etiqueta de formulario.
 _PALABRA = (
