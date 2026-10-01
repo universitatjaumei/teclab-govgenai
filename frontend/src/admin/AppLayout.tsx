@@ -37,6 +37,9 @@ const NAV_SECTIONS = [
   // REG.6 — el registro de usos de IA de la organizacion. Modulo propio por lo mismo que
   // `personas`: es operacion de la organizacion y no administracion de la plataforma.
   { key: 'registro', path: '/registro', modulo: 'registro' },
+  // UTL (#190, #191) — operaciones sueltas sobre un fichero que hoy se hacen en webs que no
+  // aseguran el RGPD. Modulo propio: no son informes y las necesita cualquiera.
+  { key: 'utilidades', path: '/utilidades', modulo: 'utilidades' },
   { key: 'plataforma', path: '/plataforma', modulo: 'plataforma' },
 ] as const
 
