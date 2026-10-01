@@ -10,6 +10,7 @@ Códigos de error normalizados (body: {"code": "<CODE>", ...}):
   - 422 SCRIPT_AUDIT_FAILED  (con findings: list[str])
   - 422 SCRIPT_EMPTY
   - 422 FILE_NOT_BASE64       (solo /execute-extraction)
+  - 422 FILE_NAME_INVALID     (solo /execute-extraction: el nombre saldría de su carpeta)
   - 422 ETL_NO_TRANSFORM      (solo /execute-etl)
   - 504 SCRIPT_TIMEOUT
   - 500 SCRIPT_EXECUTION_ERROR (con stderr_truncated: str ≤ 500 chars)
@@ -111,8 +112,9 @@ def execute_extraction(req: ExecuteExtractionRequest):
                 contenido = base64.b64decode(req.file_bytes_b64, validate=True)
             except (ValueError, binascii.Error):
                 return _err(422, "FILE_NOT_BASE64")
-            nombre = Path(req.file_name or "entrada.bin").name or "entrada.bin"
-            destino = Path(tmpdir) / nombre
+            destino = _dentro_de(tmpdir, req.file_name)
+            if destino is None:
+                return _err(422, "FILE_NAME_INVALID")
             destino.write_bytes(contenido)
             ruta_del_fichero = str(destino)
 
@@ -142,10 +144,11 @@ def execute_extraction(req: ExecuteExtractionRequest):
                 contenido = base64.b64decode(fichero.contenido_b64 or "", validate=True)
             except (ValueError, binascii.Error):
                 return _err(422, "FILE_NOT_BASE64", slot=slot)
-            carpeta = entradas / _nombre_de_slot(slot)
+            carpeta = _dentro_de(entradas, _nombre_de_slot(slot))
+            destino = _dentro_de(carpeta, fichero.nombre) if carpeta is not None else None
+            if destino is None:
+                return _err(422, "FILE_NAME_INVALID", slot=slot)
             carpeta.mkdir(parents=True, exist_ok=True)
-            nombre = Path(fichero.nombre or "entrada.bin").name or "entrada.bin"
-            destino = carpeta / nombre
             destino.write_bytes(contenido)
             rutas[slot] = str(destino)
 
@@ -207,6 +210,25 @@ def _recoger_artefactos(directorio: Path, req: ExecuteExtractionRequest):
             }
         )
     return producidos, 0, None
+
+
+def _dentro_de(base: str | Path, nombre: str | None) -> Path | None:
+    """La ruta de `nombre` dentro de `base`, o `None` si se saldría de ella.
+
+    **El nombre llega en la petición y el sandbox no se fía de él.** Quitar los directorios con
+    `Path(nombre).name` no basta: `Path("..").name` es `".."`, y `base / ".."` es la carpeta de
+    arriba. Por eso se resuelve la ruta y se comprueba que sigue **estrictamente dentro** de la
+    base, que es la única comprobación que no depende de enumerar las formas de escaparse (PR
+    #210, CodeQL).
+
+    Sin nombre vale `entrada.bin`, como hasta aquí.
+    """
+    raiz = os.path.realpath(base)
+    limpio = os.path.basename(nombre or "") or "entrada.bin"
+    destino = os.path.realpath(os.path.join(raiz, limpio))
+    if not destino.startswith(raiz + os.sep):
+        return None
+    return Path(destino)
 
 
 def _nombre_de_slot(slot: str) -> str:

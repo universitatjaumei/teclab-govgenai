@@ -587,17 +587,21 @@ class LocalSandboxClient:
         with tempfile.TemporaryDirectory() as tmpdir:
             # Mismo contrato que el sandbox HTTP: con contenido, el fichero se materializa
             # y el script recibe esa ruta.
-            ruta = file_path or ""
-            if file_bytes is not None:
-                destino = Path(tmpdir) / (Path(file_name or "entrada.bin").name or "entrada.bin")
-                destino.write_bytes(file_bytes)
-                ruta = str(destino)
+            try:
+                ruta, opciones = _materializar_entradas(
+                    tmpdir,
+                    options=options,
+                    file_path=file_path,
+                    file_bytes=file_bytes,
+                    file_name=file_name,
+                    ficheros=ficheros_con_contenido,
+                    file_slot=file_slot,
+                )
+            except _NombreDeEntradaInvalido as fallo:
+                return _nombre_invalido(fallo, self._PIPELINE_ID)
 
             salida = Path(tmpdir) / "salida"
             salida.mkdir()
-            opciones = _con_las_rutas_de_entrada(
-                options, Path(tmpdir), ficheros_con_contenido, file_slot, ruta
-            )
             wrapper = _build_local_extraction_wrapper(
                 code, ruta, raw_text or "", opciones, str(salida)
             )
@@ -644,17 +648,21 @@ class LocalSandboxClient:
         timeout = timeout_seconds or 30
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            ruta = file_path or ""
-            if file_bytes is not None:
-                destino = Path(tmpdir) / (Path(file_name or "entrada.bin").name or "entrada.bin")
-                destino.write_bytes(file_bytes)
-                ruta = str(destino)
+            try:
+                ruta, opciones = _materializar_entradas(
+                    tmpdir,
+                    options=options,
+                    file_path=file_path,
+                    file_bytes=file_bytes,
+                    file_name=file_name,
+                    ficheros=ficheros_con_contenido,
+                    file_slot=file_slot,
+                )
+            except _NombreDeEntradaInvalido as fallo:
+                return _nombre_invalido(fallo, self._PIPELINE_ID), []
 
             salida = Path(tmpdir) / "salida"
             salida.mkdir()
-            opciones = _con_las_rutas_de_entrada(
-                options, Path(tmpdir), ficheros_con_contenido, file_slot, ruta
-            )
             wrapper = _build_local_extraction_wrapper(
                 code, ruta, raw_text or "", opciones, str(salida)
             )
@@ -775,39 +783,75 @@ def _resultado_local(sub: dict, pipeline_id: str) -> ExtractionResult:
     return _parse_extraction_json({"result": data}, pipeline_id)
 
 
-def _con_las_rutas_de_entrada(
+class _NombreDeEntradaInvalido(ValueError):
+    """Un nombre de fichero de entrada que se saldría de su carpeta."""
+
+
+def _dentro_de(base: str | Path, nombre: str | None) -> Path:
+    """La ruta de `nombre` dentro de `base`; falla si se saldría de ella.
+
+    Lo mismo que hace el microservicio (PR #210, CodeQL): `Path(nombre).name` no basta, porque
+    `Path("..").name` es `".."`. Se resuelve la ruta y se comprueba que sigue estrictamente
+    dentro de la base. Sin nombre vale `entrada.bin`.
+    """
+    raiz = os.path.realpath(base)
+    limpio = os.path.basename(nombre or "") or "entrada.bin"
+    destino = os.path.realpath(os.path.join(raiz, limpio))
+    if not destino.startswith(raiz + os.sep):
+        raise _NombreDeEntradaInvalido(nombre)
+    return Path(destino)
+
+
+def _materializar_entradas(
+    tmpdir: str,
+    *,
     options: dict,
-    tmpdir: Path,
+    file_path: str | None,
+    file_bytes: bytes | None,
+    file_name: str,
     ficheros: dict[str, tuple[str, bytes]] | None,
-    file_slot: str = "",
-    ruta_principal: str = "",
-) -> dict:
-    """Materializa cada fichero de entrada y deja su **ruta real** en `options["ficheros"]`.
+    file_slot: str,
+) -> tuple[str, dict]:
+    """Escribe los ficheros de entrada y devuelve `(file_path, options)` con sus rutas reales.
 
     El modo local tiene que hacer lo mismo que el microservicio (issue #194). Si sólo lo hiciera
     el de verdad, un guion con varios ficheros pasaría desplegado y fallaría en los tests — o al
-    revés, que es como este defecto llegó hasta aquí.
+    revés, que es como este defecto llegó hasta aquí. **Una sola función para los dos caminos**,
+    con y sin artefactos: tenerla dos veces es como uno de los dos se queda sin el arreglo.
 
-    Cada uno en su subcarpeta por slot: dos slots pueden traer ficheros que se llamen igual, y
-    uno pisaría al otro sin que nada avisara. El principal ya está materializado como
-    `file_path`, y su slot apunta a esa misma ruta en vez de escribirlo otra vez.
+    Cada fichero en su subcarpeta por slot: dos slots pueden traer ficheros que se llamen igual,
+    y uno pisaría al otro sin que nada avisara. El principal se escribe una vez, como
+    `file_path`, y su slot apunta a esa misma ruta.
     """
-    rutas: dict[str, str] = {}
-    if file_slot and ruta_principal:
-        rutas[file_slot] = ruta_principal
-    if not ficheros and not rutas:
-        return options
+    ruta = file_path or ""
+    if file_bytes is not None:
+        destino = _dentro_de(tmpdir, file_name)
+        destino.write_bytes(file_bytes)
+        ruta = str(destino)
 
-    entradas = tmpdir / "entradas"
+    rutas: dict[str, str] = {}
+    if file_slot and file_bytes is not None:
+        rutas[file_slot] = ruta
+    entradas = Path(tmpdir) / "entradas"
     for slot, (nombre, datos) in (ficheros or {}).items():
         limpio = "".join(c for c in slot if c.isalnum() or c in "-_") or "slot"
-        carpeta = entradas / limpio
+        carpeta = _dentro_de(entradas, limpio)
+        destino = _dentro_de(carpeta, nombre)
         carpeta.mkdir(parents=True, exist_ok=True)
-        destino = carpeta / (Path(nombre or "entrada.bin").name or "entrada.bin")
         destino.write_bytes(datos)
         rutas[slot] = str(destino)
 
-    return {**options, "ficheros": rutas}
+    if not rutas:
+        return ruta, options
+    return ruta, {**options, "ficheros": rutas}
+
+
+def _nombre_invalido(fallo: _NombreDeEntradaInvalido, pipeline_id: str) -> ExtractionResult:
+    return _extraction_with_warning(
+        "FILE_NAME_INVALID",
+        f"El nombre de fichero de entrada «{fallo}» se saldría de su carpeta.",
+        pipeline_id,
+    )
 
 
 def _build_local_extraction_wrapper(

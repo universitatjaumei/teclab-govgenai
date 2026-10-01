@@ -95,6 +95,58 @@ def test_el_principal_tambien_esta_en_options_por_su_slot(client) -> None:
     assert metricas == {"filas_a": 3, "filas_b": 1}
 
 
+class TestUnNombreNoSaleDeSuCarpeta:
+    """El nombre del fichero llega en la petición, así que el sandbox no se fía de él.
+
+    `Path(nombre).name` quita los directorios —`../../etc/x` se queda en `x`— **pero no todo**:
+    `Path("..").name` es `".."`, y `carpeta / ".."` es la carpeta de arriba. Hoy fallaría al
+    escribir sobre un directorio, sin salir del temporal; eso es suerte, no diseño. Lo señaló
+    CodeQL en la PR #210.
+    """
+
+    def test_dos_puntos_como_nombre_se_rechaza(self, client) -> None:
+        resp = client.post(
+            "/execute-extraction",
+            json=_payload(
+                "result = {}",
+                ficheros_b64={"presupuesto": _fichero("..", b"x")},
+            ),
+        )
+
+        assert resp.status_code == 422, resp.text
+        assert resp.json() == {"code": "FILE_NAME_INVALID", "slot": "presupuesto"}
+
+    def test_y_tambien_en_el_fichero_principal(self, client) -> None:
+        resp = client.post(
+            "/execute-extraction",
+            json=_payload(
+                "result = {}",
+                file_bytes_b64=base64.b64encode(b"x").decode("ascii"),
+                file_name="..",
+            ),
+        )
+
+        assert resp.status_code == 422, resp.text
+        assert resp.json()["code"] == "FILE_NAME_INVALID"
+
+    def test_un_nombre_con_directorios_se_queda_en_su_carpeta(self, client) -> None:
+        """Sin esto, lo de arriba se cumpliría rechazando cualquier nombre con una barra."""
+        resp = client.post(
+            "/execute-extraction",
+            json=_payload(
+                # Sin `os`: el auditor no lo permite dentro del guion.
+                "partes = options['ficheros']['presupuesto'].replace(chr(92), '/').split('/')\n"
+                "result = {'metrics': [{'name': 'nombre', 'value': partes[-1]},"
+                " {'name': 'carpeta', 'value': partes[-2]}]}\n",
+                ficheros_b64={"presupuesto": _fichero("../../etc/p.csv", b"a\n1\n")},
+            ),
+        )
+
+        assert resp.status_code == 200, resp.text
+        metricas = {m["name"]: m["value"] for m in resp.json()["result"]["metrics"]}
+        assert metricas == {"nombre": "p.csv", "carpeta": "presupuesto"}
+
+
 def test_un_contenido_que_no_es_base64_se_dice_con_el_slot(client) -> None:
     """Y con el slot dentro: «FILE_NOT_BASE64» a secas no dice cuál de los tres."""
     resp = client.post(

@@ -381,6 +381,47 @@ class TestElGuionRecibeRutasQuePuedeAbrir:
         assert cuerpo["artefactos_maximo"] == 1
 
 
+class TestEnModoLocalUnNombreNoSaleDeSuCarpeta:
+    """Lo mismo que el sandbox de verdad (PR #210, CodeQL): `Path("..").name` es `".."`."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("camino", ["sin_artefactos", "con_artefactos"])
+    async def test_dos_puntos_como_nombre_se_rechaza_en_los_dos_caminos(self, camino):
+        from server.app.core.sandbox_client import LocalSandboxClient
+
+        cliente = LocalSandboxClient()
+        comunes = dict(
+            code="result = {}",
+            file_path=None,
+            raw_text=None,
+            options={},
+            ficheros_con_contenido={"dos": ("..", b"x")},
+        )
+        if camino == "sin_artefactos":
+            salida = await cliente.execute_extraction_script(**comunes)
+        else:
+            salida, _ = await cliente.execute_extraction_con_artefactos(
+                **comunes, artefactos_maximo=1, artefactos_maximo_bytes=1000
+            )
+
+        assert [w.code for w in salida.warnings] == ["FILE_NAME_INVALID"]
+
+    @pytest.mark.asyncio
+    async def test_y_tambien_el_principal(self):
+        from server.app.core.sandbox_client import LocalSandboxClient
+
+        salida = await LocalSandboxClient().execute_extraction_script(
+            code="result = {}",
+            file_path=None,
+            raw_text=None,
+            options={},
+            file_bytes=b"x",
+            file_name="..",
+        )
+
+        assert [w.code for w in salida.warnings] == ["FILE_NAME_INVALID"]
+
+
 class TestElTopeDeLosDocumentosDeEntrada:
     """Cuánto puede pesar lo que se lee del almacenamiento antes de mandarlo al sandbox.
 
