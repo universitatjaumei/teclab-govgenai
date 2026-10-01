@@ -650,6 +650,37 @@ La comparación honesta con la Instrucció sigue en `docs/CATALOGO_FUNCIONES.md`
 lectura nuestra del texto, no algo que el texto prevea**: la Instrucció no nombrará la
 plataforma mientras sea un desarrollo experimental.
 
+### 5.13 Utilidades de uso directo
+
+**Qué hace.** Operaciones sueltas sobre un fichero que alguien tiene en el escritorio y que hoy
+hace en webs que no aseguran el RGPD: **unir, dividir y optimizar PDF** (#190) y **anonimizar un
+CSV o un Excel para compartirlo** (#191), revisando antes la regla de cada columna y cómo queda.
+No son funciones del catálogo ni pasos de un flujo. Lo que la plataforma aporta no es la capacidad
+sino el **trayecto**.
+
+**Lo que garantiza.**
+
+- **Nada se guarda**: el fichero entra en la petición y sale en la respuesta, en memoria, sin
+  `StorageService` ni disco. No hay nada que borrar ni ningún plazo que cumplir.
+- **Queda constancia, sólo de metadatos**: quién, cuándo, qué operación, cuántos ficheros, páginas
+  o filas, qué regla a cada tipo de columna y la huella de lo que entró. **Nunca el nombre del
+  fichero ni su contenido**, con el mismo contrato que el registro de actividad (§5.9).
+- **Quien no pertenece a una sola organización no opera**: el uso se anota en el registro de la
+  organización, y sin una no habría dónde.
+- **La anonimización no se descarga sin revisión**: hay que ver la vista previa de las reglas
+  actuales y confirmarlo, y lo comprueba el servidor. La vista previa **es** la descarga —misma
+  semilla sobre el fichero entero—. **No se promete anonimato**: es seudonimización asistida, la
+  pantalla lo dice, y la responsabilidad de lo que se comparte es de quien lo comparte.
+
+**Dónde vive.** `modules/utilidades/` (`pdf.py`, `anonimizar.py`) sobre el motor de
+anonimización de `redaccion`; router `/api/v1/utilidades`; pantallas en `/utilidades`. Módulo de
+acceso `utilidades`.
+
+**Madurez**: `construido` — verificado en el navegador contra el backend de desarrollo, con
+ficheros sintéticos: las tres operaciones de PDF y la anonimización de punta a punta. Sin
+desplegar. El PDF se procesa con MuPDF **en el proceso de la API**; el sandbox sería más seguro
+frente a un PDF malicioso, y es una decisión abierta.
+
 ---
 
 ## 6. Automatización gobernada
