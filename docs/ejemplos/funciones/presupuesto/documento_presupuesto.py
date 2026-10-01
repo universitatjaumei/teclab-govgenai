@@ -327,8 +327,10 @@ SECTIONS = [
     dict(id="C1_1", tab="C1_1_var_despeses_capitol", titol="C.1 — Variació de despeses per capítol"),
     dict(id="C2_1", tab="C2_1_var_ingressos_capitol", titol="C.2 — Variació d'ingressos per capítol"),
 ]
-AMPLES = {"A3_0_resum_centre_capitol", "B2_0_resum_tercer_capitol"}
-APAISADES = {"A3_0_resum_centre_capitol", "B2_0_resum_tercer_capitol"}
+# Las matrices por centro (A.3) y por tercero (B.2): tabla ancha —ancho fijo, letra menor,
+# abreviaturas— y en apaisado. Se sacan de SECTIONS en vez de repetir los nombres de las tablas.
+AMPLES = {s["tab"] for s in SECTIONS if s["id"] in ("A3_0", "B2_0")}
+APAISADES = AMPLES
 
 
 def _num(n, dec=2):
