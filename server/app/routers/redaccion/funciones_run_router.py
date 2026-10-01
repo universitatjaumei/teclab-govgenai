@@ -29,7 +29,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from server.app.core.storage import StorageService, get_storage_service
 from pydantic import BaseModel, Field
@@ -52,7 +52,22 @@ from server.app.modules.redaccion.contracts.funciones import (
     EntradaNoCumpleElContrato,
 )
 from server.app.modules.redaccion.database.models import HubFuncion, HubFuncionVersion
-from server.app.modules.redaccion.funciones_service import ejecutar_funcion
+from server.app.modules.redaccion.funciones_origenes import (
+    MAXIMO_BYTES as MAXIMO_BYTES_DESCARGA,
+    OrigenNoDeclarado,
+    descargar_de_un_origen_declarado,
+)
+from server.app.modules.redaccion.funciones_artefactos import (
+    ArtefactoNoDisponible,
+    artefacto_para_descargar,
+    deshacer_artefactos,
+    guardar_artefactos,
+)
+from server.app.modules.redaccion.funciones_service import (
+    MAXIMO_BYTES_DE_ENTRADA,
+    artefactos_en_bruto,
+    ejecutar_funcion,
+)
 from server.app.routers.verificaciones_router import MAXIMO_BYTES
 
 router = APIRouter(
@@ -73,6 +88,15 @@ class EjecutarRequest(BaseModel):
     #: Referencias de almacenamiento por slot, tal como las declara el contrato. Son rutas o
     #: claves, **no contenido**: el fichero ya está en el almacenamiento de la organización.
     ficheros: dict[str, str] = Field(default_factory=dict)
+    #: AUT.8 — URL por slot, para los documentos que hay que **bajar de fuera**. Cada una tiene
+    #: que salir de un servidor que la función declara en `origenes`; si no, 422 y el sandbox no
+    #: se toca.
+    #:
+    #: Va aparte de `ficheros` y no mezclado con él porque son dos cosas distintas para quien
+    #: integra: una referencia de almacenamiento es un documento que ya tiene, y una URL es uno
+    #: que le pide a la plataforma que traiga. Mezclarlas obligaría a adivinar cuál es cuál por
+    #: la forma de la cadena.
+    urls: dict[str, str] = Field(default_factory=dict)
     parametros: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -89,6 +113,27 @@ class EjecutarResponse(BaseModel):
     free_text: str | None = None
     warnings: list[dict[str, Any]] = Field(default_factory=list)
     funcion: dict[str, Any] = Field(default_factory=dict)
+    #: AUT.7 — los ficheros producidos, **por referencia y no por contenido**. Devolver el
+    #: Excel en base64 dentro de este JSON haría que una respuesta de metadatos pesara
+    #: megabytes, y quien integra suele querer las cifras sin el fichero.
+    artefactos: list["ArtefactoEnLaRespuesta"] = Field(default_factory=list)
+
+
+class ArtefactoEnLaRespuesta(BaseModel):
+    """Un fichero producido: qué es, cuánto pesa, y por dónde se baja.
+
+    Lleva `sha256` para que quien integra pueda comprobar lo que descarga, y `expira_en` porque
+    **la referencia caduca**: sin esa fecha, un consumidor que guarda el enlace descubre la
+    retención el día que le devuelve un 404.
+    """
+
+    id: uuid.UUID
+    nombre: str
+    media_type: str
+    bytes: int
+    sha256: str
+    expira_en: datetime
+    descarga: str
 
 
 async def _visible_para(
@@ -241,6 +286,73 @@ async def ejecutar_funcion_por_api(
 
     contrato = ContratoFuncion.model_validate(version.contrato_entrada or {})
 
+    # AUT.8 — lo que hay que traer de fuera se trae **aquí**, antes de tocar el sandbox y antes
+    # de validar la entrada contra el contrato: una URL rechazada no puede haber gastado una
+    # ejecución ni dejado rastro de algo que no ocurrió. Es el mismo orden que ya tenía la
+    # validación de entrada, y por la misma razón.
+    #
+    # El guion recibe el contenido por el camino de un fichero subido a mano, así que **no se
+    # entera de que hubo red**: abrir la red no cambia el protocolo del guion ni lo que el
+    # auditor le permite.
+    bajados: dict[str, bytes] = {}
+    nombres_bajados: dict[str, str] = {}
+    if body.urls:
+        # **Todo lo que se pueda rechazar sin red, se rechaza antes de salir a red** (PR #210).
+        # Una petición que va a dar 422 no puede haber hablado antes con un servidor de fuera:
+        # el GET habría ocurrido igual, y el registro diría que no pasó nada.
+        if funcion.origen == "paquete":
+            # Una empaquetada corre en el proceso del servidor y se trae lo que necesita por su
+            # cuenta: darle además el contenido sería un segundo camino para lo mismo. Se
+            # rechaza en vez de ignorarlo, porque aceptar `urls` y no entregar nada dejaría a
+            # quien integra buscando por qué su slot llega vacío.
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"«{funcion.nombre}» es una función empaquetada: corre en el proceso "
+                    "del servidor y se trae lo que necesita por su cuenta, así que no "
+                    "acepta `urls`. Los orígenes declarados son para las de autoservicio, "
+                    "que corren en el sandbox y no tienen red."
+                ),
+            )
+        declarados = {s.slot_id for s in contrato.slots}
+        ajenos = sorted(set(body.urls) - declarados)
+        if ajenos:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"el contrato no declara los slots {ajenos}, así que no se baja nada para "
+                    f"ellos. Declara: {sorted(declarados)}."
+                ),
+            )
+
+        # El tope **acumulado** de la entrada se aplica mientras se baja, no al final: cada
+        # descarga lee como mucho lo que queda. Si no, cinco URLs de 50 MB ocupaban 250 MB antes
+        # de que el tope de 64 dijera nada.
+        restante = MAXIMO_BYTES_DE_ENTRADA
+        for slot, url in body.urls.items():
+            tope = min(MAXIMO_BYTES_DESCARGA, restante)
+            try:
+                contenido, nombre = await descargar_de_un_origen_declarado(
+                    url, origenes=contrato.origenes, maximo_bytes=tope
+                )
+            except OrigenNoDeclarado as fallo:
+                raise HTTPException(status_code=422, detail=str(fallo)) from fallo
+            except Exception as fallo:  # noqa: BLE001 — se traduce, no se deja subir opaco
+                # 502 y no 500: el fallo es del servidor de fuera, no de la petición. Quien
+                # integra necesita distinguirlo para saber si reintentar.
+                raise HTTPException(
+                    status_code=502,
+                    detail=(
+                        f"no se pudo traer «{url}» para el slot «{slot}»: {fallo}. El origen "
+                        f"está declarado, así que el problema es del servidor remoto."
+                    ),
+                ) from fallo
+            bajados[slot] = contenido
+            # El nombre real de la descarga, con su extensión: pandas elige el motor por ella,
+            # y sin él el documento llegaba al guion como `<slot>.bin`.
+            nombres_bajados[slot] = nombre
+            restante -= len(contenido)
+
     if funcion.origen == "paquete":
         # In-process, por el camino de FUN.5. No pasa por el sandbox y no se finge lo contrario.
         from server.app.modules.redaccion.funciones_paquete import ejecutar_empaquetada
@@ -267,6 +379,9 @@ async def ejecutar_funcion_por_api(
                 contrato=contrato,
                 code=version.code or "",
                 ficheros=body.ficheros,
+                almacen=almacen,
+                contenidos=bajados,
+                nombres_de_los_traidos=nombres_bajados,
                 parametros=body.parametros,
                 sandbox=sandbox,
                 timeout_seconds=TIMEOUT_SEGUNDOS,
@@ -304,11 +419,40 @@ async def ejecutar_funcion_por_api(
     # guarda: el consumidor recibiría un 500 sobre una ejecución que ocurrió, reintentaría, y
     # quedarían dos eventos para un solo uso. Mismo defecto que en `funciones_router` (FUN.4) y
     # que en ocho endpoints de `scripts_router`; lo destapó un `curl` real.
+    # AUT.7 — lo que el guion produjo se guarda **antes** de componer la respuesta: si el
+    # almacenamiento falla, es mejor un 5xx sin respuesta que una respuesta con referencias a
+    # ficheros que no están.
+    brutos = artefactos_en_bruto(salida)
+    guardados = []
+    if brutos:
+        declarados = contrato.artefactos
+        guardados = await guardar_artefactos(
+            session,
+            brutos,
+            almacen=almacen,
+            organizacion_id=organizacion,
+            funcion_id=funcion.id,
+            version=version.version,
+            retencion_dias=declarados.retencion_dias if declarados else 1,
+        )
+
     respuesta = EjecutarResponse(
         tables=[t.model_dump() for t in salida.tables],
         metrics=[m.model_dump() for m in salida.metrics],
         free_text=salida.free_text,
         warnings=[w.model_dump() for w in salida.warnings],
+        artefactos=[
+            ArtefactoEnLaRespuesta(
+                id=a.id,
+                nombre=a.nombre,
+                media_type=a.media_type,
+                bytes=a.bytes,
+                sha256=a.sha256,
+                expira_en=a.expira_en,
+                descarga=f"/api/v1/funciones/artefactos/{a.id}",
+            )
+            for a in guardados
+        ],
         funcion={
             "funcion_id": str(funcion.id),
             "nombre": funcion.nombre,
@@ -319,12 +463,72 @@ async def ejecutar_funcion_por_api(
         },
     )
 
-    await _anotar_en_el_registro(
-        session,
-        organizacion=organizacion,
-        principal=principal,
-        funcion=funcion,
-        version=version,
-    )
+    try:
+        await _anotar_en_el_registro(
+            session,
+            organizacion=organizacion,
+            principal=principal,
+            funcion=funcion,
+            version=version,
+        )
+    except Exception:
+        # El commit está ahí dentro. Si falla, las filas de los artefactos no llegan a la base y
+        # sus ficheros quedarían en el almacenamiento sin nada que los nombre: el barrido recorre
+        # filas y no los vería nunca (PR #210).
+        await deshacer_artefactos(guardados, almacen=almacen)
+        raise
 
     return respuesta
+
+
+@router.get(
+    "/artefactos/{artefacto_id}",
+    operation_id="descargarArtefactoDeFuncion",
+    dependencies=[Depends(require_pat_scopes(FUNCIONES_EXECUTE))],
+    response_class=Response,
+)
+async def descargar_artefacto(
+    artefacto_id: uuid.UUID,
+    principal: UserInfo = Depends(require_pat_scopes(FUNCIONES_EXECUTE)),
+    session: AsyncSession = Depends(get_session),
+    almacen: StorageService = Depends(get_storage_service),
+) -> Response:
+    """Sirve un fichero producido por una ejecución (AUT.7).
+
+    **El mismo scope que ejecutar y no uno nuevo.** Quien puede ejecutar la función puede
+    llevarse lo que produce; un scope aparte sugeriría que se puede dar lo uno sin lo otro, y no
+    es cierto en ninguna de las dos direcciones — sin ejecutar no hay fichero, y ejecutar sin
+    poder recogerlo no sirve de nada.
+
+    **404 para lo que no existe, lo ajeno y lo caducado, sin distinguirlos.** Distinguirlos
+    contaría que ese fichero existe en otra organización, que es lo que el resto del catálogo
+    evita respondiendo 404 y no 403. Y el mensaje nombra la retención, porque «404» sobre algo
+    que alguien descargó ayer es desconcertante si no se sabe que caduca.
+    """
+    organizacion = organizacion_unica_de(principal)
+    try:
+        fila, datos = await artefacto_para_descargar(
+            session, artefacto_id, organizacion_id=organizacion, almacen=almacen
+        )
+    except ArtefactoNoDisponible as fallo:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "ese fichero no está disponible: o no existe, o no es de tu organización, o ha "
+                "pasado su plazo de retención. El plazo lo declara el contrato de la función."
+            ),
+        ) from fallo
+
+    # `filename*` en UTF-8 además de `filename`: el nombre lo pone el guion y puede llevar
+    # acentos, y sin la forma extendida algunos clientes lo rompen.
+    from urllib.parse import quote
+
+    seguro = quote(fila.nombre)
+    return Response(
+        content=datos,
+        media_type=fila.media_type,
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{seguro}",
+            "X-Artefacto-SHA256": fila.sha256,
+        },
+    )

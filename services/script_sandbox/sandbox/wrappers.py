@@ -15,8 +15,18 @@ def build_extraction_wrapper(
     file_path: str,
     raw_text: str,
     options: dict[str, Any],
+    output_dir: str = "",
 ) -> str:
-    """Envuelve el código de extracción y serializa `result` como JSON al stdout."""
+    """Envuelve el código de extracción y serializa `result` como JSON al stdout.
+
+    `output_dir` (AUT.7) es el único sitio donde el guion puede dejar ficheros. Va como variable
+    y no como función de ayuda porque el protocolo del script ya es así —`file_path`, `raw_text`,
+    `options`— y cambiarlo obligaría a reescribir los guiones que funcionan.
+
+    **No hay forma de escribir a mano**: el auditor deniega `open`, así que un guion produce
+    ficheros a través de una librería (`df.to_excel(...)`, `doc.save(...)`). Eso no es una
+    incomodidad, es lo que mantiene acotado qué puede aparecer ahí.
+    """
     return f"""\
 import sys, json, math, re, datetime, collections, typing, io
 
@@ -28,6 +38,7 @@ except ImportError:
 file_path = {file_path!r}
 raw_text = {raw_text!r}
 options = {options!r}
+output_dir = {output_dir!r}
 
 # --- script de usuario ---
 {code}

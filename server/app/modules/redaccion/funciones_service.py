@@ -300,6 +300,9 @@ async def ejecutar_funcion(
     parametros: dict[str, Any] | None = None,
     sandbox: Any,
     timeout_seconds: int | None = None,
+    contenidos: dict[str, bytes] | None = None,
+    almacen: Any = None,
+    nombres_de_los_traidos: dict[str, str] | None = None,
 ) -> Any:
     """Valida la entrada contra el contrato y **después** ejecuta (FUN.2).
 
@@ -316,30 +319,136 @@ async def ejecutar_funcion(
     él—, pero en FUN.5 el `run` de un paquete de un tercero devuelve lo que haya escrito ese
     tercero, y la costura tiene que aguantarlo sin reventar de forma opaca.
     """
-    from server.app.modules.redaccion.contracts.funciones import validar_entrada
+    from server.app.modules.redaccion.contracts.funciones import (
+        EntradaNoCumpleElContrato,
+        validar_entrada,
+    )
     from server.app.modules.redaccion.pipelines.contracts import (
         ExtractionProvenance,
         ExtractionResult,
         ExtractionWarning,
     )
 
-    entrada = validar_entrada(contrato, ficheros=ficheros, parametros=parametros)
+    entrada = validar_entrada(
+        contrato,
+        ficheros=ficheros,
+        parametros=parametros,
+        # AUT.8 — un slot que la plataforma ya bajó cuenta como presente.
+        slots_ya_traidos=set(contenidos or {}),
+    )
 
     # El primer slot es el fichero que el protocolo actual pasa como `file_path`; el resto viaja
     # en `options`, que es donde un script que ya funcionaba busca lo suyo.
     primer_slot = contrato.slots[0].slot_id if getattr(contrato, "slots", None) else None
-    file_path = entrada.ficheros.get(primer_slot) if primer_slot else None
     options: dict[str, Any] = {**entrada.parametros, "ficheros": entrada.ficheros}
 
-    salida = await sandbox.execute_extraction_script(
-        code=code,
-        file_path=file_path,
-        raw_text=None,
-        options=options,
-        timeout_seconds=timeout_seconds,
-    )
+    # ── Issue #194: al guion le llega el CONTENIDO, no la referencia ────────────────
+    #
+    # Esto pasaba `file_path=<clave del almacenamiento>`, y `EntradaValidada` dice de sí misma
+    # que «`ficheros` son referencias, no rutas, y no se abren». El sandbox es otro contenedor:
+    # ahí esa cadena no es una ruta de nada.
+    #
+    # **Funcionaba en desarrollo y fallaba desplegado**, por dos coincidencias que sólo se dan
+    # en local: `TESTING=1` lanza el subproceso en la misma máquina y `STORAGE_BACKEND=file`
+    # hace que la clave sea una ruta de verdad. Con GCS y el sandbox en su contenedor, no.
+    #
+    # El camino correcto ya estaba al lado, en `admin_script_pipeline`: leer del almacenamiento
+    # y mandar `file_bytes` con `file_path=None`, que es para lo que PRO.2 introdujo ese campo.
+    traidos = dict(contenidos or {})
+    # Lo que ya viene bajado de un origen declarado (AUT.8) cuenta para el tope igual.
+    _cabe_la_entrada(traidos)
+    if almacen is not None:
+        for slot, referencia in entrada.ficheros.items():
+            if slot in traidos:
+                # Ya vino de un origen declarado (AUT.8): no se vuelve a buscar.
+                continue
+            try:
+                traidos[slot] = await almacen.get(referencia)
+            except FileNotFoundError as fallo:
+                # **Antes de tocar el sandbox y con el nombre dentro.** Antes esto llegaba como
+                # un `KeyError` de pandas dentro de un subproceso, que es el error que FUN.2
+                # existe para no dar.
+                raise EntradaNoCumpleElContrato(
+                    f"el documento «{referencia}» del slot «{slot}» no está en el "
+                    f"almacenamiento de la organización: vuelve a subirlo."
+                ) from fallo
+            # **Documento a documento y no al final.** Comprobarlo después obligaría a cargar
+            # los diez antes de decir que no caben, que es justo lo que el tope evita.
+            _cabe_la_entrada(traidos)
+
+    # El primer slot viaja como `file_bytes`, que es el camino de siempre y el que un guion
+    # escrito antes de esto sigue usando por `file_path`. **Y `file_path` se manda vacío**:
+    # mandar además la referencia dejaría al guion eligiendo cuál usar, y el defecto volvería
+    # por el camino de quien eligiera mal.
+    file_path = None
+    file_bytes = traidos.get(primer_slot) if primer_slot else None
+    file_name = ""
+    file_slot = ""
+
+    def _referencia(slot: str) -> str | None:
+        # De dónde sale el nombre: la clave de almacenamiento, o el nombre real de lo que se
+        # bajó de un origen declarado (PR #210). Sin el segundo, un documento bajado llegaba al
+        # guion como `<slot>.bin` y pandas no sabía con qué motor abrirlo.
+        return entrada.ficheros.get(slot) or (nombres_de_los_traidos or {}).get(slot)
+
+    if file_bytes is not None and primer_slot:
+        file_name = _nombre_del_documento(_referencia(primer_slot), primer_slot)
+        file_slot = primer_slot
+
+    # Y los demás, cada uno con su nombre: el sandbox los materializa y le pone al guion su ruta
+    # real en `options["ficheros"]` (issue #194). Hasta aquí ahí había referencias inservibles,
+    # o sea que declarar tres slots era declarar uno y medio.
+    #
+    # **El principal no va aquí otra vez**: viaja como `file_bytes`, y `file_slot` le dice al
+    # sandbox a qué slot pertenece. Mandarlo en los dos sitios lo escribiría dos veces en un
+    # temporal de 128 MB, y un solo fichero de 60 MB —que cabe en el tope— dejaría sin sitio a
+    # los artefactos, que es justo lo que el tope existe para evitar.
+    ficheros_con_contenido = {
+        slot: (_nombre_del_documento(_referencia(slot), slot), datos)
+        for slot, datos in traidos.items()
+        if slot != file_slot
+    }
+
+    # AUT.7 — el camino con artefactos **sólo** si el contrato los declara.
+    #
+    # No es una optimización: `execute_extraction_script` la implementan varios dobles de test
+    # y la consume media aplicación, así que preguntar por el contrato antes es lo que hace que
+    # nada de lo que ya funcionaba tenga que enterarse de que esto existe.
+    declarados = getattr(contrato, "artefactos", None)
+    brutos: list[Any] = []
+    if declarados is not None and hasattr(sandbox, "execute_extraction_con_artefactos"):
+        salida, brutos = await sandbox.execute_extraction_con_artefactos(
+            code=code,
+            file_path=file_path,
+            raw_text=None,
+            options=options,
+            timeout_seconds=timeout_seconds,
+            file_bytes=file_bytes,
+            file_name=file_name,
+            ficheros_con_contenido=ficheros_con_contenido,
+            file_slot=file_slot,
+            artefactos_maximo=declarados.maximo,
+            artefactos_maximo_bytes=declarados.maximo_bytes,
+        )
+    else:
+        salida = await sandbox.execute_extraction_script(
+            code=code,
+            file_path=file_path,
+            raw_text=None,
+            options=options,
+            timeout_seconds=timeout_seconds,
+            file_bytes=file_bytes,
+            file_name=file_name,
+            ficheros_con_contenido=ficheros_con_contenido,
+            file_slot=file_slot,
+        )
 
     if isinstance(salida, ExtractionResult):
+        # El contenido de los ficheros se cuelga **fuera del modelo**, en un atributo del
+        # objeto: `ExtractionResult` es el contrato y viaja en respuestas y manifiestos, así
+        # que un campo con bytes ahí acabaría devolviendo un Excel dentro de un JSON de
+        # metadatos. Quien orquesta lo recoge con `artefactos_en_bruto(...)`.
+        _colgar_brutos(salida, brutos)
         return salida
 
     try:
@@ -395,3 +504,83 @@ def consulta_de_catalogo(*, organizacion_id: uuid.UUID | None):
         .where(or_(HubFuncion.organizacion_id == organizacion_id, publicadas))
         .order_by(*orden)
     )
+
+
+# ── AUT.7: el contenido de los ficheros, de paso ─────────────────────────────────────
+
+#: Dónde se cuelga la lista de `ArtefactoEnBruto` en el `ExtractionResult` que se devuelve.
+#:
+#: **Va en un atributo y no en un campo del modelo** porque el modelo es el contrato: sale por
+#: la API y entra en el manifiesto, y un campo de bytes ahí devolvería el fichero entero dentro
+#: de un JSON de metadatos. Pydantic no serializa lo que no declara, así que esto viaja entre
+#: `ejecutar_funcion` y quien orquesta y no se cuela en ninguna respuesta.
+_ATRIBUTO_DE_BRUTOS = "_artefactos_en_bruto"
+
+
+def _colgar_brutos(salida: Any, brutos: list[Any]) -> None:
+    if brutos:
+        object.__setattr__(salida, _ATRIBUTO_DE_BRUTOS, brutos)
+
+
+def artefactos_en_bruto(salida: Any) -> list[Any]:
+    """Los ficheros que la ejecución produjo, con su contenido, o lista vacía.
+
+    Lista vacía y no `None` para que quien orquesta no tenga que distinguir «no produjo» de «no
+    declaró»: las dos cosas se guardan igual, que es no guardando nada.
+    """
+    return list(getattr(salida, _ATRIBUTO_DE_BRUTOS, []) or [])
+
+
+def _nombre_del_documento(referencia: str | None, slot: str) -> str:
+    """El nombre de fichero que se le da al sandbox, con su extensión.
+
+    **La extensión no es cosmética**: pandas elige el motor por ella, así que un `.xlsx` sin
+    extensión se intenta leer como CSV y falla con un error que no dice eso. Sale de la clave de
+    almacenamiento, que la conserva; si no la hay —un documento bajado de una URL sin nombre—
+    queda el slot, que al menos identifica de cuál se trata.
+
+    La clave puede traer separadores de cualquiera de los dos sistemas, como en
+    `admin_script_pipeline`.
+    """
+    if referencia:
+        nombre = referencia.replace("\\", "/").rsplit("/", 1)[-1]
+        if nombre:
+            return nombre
+    return f"{slot}.bin"
+
+
+# ── Issue #194: cuánto puede pesar lo que entra ──────────────────────────────────────
+
+#: Tope del **total** de los documentos de entrada de una ejecución, en bytes.
+#:
+#: **Por qué hace falta y por qué no basta el que ya había.** El tope de la petición
+#: (`MAXIMO_BYTES`, en el router) mide el JSON que llega, y ahí sólo viajan **referencias**. Desde
+#: el arreglo del #194 el servidor resuelve esas referencias y junta los documentos en memoria
+#: antes de mandarlos: tres CSV no son nada, varios PDF grandes sí. Son dos riesgos distintos, y
+#: por eso son dos números — no uno que se estira hasta servir para los dos y acaba sin servir
+#: para ninguno.
+#:
+#: **Y el número no es una corazonada**: el sandbox monta su temporal como un `tmpfs` de 128 MB
+#: (`docker-compose.yml`), y ahí caben los ficheros de entrada materializados **y** los artefactos
+#: que el guion escriba. La entrada se queda en la mitad para que producir la salida no se
+#: estrelle contra la entrada — dentro del sandbox, que es donde peor se depura. Un test ata este
+#: número a esa razón leyendo el `docker-compose.yml`.
+MAXIMO_BYTES_DE_ENTRADA = 64 * 1024 * 1024
+
+
+def _cabe_la_entrada(traidos: dict[str, bytes]) -> None:
+    """Falla si los documentos de entrada, juntos, se pasan del tope.
+
+    Del **total** y no de cada uno: lo que llena la memoria es la suma, y tres documentos que
+    caben sueltos pueden no caber juntos.
+    """
+    from server.app.modules.redaccion.contracts.funciones import EntradaNoCumpleElContrato
+
+    total = sum(len(datos) for datos in traidos.values())
+    if total > MAXIMO_BYTES_DE_ENTRADA:
+        raise EntradaNoCumpleElContrato(
+            f"los documentos de entrada pesan {total} bytes y el tope es "
+            f"{MAXIMO_BYTES_DE_ENTRADA}. El sandbox los materializa en un temporal de 128 MB que "
+            f"comparte con los ficheros que la función produzca, así que la entrada se queda en "
+            f"la mitad."
+        )

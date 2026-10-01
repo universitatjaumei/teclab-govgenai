@@ -152,6 +152,65 @@ class TestLaColaLoDice:
         assert cola[0].fuera_de_plazo is False
 
 
+class TestUnaRevisadaNoEstaFueraDePlazo:
+    """Issue #200 — el plazo es el de **revisar**, así que una versión revisada ya lo cumplió.
+
+    Sólo se ve con `estado=todas`: con `sin_revisar` todas las filas están sin revisar y la
+    antigüedad bastaba. Con `todas` entran también las revisadas, y una de hace 45 días salía
+    marcada como vencida sin tener nada pendiente — un aviso donde no hay nada que hacer, que es
+    como un aviso deja de mirarse también donde sí lo hay.
+    """
+
+    @pytest.mark.asyncio
+    async def test_una_revisada_hace_tiempo_no_sale_marcada(self, db_session):
+        from server.app.routers.redaccion.funciones_router import cola_de_revision
+
+        organizacion = uuid.uuid4()
+        _funcion, version = await _version_de_hace(db_session, 45, organizacion=organizacion)
+        version.revisada_por = uuid.uuid4()
+        version.revisada_en = datetime.now(timezone.utc) - timedelta(days=40)
+        db_session.add(version)
+        await db_session.commit()
+
+        cola = await cola_de_revision(
+            estado="todas",
+            muestra=None,
+            principal=_quien_revisa(organizacion),
+            session=db_session,
+        )
+
+        assert len(cola) == 1
+        assert cola[0].fuera_de_plazo is False
+
+    @pytest.mark.asyncio
+    async def test_y_en_la_misma_cola_una_sin_revisar_si(self, db_session):
+        """Sin esto, lo de arriba se cumpliría no marcando nada con `estado=todas`."""
+        from server.app.routers.redaccion.funciones_router import cola_de_revision
+
+        organizacion = uuid.uuid4()
+        _f, revisada = await _version_de_hace(db_session, 45, organizacion=organizacion)
+        revisada.revisada_por = uuid.uuid4()
+        revisada.revisada_en = datetime.now(timezone.utc) - timedelta(days=40)
+        db_session.add(revisada)
+        _f2, pendiente = await _version_de_hace(db_session, 45, organizacion=organizacion)
+        await db_session.commit()
+
+        cola = await cola_de_revision(
+            estado="todas",
+            muestra=None,
+            principal=_quien_revisa(organizacion),
+            session=db_session,
+        )
+
+        # Las dos llevan el mismo nombre, así que son dos versiones de una misma función: se
+        # distinguen por el par, no por la función.
+        marcadas = {(fila.funcion_id, fila.version): fila.fuera_de_plazo for fila in cola}
+        assert marcadas == {
+            (revisada.funcion_id, revisada.version): False,
+            (pendiente.funcion_id, pendiente.version): True,
+        }
+
+
 class TestAvisaPeroNoBloquea:
     """Bloquear al vencer sería aprobación previa con retardo, y el nivel 2 la prohíbe."""
 

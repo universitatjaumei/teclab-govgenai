@@ -104,6 +104,48 @@ class ParametroDeFuncion(UIFieldDescriptor):
         return self
 
 
+#: Techo de la retención de artefactos, en días. **Lo pone la plataforma, no quien declara.**
+#:
+#: Sin techo, «la retención se declara» sería «la retención se elige», y el primer contrato que
+#: quisiera guardar un año lo guardaría. Treinta días cubre el caso real —producir un fichero,
+#: descargarlo y volver a por él si se perdió— sin convertir el almacenamiento en un archivo de
+#: documentos ajenos que nadie decidió crear.
+#:
+#: **No es la política de retención de la plataforma**, que no existe (issue #162). Es el tramo
+#: estrecho que AUT.7 necesitaba para no dejar el silencio significando «para siempre».
+RETENCION_MAXIMA_DIAS = 30
+
+#: Lo más que una función puede declarar que produce, en bytes: **64 MB**.
+#:
+#: Sale del mismo sitio que el tope de entrada (`funciones_service.MAXIMO_BYTES_DE_ENTRADA`): el
+#: sandbox monta su temporal como un `tmpfs` de 128 MB, y ahí conviven los ficheros de entrada
+#: materializados y los que el guion escribe. Hasta la PR #210 éste era de 100 MB, y con 64 de
+#: entrada no cabían: el guion se quedaba sin disco **antes** de que la recogida de artefactos
+#: pudiera decir que se había pasado. Un test ata la suma de los dos al `docker-compose.yml`, y
+#: otro, este número al que valida el sandbox.
+MAXIMO_BYTES_DE_SALIDA = 64 * 1024 * 1024
+
+
+class ArtefactosDeSalida(BaseModel):
+    """Que esta función produce ficheros, cuántos y por cuánto tiempo se guardan (AUT.7).
+
+    **Los topes van en el contrato y no en una constante del servidor.** Una función que saca un
+    Excel de 200 KB y otra que saca cincuenta PDF no pueden compartir un número inventado a
+    medias entre las dos; y el tope declarado es además lo que la revisión posterior puede leer
+    para saber qué se autorizó.
+    """
+
+    model_config = {"extra": "forbid"}
+
+    #: Cuántos ficheros como máximo. **Al menos uno**: declarar «produzco hasta cero» sería una
+    #: segunda forma de decir «no produzco», y entonces el código tendría que tratar las dos.
+    maximo: int = Field(ge=1, le=100)
+    maximo_bytes: int = Field(ge=1, le=MAXIMO_BYTES_DE_SALIDA)
+    #: Días que se conservan. **Sin defecto a propósito**: es la decisión que la issue dejaba
+    #: anotada, y un defecto aquí la tomaría en silencio.
+    retencion_dias: int = Field(ge=1, le=RETENCION_MAXIMA_DIAS)
+
+
 class ContratoFuncion(BaseModel):
     """Lo que una función pide, lo que devuelve y lo que declara.
 
@@ -119,6 +161,20 @@ class ContratoFuncion(BaseModel):
     #: La salida es siempre el esquema que ya consumen los nodos. Se declara para que el
     #: contrato sea legible por sí solo, no para poder cambiarla.
     salida: Literal["ExtractionResult"] = "ExtractionResult"
+    #: AUT.7 — **nulo significa «esta función no produce ficheros»**, y es el defecto. Las
+    #: funciones que ya existen no ganan una capacidad sin pedirla, y una que no lo declara no
+    #: puede producirlos: sin eso el tope sería un consejo y cualquier guion escribiría lo que
+    #: quisiera en el directorio de salida.
+    artefactos: ArtefactosDeSalida | None = None
+    #: AUT.8 — los **servidores** de los que esta función puede pedir documentos. Forma parte de
+    #: la declaración responsable: enumerar de dónde se lee es decir de dónde vienen los datos.
+    #:
+    #: **Lista vacía por omisión**, que es «de ninguna parte»: igual que con los artefactos, la
+    #: capacidad se pide. Y son servidores y no URL — ver `_origenes_son_servidores`.
+    #:
+    #: Quien baja es la plataforma, no el guion: la red del sandbox sigue cerrada. Detalle en
+    #: `funciones_origenes.py`.
+    origenes: list[str] = Field(default_factory=list)
 
     # ── Declaración responsable (Instrucció §8.2) ──
     finalidad: str = Field(min_length=1)
@@ -137,6 +193,44 @@ class ContratoFuncion(BaseModel):
                         "diccionario y el segundo pisaría al primero"
                     )
                 vistos.add(elemento.slot_id)
+        return self
+
+    @model_validator(mode="after")
+    def _origenes_son_servidores(self) -> "ContratoFuncion":
+        """Cada origen es un **nombre de servidor**: ni URL, ni comodín, ni dirección IP.
+
+        Las tres exclusiones vienen de cómo se salta una lista blanca, no de purismo:
+
+        * **URL**: habría que declarar cada documento —imposible— o aceptar prefijos, y un
+          prefijo invita a `https://sede.gva.es@atacante.example/`, que lleva el origen
+          declarado dentro y apunta a otro sitio.
+        * **Comodín**: `*.gva.es` parece razonable hasta que alguien consigue un subdominio.
+        * **Dirección IP**: no dice de quién es el servidor, y salta la comprobación de nombre
+          que es la que resuelve y valida cada dirección.
+        """
+        import ipaddress
+        import re
+
+        forma = re.compile(r"^(?=.{1,253}$)[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$")
+        for origen in self.origenes:
+            crudo = (origen or "").strip()
+            normalizado = crudo.lower()
+            try:
+                ipaddress.ip_address(normalizado)
+            except ValueError:
+                pass
+            else:
+                raise ValueError(
+                    f"«{crudo}» es una dirección IP, y un origen se declara por nombre de "
+                    "servidor: una IP no dice de quién es y salta la comprobación del nombre"
+                )
+            if not forma.match(normalizado):
+                raise ValueError(
+                    f"«{crudo}» no es un nombre de servidor. Se declara el servidor —"
+                    "`sede.gva.es`— y no una URL ni un comodín: un prefijo de URL se burla con "
+                    "`https://sede.gva.es@atacante.example/`, y un comodín lo hereda cualquiera "
+                    "que consiga un subdominio"
+                )
         return self
 
     @model_validator(mode="after")
@@ -283,22 +377,30 @@ def validar_entrada(
     ficheros: dict[str, str] | None = None,
     parametros: dict[str, Any] | None = None,
     almacen: Any = None,
+    slots_ya_traidos: set[str] | None = None,
 ) -> EntradaValidada:
     """La entrada comprobada contra el contrato, **antes** de invocar nada.
 
     Levanta `EntradaNoCumpleElContrato` con el nombre de lo que falla. Validar después sería
     pagar un subproceso para obtener un error peor.
+
+    `slots_ya_traidos` (AUT.8) son los slots que la plataforma **ya bajó** de un origen
+    declarado: cuentan como presentes aunque no tengan referencia de almacenamiento. Va como
+    parámetro explícito y no metiendo un marcador falso en `ficheros`, que es la otra forma de
+    conseguirlo: ese marcador viaja luego al guion dentro de `options["ficheros"]` y sería una
+    ruta que no existe con aspecto de ruta.
     """
     ficheros = dict(ficheros or {})
     parametros = dict(parametros or {})
+    traidos = set(slots_ya_traidos or ())
 
     declarados = {slot.slot_id: slot for slot in contrato.slots}
     for slot_id, slot in declarados.items():
-        if slot.required and not ficheros.get(slot_id):
+        if slot.required and not ficheros.get(slot_id) and slot_id not in traidos:
             raise EntradaNoCumpleElContrato(
                 f"falta el slot «{slot_id}», que el contrato declara obligatorio"
             )
-    for slot_id in ficheros:
+    for slot_id in set(ficheros) | traidos:
         if slot_id not in declarados:
             raise EntradaNoCumpleElContrato(
                 f"el slot «{slot_id}» no está en el contrato de esta función: o alguien lo "

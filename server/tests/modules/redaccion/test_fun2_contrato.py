@@ -311,17 +311,27 @@ class TestLaEntradaSeValidaAntesDelSandbox:
     async def test_should_reach_the_sandbox_with_todays_protocol_when_the_entry_is_valid(self):
         """El protocolo del script no cambia: `file_path`, `raw_text` y `options`. Cambiar eso
         obligaría a reescribir los scripts que ya funcionan, que es justo lo que empuja al
-        *Shadow IT*."""
+        *Shadow IT*.
+
+        Lo que sí cambió (issue #194) es el tramo **hasta** el sandbox: le llega el contenido
+        (`file_bytes`, con el nombre y su extensión) y no la referencia de almacenamiento, que
+        en otro contenedor no es una ruta de nada. El sandbox lo materializa y el guion sigue
+        recibiendo su `file_path` de siempre."""
         from server.app.modules.redaccion.funciones_service import ejecutar_funcion
 
         recibido: dict = {}
+
+        class _Almacen:
+            async def get(self, key):
+                assert key == "org/1/gastos.xlsx"
+                return b"contenido del excel"
 
         class _Sandbox:
             async def execute_extraction_script(
                 self, *, code, file_path=None, raw_text=None, options=None, **kw
             ):
                 recibido.update(
-                    code=code, file_path=file_path, raw_text=raw_text, options=options
+                    code=code, file_path=file_path, raw_text=raw_text, options=options, **kw
                 )
                 from server.app.modules.redaccion.pipelines.contracts import (
                     ExtractionProvenance,
@@ -342,12 +352,15 @@ class TestLaEntradaSeValidaAntesDelSandbox:
         await ejecutar_funcion(
             contrato=self._contrato(),
             code="result = {}",
-            ficheros={"datos": "/tmp/gastos.xlsx"},
+            ficheros={"datos": "org/1/gastos.xlsx"},
             parametros={"umbral": 3},
             sandbox=_Sandbox(),
+            almacen=_Almacen(),
         )
 
-        assert recibido["file_path"] == "/tmp/gastos.xlsx"
+        assert recibido["file_path"] is None
+        assert recibido["file_bytes"] == b"contenido del excel"
+        assert recibido["file_name"] == "gastos.xlsx"
         assert recibido["options"]["umbral"] == 3
 
 

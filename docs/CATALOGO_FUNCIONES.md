@@ -67,7 +67,7 @@ Tres cosas que este origen hace distintas, y las tres a propósito:
 | `version_paquete` | Solo en `paquete`: la versión semver instalada. |
 | `entorno_ejecucion` | Solo en `externa`: **dónde corre**. Es el dato que distingue el origen, porque la plataforma no lo ejecuta; sin él el registro no dice de qué responde nadie ni con qué credenciales se toca el dato. Texto libre: es una declaración, no una taxonomía que se pueda comprobar desde aquí. |
 | `contrato_entrada` | El `ContratoFuncion`: slots de fichero, parámetros y la declaración responsable. |
-| `contrato_salida` | Siempre `ExtractionResult`. No se inventa un segundo esquema, porque dos esquemas divergen. |
+| `contrato_salida` | Siempre `ExtractionResult`. No se inventa un segundo esquema, porque dos esquemas divergen. Desde AUT.7 puede llevar **artefactos**: los ficheros que la función produjo. |
 | `audit_result_json` | Lo que vio el auditor, **incluidos los avisos que no bloquearon**: es lo que la revisión posterior tiene que poder leer. |
 | `estado` | `draft` · `registrada` · `suspendida` · `retirada` · `no_instalada`. |
 | `autoria` | `ia` o `persona`. **No es una puerta**: nada se ramifica por este campo. Consta porque la revisión posterior quiere verlo. |
@@ -194,12 +194,19 @@ sustituye al circuito que la Instrucció prevé para lo que excede un servicio.
   (issue #122), junto con la ampliación prevista de librerías —`python-docx`, `pymupdf`— que
   AUT.9 aplicará.
 
-  **La red saliente hacia orígenes declarados NO entra, y es una decisión de la misma fecha.**
-  No es una librería, es una capacidad, y es la que hoy hace que una función **no pueda hablar
-  con nada**: lee un fichero y devuelve cifras. Esa imposibilidad estructural es lo que sostiene
-  que ejecutar dentro sea más seguro que ejecutar fuera —el argumento con el que se contestó la
-  regla 2—, así que abrirla cambiaría esa respuesta y no se abre de paso en una ampliación de
-  librerías. AUT.8 espera a su propia decisión.
+  ~~**La red saliente hacia orígenes declarados NO entra.**~~ **Decidido el 2026-09-30 (issue
+  #118): entra, con dos cerrojos.** Escribir hacia fuera no tiene sentido para una función de
+  extracción; leer sí —bajar un PDF de una sede, el tomo de un presupuesto—, así que se abre
+  **sólo por `GET`** y **sólo a los servidores que la declaración responsable enumera**.
+
+  La razón por la que no entró con la ampliación de librerías sigue siendo buena: no es una
+  librería, es una capacidad, y sostenía el argumento con el que se contestó la regla 2. Lo que
+  pasó es que **se puede abrir sin tocar ese argumento**: quien baja el documento es la
+  plataforma, no el guion, así que `requests` y `urllib` **siguen denegados** y la red del
+  sandbox sigue cerrada. El detalle está en §4 y en `funciones_origenes.py`.
+
+  Y `beautifulsoup4` **tampoco entró con esto**: parsear HTML es otra cosa que leer de la red, y
+  nadie lo ha pedido todavía para una función.
 * **§7, el nivel 2 no pasa por el embudo de innovación**: el circuito del catálogo es interno y
   no toca Teclab ni CEDIA. Estamos de acuerdo con el motivo que da la Instrucció — someter la
   extracción de una tabla de gastos al embudo reproduciría la burocracia que empuja al *Shadow
@@ -225,7 +232,10 @@ encontrar sólo la respuesta.
    **Avisa y no bloquea**: vencer no retira la versión, no la suspende y no impide usarla.
    Bloquear al vencer sería aprobación previa con retardo, que es lo que el nivel 2 prohíbe.
 
-   Cada despliegue lo cambia con `PLAZO_REVISION_POSTERIOR_DIAS`, sin tocar código.
+   Cada despliegue lo cambia con `PLAZO_REVISION_POSTERIOR_DIAS`, sin tocar código. En la VM es
+   una **variable del repositorio** con ese nombre, que `deploy.yml` lleva al contenedor; sin
+   ella valen los 30 días, y el cambio entra en vigor con el siguiente despliegue. Sólo cuentan
+   las versiones **sin revisar**: una revisada ya cumplió el plazo y no sale marcada.
 2. ~~**No hay ruta automática a la OIATI.**~~ **Cerrado el 2026-09-29 (issue #123): no va a
    haberla, y es una decisión, no un hueco.** La revisión de la OIATI **se hace fuera de la
    plataforma**, a partir de la autodeclaración de categorías que la función ya lleva, o por
@@ -279,9 +289,36 @@ matiza.
 
 **Dónde encaja mejor que el supuesto de la regla**: no hay credenciales que centralizar ni
 identidad que suplantar, porque **una función no puede hablar con nada**. El auditor le prohíbe
-`socket`, `requests`, `urllib`, `os`, `open` y `subprocess`, entre otras 63 capacidades; una
-función lee un fichero y devuelve cifras. El riesgo que la regla 2 mitiga —lo que se *introduce*
-en los sistemas corporativos— es estructuralmente imposible, no improbable.
+`socket`, `requests`, `urllib`, `os`, `open` y `subprocess`, entre otras 63 capacidades, y la red
+del sandbox está cerrada en producción. El riesgo que la regla 2 mitiga —lo que se *introduce* en
+los sistemas corporativos— es estructuralmente imposible, no improbable.
+
+**Y desde AUT.8 eso sigue siendo verdad, aunque una función ya pueda leer de fuera.** La decisión
+del 2026-09-30 abrió la red saliente con dos cerrojos —sólo `GET`, sólo a orígenes declarados—,
+pero **no le abrió la red al guion**: quien baja el documento es la plataforma, y el guion lo
+recibe como un fichero de entrada más. La frase completa, que es la que hay que citar:
+
+> Una función **no puede hablar con nada**. Lo que necesita de fuera lo pide la plataforma por
+> ella, **sólo por `GET`** y **sólo a los servidores que su declaración responsable enumera**.
+
+Tres razones por las que se hizo así y no dándole red al sandbox, porque la diferencia es toda la
+garantía:
+
+1. **La lista blanca se defiende fuera del proceso del guion.** Dentro, estaría escrita en Python
+   corriendo junto al código del usuario, que es el peor sitio posible para un límite de
+   seguridad.
+2. **La red del sandbox sigue cerrada** (`internal: true`), así que un intento de salida no llega
+   a ninguna parte en vez de llegar y ser rechazado.
+3. **La comprobación del destino es la de I15**, que ya estaba escrita y probada, y que mira **en
+   cada salto**: un origen declarado que redirige a una dirección privada no la burla.
+
+**Por qué la lista blanca y no sólo el `GET`.** Un `GET` lleva datos en la URL:
+`https://donde-sea.example/?nif=12345678Z` es una exfiltración completa y es una petición de
+lectura. Lo que protege el dato no es el método, es el destino — y por eso los orígenes son parte
+de la **declaración responsable** y no una opción de configuración.
+
+**Y lo que no hace**: un guion no puede pedir una URL a mitad de ejecución. Bajar una página,
+buscar enlaces dentro y bajar ésos son dos rondas.
 
 **La pregunta, acotada así para que se pueda contestar**: ¿la regla 2 exige la ejecución local
 **como fin**, o **como medio** para mantener la responsabilidad atribuible y las credenciales sin
@@ -359,7 +396,9 @@ test comprueba que este documento no se desvía de ellas.
 que se instala como `python-docx`— y la instalación real de `fitz` — que es `pymupdf` y llevaba
 meses **permitido y sin instalar**, así que un guion que lo importara moría con
 `ModuleNotFoundError` dentro del sandbox. Lo que **no** entró son `requests` y `beautifulsoup4`:
-la red saliente no es una librería, es una capacidad, y espera a su propia decisión (AUT.8).
+la red saliente no es una librería, es una capacidad. **Se abrió el 2026-09-30 (AUT.8, issue
+#118) sin añadir ninguna librería**: el documento lo baja la plataforma y el guion lo recibe como
+fichero de entrada, así que `requests` y `urllib` siguen denegados. Ver §4.
 
 ### Con qué nombre se instala cada una, y cuál arrastra copyleft
 
@@ -494,6 +533,19 @@ Sigues asignando `result`, y sigues recibiendo `file_path`, `raw_text` y `option
 reescribir nada: cambiar el protocolo es lo que empuja a la gente a seguir trabajando por su
 cuenta, y es justo lo que el catálogo existe para evitar.
 
+Si la función pide **varios ficheros**, el primero sigue llegando como `file_path` y todos, el
+primero incluido, están en `options["ficheros"]` por su slot, **cada uno con su ruta real**:
+
+```python
+presupuesto = pandas.read_csv(options["ficheros"]["presupuesto"])
+clasificacion = pandas.read_csv(options["ficheros"]["clasificacion"])
+```
+
+Cada fichero conserva su nombre y su extensión (pandas elige el motor por ella), y va en su propia
+carpeta, así que dos slots con ficheros que se llamen igual no se pisan. Juntos, los documentos de
+entrada no pueden pasar de **64 MB**: el sandbox los guarda en un temporal de 128 MB que comparte
+con los ficheros que la función produzca. Pasarse se dice antes de ejecutar, con las dos cifras.
+
 ### La misma cosa, en código
 
 Si vas a integrar por API o a empaquetar una función (§7), el contrato que la pantalla rellena por
@@ -602,6 +654,207 @@ viven en la plataforma, así que la necesitas como dependencia de desarrollo. Cu
 segundo consumidor se moverán a un `govgenai-sdk` ligero, y no cambiará nada más: ni el grupo del
 *entry point*, ni la forma del descriptor, ni el anclaje. Está dicho aquí para que no lo
 descubras a mitad del primer intento.
+
+---
+
+## 7.bis. Producir ficheros, y no sólo cifras (AUT.7)
+
+Hasta aquí la salida de una función eran **cifras**: tablas, métricas y texto para un bloque de
+informe. Las tareas reales de una unidad no acaban así — acaban en un Excel que alguien manda, un
+Word maquetado o un CSV limpio. Mientras la salida fueran sólo cifras, esas tareas se quedaban
+fuera del catálogo, y fuera del catálogo es **sin declaración, sin auditoría, sin versionado y
+sin registro**.
+
+### Declararlo, que es lo primero
+
+**Una función que no lo declara no puede producir ficheros**, y ése es el defecto. Se declara en
+el contrato:
+
+```python
+ContratoFuncion(
+    slots=[...],
+    parametros=[...],
+    finalidad="Sacar el CSV limpio del presupuesto",
+    categorias_datos=["dades_pressupostaries"],
+    artefactos=ArtefactosDeSalida(
+        maximo=2,              # cuántos ficheros como máximo
+        maximo_bytes=5_000_000,  # cuánto pueden pesar entre todos
+        retencion_dias=7,      # cuánto se guardan; obligatorio, con techo de 30
+    ),
+)
+```
+
+Los topes **van en el contrato y no en una constante del servidor**: una función que saca un
+Excel de 200 KB y otra que saca cincuenta PDF no pueden compartir un número inventado a medias
+entre las dos. Y son además lo que la revisión posterior lee para saber qué se autorizó.
+
+### Escribirlos
+
+El guion recibe una variable más, `output_dir`, y escribe ahí:
+
+```python
+import pandas
+df = pandas.read_csv(file_path)
+df[df["importe"] > 0].to_csv(output_dir + "/limpio.csv", index=False)
+result = {"metrics": [{"name": "filas", "value": len(df)}]}
+```
+
+Tres cosas que conviene saber antes de intentarlo de otra forma:
+
+* **No hay manera de escribir a mano.** El auditor deniega `open`, así que un fichero se produce
+  a través de una librería —`to_csv`, `to_excel`, `doc.save(...)`—. No es una incomodidad: es lo
+  que mantiene acotado qué puede aparecer ahí.
+* **Sin subdirectorios.** Sólo son artefactos los ficheros que quedan directamente en
+  `output_dir`; el nombre de un artefacto no puede llevar ruta.
+* **El directorio no sobrevive a la ejecución.** Ni para ti ni para nadie: si persistiera, la
+  siguiente ejecución entregaría tus ficheros.
+
+### Qué pasa si te pasas del tope
+
+**Falla en alto y no recorta.** Entregar tres de los cinco ficheros que escribiste sería un
+resultado parcial con aspecto de completo, y quien lo recibe no tiene cómo notarlo. El error dice
+los dos números, el tuyo y el declarado.
+
+Y si escribes ficheros **sin haberlos declarado**, se descartan y se te dice cuántos: descartar
+en silencio te dejaría creyendo que tu Excel se entrega.
+
+### Recogerlos
+
+`POST /funciones/{id}/run` los devuelve **por referencia, no por contenido** — devolver el Excel
+en base64 dentro del JSON haría que una respuesta de metadatos pesara megabytes:
+
+```json
+{
+  "metrics": [{"name": "filas", "value": 128}],
+  "artefactos": [
+    {
+      "id": "7f3a…",
+      "nombre": "limpio.csv",
+      "media_type": "text/csv",
+      "bytes": 4096,
+      "sha256": "9130c489…",
+      "expira_en": "2026-10-07T09:12:00Z",
+      "descarga": "/api/v1/funciones/artefactos/7f3a…"
+    }
+  ]
+}
+```
+
+El `sha256` está para que compruebes lo que descargas. **Y `expira_en` está porque la referencia
+caduca**: sin esa fecha, quien guarda el enlace descubre la retención el día que le devuelve un
+404.
+
+La descarga usa **el mismo scope que ejecutar**, `funciones:execute`. No hay uno aparte porque no
+tendría sentido en ninguna de las dos direcciones: sin ejecutar no hay fichero, y ejecutar sin
+poder recogerlo no sirve de nada.
+
+### La retención
+
+Pasado el plazo, **el fichero deja de servirse**: responde 404, igual que si no existiera o fuera
+de otra organización — distinguirlos contaría que ese fichero existe en otra organización.
+
+**Y se borra de verdad**, del almacenamiento y de la tabla, porque dejar de servirlo no libera el
+sitio y el argumento de esto es de protección de datos. Lo hace un barrido que el arranque de la
+aplicación lanza solo y que pasa **cada seis horas**: lo caducado se borra, como mucho, un cuarto
+de día tarde. Hasta la PR #210 el barrido existía y no lo llamaba nada.
+
+Si una ejecución falla después de subir sus ficheros —al guardar el registro, por ejemplo—, los
+ficheros se borran en el acto: una subida no forma parte de la transacción, y un fichero sin
+fila que lo nombre no lo encontraría nunca el barrido.
+
+El tope de lo que una función puede declarar es **64 MB**: el sandbox guarda entrada y salida en
+el mismo temporal de 128 MB, y la entrada ya puede ocupar la mitad.
+
+Y esto **no es la política de retención de la plataforma**, que sigue sin existir. Es el tramo
+estrecho que hacía falta para que `retencion_dias` no fuera una promesa sin nada detrás.
+
+---
+
+## 7.ter. Pedir documentos de fuera (AUT.8)
+
+Una función puede necesitar un documento que no está en la plataforma: el tomo de un presupuesto
+en la sede de la GVA, una resolución del BOE. Desde el 2026-09-30 puede pedirlo, con dos
+cerrojos: **sólo lectura** y **sólo de los servidores que declare**.
+
+### Declarar los servidores
+
+Va en el contrato, y **forma parte de la declaración responsable**: enumerar de dónde se lee es
+decir de dónde vienen los datos.
+
+```python
+ContratoFuncion(
+    slots=[SlotDeFichero(slot_id="tomo", kind="pdf", required=True)],
+    parametros=[],
+    finalidad="Contar las subvenciones nominativas del tomo",
+    categorias_datos=["sin_datos_personales"],
+    origenes=["sede.gva.es", "www.boe.es"],
+)
+```
+
+Tres cosas que un origen **no** puede ser, y las tres son formas conocidas de saltarse una lista
+blanca:
+
+| No vale | Por qué |
+|---|---|
+| Una URL (`https://sede.gva.es/docs`) | Habría que declarar cada documento, o aceptar prefijos — y un prefijo se burla con `https://sede.gva.es@atacante.example/`, que lleva el origen dentro y apunta a otro sitio |
+| Un comodín (`*.gva.es`) | Lo hereda cualquiera que consiga un subdominio |
+| Una dirección IP | No dice de quién es el servidor, y salta la comprobación del nombre |
+
+Y la coincidencia es **exacta**: declarar `gva.es` no autoriza `otra.gva.es`. Si hace falta un
+subdominio, se declara.
+
+### Pedirlo
+
+`POST /funciones/{id}/run` acepta `urls`, una por slot:
+
+```json
+{
+  "version": 1,
+  "urls": {"tomo": "https://sede.gva.es/documentos/tomo.pdf"}
+}
+```
+
+Va aparte de `ficheros` a propósito: una referencia de almacenamiento es un documento que ya
+tienes, y una URL es uno que le pides a la plataforma que traiga. Mezclarlas obligaría a adivinar
+cuál es cuál por la forma de la cadena.
+
+Una URL de un servidor no declarado responde **422 y no toca el sandbox**, igual que cuando la
+entrada no cumple el contrato: una URL rechazada no puede haber gastado una ejecución. Si el
+origen sí está declarado y el servidor remoto falla, es un **502** — el problema no es de tu
+petición.
+
+**Y lo que se puede rechazar sin red, se rechaza sin red**: un slot que el contrato no declara, o
+`urls` para una función empaquetada, dan 422 **antes** de pedir nada fuera.
+
+Lo que comprueba cada descarga:
+
+- **Cada salto, no sólo el primero.** La lista blanca y la red pública se comprueban en la
+  petición inicial **y en cada redirección**. Un origen declarado que redirige a otro servidor
+  se para en ese salto, antes de hablar con él.
+- **Hasta el tope, y no más.** Se lee a trozos y se deja de leer al pasarse: 50 MB por
+  documento, y entre todos los de una ejecución, lo que quede de los 64 MB de entrada.
+- **Con su nombre.** El documento llega al guion con el nombre de la URL final, extensión
+  incluida, porque pandas elige el motor por ella.
+
+### Lo que el guion ve
+
+**Nada distinto.** El documento le llega como `file_path`, el mismo camino por el que llega un
+fichero subido a mano. Su protocolo no cambia y lo que el auditor le permite tampoco:
+`requests`, `urllib` y `socket` **siguen denegados**.
+
+Eso no es una comodidad, es la garantía: quien baja es la plataforma, la red del sandbox sigue
+cerrada, y la lista blanca se comprueba fuera del proceso donde corre el código del usuario. El
+razonamiento completo está en §4.
+
+### Lo que no hace
+
+- **No se puede pedir una URL a mitad de ejecución.** Bajar una página, buscar enlaces dentro y
+  bajar ésos son **dos rondas**: la primera devuelve los enlaces, la segunda los pide. Afecta al
+  caso de las subvenciones nominativas.
+- **Una función empaquetada no acepta `urls`**: corre en el proceso del servidor y se trae lo
+  que necesita por su cuenta. Se rechaza en vez de ignorarlo.
+- **No se escribe nada hacia fuera.** Sólo `GET`, y sólo `https`: un documento en claro se
+  puede alterar por el camino.
 
 ---
 

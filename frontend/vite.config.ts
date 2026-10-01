@@ -40,7 +40,7 @@ export default defineConfig(({ mode }) => ({
   base: loadEnv(mode, process.cwd(), '').VITE_BASE_PATH || BASE_POR_DEFECTO,
   plugins: [react(), tailwindcss()],
   resolve: {
-    alias: { '@': path.resolve(__dirname, './src') },
+    alias: { '@': path.resolve(import.meta.dirname, './src') },
   },
   server: {
     proxy: {

@@ -561,7 +561,11 @@ async def cola_de_revision(
                 ),
                 dias_desde_el_registro=(dias := max((ahora - creada).days, 0)),
                 plazo_en_dias=plazo,
-                fuera_de_plazo=fuera_de_plazo(dias, plazo=plazo),
+                # Sólo lo pendiente puede ir tarde (issue #200): el plazo es el de **revisar**, y
+                # una revisada ya lo cumplió. Con `estado=todas` entran las dos.
+                fuera_de_plazo=(
+                    version.revisada_por is None and fuera_de_plazo(dias, plazo=plazo)
+                ),
                 acciones_permitidas=acciones_permitidas(
                     funcion, version, principal=principal
                 ),

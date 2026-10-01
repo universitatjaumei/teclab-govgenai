@@ -87,6 +87,7 @@ Lo comprueba `test_fun1_catalogo.py`, que es el guardarraíl que a estas dos les
 | `hub_test_runs` | por su escenario |
 | `hub_funciones` | `organizacion_id` — **nulo = de plataforma, y se hereda** (FUN.1) |
 | `hub_funcion_versiones` | `funcion_id` → función |
+| `hub_funcion_artefactos` | `funcion_id` → función, **y además `organizacion_id` propio**: la función puede ser de plataforma y el fichero que produce **no lo es nunca**, porque salió de correr sobre datos de alguien (AUT.7) |
 | `hub_report_templates` | `organizacion_id` (MT.4) |
 | `hub_report_template_versions` | `template_id` → plantilla |
 | `hub_workspaces` | `organizacion_id` (MT.4) |

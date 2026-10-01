@@ -10,6 +10,7 @@ Códigos de error normalizados (body: {"code": "<CODE>", ...}):
   - 422 SCRIPT_AUDIT_FAILED  (con findings: list[str])
   - 422 SCRIPT_EMPTY
   - 422 FILE_NOT_BASE64       (solo /execute-extraction)
+  - 422 FILE_NAME_INVALID     (solo /execute-extraction: el nombre saldría de su carpeta)
   - 422 ETL_NO_TRANSFORM      (solo /execute-etl)
   - 504 SCRIPT_TIMEOUT
   - 500 SCRIPT_EXECUTION_ERROR (con stderr_truncated: str ≤ 500 chars)
@@ -18,7 +19,9 @@ from __future__ import annotations
 
 import base64
 import binascii
+import hashlib
 import json
+import mimetypes
 import os
 import sys
 import tempfile
@@ -109,16 +112,154 @@ def execute_extraction(req: ExecuteExtractionRequest):
                 contenido = base64.b64decode(req.file_bytes_b64, validate=True)
             except (ValueError, binascii.Error):
                 return _err(422, "FILE_NOT_BASE64")
-            nombre = Path(req.file_name or "entrada.bin").name or "entrada.bin"
-            destino = Path(tmpdir) / nombre
+            destino = _dentro_de(tmpdir, req.file_name)
+            if destino is None:
+                return _err(422, "FILE_NAME_INVALID")
             destino.write_bytes(contenido)
             ruta_del_fichero = str(destino)
 
-        return _ejecutar_extraccion(req, ruta_del_fichero)
+        # AUT.7 — el sitio donde el guion puede dejar ficheros. Va **dentro** del temporal de
+        # esta ejecución, así que se borra al salir del `with`: si persistiera, la siguiente
+        # ejecución entregaría los ficheros de la anterior, que es como un directorio de trabajo
+        # se convierte en una fuga entre organizaciones.
+        #
+        # Se crea siempre, aunque no se esperen artefactos: el guion referencia `output_dir` y
+        # un directorio que no existe le daría un fallo de escritura en vez de un descarte con
+        # su aviso.
+        salida = Path(tmpdir) / "salida"
+        salida.mkdir()
+
+        # Issue #194 — los demás ficheros del contrato, cada uno en su sitio y con su nombre.
+        #
+        # Van a un subdirectorio **por slot** y no todos juntos: dos slots pueden traer ficheros
+        # que se llamen igual —`datos.csv` de dos fuentes distintas— y uno pisaría al otro sin
+        # que nada avisara.
+        entradas = Path(tmpdir) / "entradas"
+        rutas: dict[str, str] = {}
+        if req.file_slot and req.file_bytes_b64:
+            # El principal ya está escrito: su slot apunta ahí en vez de escribirlo otra vez.
+            rutas[req.file_slot] = ruta_del_fichero
+        for slot, fichero in (req.ficheros_b64 or {}).items():
+            try:
+                contenido = base64.b64decode(fichero.contenido_b64 or "", validate=True)
+            except (ValueError, binascii.Error):
+                return _err(422, "FILE_NOT_BASE64", slot=slot)
+            carpeta = _dentro_de(entradas, _nombre_de_slot(slot))
+            destino = _dentro_de(carpeta, fichero.nombre) if carpeta is not None else None
+            if destino is None:
+                return _err(422, "FILE_NAME_INVALID", slot=slot)
+            carpeta.mkdir(parents=True, exist_ok=True)
+            destino.write_bytes(contenido)
+            rutas[slot] = str(destino)
+
+        return _ejecutar_extraccion(req, ruta_del_fichero, salida, rutas)
 
 
-def _ejecutar_extraccion(req: ExecuteExtractionRequest, file_path: str):
-    wrapper_code = build_extraction_wrapper(req.code, file_path, req.raw_text, req.options)
+def _recoger_artefactos(directorio: Path, req: ExecuteExtractionRequest):
+    """Los ficheros que el guion dejó, o el error de tope. Devuelve `(lista, descartados, err)`.
+
+    **Pasarse falla en alto y no recorta.** Entregar tres de los cinco ficheros que se
+    escribieron sería un resultado parcial con aspecto de completo, y quien lo recibe no tiene
+    cómo notarlo.
+    """
+    entradas = sorted(directorio.iterdir(), key=lambda p: p.name)
+    if any(p.is_dir() for p in entradas):
+        return [], 0, _err(
+            422,
+            "ARTEFACTOS_EN_SUBDIRECTORIO",
+            detalle=(
+                "sólo son artefactos los ficheros que quedan directamente en `output_dir`. "
+                "Escribe ahí, sin crear subdirectorios: el nombre del artefacto no puede "
+                "llevar ruta."
+            ),
+        )
+
+    ficheros = [p for p in entradas if p.is_file()]
+
+    if req.artefactos_maximo <= 0:
+        # No se declararon: se descartan, **y se cuenta cuántos**.
+        return [], len(ficheros), None
+
+    if len(ficheros) > req.artefactos_maximo:
+        return [], 0, _err(
+            422,
+            "ARTEFACTOS_DE_MAS",
+            producidos=len(ficheros),
+            maximo=req.artefactos_maximo,
+        )
+
+    total = sum(p.stat().st_size for p in ficheros)
+    if total > req.artefactos_maximo_bytes:
+        return [], 0, _err(
+            422,
+            "ARTEFACTOS_DEMASIADO_GRANDES",
+            bytes=total,
+            maximo_bytes=req.artefactos_maximo_bytes,
+        )
+
+    producidos = []
+    for p in ficheros:
+        contenido = p.read_bytes()
+        producidos.append(
+            {
+                "nombre": p.name,
+                "media_type": mimetypes.guess_type(p.name)[0] or "application/octet-stream",
+                "bytes": len(contenido),
+                "sha256": hashlib.sha256(contenido).hexdigest(),
+                "contenido_b64": base64.b64encode(contenido).decode("ascii"),
+            }
+        )
+    return producidos, 0, None
+
+
+def _dentro_de(base: str | Path, nombre: str | None) -> Path | None:
+    """La ruta de `nombre` dentro de `base`, o `None` si se saldría de ella.
+
+    **El nombre llega en la petición y el sandbox no se fía de él.** Quitar los directorios con
+    `Path(nombre).name` no basta: `Path("..").name` es `".."`, y `base / ".."` es la carpeta de
+    arriba. Por eso se resuelve la ruta y se comprueba que sigue **estrictamente dentro** de la
+    base, que es la única comprobación que no depende de enumerar las formas de escaparse (PR
+    #210, CodeQL).
+
+    Sin nombre vale `entrada.bin`, como hasta aquí.
+    """
+    raiz = os.path.realpath(base)
+    limpio = os.path.basename(nombre or "") or "entrada.bin"
+    destino = os.path.realpath(os.path.join(raiz, limpio))
+    if not destino.startswith(raiz + os.sep):
+        return None
+    return Path(destino)
+
+
+def _nombre_de_slot(slot: str) -> str:
+    """El slot como nombre de carpeta: legible delante y **único** detrás.
+
+    Delante, el slot sin lo que no sea letra, cifra, `-` o `_`, para que no se salga de
+    `entradas/` y para que quien depure sepa de cuál se trata. Detrás, una huella del slot
+    **original**, porque quitar caracteres no es inyectivo: `a/b` y `ab` daban la misma carpeta, y
+    con ficheros del mismo nombre el segundo pisaba al primero sin que nada lo dijera (PR #210).
+
+    El servidor hace lo mismo en modo local (`sandbox_client._carpeta_del_slot`).
+    """
+    limpio = "".join(c for c in slot if c.isalnum() or c in "-_")[:40] or "slot"
+    return f"{limpio}-{hashlib.sha256(slot.encode('utf-8')).hexdigest()[:12]}"
+
+
+def _ejecutar_extraccion(
+    req: ExecuteExtractionRequest,
+    file_path: str,
+    output_dir: Path,
+    rutas_de_entrada: dict[str, str] | None = None,
+):
+    # Las rutas reales sustituyen a lo que viniera en `options["ficheros"]`, que eran
+    # referencias de almacenamiento inservibles aquí dentro (issue #194).
+    options = dict(req.options or {})
+    if rutas_de_entrada:
+        options["ficheros"] = rutas_de_entrada
+
+    wrapper_code = build_extraction_wrapper(
+        req.code, file_path, req.raw_text, options, str(output_dir)
+    )
     wrapper_path = _write_script(wrapper_code)
     try:
         try:
@@ -141,6 +282,13 @@ def _ejecutar_extraccion(req: ExecuteExtractionRequest, file_path: str):
         except (json.JSONDecodeError, ValueError):
             data = {}
 
+        # Se recogen **después** de comprobar el código de salida: un guion que revienta a mitad
+        # puede haber dejado un fichero a medio escribir, y entregarlo sería peor que no
+        # entregar nada.
+        artefactos, descartados, err = _recoger_artefactos(output_dir, req)
+        if err is not None:
+            return err
+
         return JSONResponse(
             status_code=200,
             content={
@@ -150,6 +298,8 @@ def _ejecutar_extraccion(req: ExecuteExtractionRequest, file_path: str):
                     "free_text": data.get("free_text"),
                 },
                 "stdout_truncated": result.stdout_truncated,
+                "artefactos": artefactos,
+                "artefactos_descartados": descartados,
             },
         )
     finally:

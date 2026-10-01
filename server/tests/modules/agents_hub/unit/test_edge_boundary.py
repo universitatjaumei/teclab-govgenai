@@ -76,6 +76,12 @@ def test_operational_base_contains_only_operational_models() -> None:
         # con el que `hub_lexicon_pairs` acabó en este lado.
         "hub_funciones",
         "hub_funcion_versiones",
+        # AUT.7 — los ficheros que una función produce al ejecutarse. Operacional **sin la
+        # discusión que sí tenían las dos de arriba**: un artefacto es el resultado de correr
+        # código sobre los documentos del cliente. Que la función pueda ser de plataforma no lo
+        # arrastra al otro lado; lo que se sincroniza cloud→edge es la función, nunca lo que
+        # salió de ejecutarla.
+        "hub_funcion_artefactos",
         # Módulo redacción (edge, 9R) — procesan expedientes del cliente
         "hub_report_templates",
         "hub_report_template_versions",
