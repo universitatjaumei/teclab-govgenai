@@ -22,7 +22,7 @@ import pytest
 
 
 def _pdf(paginas: int, texto: str = "pagina") -> bytes:
-    import fitz
+    import pymupdf as fitz
 
     doc = fitz.open()
     for i in range(paginas):
@@ -34,14 +34,14 @@ def _pdf(paginas: int, texto: str = "pagina") -> bytes:
 
 
 def _paginas(datos: bytes) -> int:
-    import fitz
+    import pymupdf as fitz
 
     with fitz.open(stream=datos, filetype="pdf") as doc:
         return doc.page_count
 
 
 def _texto(datos: bytes) -> list[str]:
-    import fitz
+    import pymupdf as fitz
 
     with fitz.open(stream=datos, filetype="pdf") as doc:
         return [p.get_text().strip() for p in doc]
@@ -62,7 +62,7 @@ class TestValidar:
 
     def test_un_pdf_con_contrasena_se_dice(self):
         """No se puede operar sobre él, y el error tiene que decir por qué."""
-        import fitz
+        import pymupdf as fitz
 
         from server.app.modules.utilidades.pdf import PdfNoValido, info
 

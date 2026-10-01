@@ -259,7 +259,10 @@ async def partir_pdf(
 @router.post("/pdf/optimizar", operation_id="optimizarPdf", response_class=Response)
 async def optimizar_pdf(
     file: UploadFile = File(...),
-    nivel: int = Form(3),
+    # Enumerado y no `int`: así los niveles salen en el contrato y la pantalla los pinta de ahí,
+    # en vez de escribir 1-4 a mano. Y `IntEnum`, no `Literal`, porque desde un formulario llega
+    # «3» como texto (ver `pdf.NivelDeOptimizacion`).
+    nivel: pdf.NivelDeOptimizacion = Form(pdf.NivelDeOptimizacion.EQUILIBRADO),
     user: UserInfo = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> Response:
@@ -267,7 +270,7 @@ async def optimizar_pdf(
     organizacion = _organizacion(user)
     (nombre, datos), = await _leer_pdfs([file])
     try:
-        resultado = await asyncio.to_thread(pdf.optimizar, datos, nivel=nivel)
+        resultado = await asyncio.to_thread(pdf.optimizar, datos, nivel=int(nivel))
     except (pdf.PdfNoValido, pdf.OperacionNoValida) as fallo:
         raise _sin_hacer(fallo) from fallo
 
@@ -275,7 +278,7 @@ async def optimizar_pdf(
         session,
         user=user,
         organizacion=organizacion,
-        herramienta=f"utilidades/pdf/optimizar:{nivel}",
+        herramienta=f"utilidades/pdf/optimizar:{int(nivel)}",
         finalidad=(
             f"Optimizar un PDF ({resultado.bytes_original} → {resultado.bytes_final} bytes) sin "
             "que salga de la plataforma"

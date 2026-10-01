@@ -20,8 +20,9 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from enum import IntEnum
 
-import fitz
+import pymupdf as fitz
 
 #: Lo que se puede guardar en cada nivel de optimización. Sin `linear`: ver el docstring.
 _NIVELES: dict[int, dict] = {
@@ -30,6 +31,20 @@ _NIVELES: dict[int, dict] = {
     3: {"garbage": 3, "deflate": True, "clean": True},
     4: {"garbage": 4, "deflate": True, "clean": True, "deflate_images": True, "deflate_fonts": True},
 }
+
+class NivelDeOptimizacion(IntEnum):
+    """Los niveles que se pueden pedir, para que salgan en el contrato.
+
+    **`IntEnum` y no `Literal[1, 2, 3, 4]`**: desde un formulario el nivel llega como texto, y un
+    `Literal` de enteros no convierte `"3"` en `3` — optimizar respondía 422 desde la pantalla con
+    todos los tests en verde, porque éstos llamaban a la función con un entero.
+    """
+
+    LIMPIEZA_BASICA = 1
+    MODERADO = 2
+    EQUILIBRADO = 3
+    AGRESIVO = 4
+
 
 #: El guardado con optimización que usan unir y partir: el nivel 3, el recomendado.
 _OPTIMIZADO = _NIVELES[3]

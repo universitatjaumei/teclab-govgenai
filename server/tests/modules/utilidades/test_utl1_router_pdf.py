@@ -24,7 +24,7 @@ NOMBRE_DELATOR = "expediente-maria-lopez-garcia.pdf"
 
 
 def _pdf(paginas: int) -> bytes:
-    import fitz
+    import pymupdf as fitz
 
     doc = fitz.open()
     for i in range(paginas):
@@ -52,7 +52,7 @@ def _usuario(organizacion):
 
 
 def _paginas(datos: bytes) -> int:
-    import fitz
+    import pymupdf as fitz
 
     with fitz.open(stream=datos, filetype="pdf") as doc:
         return doc.page_count
