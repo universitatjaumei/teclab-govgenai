@@ -157,6 +157,9 @@ services:
       # comparten Google y el ACS de SAML. En despliegue lleva el prefijo del panel (DOM.2):
       # https://<dominio>/panel/auth/callback.
       SAML_FRONTEND_RETURN_URL: ${SAML_FRONTEND_RETURN_URL:-}
+      # El plazo de la revisión posterior lo fija la institución que despliega (AUT.12, issue
+      # #201). Vacía, vale el de por defecto: 30 días naturales.
+      PLAZO_REVISION_POSTERIOR_DIAS: ${PLAZO_REVISION_POSTERIOR_DIAS:-}
     volumes:
       - /opt/govgenai/cloudsql:/cloudsql:ro
     depends_on:

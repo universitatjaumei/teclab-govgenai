@@ -232,7 +232,10 @@ encontrar sólo la respuesta.
    **Avisa y no bloquea**: vencer no retira la versión, no la suspende y no impide usarla.
    Bloquear al vencer sería aprobación previa con retardo, que es lo que el nivel 2 prohíbe.
 
-   Cada despliegue lo cambia con `PLAZO_REVISION_POSTERIOR_DIAS`, sin tocar código.
+   Cada despliegue lo cambia con `PLAZO_REVISION_POSTERIOR_DIAS`, sin tocar código. En la VM es
+   una **variable del repositorio** con ese nombre, que `deploy.yml` lleva al contenedor; sin
+   ella valen los 30 días, y el cambio entra en vigor con el siguiente despliegue. Sólo cuentan
+   las versiones **sin revisar**: una revisada ya cumplió el plazo y no sale marcada.
 2. ~~**No hay ruta automática a la OIATI.**~~ **Cerrado el 2026-09-29 (issue #123): no va a
    haberla, y es una decisión, no un hueco.** La revisión de la OIATI **se hace fuera de la
    plataforma**, a partir de la autodeclaración de categorías que la función ya lleva, o por
