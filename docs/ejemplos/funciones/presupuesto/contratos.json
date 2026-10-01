@@ -1,0 +1,41 @@
+{
+  "anonimizar_presupuesto": {
+    "nombre": "Anonimizar el presupuesto",
+    "guion": "anonimizar_presupuesto.py",
+    "contrato": {
+      "slots": [
+        {"slot_id": "presupuesto", "kind": "excel", "required": true,
+         "label": {"es": "Presupuesto inicial (CSV)", "ca": "Pressupost inicial (CSV)"}},
+        {"slot_id": "pdi", "kind": "text", "required": true,
+         "label": {"es": "Lista de nombres del PDI", "ca": "Llista de noms del PDI"}}
+      ],
+      "parametros": [],
+      "finalidad": "Quitar los nombres de personas de las descripciones del presupuesto antes de publicarlo o de agregarlo, por los códigos de convocatoria y por la lista del PDI",
+      "categorias_datos": ["datos_identificativos", "datos_economicos_y_financieros"],
+      "artefactos": {"maximo": 1, "maximo_bytes": 50000000, "retencion_dias": 7}
+    }
+  },
+  "documento_presupuesto": {
+    "nombre": "Documento del presupuesto",
+    "guion": "documento_presupuesto.py",
+    "contrato": {
+      "slots": [
+        {"slot_id": "presupuesto", "kind": "excel", "required": true,
+         "label": {"es": "Presupuesto anonimizado (CSV)", "ca": "Pressupost anonimitzat (CSV)"}},
+        {"slot_id": "clasificacion", "kind": "excel", "required": true,
+         "label": {"es": "Clasificación económica (CSV)", "ca": "Classificació econòmica (CSV)"}},
+        {"slot_id": "prosa", "kind": "markdown", "required": false,
+         "label": {"es": "Prosa del documento (Markdown)", "ca": "Prosa del document (Markdown)"}}
+      ],
+      "parametros": [
+        {"slot_id": "titulo", "field_type": "text", "required": false,
+         "label": {"es": "Título del documento", "ca": "Títol del document"}},
+        {"slot_id": "encabezado", "field_type": "text", "required": false,
+         "label": {"es": "Texto del encabezado", "ca": "Text de la capçalera"}}
+      ],
+      "finalidad": "Normalizar el presupuesto ya anonimizado, agregarlo en las tablas del documento y producir el CSV limpio para el cuadro de mando y el Word maquetado",
+      "categorias_datos": ["datos_economicos_y_financieros"],
+      "artefactos": {"maximo": 2, "maximo_bytes": 50000000, "retencion_dias": 7}
+    }
+  }
+}
