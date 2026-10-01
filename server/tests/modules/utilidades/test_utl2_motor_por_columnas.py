@@ -83,6 +83,37 @@ class TestLasCeldasVacias:
         assert pd.isna(resultado["nombre"].iloc[1])
 
 
+class TestUnNombreFalsoTieneLaFormaDelVerdadero:
+    """Lo destapó la verificación en el navegador: «Nombre completo» salía como una sola palabra.
+
+    El generador miraba sólo la cabecera, y «Nombre completo» contiene «nom», así que inventaba un
+    nombre de pila suelto para «Ana García López». Seguía anonimizado, pero no era verosímil y la
+    columna perdía su forma: quien recibe el fichero ya no ve nombres y apellidos.
+    """
+
+    @pytest.mark.parametrize(
+        "columna, original",
+        [("Nombre completo", "Ana García López"), ("Persona", "Joan Puig"), ("Apellidos", "García López")],
+    )
+    def test_tantas_palabras_como_el_original(self, columna, original):
+        df = pd.DataFrame({columna: [original]})
+
+        resultado = _ctx().anonymize_dataframe(
+            df, {columna: {"type": "PERSON_NAME", "mode": "FAKER"}}
+        )
+
+        falso = resultado[columna].iloc[0]
+        assert falso != original
+        assert len(falso.split()) == len(original.split()), falso
+
+    def test_un_nombre_de_pila_sigue_siendo_uno(self):
+        df = pd.DataFrame({"Nombre": ["Ana"]})
+
+        resultado = _ctx().anonymize_dataframe(df, {"Nombre": {"type": "PERSON_NAME", "mode": "FAKER"}})
+
+        assert len(resultado["Nombre"].iloc[0].split()) == 1
+
+
 class TestLaLetraDelDni:
 
     @pytest.mark.parametrize("valor", ["12345678Z", "00000000T", "X1234567L", "Y0000000Z"])
