@@ -349,8 +349,8 @@ por `funcion_id@versión`.
   pueden administrar la misma organización. `AdminAccount` se queda con el partner y la
   facturación. Decisión escrita en [`DECISION_IDENTIDAD_DE_ADMINISTRACION.md`](DECISION_IDENTIDAD_DE_ADMINISTRACION.md).
 - **Acceso por módulos concedidos, no por roles nuevos**: `chatbots`, `curacion`, `informes`,
-  `personas`, `registro`, `plataforma`. El catálogo es tabla (I4). El superadmin no necesita
-  concesión.
+  `personas`, `registro`, `utilidades`, `plataforma`. El catálogo es tabla (I4). El superadmin no
+  necesita concesión.
 - Toda consulta que sirva datos de inquilino se acota con `scope_query_to_orgs`, y **la lista vacía
   significa «ninguna»** (I5, I8).
 - Contraseña local para personas, con interruptor `LOCAL_USER_LOGIN_ENABLED` para apagarla cuando
