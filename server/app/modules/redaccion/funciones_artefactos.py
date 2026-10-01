@@ -15,13 +15,15 @@ Esto es lo que lo convierte en algo que una persona se lleva.
 * **La clave lleva la ejecución dentro.** El nombre lo pone el guion y suele ser el mismo
   (`salida.csv`); sin la ejecución en la clave, la segunda corrida sobreescribiría el fichero
   que la primera entregó.
-* **Caducar es dejar de servir *y* poder borrar.** Dejar de servirlo no libera el sitio, y el
-  argumento de esta funcionalidad es de protección de datos: el barrido existe. Engancharlo a un
-  programador es otra cosa y no está hecho — mientras tanto se llama a mano, pero se puede
-  llamar, que es la diferencia entre una promesa con mecanismo y una sin él.
+* **Caducar es dejar de servir *y* borrar.** Dejar de servirlo no libera el sitio, y el
+  argumento de esta funcionalidad es de protección de datos. El barrido corre solo: el arranque
+  de la aplicación lanza `bucle_de_caducados`. Hasta la PR #210 existía y no lo llamaba nadie, y
+  `retencion_dias` prometía un borrado que no ocurría.
 """
 from __future__ import annotations
 
+import asyncio
+import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -31,6 +33,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from server.app.core.sandbox_client import ArtefactoEnBruto
 from server.app.core.storage import StorageService
 from server.app.modules.redaccion.database.models import HubFuncionArtefacto
+
+_log = logging.getLogger(__name__)
+
+#: Cada cuánto pasa el barrido. La retención se mide en días, así que una pasada cada seis horas
+#: borra lo caducado como mucho un cuarto de día tarde, y no ocupa la base más de lo necesario.
+CADA_SEGUNDOS = 6 * 60 * 60
 
 
 class ArtefactoNoDisponible(LookupError):
@@ -76,7 +84,12 @@ async def guardar_artefactos(
     que impide que dos corridas se pisen.
 
     **No hace `commit`.** Lo hace quien orquesta, para que el registro de actividad y los
-    artefactos de una misma ejecución entren o no entren juntos.
+    artefactos de una misma ejecución entren o no entren juntos. **Y por eso, si lo que viene
+    después falla, quien orquesta llama a `deshacer_artefactos`**: las subidas al almacenamiento
+    no son parte de la transacción, y un fichero sin fila no lo encuentra nunca el barrido.
+
+    Si falla una subida a mitad de lote, las anteriores se borran aquí mismo antes de propagar el
+    fallo, por la misma razón (PR #210).
     """
     corrida = ejecucion_id or uuid.uuid4()
     expira = datetime.now(timezone.utc) + timedelta(days=retencion_dias)
@@ -89,7 +102,11 @@ async def guardar_artefactos(
             ejecucion_id=corrida,
             nombre=bruto.nombre,
         )
-        await almacen.put(clave, bruto.contenido)
+        try:
+            await almacen.put(clave, bruto.contenido)
+        except Exception:
+            await deshacer_artefactos(filas, almacen=almacen)
+            raise
         fila = HubFuncionArtefacto(
             # **El id se pone aquí y no se deja al `default` de la columna.** Ese default lo
             # aplica SQLAlchemy al hacer `flush`, así que quien llama —que necesita el id para
@@ -110,6 +127,25 @@ async def guardar_artefactos(
         session.add(fila)
         filas.append(fila)
     return filas
+
+
+async def deshacer_artefactos(
+    filas: list[HubFuncionArtefacto], *, almacen: StorageService
+) -> None:
+    """Borra del almacenamiento los ficheros de unas filas que no van a llegar a la base.
+
+    **Hace todo lo que puede y no falla.** Se llama cuando algo ya ha fallado, y un error aquí
+    taparía el original, que es el que dice qué pasó. Lo que no se pueda borrar queda en el log
+    con su clave, para quitarlo a mano.
+    """
+    for fila in filas:
+        try:
+            await almacen.delete(fila.storage_key)
+        except Exception:  # noqa: BLE001 — se registra, el fallo que importa es el de antes
+            _log.exception(
+                "No se pudo borrar el artefacto huérfano %s; queda sin fila que lo nombre",
+                fila.storage_key,
+            )
 
 
 async def artefacto_para_descargar(
@@ -188,3 +224,34 @@ async def barrer_artefactos_caducados(
         await session.delete(fila)
         borrados += 1
     return borrados
+
+
+async def una_pasada_de_caducados(session_factory, *, almacen: StorageService) -> int:
+    """Una pasada del barrido, con su propia sesión y **su `commit`**.
+
+    Sin el `commit` la pasada diría «borrados» y las filas seguirían al cerrar la sesión: es el
+    defecto que DIN.7 encontró en el job de calidad.
+    """
+    async with session_factory() as session:
+        borrados = await barrer_artefactos_caducados(session, almacen=almacen)
+        await session.commit()
+    if borrados:
+        _log.info("Barrido de artefactos caducados: %s borrados", borrados)
+    return borrados
+
+
+async def bucle_de_caducados(
+    session_factory, *, almacen: StorageService, cada_segundos: int = CADA_SEGUNDOS
+) -> None:
+    """Pasa el barrido para siempre. Lo lanza el arranque de la aplicación (PR #210).
+
+    **Un fallo de una pasada no para el bucle**: se registra y se espera a la siguiente. Un
+    almacenamiento que no responde una vez no puede dejar la retención sin cumplir para siempre,
+    que es lo que pasaría si la excepción matara la tarea.
+    """
+    while True:
+        try:
+            await una_pasada_de_caducados(session_factory, almacen=almacen)
+        except Exception:  # noqa: BLE001 — se registra y se reintenta en la siguiente pasada
+            _log.exception("El barrido de artefactos caducados falló; se reintenta luego")
+        await asyncio.sleep(cada_segundos)

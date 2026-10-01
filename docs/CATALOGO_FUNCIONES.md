@@ -748,15 +748,22 @@ La descarga usa **el mismo scope que ejecutar**, `funciones:execute`. No hay uno
 tendría sentido en ninguna de las dos direcciones: sin ejecutar no hay fichero, y ejecutar sin
 poder recogerlo no sirve de nada.
 
-### La retención, y lo que todavía no hace
+### La retención
 
 Pasado el plazo, **el fichero deja de servirse**: responde 404, igual que si no existiera o fuera
 de otra organización — distinguirlos contaría que ese fichero existe en otra organización.
 
-Hay además una función de barrido que lo borra de verdad del almacenamiento, porque dejar de
-servirlo no libera el sitio y el argumento de esto es de protección de datos. **Lo que no hay es
-un programador que la llame sola**: hoy se ejecuta a mano. Se dice aquí en vez de dejar que
-alguien lo suponga.
+**Y se borra de verdad**, del almacenamiento y de la tabla, porque dejar de servirlo no libera el
+sitio y el argumento de esto es de protección de datos. Lo hace un barrido que el arranque de la
+aplicación lanza solo y que pasa **cada seis horas**: lo caducado se borra, como mucho, un cuarto
+de día tarde. Hasta la PR #210 el barrido existía y no lo llamaba nada.
+
+Si una ejecución falla después de subir sus ficheros —al guardar el registro, por ejemplo—, los
+ficheros se borran en el acto: una subida no forma parte de la transacción, y un fichero sin
+fila que lo nombre no lo encontraría nunca el barrido.
+
+El tope de lo que una función puede declarar es **64 MB**: el sandbox guarda entrada y salida en
+el mismo temporal de 128 MB, y la entrada ya puede ocupar la mitad.
 
 Y esto **no es la política de retención de la plataforma**, que sigue sin existir. Es el tramo
 estrecho que hacía falta para que `retencion_dias` no fuera una promesa sin nada detrás.

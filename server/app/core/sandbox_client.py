@@ -398,26 +398,7 @@ class HttpSandboxClient:
             resultado = _parse_extraction_json(cuerpo, self._PIPELINE_ID)
             brutos = _parse_artefactos(cuerpo)
             descartados = int(cuerpo.get("artefactos_descartados") or 0)
-            if descartados:
-                # El guion escribió ficheros que nadie espera. **Se dice**, porque quien lo
-                # escribió cree que se están entregando: es un aviso, no un fallo, porque el
-                # resto del resultado es bueno.
-                resultado = resultado.model_copy(
-                    update={
-                        "warnings": [
-                            *resultado.warnings,
-                            ExtractionWarning(
-                                code="ARTEFACTOS_NO_DECLARADOS",
-                                message=(
-                                    f"el guion escribió {descartados} fichero(s) y esta función "
-                                    "no declara artefactos de salida, así que se han "
-                                    "descartado. Declara `artefactos` en el contrato."
-                                ),
-                                severity="warning",
-                            ),
-                        ]
-                    }
-                )
+            resultado = _con_aviso_de_no_declarados(resultado, descartados)
             perdidos = len(cuerpo.get("artefactos") or []) - len(brutos)
             if perdidos > 0:
                 # Llegó un artefacto cuyo hash no cuadra con su contenido. No se entrega y no
@@ -613,7 +594,13 @@ class LocalSandboxClient:
                     "SCRIPT_TIMEOUT", f"Timeout tras {timeout}s.", self._PIPELINE_ID
                 )
 
-            return _resultado_local(sub, self._PIPELINE_ID)
+            # Lo que el guion escribió sin que la función lo declare se descarta **y se dice**,
+            # como hace el sandbox HTTP. Antes aquí se tiraba en silencio, y un guion pasaba en
+            # los tests sin el aviso que recibiría desplegado (PR #210).
+            descartados = sum(1 for p in salida.iterdir() if p.is_file())
+            return _con_aviso_de_no_declarados(
+                _resultado_local(sub, self._PIPELINE_ID), descartados
+            )
 
     async def execute_extraction_con_artefactos(
         self,
@@ -768,6 +755,33 @@ _t(df.copy()).to_csv({str(out_csv)!r}, index=False)
 # ---------------------------------------------------------------------------
 # Helpers locales de subprocess
 # ---------------------------------------------------------------------------
+
+def _con_aviso_de_no_declarados(resultado: ExtractionResult, descartados: int) -> ExtractionResult:
+    """Añade el aviso de que el guion escribió ficheros que la función no declara.
+
+    El guion escribió ficheros que nadie espera. **Se dice**, porque quien lo escribió cree que
+    se están entregando: es un aviso, no un fallo, porque el resto del resultado es bueno. Lo
+    usan los dos clientes, el HTTP y el local, para que digan exactamente lo mismo (PR #210).
+    """
+    if not descartados:
+        return resultado
+    return resultado.model_copy(
+        update={
+            "warnings": [
+                *resultado.warnings,
+                ExtractionWarning(
+                    code="ARTEFACTOS_NO_DECLARADOS",
+                    message=(
+                        f"el guion escribió {descartados} fichero(s) y esta función no declara "
+                        "artefactos de salida, así que se han descartado. Declara `artefactos` "
+                        "en el contrato."
+                    ),
+                    severity="warning",
+                ),
+            ]
+        }
+    )
+
 
 def _resultado_local(sub: dict, pipeline_id: str) -> ExtractionResult:
     if sub["returncode"] != 0:

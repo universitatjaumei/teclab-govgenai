@@ -287,8 +287,8 @@ class TestLaRetencionSignificaAlgo:
         """Dejar de servirlo no es borrarlo, y el argumento de esta issue es de datos.
 
         El fichero sigue ocupando sitio en el almacenamiento de la organización hasta que algo
-        lo quita. Esto es ese algo; **engancharlo a un programador es otra cosa**, y mientras no
-        esté enganchado se ejecuta a mano — pero existe y se puede llamar.
+        lo quita. Esto es ese algo, y desde la PR #210 lo lanza el arranque: lo comprueba
+        `test_pr210_aut7_los_artefactos_revisados`.
         """
         from sqlalchemy import select
 

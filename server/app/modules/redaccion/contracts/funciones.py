@@ -115,6 +115,16 @@ class ParametroDeFuncion(UIFieldDescriptor):
 #: estrecho que AUT.7 necesitaba para no dejar el silencio significando «para siempre».
 RETENCION_MAXIMA_DIAS = 30
 
+#: Lo más que una función puede declarar que produce, en bytes: **64 MB**.
+#:
+#: Sale del mismo sitio que el tope de entrada (`funciones_service.MAXIMO_BYTES_DE_ENTRADA`): el
+#: sandbox monta su temporal como un `tmpfs` de 128 MB, y ahí conviven los ficheros de entrada
+#: materializados y los que el guion escribe. Hasta la PR #210 éste era de 100 MB, y con 64 de
+#: entrada no cabían: el guion se quedaba sin disco **antes** de que la recogida de artefactos
+#: pudiera decir que se había pasado. Un test ata la suma de los dos al `docker-compose.yml`, y
+#: otro, este número al que valida el sandbox.
+MAXIMO_BYTES_DE_SALIDA = 64 * 1024 * 1024
+
 
 class ArtefactosDeSalida(BaseModel):
     """Que esta función produce ficheros, cuántos y por cuánto tiempo se guardan (AUT.7).
@@ -130,7 +140,7 @@ class ArtefactosDeSalida(BaseModel):
     #: Cuántos ficheros como máximo. **Al menos uno**: declarar «produzco hasta cero» sería una
     #: segunda forma de decir «no produzco», y entonces el código tendría que tratar las dos.
     maximo: int = Field(ge=1, le=100)
-    maximo_bytes: int = Field(ge=1, le=100_000_000)
+    maximo_bytes: int = Field(ge=1, le=MAXIMO_BYTES_DE_SALIDA)
     #: Días que se conservan. **Sin defecto a propósito**: es la decisión que la issue dejaba
     #: anotada, y un defecto aquí la tomaría en silencio.
     retencion_dias: int = Field(ge=1, le=RETENCION_MAXIMA_DIAS)

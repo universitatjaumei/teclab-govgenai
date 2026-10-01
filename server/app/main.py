@@ -420,12 +420,25 @@ async def _arranque(app: FastAPI):
 
     refresh_task = asyncio.create_task(periodic_refresh())
 
+    # AUT.7 — el barrido de artefactos caducados. Hasta la PR #210 existía y no lo llamaba nada,
+    # así que `retencion_dias` prometía un borrado que no ocurría: la descarga daba 404 y el
+    # fichero seguía en el almacenamiento. Es la lección de DIN.4 otra vez — una capacidad que el
+    # arranque no llama no existe —, y un test mira que esta línea siga aquí.
+    from server.app.core.storage import get_storage_service
+    from server.app.database.db import AsyncSessionLocal
+    from server.app.modules.redaccion.funciones_artefactos import bucle_de_caducados
+
+    caducados_task = asyncio.create_task(
+        bucle_de_caducados(AsyncSessionLocal, almacen=get_storage_service())
+    )
+
     # Content quality scheduler (9Q.5) — Deploy: edge
     quality_scheduler = _start_quality_scheduler()
 
     yield
 
     refresh_task.cancel()
+    caducados_task.cancel()
     if quality_scheduler is not None:
         quality_scheduler.shutdown(wait=False)
 

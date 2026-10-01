@@ -60,6 +60,7 @@ from server.app.modules.redaccion.funciones_origenes import (
 from server.app.modules.redaccion.funciones_artefactos import (
     ArtefactoNoDisponible,
     artefacto_para_descargar,
+    deshacer_artefactos,
     guardar_artefactos,
 )
 from server.app.modules.redaccion.funciones_service import (
@@ -462,13 +463,20 @@ async def ejecutar_funcion_por_api(
         },
     )
 
-    await _anotar_en_el_registro(
-        session,
-        organizacion=organizacion,
-        principal=principal,
-        funcion=funcion,
-        version=version,
-    )
+    try:
+        await _anotar_en_el_registro(
+            session,
+            organizacion=organizacion,
+            principal=principal,
+            funcion=funcion,
+            version=version,
+        )
+    except Exception:
+        # El commit está ahí dentro. Si falla, las filas de los artefactos no llegan a la base y
+        # sus ficheros quedarían en el almacenamiento sin nada que los nombre: el barrido recorre
+        # filas y no los vería nunca (PR #210).
+        await deshacer_artefactos(guardados, almacen=almacen)
+        raise
 
     return respuesta
 

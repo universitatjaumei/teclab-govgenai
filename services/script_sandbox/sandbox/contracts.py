@@ -51,7 +51,10 @@ class ExecuteExtractionRequest(BaseModel):
     # un número. Cero —el defecto— significa que esta función no declaró artefactos, y entonces
     # lo que el guion escriba se descarta: la capacidad no se concede por omisión.
     artefactos_maximo: int = Field(default=0, ge=0, le=100)
-    artefactos_maximo_bytes: int = Field(default=0, ge=0, le=100_000_000)
+    # 64 MB, igual que `MAXIMO_BYTES_DE_SALIDA` en el servidor (PR #210): el temporal es un
+    # `tmpfs` de 128 MB que comparte con hasta 64 MB de entrada. Un test del servidor comprueba
+    # que los dos números coinciden.
+    artefactos_maximo_bytes: int = Field(default=0, ge=0, le=64 * 1024 * 1024)
 
 
 class ArtefactoProducido(BaseModel):
