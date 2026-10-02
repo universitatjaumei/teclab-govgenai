@@ -48,6 +48,7 @@ function version(extra: Record<string, unknown> = {}) {
     revision_prevista_en: '2027-04-01',
     revision_vencida: false,
     presupuesto_documentos: 5,
+    espera_adjunto: false,
     declarada_en: '2026-10-02T10:00:00Z',
     revisada_en: null,
     revision_resultado: null,
@@ -187,7 +188,19 @@ describe('#172 — publicar exige la declaración', () => {
       grupos: [],
       revision_prevista_en: '2027-06-30',
       presupuesto_documentos: 5,
+      espera_adjunto: false,
     })
+  })
+
+  it('un agente de revisión declara que quien consulta adjuntará un documento', async () => {
+    montar([])
+    fireEvent.click(screen.getByRole('button', { name: 'Publicar un agente' }))
+    rellenar(DECLARACION)
+    fireEvent.click(screen.getByLabelText('Quien consulta adjuntará un documento'))
+    fireEvent.click(screen.getByRole('button', { name: 'Publicar' }))
+
+    await waitFor(() => expect(mutaciones.publicar).toHaveBeenCalledTimes(1))
+    expect(mutaciones.publicar.mock.calls[0][0].data.espera_adjunto).toBe(true)
   })
 
   it('el presupuesto de documentos se declara, y fuera de 1 a 10 no se manda', async () => {
@@ -325,5 +338,12 @@ describe('#173 — el índice', () => {
       'https://drive.google.com/file/d/1',
     )
     expect(within(lista).getByText('No vigente')).toBeInTheDocument()
+  })
+})
+
+describe('#175 — el agente que espera un adjunto', () => {
+  it('su ficha lo dice', () => {
+    montar([agente({}, { espera_adjunto: true })])
+    expect(within(screen.getByTestId('agente')).getByText('Quien consulta adjunta un documento')).toBeInTheDocument()
   })
 })

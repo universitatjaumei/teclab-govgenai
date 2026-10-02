@@ -30,6 +30,7 @@ const CATALOGO = [
     responsable: 'Jefatura de Contratación',
     version: 2,
     revision_vencida: false,
+    espera_adjunto: false,
   },
   {
     id: 'a2',
@@ -39,6 +40,7 @@ const CATALOGO = [
     responsable: 'Jefatura de Gestión Económica',
     version: 1,
     revision_vencida: true,
+    espera_adjunto: true,
   },
 ]
 
@@ -46,6 +48,7 @@ const RESPUESTA = {
   agente: 'Contratación menor',
   version: 2,
   prompt: 'Eres el asistente.\n\nPregunta: ¿importe?\n\n1. Instrucción — https://drive.google.com/file/d/1',
+  espera_adjunto: false,
   documentos: [
     { url: 'https://drive.google.com/file/d/1', titulo: 'Instrucción', score: 0.81, revision_vencida: false },
   ],
@@ -190,5 +193,39 @@ describe('#175 — preparar el prompt', () => {
     preguntar('¿importe?')
     fireEvent.click(screen.getByRole('button', { name: 'Preparar el prompt' }))
     expect(screen.getByRole('alert')).toHaveTextContent('Este agente no se te ofrece.')
+  })
+})
+
+describe('#175 — un agente que espera un documento adjunto', () => {
+  it('el catálogo lo avisa', () => {
+    montar()
+    expect(within(screen.getByTestId('agente-a2')).getByText('Con documento adjunto')).toBeInTheDocument()
+    expect(within(screen.getByTestId('agente-a1')).queryByText('Con documento adjunto')).not.toBeInTheDocument()
+  })
+
+  it('al elegirlo, pide describir el documento en la pregunta', () => {
+    montar()
+    fireEvent.click(screen.getByLabelText(/Viajes y dietas/))
+    expect(screen.getByText(/Describe en tu pregunta el documento que vas a adjuntar/)).toBeInTheDocument()
+  })
+
+  it('con el prompt listo, recuerda adjuntarlo en el mismo mensaje', () => {
+    consultar.mockImplementation((_vars, opciones) => opciones.onSuccess({ ...RESPUESTA, espera_adjunto: true }))
+    montar()
+    fireEvent.click(screen.getByLabelText(/Viajes y dietas/))
+    preguntar('Revisa esta liquidación de dietas')
+    fireEvent.click(screen.getByRole('button', { name: 'Preparar el prompt' }))
+    expect(screen.getByTestId('recordatorio-adjunto')).toHaveTextContent(
+      'Al pegar el prompt en el asistente, adjunta tu documento en el mismo mensaje.',
+    )
+  })
+
+  it('sin adjunto, no lo recuerda', () => {
+    consultar.mockImplementation((_vars, opciones) => opciones.onSuccess(RESPUESTA))
+    montar()
+    fireEvent.click(screen.getByLabelText(/Contratación menor/))
+    preguntar('¿importe?')
+    fireEvent.click(screen.getByRole('button', { name: 'Preparar el prompt' }))
+    expect(screen.queryByTestId('recordatorio-adjunto')).not.toBeInTheDocument()
   })
 })

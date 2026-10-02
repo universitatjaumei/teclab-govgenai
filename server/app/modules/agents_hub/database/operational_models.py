@@ -20,6 +20,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
+from sqlalchemy import false
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
 from sqlalchemy.dialects.postgresql import ARRAY as PG_ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -1167,6 +1168,12 @@ class HubAgenteUnidadVersion(HubOperationalBase):
     #: (decisión del usuario): uno de pocos documentos largos puede quedarse corto a propósito.
     presupuesto_documentos: Mapped[int] = mapped_column(
         Integer, nullable=False, default=5, server_default="5"
+    )
+    #: #175 — un agente de revisión: quien consulta adjuntará su documento en el asistente general.
+    #: Cambia el prompt —los enlaces son el criterio y el adjunto el objeto— y la plataforma no ve
+    #: el adjunto nunca. Lo declara la unidad, que sabe para qué es su agente.
+    espera_adjunto: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
     )
     declarada_por: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     declarada_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

@@ -21,14 +21,16 @@
     "grupos": "Groups",
     "revision_prevista_en": "Planned review date",
     "presupuesto_documentos": "Documents per query",
-    "indice": "Index"
+    "indice": "Index",
+    "espera_adjunto": "The person asking will attach a document"
   },
   "pistas": {
     "carpeta_url": "The folder's address in the organisation's storage. The platform keeps no documents: the storage authorises them.",
     "grupos": "Comma separated, as the identity provider declares them.",
     "revision_prevista_en": "When the unit will look at it again. If it passes, the agent is still offered, but flagged.",
     "presupuesto_documentos": "How many documents a query may return at most, between 1 and 10. They are the URLs the general assistant will open at once.",
-    "hoja_del_indice": "CSV or Excel with one row per document and the columns url, title and summary; in force and planned review are optional, and any other column is kept as metadata. The sheet is the whole index: whatever is missing is withdrawn."
+    "hoja_del_indice": "CSV or Excel with one row per document and the columns url, title and summary; in force and planned review are optional, and any other column is kept as metadata. The sheet is the whole index: whatever is missing is withdrawn.",
+    "espera_adjunto": "For review agents: the index documents are the criteria, and the person asking attaches in the assistant the document to be analysed. The platform never sees that document."
   },
   "colectivos": {
     "organizacion": "The whole organisation",
@@ -102,6 +104,10 @@
     "copiar": "Copy the prompt",
     "copiado": "Copied. Paste it into the organisation's general assistant.",
     "documento_pendiente": "pending review",
-    "no_copiado": "It could not be copied. The prompt is selected: copy it with Ctrl+C."
-  }
+    "no_copiado": "It could not be copied. The prompt is selected: copy it with Ctrl+C.",
+    "con_adjunto": "With attached document",
+    "describe_el_adjunto": "Describe in your question the document you will attach (for example, \"review a tender for a minor services contract\"): it is what lets the right regulations be chosen.",
+    "adjunta_el_documento": "When you paste the prompt into the assistant, attach your document in the same message."
+  },
+  "con_adjunto": "The person asking attaches a document"
 }

@@ -44,6 +44,7 @@ const declaracionSchema = z
       .int('presupuesto')
       .min(1, 'presupuesto')
       .max(10, 'presupuesto'),
+    espera_adjunto: z.boolean(),
   })
   .refine((v) => v.colectivo === 'organizacion' || separarGrupos(v.grupos).length > 0, {
     path: ['grupos'],
@@ -69,6 +70,7 @@ const VACIA: Declaracion = {
   grupos: '',
   revision_prevista_en: '',
   presupuesto_documentos: 5,
+  espera_adjunto: false,
 }
 
 /** Abierta para publicar uno nuevo, o para versionar uno que ya existe. */
@@ -167,6 +169,7 @@ function FormularioDeDeclaracion({
           // La fecha se vuelve a declarar: versionar es volver a mirarlo.
           revision_prevista_en: '',
           presupuesto_documentos: edicion.agente.version.presupuesto_documentos,
+          espera_adjunto: edicion.agente.version.espera_adjunto,
         }
       : VACIA
 
@@ -189,6 +192,7 @@ function FormularioDeDeclaracion({
       grupos: v.colectivo === 'grupos' ? separarGrupos(v.grupos) : [],
       revision_prevista_en: v.revision_prevista_en,
       presupuesto_documentos: v.presupuesto_documentos,
+      espera_adjunto: v.espera_adjunto,
     }
     const alFallar = { onError: (e: unknown) => setFallo(mensajeDelFallo(e, t('fallo'))) }
     if (edicion.modo === 'versionar') {
@@ -307,6 +311,14 @@ function FormularioDeDeclaracion({
         {error('presupuesto_documentos')}
       </div>
 
+      <div className="space-y-1">
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <input type="checkbox" {...register('espera_adjunto')} />
+          {t('campos.espera_adjunto')}
+        </label>
+        <p className="text-xs text-muted-foreground">{t('pistas.espera_adjunto')}</p>
+      </div>
+
       {fallo && <p className="text-sm text-destructive" role="alert">{fallo}</p>}
 
       <div className="flex gap-2">
@@ -412,6 +424,12 @@ function FichaDelAgente({ agente, alVersionar }: { agente: AgenteView; alVersion
           {t('fichas_en_el_indice', { count: agente.fichas })}
           {' · '}
           {t('presupuesto_de', { count: v.presupuesto_documentos })}
+          {v.espera_adjunto && (
+            <>
+              {' · '}
+              <span>{t('con_adjunto')}</span>
+            </>
+          )}
         </dd>
         {v.revision_resultado && (
           <>

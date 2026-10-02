@@ -723,6 +723,11 @@ los documentos de cada **consulta**, que devuelve el prompt del agente con los e
   oficio): ve el catálogo de su colectivo, prepara el prompt y lo copia para pegarlo en el
   asistente general. Es el circuito de validación antes de la extensión (#176). Retirar el módulo
   del catálogo apaga la consulta para todos.
+- **Un agente de revisión espera un adjunto** si lo declara la unidad: quien consulta adjunta su
+  documento al pegar el prompt en el asistente, los enlaces pasan a ser **el criterio** con el que
+  se analiza, y la abstención cubre también el adjunto que no llega. **La plataforma no ve el
+  adjunto nunca**, así que tampoco puede registrarlo; lo gobierna el asistente general. Como la
+  selección sólo ve la pregunta, la pantalla pide describir en ella el documento.
 - **Se registra lo que se ofreció, no lo que se preguntó**: el uso va al registro de actividad
   (§5.9) con el hash del prompt entregado, y qué documentos se ofrecieron y con qué puntuación a
   `hub_agente_consultas`. Ni la pregunta ni los documentos llegan a ningún registro. **Lo que no

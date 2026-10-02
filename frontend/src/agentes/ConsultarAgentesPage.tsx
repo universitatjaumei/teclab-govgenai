@@ -40,6 +40,7 @@ export function ConsultarAgentesPage() {
   const cajaDelPrompt = useRef<HTMLTextAreaElement>(null)
 
   const agentes = catalogo ?? []
+  const elegidoEsperaAdjunto = agentes.find((a) => a.id === elegido)?.espera_adjunto ?? false
 
   function preparar() {
     if (!elegido || !pregunta.trim()) return
@@ -106,6 +107,9 @@ export function ConsultarAgentesPage() {
                 <span className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{a.nombre}</span>
                   <span className="text-xs text-muted-foreground">{a.unidad}</span>
+                  {a.espera_adjunto && (
+                    <span className="rounded bg-muted px-2 py-0.5 text-xs">{t('consulta.con_adjunto')}</span>
+                  )}
                   {a.revision_vencida && (
                     <span
                       data-testid="revision-vencida"
@@ -138,6 +142,10 @@ export function ConsultarAgentesPage() {
             onChange={(e) => setPregunta(e.target.value)}
             className="w-full rounded-md border px-2 py-1 text-sm"
           />
+          {/* La selección sólo ve la pregunta: sin saber de qué trata el adjunto, no acierta. */}
+          {elegidoEsperaAdjunto && (
+            <p className="text-xs text-muted-foreground">{t('consulta.describe_el_adjunto')}</p>
+          )}
           <button
             type="button"
             onClick={preparar}
@@ -159,6 +167,11 @@ export function ConsultarAgentesPage() {
         <section className="space-y-3 rounded-md border p-4">
           <h2 className="font-medium">{t('consulta.listo', { agente: respuesta.agente })}</h2>
           <p className="text-xs text-muted-foreground">{t('consulta.como_usarlo')}</p>
+          {respuesta.espera_adjunto && (
+            <p className="text-sm font-medium" data-testid="recordatorio-adjunto">
+              {t('consulta.adjunta_el_documento')}
+            </p>
+          )}
           <textarea
             ref={cajaDelPrompt}
             readOnly

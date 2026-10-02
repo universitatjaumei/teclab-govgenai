@@ -21,14 +21,16 @@
     "grupos": "Grupos",
     "revision_prevista_en": "Fecha de revisión prevista",
     "presupuesto_documentos": "Documentos por consulta",
-    "indice": "Índice"
+    "indice": "Índice",
+    "espera_adjunto": "Quien consulta adjuntará un documento"
   },
   "pistas": {
     "carpeta_url": "La dirección de la carpeta en el almacén de la organización. La plataforma no guarda ningún documento: los autoriza el almacén.",
     "grupos": "Separados por comas, tal como los declara el proveedor de identidad.",
     "revision_prevista_en": "Cuándo volverá a mirarlo la unidad. Si pasa, el agente se sigue ofreciendo, pero marcado.",
     "presupuesto_documentos": "Cuántos documentos puede devolver una consulta como mucho, entre 1 y 10. Son las URL que el asistente general abrirá de una vez.",
-    "hoja_del_indice": "CSV o Excel con una fila por documento y las columnas url, título y resumen; vigente y revisión prevista son opcionales, y cualquier otra columna se guarda como metadato. La hoja es el índice entero: lo que no venga se retira."
+    "hoja_del_indice": "CSV o Excel con una fila por documento y las columnas url, título y resumen; vigente y revisión prevista son opcionales, y cualquier otra columna se guarda como metadato. La hoja es el índice entero: lo que no venga se retira.",
+    "espera_adjunto": "Para agentes de revisión: los documentos del índice son el criterio y quien consulta adjunta en el asistente el documento que hay que analizar. La plataforma no ve ese documento."
   },
   "colectivos": {
     "organizacion": "Toda la organización",
@@ -102,6 +104,10 @@
     "copiar": "Copiar el prompt",
     "copiado": "Copiado. Pégalo en el asistente general de la organización.",
     "documento_pendiente": "pendiente de revisión",
-    "no_copiado": "No se ha podido copiar. El prompt está seleccionado: cópialo con Ctrl+C."
-  }
+    "no_copiado": "No se ha podido copiar. El prompt está seleccionado: cópialo con Ctrl+C.",
+    "con_adjunto": "Con documento adjunto",
+    "describe_el_adjunto": "Describe en tu pregunta el documento que vas a adjuntar (por ejemplo, «revisa un pliego de contrato menor de servicios»): es lo que permite elegir la normativa que toca.",
+    "adjunta_el_documento": "Al pegar el prompt en el asistente, adjunta tu documento en el mismo mensaje."
+  },
+  "con_adjunto": "Quien consulta adjunta un documento"
 }

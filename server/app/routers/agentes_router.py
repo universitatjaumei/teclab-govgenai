@@ -82,6 +82,8 @@ class DeclaracionDelAgente(BaseModel):
     revision_prevista_en: date
     #: #173 — cuántos documentos devuelve una consulta como mucho. Lo declara el agente.
     presupuesto_documentos: int = Field(default=5, ge=1, le=10)
+    #: #175 — quien consulta adjuntará un documento en el asistente general.
+    espera_adjunto: bool = False
 
     model_config = {"extra": "forbid"}
 
@@ -155,6 +157,7 @@ class VersionDelAgente(BaseModel):
     revision_prevista_en: date
     revision_vencida: bool
     presupuesto_documentos: int
+    espera_adjunto: bool
     declarada_en: datetime
     revisada_en: datetime | None
     revision_resultado: str | None
@@ -190,6 +193,8 @@ class AgenteDelCatalogo(BaseModel):
     responsable: str
     version: int
     revision_vencida: bool
+    #: Para que la pantalla recuerde adjuntar el documento, y pida describirlo en la pregunta.
+    espera_adjunto: bool
 
 
 # =============================================================================
@@ -218,6 +223,7 @@ def _vista(
             revision_prevista_en=version.revision_prevista_en,
             revision_vencida=acciones.revision_vencida(version),
             presupuesto_documentos=version.presupuesto_documentos,
+            espera_adjunto=version.espera_adjunto,
             declarada_en=version.declarada_en,
             revisada_en=version.revisada_en,
             revision_resultado=version.revision_resultado,
@@ -244,6 +250,7 @@ def _nueva_version(
         grupos=declaracion.grupos,
         revision_prevista_en=declaracion.revision_prevista_en,
         presupuesto_documentos=declaracion.presupuesto_documentos,
+        espera_adjunto=declaracion.espera_adjunto,
         declarada_por=user_to_uuid(user.user_id),
         declarada_en=datetime.now(timezone.utc),
     )
@@ -618,6 +625,7 @@ async def catalogo(
             responsable=v.responsable,
             version=v.version,
             revision_vencida=acciones.revision_vencida(v),
+            espera_adjunto=v.espera_adjunto,
         )
         for a, v in filas
         if acciones.lo_puede_usar(a, v, principal=user)
@@ -659,6 +667,8 @@ class RespuestaDeConsulta(BaseModel):
     version: int
     prompt: str
     documentos: list[DocumentoOfrecido]
+    #: El adjunto va directo al asistente: la plataforma no lo ve, y por eso tampoco lo registra.
+    espera_adjunto: bool
 
 
 @router_catalogo.post("/{agente_id}/consulta", response_model=RespuestaDeConsulta)
@@ -697,11 +707,18 @@ async def consultar(
     except indice.IndiceDeOtroModelo as fallo:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(fallo)) from fallo
 
-    prompt = consulta.componer(version.prompt, body.consulta, elegidas, body.lengua)
+    prompt = consulta.componer(
+        version.prompt,
+        body.consulta,
+        elegidas,
+        body.lengua,
+        espera_adjunto=version.espera_adjunto,
+    )
     respuesta = RespuestaDeConsulta(
         agente=agente.nombre,
         version=version.version,
         prompt=prompt,
+        espera_adjunto=version.espera_adjunto,
         documentos=[
             DocumentoOfrecido(
                 url=e.url, titulo=e.titulo, score=e.score, revision_vencida=e.revision_vencida

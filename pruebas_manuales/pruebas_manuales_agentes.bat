@@ -69,7 +69,27 @@ echo.
 pause
 echo.
 echo ----------------------------------------------------------
-echo  PASO 3 - El texto en valenciano
+echo  PASO 3 - Un agente de revision, con documento adjunto
+echo ----------------------------------------------------------
+echo.
+echo   1. Publica otro agente y marca "Quien consulta adjuntara un
+echo      documento". Cargale el indice con la normativa del paso 1.
+echo   2. En "Consultar agentes" eligelo, describe en la pregunta el
+echo      documento que vas a adjuntar y prepara el prompt.
+echo   3. Pega el prompt en el asistente general y, en el MISMO
+echo      mensaje, adjunta un documento de prueba (un pliego, una
+echo      memoria...). Repite una vez SIN adjuntarlo.
+echo.
+echo QUE DEBES VER:
+echo   - Con el adjunto: lo analiza usando como criterio los
+echo     documentos enlazados.
+echo   - Sin el adjunto: dice que no le ha llegado el documento, y
+echo     no se inventa la revision.
+echo.
+pause
+echo.
+echo ----------------------------------------------------------
+echo  PASO 4 - El texto en valenciano
 echo ----------------------------------------------------------
 echo.
 echo   1. Cambia el idioma de la pantalla a Valencia.
