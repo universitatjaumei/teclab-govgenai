@@ -23,9 +23,43 @@ echo      arrancados (arranque.bat, opcion 1).
 echo   2. Una cuenta de una organizacion con el modulo Agentes de
 echo      unidad concedido (Plataforma - Modulos). Consultar no lo
 echo      necesita: es de oficio.
-echo   3. En tu Drive, una carpeta con DOS documentos que puedas abrir
-echo      y UNO que tu cuenta NO pueda abrir (por ejemplo, de otra
-echo      persona sin compartir). Copia sus enlaces.
+echo   3. Los documentos, en TU Drive de la UJI (la misma cuenta con
+echo      la que entras en Gemini). Se explica en la pantalla siguiente.
+echo.
+pause
+echo.
+echo ----------------------------------------------------------
+echo  PREPARAR LOS DOCUMENTOS DE PRUEBA
+echo ----------------------------------------------------------
+echo.
+echo   La plataforma no abre ningun documento: guarda los enlaces, y
+echo   los abre Gemini con tu cuenta. Por eso van en tu Drive.
+echo.
+echo   a) Crea una carpeta, por ejemplo "Prueba agentes", y sube DOS
+echo      documentos con contenido que conozcas (por ejemplo, PDF de
+echo      normativa.uji.es). No hace falta compartirlos con nadie.
+echo.
+echo   b) Enlace de cada documento: clic derecho, Compartir, Copiar
+echo      enlace. Queda asi:  https://drive.google.com/file/d/.../view
+echo      Enlace de la carpeta: abrela y copia la direccion del
+echo      navegador. Es el campo "Carpeta de documentos" del agente.
+echo.
+echo   c) Un TERCER enlace que no puedas abrir: copia el de uno de tus
+echo      documentos y cambia unas letras del identificador. Ese
+echo      fichero no existe, y sirve para ver la abstencion. (Tambien
+echo      vale un documento de otra persona que no te hayan compartido.)
+echo.
+echo   d) La hoja del indice, en Excel o CSV, con las columnas
+echo      url, titulo y resumen, una fila por enlace. Los resumenes
+echo      los escribes tu, en dos lineas. Haz que el del enlace falso
+echo      se parezca a lo que vas a preguntar, para que lo seleccione.
+echo.
+echo   e) Para el paso del adjunto, cualquier fichero de tu equipo:
+echo      un pliego, una memoria, un borrador.
+echo.
+echo   SI GEMINI NO PUEDE ABRIR NINGUN ENLACE, ni siquiera los tuyos,
+echo   apuntalo: puede que la conexion de Gemini con Drive no este
+echo   activada en tu cuenta. Tambien es un resultado.
 echo.
 pause
 echo.
