@@ -75,6 +75,10 @@ const queryClient = new QueryClient({
   },
 })
 
+// #172 — al cambiar de sesión, lo que se consultó con la anterior no vale: módulos, acciones
+// permitidas, listados. Con `staleTime` de cinco minutos se seguía pintando.
+const vaciarCacheDeConsultas = () => queryClient.clear()
+
 const getThemeUrl = (): string | undefined => {
   const params = new URLSearchParams(window.location.search)
   return params.get('theme') ?? undefined
@@ -104,7 +108,7 @@ function App() {
           los tests —que montan en la raíz— dejarían de encontrar sus rutas, y el día que el
           prefijo cambiara habría que acordarse de dos sitios. */}
       <BrowserRouter basename={import.meta.env.BASE_URL}>
-        <AuthProvider>
+        <AuthProvider alCambiarDeSesion={vaciarCacheDeConsultas}>
           <Suspense fallback={<CargandoRuta />}>
             <Routes>
               <Route path="/login" element={<LoginPage />} />

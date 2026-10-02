@@ -10,21 +10,35 @@ import { useState, useCallback, type ReactNode } from 'react'
 
 import { AuthContext, TOKEN_KEY, loadStoredUser, parseJwtPayload, type AuthUser } from './authState'
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({
+  children,
+  alCambiarDeSesion,
+}: {
+  children: ReactNode
+  /**
+   * Se llama al entrar y al salir. `App` vacía con esto la caché de consultas: sin ello, quien
+   * entraba sin recargar veía los módulos y las acciones permitidas de la cuenta anterior
+   * (#172, lo destapó la verificación en navegador). El proveedor no la vacía él mismo para no
+   * depender de react-query, que no todos los que lo montan tienen.
+   */
+  alCambiarDeSesion?: () => void
+}) {
   const [user, setUser] = useState<AuthUser | null>(loadStoredUser)
 
   const login = useCallback((token: string) => {
     const parsed = parseJwtPayload(token)
     if (parsed) {
       localStorage.setItem(TOKEN_KEY, token)
+      alCambiarDeSesion?.()
       setUser(parsed)
     }
-  }, [])
+  }, [alCambiarDeSesion])
 
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY)
+    alCambiarDeSesion?.()
     setUser(null)
-  }, [])
+  }, [alCambiarDeSesion])
 
   return (
     <AuthContext.Provider value={{ user, isAuthenticated: user !== null, login, logout }}>

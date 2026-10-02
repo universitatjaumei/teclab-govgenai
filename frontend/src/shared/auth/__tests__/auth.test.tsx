@@ -107,6 +107,45 @@ describe('AuthContext', () => {
     expect(screen.getByTestId('authenticated').textContent).toBe('false')
     expect(localStorage.getItem('access_token')).toBeNull()
   })
+
+  /**
+   * #172 — lo destapó la verificación en navegador. Al cerrar sesión y entrar con otra cuenta sin
+   * recargar, la pantalla pintaba lo que la caché de consultas guardaba de la anterior: los
+   * módulos de una persona y las acciones permitidas de otra, durante los cinco minutos de
+   * `staleTime`. El servidor decía la verdad y la pantalla no la pedía.
+   */
+  it('should_announce_the_session_change_on_logout_and_on_login', async () => {
+    localStorage.setItem('access_token', TOKEN)
+    const alCambiarDeSesion = vi.fn()
+
+    function Trigger() {
+      const { login, logout } = useAuth()
+      return (
+        <div>
+          <button onClick={logout}>Logout</button>
+          <button onClick={() => login(TOKEN)}>Login</button>
+        </div>
+      )
+    }
+
+    render(
+      <MemoryRouter>
+        <AuthProvider alCambiarDeSesion={alCambiarDeSesion}>
+          <Trigger />
+        </AuthProvider>
+      </MemoryRouter>
+    )
+
+    expect(alCambiarDeSesion).not.toHaveBeenCalled()
+    await act(async () => {
+      screen.getByRole('button', { name: 'Logout' }).click()
+    })
+    expect(alCambiarDeSesion).toHaveBeenCalledTimes(1)
+    await act(async () => {
+      screen.getByRole('button', { name: 'Login' }).click()
+    })
+    expect(alCambiarDeSesion).toHaveBeenCalledTimes(2)
+  })
 })
 
 describe('PrivateRoute', () => {
