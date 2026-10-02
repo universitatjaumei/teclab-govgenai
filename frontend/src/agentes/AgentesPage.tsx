@@ -12,8 +12,10 @@ import {
   useSuspenderApiV1AgentesAgenteIdSuspenderPost,
   useReactivarApiV1AgentesAgenteIdReactivarPost,
   useRetirarApiV1AgentesAgenteIdRetirarPost,
+  useSubirHojaApiV1AgentesAgenteIdIndiceHojaPost,
+  useVerIndiceApiV1AgentesAgenteIdIndiceGet,
 } from '@/shared/api/generated/agentes/agentes'
-import type { AgenteView } from '@/shared/api/generated/model'
+import type { AgenteView, InformeDeCarga } from '@/shared/api/generated/model'
 import { mensajeDelFallo } from '@/utilidades/mensajeDelFallo'
 
 /**
@@ -36,6 +38,12 @@ const declaracionSchema = z
     colectivo: z.enum(['organizacion', 'grupos']),
     grupos: z.string(),
     revision_prevista_en: z.string().min(1, 'fecha_obligatoria'),
+    // #173 — lo declara el agente; el servidor lo vuelve a exigir.
+    presupuesto_documentos: z
+      .number({ message: 'presupuesto' })
+      .int('presupuesto')
+      .min(1, 'presupuesto')
+      .max(10, 'presupuesto'),
   })
   .refine((v) => v.colectivo === 'organizacion' || separarGrupos(v.grupos).length > 0, {
     path: ['grupos'],
@@ -60,6 +68,7 @@ const VACIA: Declaracion = {
   colectivo: 'organizacion',
   grupos: '',
   revision_prevista_en: '',
+  presupuesto_documentos: 5,
 }
 
 /** Abierta para publicar uno nuevo, o para versionar uno que ya existe. */
@@ -157,6 +166,7 @@ function FormularioDeDeclaracion({
           grupos: (edicion.agente.version.grupos ?? []).join(', '),
           // La fecha se vuelve a declarar: versionar es volver a mirarlo.
           revision_prevista_en: '',
+          presupuesto_documentos: edicion.agente.version.presupuesto_documentos,
         }
       : VACIA
 
@@ -178,6 +188,7 @@ function FormularioDeDeclaracion({
       colectivo: v.colectivo,
       grupos: v.colectivo === 'grupos' ? separarGrupos(v.grupos) : [],
       revision_prevista_en: v.revision_prevista_en,
+      presupuesto_documentos: v.presupuesto_documentos,
     }
     const alFallar = { onError: (e: unknown) => setFallo(mensajeDelFallo(e, t('fallo'))) }
     if (edicion.modo === 'versionar') {
@@ -284,6 +295,18 @@ function FormularioDeDeclaracion({
         {error('revision_prevista_en')}
       </div>
 
+      <div className="space-y-1">
+        <label htmlFor="agente_presupuesto" className="text-sm font-medium">{t('campos.presupuesto_documentos')}</label>
+        <input
+          id="agente_presupuesto"
+          type="number"
+          className="w-24 rounded-md border px-2 py-1 text-sm"
+          {...register('presupuesto_documentos', { valueAsNumber: true })}
+        />
+        <p className="text-xs text-muted-foreground">{t('pistas.presupuesto_documentos')}</p>
+        {error('presupuesto_documentos')}
+      </div>
+
       {fallo && <p className="text-sm text-destructive" role="alert">{fallo}</p>}
 
       <div className="flex gap-2">
@@ -302,7 +325,7 @@ function FormularioDeDeclaracion({
   )
 }
 
-type Pidiendo = 'suspender' | 'revisar' | null
+type Pidiendo = 'suspender' | 'revisar' | 'cargar_indice' | null
 
 function FichaDelAgente({ agente, alVersionar }: { agente: AgenteView; alVersionar: () => void }) {
   const { t } = useTranslation('agentes')
@@ -313,6 +336,8 @@ function FichaDelAgente({ agente, alVersionar }: { agente: AgenteView; alVersion
   const [resultado, setResultado] = useState<'conforme' | 'correcciones'>('conforme')
   const [nota, setNota] = useState('')
   const [fallo, setFallo] = useState<string | null>(null)
+  const [informe, setInforme] = useState<InformeDeCarga | null>(null)
+  const [viendoIndice, setViendoIndice] = useState(false)
 
   const alCambiar = useAlCambiar(() => {
     setPidiendo(null)
@@ -325,13 +350,32 @@ function FichaDelAgente({ agente, alVersionar }: { agente: AgenteView; alVersion
   const suspender = useSuspenderApiV1AgentesAgenteIdSuspenderPost()
   const reactivar = useReactivarApiV1AgentesAgenteIdReactivarPost()
   const retirar = useRetirarApiV1AgentesAgenteIdRetirarPost()
+  const subirHoja = useSubirHojaApiV1AgentesAgenteIdIndiceHojaPost()
+  const alCargar = useAlCambiar()
+
+  function cargarHoja(fichero: File | undefined) {
+    if (!fichero) return
+    setFallo(null)
+    setInforme(null)
+    subirHoja.mutate(
+      { agenteId: agente.id, data: { file: fichero } },
+      {
+        onSuccess: (resultado: InformeDeCarga) => {
+          setInforme(resultado)
+          setPidiendo(null)
+          alCargar.onSuccess()
+        },
+        onError: (e: unknown) => setFallo(mensajeDelFallo(e, t('fallo'))),
+      },
+    )
+  }
 
   function pulsar(accion: string) {
     setFallo(null)
     if (accion === 'versionar') alVersionar()
     else if (accion === 'reactivar') reactivar.mutate({ agenteId: agente.id }, opciones)
     else if (accion === 'retirar') retirar.mutate({ agenteId: agente.id }, opciones)
-    else if (accion === 'suspender' || accion === 'revisar') setPidiendo(accion)
+    else if (accion === 'suspender' || accion === 'revisar' || accion === 'cargar_indice') setPidiendo(accion)
   }
 
   return (
@@ -363,6 +407,12 @@ function FichaDelAgente({ agente, alVersionar }: { agente: AgenteView; alVersion
         </dd>
         <dt className="text-muted-foreground">{t('campos.revision_prevista_en')}</dt>
         <dd>{v.revision_prevista_en}</dd>
+        <dt className="text-muted-foreground">{t('campos.indice')}</dt>
+        <dd>
+          {t('fichas_en_el_indice', { count: agente.fichas })}
+          {' · '}
+          {t('presupuesto_de', { count: v.presupuesto_documentos })}
+        </dd>
         {v.revision_resultado && (
           <>
             <dt className="text-muted-foreground">{t('ultima_revision')}</dt>
@@ -382,7 +432,7 @@ function FichaDelAgente({ agente, alVersionar }: { agente: AgenteView; alVersion
         )}
       </dl>
 
-      {permitidas.length > 0 && (
+      {(permitidas.length > 0 || agente.fichas > 0) && (
         <div className="flex flex-wrap gap-2">
           {permitidas.map((accion) => (
             <button
@@ -394,8 +444,45 @@ function FichaDelAgente({ agente, alVersionar }: { agente: AgenteView; alVersion
               {t(`acciones.${accion}`, accion)}
             </button>
           ))}
+          {agente.fichas > 0 && (
+            <button
+              type="button"
+              onClick={() => setViendoIndice((v) => !v)}
+              className="rounded-md border px-2 py-1 text-xs"
+            >
+              {t(viendoIndice ? 'ocultar_indice' : 'ver_indice')}
+            </button>
+          )}
         </div>
       )}
+
+      {pidiendo === 'cargar_indice' && (
+        <div className="space-y-1">
+          <label htmlFor={`hoja_${agente.id}`} className="text-sm font-medium">{t('hoja_del_indice')}</label>
+          <input
+            id={`hoja_${agente.id}`}
+            type="file"
+            accept=".csv,.xlsx"
+            disabled={subirHoja.isPending}
+            onChange={(e) => cargarHoja(e.target.files?.[0])}
+            className="block text-sm"
+          />
+          <p className="text-xs text-muted-foreground">{t('pistas.hoja_del_indice')}</p>
+        </div>
+      )}
+
+      {informe && (
+        <p className="text-sm" data-testid="informe-de-carga" role="status">
+          {t('informe_de_carga', {
+            nuevas: t('nuevas', { count: informe.nuevas }),
+            actualizadas: t('actualizadas', { count: informe.actualizadas }),
+            sin_cambios: t('sin_cambios', { count: informe.sin_cambios }),
+            retiradas: t('retiradas', { count: informe.retiradas }),
+          })}
+        </p>
+      )}
+
+      {viendoIndice && <IndiceDelAgente agenteId={agente.id} />}
 
       {pidiendo === 'suspender' && (
         <div className="space-y-2">
@@ -458,5 +545,31 @@ function FichaDelAgente({ agente, alVersionar }: { agente: AgenteView; alVersion
 
       {fallo && <p className="text-sm text-destructive" role="alert">{fallo}</p>}
     </li>
+  )
+}
+
+/** Las fichas del índice: título enlazado a su documento, y lo no vigente marcado. */
+function IndiceDelAgente({ agenteId }: { agenteId: string }) {
+  const { t } = useTranslation('agentes')
+  const { data: fichas, isLoading } = useVerIndiceApiV1AgentesAgenteIdIndiceGet(agenteId)
+  if (isLoading) return <p className="text-sm text-muted-foreground">{t('cargando')}</p>
+  return (
+    <ul className="space-y-1 border-l-2 pl-3 text-sm" data-testid="indice">
+      {(fichas ?? []).map((f) => (
+        <li key={f.url} className="flex flex-wrap items-center gap-2">
+          <a href={f.url} target="_blank" rel="noreferrer" className="underline">
+            {f.titulo}
+          </a>
+          {!f.vigente && (
+            <span className="rounded bg-muted px-2 py-0.5 text-xs">{t('no_vigente')}</span>
+          )}
+          {f.revision_prevista_en && (
+            <span className="text-xs text-muted-foreground">
+              {t('revision_de_la_ficha', { fecha: f.revision_prevista_en })}
+            </span>
+          )}
+        </li>
+      ))}
+    </ul>
   )
 }

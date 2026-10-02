@@ -1163,6 +1163,11 @@ class HubAgenteUnidadVersion(HubOperationalBase):
     )
     #: Cuándo dice la unidad que lo volverá a mirar. **Vencida avisa, no oculta.**
     revision_prevista_en: Mapped[date] = mapped_column(Date, nullable=False)
+    #: #173 — cuántos documentos puede devolver una consulta como mucho. Lo declara el agente
+    #: (decisión del usuario): uno de pocos documentos largos puede quedarse corto a propósito.
+    presupuesto_documentos: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=5, server_default="5"
+    )
     declarada_por: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     declarada_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
@@ -1178,5 +1183,62 @@ class HubAgenteUnidadVersion(HubOperationalBase):
     motivo_suspension: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class HubAgenteFicha(HubOperationalBase):
+    """Una ficha del índice de un agente: **un documento, no un fragmento** (#173).
+
+    El asistente general lee el documento entero —medido el 2026-09-27: un PDF de 750 páginas,
+    capítulo a partir de la 450—, así que el índice apunta a documentos. Sin troceado, sin
+    anclas, sin contrato de formato: tres órdenes de magnitud menos que el corpus normativo.
+
+    **La plataforma no guarda el documento**: guarda la ficha y la URL. El documento lo autoriza
+    el almacén de la organización, que es la segunda puerta.
+
+    **El vector es del título y el resumen, y de nada más** (regla 5 de AGENTS.md): los
+    metadatos y la vigencia cambian, y cambiarlos no puede obligar a re-embeber. Por eso hay dos
+    huellas: `huella` dice si la ficha cambió y `huella_embebida` si cambió lo que se embebe.
+    """
+
+    __tablename__ = "hub_agente_fichas"
+    __ambito__ = declarar(Ambito.DERIVADA, via="agente_id")
+    __table_args__ = (UniqueConstraint("agente_id", "url", name="uq_agente_ficha_url"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    agente_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("hub_agentes_unidad.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    url: Mapped[str] = mapped_column(String(2048), nullable=False)
+    titulo: Mapped[str] = mapped_column(String(500), nullable=False)
+    resumen: Mapped[str] = mapped_column(Text, nullable=False)
+    #: Declarada por la unidad. **Lo no vigente no se selecciona**, y el filtro va en el `WHERE`.
+    vigente: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    #: Vencida avisa, no oculta: el mismo criterio que la del agente.
+    revision_prevista_en: Mapped[date | None] = mapped_column(Date, nullable=True)
+    metadatos: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default="{}"
+    )
+    #: Con qué se hizo el resumen (#174): sin esto, un resumen malo no se puede rastrear.
+    version_prompt_resumen: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    modelo_resumen: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+    huella: Mapped[str] = mapped_column(String(64), nullable=False)
+    huella_embebida: Mapped[str] = mapped_column(String(64), nullable=False)
+    embedding: Mapped[list[float]] = mapped_column(Vector(1024), nullable=False)
+    #: De dónde salió el vector: comparar vectores de dos modelos da un orden sin sentido y no
+    #: da error, así que la selección lo comprueba.
+    embedding_model: Mapped[str] = mapped_column(String(100), nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
     )

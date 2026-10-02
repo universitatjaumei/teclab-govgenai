@@ -19,12 +19,16 @@
     "carpeta_url": "Document folder",
     "colectivo": "Who may use it",
     "grupos": "Groups",
-    "revision_prevista_en": "Planned review date"
+    "revision_prevista_en": "Planned review date",
+    "presupuesto_documentos": "Documents per query",
+    "indice": "Index"
   },
   "pistas": {
     "carpeta_url": "The folder's address in the organisation's storage. The platform keeps no documents: the storage authorises them.",
     "grupos": "Comma separated, as the identity provider declares them.",
-    "revision_prevista_en": "When the unit will look at it again. If it passes, the agent is still offered, but flagged."
+    "revision_prevista_en": "When the unit will look at it again. If it passes, the agent is still offered, but flagged.",
+    "presupuesto_documentos": "How many documents a query may return at most, between 1 and 10. They are the URLs the general assistant will open at once.",
+    "hoja_del_indice": "CSV or Excel with one row per document and the columns url, title and summary; in force and planned review are optional, and any other column is kept as metadata. The sheet is the whole index: whatever is missing is withdrawn."
   },
   "colectivos": {
     "organizacion": "The whole organisation",
@@ -54,12 +58,32 @@
     "revisar": "Review",
     "suspender": "Suspend",
     "reactivar": "Reactivate",
-    "retirar": "Withdraw"
+    "retirar": "Withdraw",
+    "cargar_indice": "Load the index"
   },
   "errores": {
     "obligatorio": "This field is required.",
     "carpeta_https": "It has to be an https address in the organisation's storage.",
     "fecha_obligatoria": "Say when it will be reviewed again.",
-    "grupos_obligatorios": "Give at least one group."
-  }
+    "grupos_obligatorios": "Give at least one group.",
+    "presupuesto": "Between 1 and 10 documents."
+  },
+  "fichas_en_el_indice_one": "{{count}} entry",
+  "fichas_en_el_indice_other": "{{count}} entries",
+  "presupuesto_de_one": "up to {{count}} document per query",
+  "presupuesto_de_other": "up to {{count}} documents per query",
+  "ver_indice": "View the index",
+  "ocultar_indice": "Hide the index",
+  "hoja_del_indice": "Index sheet",
+  "informe_de_carga": "Index loaded: {{nuevas}}, {{actualizadas}}, {{sin_cambios}} and {{retiradas}}.",
+  "nuevas_one": "{{count}} new",
+  "nuevas_other": "{{count}} new",
+  "actualizadas_one": "{{count}} updated",
+  "actualizadas_other": "{{count}} updated",
+  "sin_cambios_one": "{{count}} unchanged",
+  "sin_cambios_other": "{{count}} unchanged",
+  "retiradas_one": "{{count}} withdrawn",
+  "retiradas_other": "{{count}} withdrawn",
+  "no_vigente": "Not in force",
+  "revision_de_la_ficha": "planned review: {{fecha}}"
 }

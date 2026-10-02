@@ -19,12 +19,16 @@
     "carpeta_url": "Carpeta de documentos",
     "colectivo": "Quién puede usarlo",
     "grupos": "Grupos",
-    "revision_prevista_en": "Fecha de revisión prevista"
+    "revision_prevista_en": "Fecha de revisión prevista",
+    "presupuesto_documentos": "Documentos por consulta",
+    "indice": "Índice"
   },
   "pistas": {
     "carpeta_url": "La dirección de la carpeta en el almacén de la organización. La plataforma no guarda ningún documento: los autoriza el almacén.",
     "grupos": "Separados por comas, tal como los declara el proveedor de identidad.",
-    "revision_prevista_en": "Cuándo volverá a mirarlo la unidad. Si pasa, el agente se sigue ofreciendo, pero marcado."
+    "revision_prevista_en": "Cuándo volverá a mirarlo la unidad. Si pasa, el agente se sigue ofreciendo, pero marcado.",
+    "presupuesto_documentos": "Cuántos documentos puede devolver una consulta como mucho, entre 1 y 10. Son las URL que el asistente general abrirá de una vez.",
+    "hoja_del_indice": "CSV o Excel con una fila por documento y las columnas url, título y resumen; vigente y revisión prevista son opcionales, y cualquier otra columna se guarda como metadato. La hoja es el índice entero: lo que no venga se retira."
   },
   "colectivos": {
     "organizacion": "Toda la organización",
@@ -54,12 +58,32 @@
     "revisar": "Revisar",
     "suspender": "Suspender",
     "reactivar": "Reactivar",
-    "retirar": "Retirar"
+    "retirar": "Retirar",
+    "cargar_indice": "Cargar el índice"
   },
   "errores": {
     "obligatorio": "Este campo es obligatorio.",
     "carpeta_https": "Tiene que ser una dirección https del almacén de la organización.",
     "fecha_obligatoria": "Indica cuándo se volverá a revisar.",
-    "grupos_obligatorios": "Indica al menos un grupo."
-  }
+    "grupos_obligatorios": "Indica al menos un grupo.",
+    "presupuesto": "Entre 1 y 10 documentos."
+  },
+  "fichas_en_el_indice_one": "{{count}} ficha",
+  "fichas_en_el_indice_other": "{{count}} fichas",
+  "presupuesto_de_one": "hasta {{count}} documento por consulta",
+  "presupuesto_de_other": "hasta {{count}} documentos por consulta",
+  "ver_indice": "Ver el índice",
+  "ocultar_indice": "Ocultar el índice",
+  "hoja_del_indice": "Hoja del índice",
+  "informe_de_carga": "Índice cargado: {{nuevas}}, {{actualizadas}}, {{sin_cambios}} y {{retiradas}}.",
+  "nuevas_one": "{{count}} nueva",
+  "nuevas_other": "{{count}} nuevas",
+  "actualizadas_one": "{{count}} actualizada",
+  "actualizadas_other": "{{count}} actualizadas",
+  "sin_cambios_one": "{{count}} sin cambios",
+  "sin_cambios_other": "{{count}} sin cambios",
+  "retiradas_one": "{{count}} retirada",
+  "retiradas_other": "{{count}} retiradas",
+  "no_vigente": "No vigente",
+  "revision_de_la_ficha": "revisión prevista: {{fecha}}"
 }

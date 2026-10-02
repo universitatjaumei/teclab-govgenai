@@ -26,21 +26,26 @@ import uuid
 from datetime import date, datetime, timezone
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from server.app.api.deps import get_current_user, get_session, require_module
+from server.app.api.deps import get_current_user, get_session, require_module, require_scopes
 from server.app.core.auth.models import UserInfo
 from server.app.core.auth.tenancy import organizacion_unica_de
 from server.app.core.config import get_settings
+from server.app.core.auth.pat.scopes import AGENTES_INDICE_WRITE
 from server.app.core.identidad import user_to_uuid
-from server.app.modules.agentes import acciones
+from server.app.core.uploads import read_within_limit, sanitizar_nombre
+from server.app.modules.agentes import acciones, indice
 from server.app.modules.agents_hub.database.operational_models import (
+    HubAgenteFicha,
     HubAgenteUnidad,
     HubAgenteUnidadVersion,
 )
+from server.app.modules.agents_hub.services.embedding_resolver import resolve_embedding_service
+from server.app.modules.utilidades.anonimizar import FicheroNoValido, leer_tabla
 
 router = APIRouter(
     prefix="/agentes",
@@ -65,6 +70,8 @@ class DeclaracionDelAgente(BaseModel):
     colectivo: Literal["organizacion", "grupos"]
     grupos: list[str] = Field(default_factory=list)
     revision_prevista_en: date
+    #: #173 — cuántos documentos devuelve una consulta como mucho. Lo declara el agente.
+    presupuesto_documentos: int = Field(default=5, ge=1, le=10)
 
     model_config = {"extra": "forbid"}
 
@@ -137,6 +144,7 @@ class VersionDelAgente(BaseModel):
     grupos: list[str]
     revision_prevista_en: date
     revision_vencida: bool
+    presupuesto_documentos: int
     declarada_en: datetime
     revisada_en: datetime | None
     revision_resultado: str | None
@@ -150,6 +158,8 @@ class AgenteView(BaseModel):
     nombre: str
     unidad: str
     es_mio: bool
+    #: Cuántas fichas tiene su índice (#173).
+    fichas: int
     version: VersionDelAgente
 
 
@@ -177,12 +187,15 @@ class AgenteDelCatalogo(BaseModel):
 # =============================================================================
 
 
-def _vista(agente: HubAgenteUnidad, version: HubAgenteUnidadVersion, user: UserInfo) -> AgenteView:
+def _vista(
+    agente: HubAgenteUnidad, version: HubAgenteUnidadVersion, user: UserInfo, fichas: int = 0
+) -> AgenteView:
     return AgenteView(
         id=agente.id,
         nombre=agente.nombre,
         unidad=agente.unidad,
         es_mio=agente.creado_por == user_to_uuid(user.user_id),
+        fichas=fichas,
         version=VersionDelAgente(
             version=version.version,
             estado=version.estado,
@@ -194,6 +207,7 @@ def _vista(agente: HubAgenteUnidad, version: HubAgenteUnidadVersion, user: UserI
             grupos=list(version.grupos or []),
             revision_prevista_en=version.revision_prevista_en,
             revision_vencida=acciones.revision_vencida(version),
+            presupuesto_documentos=version.presupuesto_documentos,
             declarada_en=version.declarada_en,
             revisada_en=version.revisada_en,
             revision_resultado=version.revision_resultado,
@@ -219,6 +233,7 @@ def _nueva_version(
         colectivo=declaracion.colectivo,
         grupos=declaracion.grupos,
         revision_prevista_en=declaracion.revision_prevista_en,
+        presupuesto_documentos=declaracion.presupuesto_documentos,
         declarada_por=user_to_uuid(user.user_id),
         declarada_en=datetime.now(timezone.utc),
     )
@@ -279,11 +294,23 @@ def _exigir(accion: str, agente, version, user: UserInfo) -> None:
         )
 
 
+async def _fichas_por_agente(session: AsyncSession, ids: list[uuid.UUID]) -> dict[uuid.UUID, int]:
+    if not ids:
+        return {}
+    filas = await session.execute(
+        select(HubAgenteFicha.agente_id, func.count())
+        .where(HubAgenteFicha.agente_id.in_(ids))
+        .group_by(HubAgenteFicha.agente_id)
+    )
+    return {agente_id: n for agente_id, n in filas.all()}
+
+
 async def _responder(session: AsyncSession, agente, version, user: UserInfo) -> AgenteView:
     # La vista se construye antes del commit: la sesión de los routers expira los atributos al
     # commitear, y leerlos después costaría un 500.
     await session.flush()
-    vista = _vista(agente, version, user)
+    fichas = (await _fichas_por_agente(session, [agente.id])).get(agente.id, 0)
+    vista = _vista(agente, version, user, fichas)
     await session.commit()
     return vista
 
@@ -333,8 +360,9 @@ async def listar(
 ) -> GestionDeAgentes:
     """Los agentes de su organización, con lo que quien pregunta puede hacer con cada uno."""
     filas = await _vigentes(session, _de_sus_organizaciones(user))
+    fichas = await _fichas_por_agente(session, [a.id for a, _ in filas])
     return GestionDeAgentes(
-        agentes=[_vista(a, v, user) for a, v in filas],
+        agentes=[_vista(a, v, user, fichas.get(a.id, 0)) for a, v in filas],
         grupos_del_idp=get_settings().saml_enabled,
     )
 
@@ -414,6 +442,145 @@ async def retirar(
     _exigir("retirar", agente, version, user)
     acciones.retirar(version)
     return await _responder(session, agente, version, user)
+
+
+# =============================================================================
+#  El índice (#173)
+# =============================================================================
+
+#: Cuánto puede pesar la hoja. Dos mil fichas con su resumen caben de sobra.
+MAXIMO_BYTES_DE_LA_HOJA = 10 * 1024 * 1024
+
+
+async def obtener_embedder(session: AsyncSession = Depends(get_session)):
+    """El servicio de embeddings de la plataforma, el mismo con el que se seleccionará."""
+    return await resolve_embedding_service(session)
+
+
+class FichaDelIndice(BaseModel):
+    url: str
+    titulo: str
+    resumen: str
+    vigente: bool = True
+    revision_prevista_en: date | None = None
+    metadatos: dict[str, str] = Field(default_factory=dict)
+    version_prompt_resumen: str | None = None
+    modelo_resumen: str | None = None
+
+    model_config = {"extra": "forbid"}
+
+
+class IndiceCompleto(BaseModel):
+    """**El estado completo** del índice: lo que no venga, se retira."""
+
+    fichas: list[FichaDelIndice]
+
+
+class InformeDeCarga(BaseModel):
+    nuevas: int
+    actualizadas: int
+    sin_cambios: int
+    retiradas: int
+
+
+class FichaView(BaseModel):
+    """Lo que se enseña de una ficha. **Sin el vector**: no le sirve a nadie que lo lea."""
+
+    url: str
+    titulo: str
+    resumen: str
+    vigente: bool
+    revision_prevista_en: date | None
+    metadatos: dict[str, str]
+    version_prompt_resumen: str | None
+    modelo_resumen: str | None
+    updated_at: datetime
+
+
+async def _cargar(session, agente_id, fichas, embedder) -> InformeDeCarga:
+    try:
+        informe = await indice.cargar(session, agente_id, fichas, embedder)
+    except indice.IndiceNoValido as fallo:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(fallo)
+        ) from fallo
+    return InformeDeCarga(
+        nuevas=informe.nuevas,
+        actualizadas=informe.actualizadas,
+        sin_cambios=informe.sin_cambios,
+        retiradas=informe.retiradas,
+    )
+
+
+@router.put("/{agente_id}/indice", response_model=InformeDeCarga)
+async def cargar_indice(
+    agente_id: uuid.UUID,
+    body: IndiceCompleto,
+    user: UserInfo = Depends(require_scopes(AGENTES_INDICE_WRITE)),
+    session: AsyncSession = Depends(get_session),
+    embedder=Depends(obtener_embedder),
+) -> InformeDeCarga:
+    """Deja el índice igual que lo que se manda. Es la vía del guion de curación (#174).
+
+    Un token necesita `agentes:indice`; una sesión no, pero las dos necesitan que el agente les
+    permita `cargar_indice`: el token abre la puerta, no elige el agente.
+    """
+    agente, version = await _el_agente(session, agente_id, user)
+    _exigir("cargar_indice", agente, version, user)
+    fichas = [indice.FichaEntrada(**f.model_dump()) for f in body.fichas]
+    return await _cargar(session, agente.id, fichas, embedder)
+
+
+@router.post("/{agente_id}/indice/hoja", response_model=InformeDeCarga)
+async def subir_hoja(
+    agente_id: uuid.UUID,
+    file: UploadFile = File(...),
+    user: UserInfo = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+    embedder=Depends(obtener_embedder),
+) -> InformeDeCarga:
+    """La misma carga, desde la hoja en CSV o Excel. Es la vía del piloto, antes del guion."""
+    agente, version = await _el_agente(session, agente_id, user)
+    _exigir("cargar_indice", agente, version, user)
+    datos = await read_within_limit(file, max_bytes=MAXIMO_BYTES_DE_LA_HOJA)
+    try:
+        tabla = leer_tabla(datos, sanitizar_nombre(file.filename))
+        fichas = indice.desde_tabla(tabla.df)
+    except (FicheroNoValido, indice.IndiceNoValido) as fallo:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(fallo)
+        ) from fallo
+    return await _cargar(session, agente.id, fichas, embedder)
+
+
+@router.get("/{agente_id}/indice", response_model=list[FichaView])
+async def ver_indice(
+    agente_id: uuid.UUID,
+    user: UserInfo = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> list[FichaView]:
+    agente, _ = await _el_agente(session, agente_id, user)
+    filas = (
+        await session.execute(
+            select(HubAgenteFicha)
+            .where(HubAgenteFicha.agente_id == agente.id)
+            .order_by(HubAgenteFicha.titulo, HubAgenteFicha.url)
+        )
+    ).scalars()
+    return [
+        FichaView(
+            url=f.url,
+            titulo=f.titulo,
+            resumen=f.resumen,
+            vigente=f.vigente,
+            revision_prevista_en=f.revision_prevista_en,
+            metadatos=dict(f.metadatos or {}),
+            version_prompt_resumen=f.version_prompt_resumen,
+            modelo_resumen=f.modelo_resumen,
+            updated_at=f.updated_at,
+        )
+        for f in filas
+    ]
 
 
 # =============================================================================

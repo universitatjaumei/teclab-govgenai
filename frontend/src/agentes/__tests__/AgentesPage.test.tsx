@@ -11,6 +11,8 @@ import {
   useSuspenderApiV1AgentesAgenteIdSuspenderPost,
   useReactivarApiV1AgentesAgenteIdReactivarPost,
   useRetirarApiV1AgentesAgenteIdRetirarPost,
+  useSubirHojaApiV1AgentesAgenteIdIndiceHojaPost,
+  useVerIndiceApiV1AgentesAgenteIdIndiceGet,
 } from '@/shared/api/generated/agentes/agentes'
 import { AgentesPage } from '../AgentesPage'
 
@@ -29,6 +31,8 @@ vi.mock('@/shared/api/generated/agentes/agentes', () => ({
   useSuspenderApiV1AgentesAgenteIdSuspenderPost: vi.fn(),
   useReactivarApiV1AgentesAgenteIdReactivarPost: vi.fn(),
   useRetirarApiV1AgentesAgenteIdRetirarPost: vi.fn(),
+  useSubirHojaApiV1AgentesAgenteIdIndiceHojaPost: vi.fn(),
+  useVerIndiceApiV1AgentesAgenteIdIndiceGet: vi.fn(),
 }))
 
 function version(extra: Record<string, unknown> = {}) {
@@ -43,6 +47,7 @@ function version(extra: Record<string, unknown> = {}) {
     grupos: [],
     revision_prevista_en: '2027-04-01',
     revision_vencida: false,
+    presupuesto_documentos: 5,
     declarada_en: '2026-10-02T10:00:00Z',
     revisada_en: null,
     revision_resultado: null,
@@ -59,6 +64,7 @@ function agente(extra: Record<string, unknown> = {}, v: Record<string, unknown> 
     nombre: 'Contratación menor',
     unidad: 'Servicio de Contratación',
     es_mio: false,
+    fichas: 0,
     version: version(v),
     ...extra,
   }
@@ -71,6 +77,7 @@ const mutaciones = {
   suspender: vi.fn(),
   reactivar: vi.fn(),
   retirar: vi.fn(),
+  subirHoja: vi.fn(),
 }
 
 function montar(agentes = [agente()], gruposDelIdp = true) {
@@ -84,6 +91,8 @@ function montar(agentes = [agente()], gruposDelIdp = true) {
   vi.mocked(useSuspenderApiV1AgentesAgenteIdSuspenderPost).mockReturnValue({ mutate: mutaciones.suspender, isPending: false } as never)
   vi.mocked(useReactivarApiV1AgentesAgenteIdReactivarPost).mockReturnValue({ mutate: mutaciones.reactivar, isPending: false } as never)
   vi.mocked(useRetirarApiV1AgentesAgenteIdRetirarPost).mockReturnValue({ mutate: mutaciones.retirar, isPending: false } as never)
+  vi.mocked(useSubirHojaApiV1AgentesAgenteIdIndiceHojaPost).mockReturnValue({ mutate: mutaciones.subirHoja, isPending: false } as never)
+  vi.mocked(useVerIndiceApiV1AgentesAgenteIdIndiceGet).mockReturnValue({ data: FICHAS, isLoading: false } as never)
 
   return render(
     <QueryClientProvider client={new QueryClient()}>
@@ -93,6 +102,31 @@ function montar(agentes = [agente()], gruposDelIdp = true) {
     </QueryClientProvider>,
   )
 }
+
+const FICHAS = [
+  {
+    url: 'https://drive.google.com/file/d/1',
+    titulo: 'Instrucción de contrato menor',
+    resumen: 'Trata del contrato menor.',
+    vigente: true,
+    revision_prevista_en: null,
+    metadatos: {},
+    version_prompt_resumen: null,
+    modelo_resumen: null,
+    updated_at: '2026-10-02T10:00:00Z',
+  },
+  {
+    url: 'https://drive.google.com/file/d/2',
+    titulo: 'Guía de viajes de 2019',
+    resumen: 'Trata de viajes.',
+    vigente: false,
+    revision_prevista_en: null,
+    metadatos: {},
+    version_prompt_resumen: null,
+    modelo_resumen: null,
+    updated_at: '2026-10-02T10:00:00Z',
+  },
+]
 
 function rellenar(campos: Record<string, string>) {
   for (const [etiqueta, valor] of Object.entries(campos)) {
@@ -152,7 +186,18 @@ describe('#172 — publicar exige la declaración', () => {
       colectivo: 'organizacion',
       grupos: [],
       revision_prevista_en: '2027-06-30',
+      presupuesto_documentos: 5,
     })
+  })
+
+  it('el presupuesto de documentos se declara, y fuera de 1 a 10 no se manda', async () => {
+    montar([])
+    fireEvent.click(screen.getByRole('button', { name: 'Publicar un agente' }))
+    rellenar({ ...DECLARACION, 'Documentos por consulta': '12' })
+    fireEvent.click(screen.getByRole('button', { name: 'Publicar' }))
+
+    expect(await screen.findByText('Entre 1 y 10 documentos.')).toBeInTheDocument()
+    expect(mutaciones.publicar).not.toHaveBeenCalled()
   })
 
   it('por grupos, manda la lista separada por comas', async () => {
@@ -239,5 +284,46 @@ describe('#172 — lo que la ficha dice', () => {
       { agenteId: 'a1', data: { resultado: 'correcciones', nota: 'falta el anexo III' } },
       expect.anything(),
     )
+  })
+})
+
+describe('#173 — el índice', () => {
+  it('la ficha dice cuántas fichas tiene su índice', () => {
+    montar([agente({ fichas: 12 })])
+    expect(within(screen.getByTestId('agente')).getByText(/12 fichas/)).toBeInTheDocument()
+  })
+
+  it('cargar el índice sube la hoja elegida y enseña el informe', () => {
+    mutaciones.subirHoja.mockImplementation((_vars, opciones) =>
+      opciones.onSuccess({ nuevas: 2, actualizadas: 1, sin_cambios: 3, retiradas: 1 }),
+    )
+    montar([agente({}, { acciones_permitidas: ['versionar', 'cargar_indice', 'retirar'] })])
+    fireEvent.click(screen.getByRole('button', { name: 'Cargar el índice' }))
+
+    const hoja = new File(['url;titulo;resumen'], 'indice.csv', { type: 'text/csv' })
+    fireEvent.change(screen.getByLabelText('Hoja del índice'), { target: { files: [hoja] } })
+
+    expect(mutaciones.subirHoja).toHaveBeenCalledWith(
+      { agenteId: 'a1', data: { file: hoja } },
+      expect.anything(),
+    )
+    expect(screen.getByTestId('informe-de-carga')).toHaveTextContent('2 nuevas')
+    expect(screen.getByTestId('informe-de-carga')).toHaveTextContent('1 retirada')
+  })
+
+  it('sin la acción, no se ofrece cargar', () => {
+    montar([agente({}, { acciones_permitidas: ['revisar'] })])
+    expect(screen.queryByRole('button', { name: 'Cargar el índice' })).not.toBeInTheDocument()
+  })
+
+  it('ver el índice lista las fichas y marca las no vigentes', () => {
+    montar([agente({ fichas: 2 })])
+    fireEvent.click(screen.getByRole('button', { name: 'Ver el índice' }))
+    const lista = screen.getByTestId('indice')
+    expect(within(lista).getByRole('link', { name: 'Instrucción de contrato menor' })).toHaveAttribute(
+      'href',
+      'https://drive.google.com/file/d/1',
+    )
+    expect(within(lista).getByText('No vigente')).toBeInTheDocument()
   })
 })

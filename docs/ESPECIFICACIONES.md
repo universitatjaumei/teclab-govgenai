@@ -691,8 +691,10 @@ frente a un PDF malicioso, y es una decisión abierta.
 **Qué hace.** Una unidad de la organización —contratación, control interno, calidad— publica un
 **agente**: un prompt, una carpeta de documentos en el almacén de la organización y un colectivo
 que puede usarlo. **Ninguna de las tres cosas es código**, y el modelo lo pone el asistente
-general de la organización. La plataforma cataloga, acota y gobierna (#172). El índice de
-documentos, la consulta, el guion de curación y la extensión son #173–#176 (§6).
+general de la organización. La plataforma cataloga, acota y gobierna (#172) y guarda el
+**índice**: una ficha por documento —URL, título, resumen, vigencia— sobre la que se seleccionan
+los documentos de cada consulta (#173). La consulta, el guion de curación y la extensión son
+#174–#176 (§6).
 
 **Lo que garantiza.**
 
@@ -712,10 +714,20 @@ documentos, la consulta, el guion de curación y la extensión son #173–#176 (
 - **Una revisión vencida avisa, no oculta**: el agente sigue ofreciéndose marcado. Dejar de
   ofrecerlo es decisión de quien revisa.
 - **El catálogo no lleva el prompt**: lo entregará la consulta (#175), que es lo que se registra.
+- **El índice es de fichas, no de documentos**: la plataforma guarda la URL y el resumen, **nunca
+  el documento**, que autoriza el almacén. Un vector por ficha, hecho **sólo del título y el
+  resumen**: cambiar la vigencia o un metadato no re-embebe.
+- **Cargar es dar el estado completo**, por API con un token `agentes:indice` (el guion de #174)
+  o subiendo la hoja en CSV o Excel. Lo que no viene se retira, lo que no cambió no se toca, y
+  una hoja incoherente no se carga a medias. Las cargas de un mismo agente se hacen de una en una.
+- **La selección nunca pasa del presupuesto** que declara el agente —de 1 a 10 documentos, 5 por
+  defecto— y **lo no vigente no ocupa plaza**: el filtro va en el `WHERE`. Un índice embebido con
+  otro modelo no se compara: se dice que hay que volver a cargarlo.
 
 **Dónde vive.** `modules/agentes/acciones.py` (quién puede qué y quién lo ve) y
 `routers/agentes_router.py`: `/api/v1/agentes` para la gestión y `/api/v1/agentes/catalogo` para
-quien usa. Tablas operacionales `hub_agentes_unidad` y `hub_agente_unidad_versiones`.
+quien usa; `modules/agentes/indice.py` (cargar y seleccionar) y `/api/v1/agentes/{id}/indice`.
+Tablas operacionales `hub_agentes_unidad`, `hub_agente_unidad_versiones` y `hub_agente_fichas`.
 
 **Madurez**: `construido`, sin desplegar.
 
@@ -741,10 +753,10 @@ sandbox, el `RunManifest`, el registro de actividad y las verificaciones por API
 - **Funciones de tarea**: artefactos de salida, red saliente sólo hacia **orígenes declarados** y
   el ecosistema de módulos ampliado. Abrir la red debilita el argumento de §5.12 («una función no
   puede hablar con nada»), así que es una **clase distinta**, visible y con revisión en plazo.
-- **Agentes de unidad sobre el asistente general**: el catálogo está construido (§5.14). Falta el
-  índice como corpus ligero —una ficha por documento— (#173), la consulta que devuelve prompt y
-  URL y nunca el contenido (#175), el guion de curación del índice como función del catálogo
-  (#174) y la extensión de navegador que cierra el registro (#176).
+- **Agentes de unidad sobre el asistente general**: el catálogo y el índice están construidos
+  (§5.14). Falta la consulta que devuelve prompt y URL y nunca el contenido (#175), el guion de
+  curación del índice como función del catálogo (#174) y la extensión de navegador que cierra el
+  registro (#176).
 
 **Madurez**: `previsto`, sobre una base `construido`: lo que ejecuta ya existe.
 

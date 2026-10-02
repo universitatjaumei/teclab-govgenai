@@ -43,6 +43,11 @@ FUNCIONES_EXECUTE = "funciones:execute"
 # Lo emite también un admin de organización, como `actividad:write`: es añadir evidencia de lo
 # propio, append-only, y no muta nada de la plataforma.
 MANIFIESTOS_WRITE = "manifiestos:write"
+# #173: cargar el índice de un agente de unidad. Lo usa el guion de curación (#174), que corre
+# con la identidad de la unidad y no con la de una persona. Lo emite también un admin: el índice
+# es de un agente de su organización, y quién puede cargarlo lo decide además la acción
+# `cargar_indice` del agente —el token sólo abre la puerta, no elige el agente—.
+AGENTES_INDICE_WRITE = "agentes:indice"
 
 ALL_SCOPES: frozenset[str] = frozenset(
     {
@@ -58,6 +63,7 @@ ALL_SCOPES: frozenset[str] = frozenset(
         VERIFICACIONES_USE,
         FUNCIONES_EXECUTE,
         MANIFIESTOS_WRITE,
+        AGENTES_INDICE_WRITE,
     }
 )
 
