@@ -6,6 +6,13 @@ de cada test.
 """
 from __future__ import annotations
 
+# ── Orden de importación obligatorio, no reordenar ─────────────────────────────
+# En Windows, cargar torch DESPUÉS de abrir una conexión asyncpg aborta el proceso con
+# «access violation»; al revés funciona. Es la regla de APER.16, y la vigila
+# `tests/infra/test_aper16_los_conftest_cargan_torch_antes_que_asyncpg.py`, que se puso rojo
+# en CI con este fichero. `langchain_text_splitters` arrastra torch.
+import langchain_text_splitters  # noqa: F401  ← debe ir primero
+
 import pytest
 
 
