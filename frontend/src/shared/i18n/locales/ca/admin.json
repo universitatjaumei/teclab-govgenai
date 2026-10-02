@@ -468,6 +468,7 @@
     "modulos": {
       "titulo": "Concessió de mòduls",
       "nota_superadmin": "El superadministrador entra en tots els mòduls sense concessió: és el rol de la plataforma, i fer-ho dependre d’una fila deixaria una instal·lació nova amb el superadministrador tancat fora. No busques la seua fila ací.",
+      "nota_de_oficio": "D’ofici, per a qualsevol persona de la plataforma i sense concessió: {{modulos}}. No es concedeixen ni es retiren ací.",
       "tipo": "Tipus de subjecte",
       "sujeto": "Subjecte",
       "modulo": "Mòdul",

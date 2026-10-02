@@ -350,7 +350,9 @@ por `funcion_id@versión`.
   facturación. Decisión escrita en [`DECISION_IDENTIDAD_DE_ADMINISTRACION.md`](DECISION_IDENTIDAD_DE_ADMINISTRACION.md).
 - **Acceso por módulos concedidos, no por roles nuevos**: `chatbots`, `curacion`, `informes`,
   `personas`, `registro`, `utilidades`, `plataforma`. El catálogo es tabla (I4). El superadmin no
-  necesita concesión.
+  necesita concesión, y **un módulo marcado `de_oficio` en el catálogo tampoco**: lo tiene
+  cualquier persona de la plataforma, también quien se dé de alta mañana, y concederlo se rechaza
+  porque no cambiaría nada. Hoy lo es `utilidades`.
 - Toda consulta que sirva datos de inquilino se acota con `scope_query_to_orgs`, y **la lista vacía
   significa «ninguna»** (I5, I8).
 - Contraseña local para personas, con interruptor `LOCAL_USER_LOGIN_ENABLED` para apagarla cuando
@@ -674,7 +676,8 @@ sino el **trayecto**.
 
 **Dónde vive.** `modules/utilidades/` (`pdf.py`, `anonimizar.py`) sobre el motor de
 anonimización de `redaccion`; router `/api/v1/utilidades`; pantallas en `/utilidades`. Módulo de
-acceso `utilidades`.
+acceso `utilidades`, **de oficio**: lo tiene cualquier persona de la plataforma sin concesión
+(§5.6), porque lo que sustituye son webs que cualquiera usa.
 
 **Madurez**: `construido` — verificado en el navegador contra el backend de desarrollo, con
 ficheros sintéticos: las tres operaciones de PDF y la anonimización de punta a punta. Sin
