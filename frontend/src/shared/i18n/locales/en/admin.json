@@ -366,6 +366,7 @@
     "curation": "Curation",
     "personas": "People",
     "registro": "AI register",
+    "utilidades": "Utilities",
     "main": "Main navigation",
     "language": "Language",
     "organizacion": "Organisation",
@@ -467,6 +468,7 @@
     "modulos": {
       "titulo": "Module grants",
       "nota_superadmin": "A superadministrator has every module without a grant: it is the platform role, and making it depend on a row would leave a fresh install with the superadministrator locked out. Do not look for their row here.",
+      "nota_de_oficio": "Granted by default to everyone on the platform, without a grant: {{modulos}}. They are not granted or revoked here.",
       "tipo": "Subject type",
       "sujeto": "Subject",
       "modulo": "Module",

@@ -249,11 +249,18 @@ jobs:
       # `[project.optional-dependencies] dev` —un EXTRA, no un grupo—, que `uv run` no instala
       # salvo que se le pida. `--directory` además pone el cwd dentro del proyecto, que es donde
       # su `[tool.pytest.ini_options]` (`testpaths`, `pythonpath = ["."]`) significa lo que dice.
-      - name: Run the trees the server job does not see (shared, mcp_server)
+      #
+      # **Y el sandbox** (AUT.10, issue #120): exportar su lock, auditarlo y construir su imagen no
+      # ejecuta sus tests, y hasta aquí no los ejecutaba nadie. Ahí está la prueba de que un guion
+      # funciona con el pandas del sandbox —3— y no sólo con el del modo local —2—. `--locked`
+      # para que un lock que no cuadre con su manifiesto falle aquí en vez de relockearse en
+      # silencio.
+      - name: Run the trees the server job does not see (shared, mcp_server, script_sandbox)
         working-directory: ${{ github.workspace }}
         run: |
           uv run --project server pytest shared/tests -q --no-cov -p no:cacheprovider
           uv run --directory mcp_server --extra dev pytest tests -p no:cacheprovider
+          uv run --directory services/script_sandbox --locked --extra dev pytest tests -p no:cacheprovider
 
       # Gate de aislamiento entre organizaciones (SEC.2, hallazgo A2). Paso PROPIO y no
       # una carpeta más del paso anterior, a propósito: si esto se pone en rojo hay acceso

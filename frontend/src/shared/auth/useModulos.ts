@@ -44,6 +44,9 @@ export const RUTA_DEL_MODULO: ReadonlyArray<readonly [string, string]> = [
   ['informes', '/redaccion'],
   ['chatbots', '/hub'],
   ['curacion', '/curation'],
+  // UTL — trabajo y no administración, así que va con los de trabajo. Sin esta fila, quien sólo
+  // tuviera utilidades aterrizaría en `/sin-acceso` teniendo acceso.
+  ['utilidades', '/utilidades'],
   // USR.9 — antes de `plataforma` y después del trabajo: administrar a las personas de tu
   // organización es administración, pero es la única que tiene quien no administra la
   // plataforma, y sin esta fila aterrizaría en `/sin-acceso` teniendo acceso.

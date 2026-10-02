@@ -366,6 +366,7 @@
     "curation": "Curación",
     "personas": "Personas",
     "registro": "Registro IA",
+    "utilidades": "Utilidades",
     "main": "Navegación principal",
     "language": "Idioma",
     "organizacion": "Organización",
@@ -467,6 +468,7 @@
     "modulos": {
       "titulo": "Concesión de módulos",
       "nota_superadmin": "El superadministrador entra en todos los módulos sin concesión: es el rol de la plataforma, y hacerlo depender de una fila dejaría una instalación nueva con el superadministrador encerrado fuera. No busques su fila aquí.",
+      "nota_de_oficio": "De oficio, para cualquier persona de la plataforma y sin concesión: {{modulos}}. No se conceden ni se retiran aquí.",
       "tipo": "Tipo de sujeto",
       "sujeto": "Sujeto",
       "modulo": "Módulo",

@@ -149,6 +149,38 @@ ETIQUETAS_DE_VARIAS_PALABRAS: tuple[str, ...] = (
     r"Segundo\s*Apellido",
 )
 
+#: Los tipos que son datos personales por sí mismos. Las fechas o los códigos postales también los
+#: detecta el motor, pero una columna de fechas no es, sola, un dato personal: no se proponen.
+_TIPOS_PERSONALES: frozenset[str] = frozenset({
+    "PERSON_NAME", "EMAIL", "PHONE", "DNI", "NIE", "PASSPORT", "IBAN", "CREDIT_CARD",
+    "ADDRESS", "ORGANIZATION", "NSS",
+})
+
+_LETRAS_DNI = "TRWAGMYFPDXBNJZSQVHLCKE"
+
+
+def letra_de_documento_valida(valor: str) -> bool:
+    """Si la letra de un DNI o un NIE cuadra con sus cifras (UTL.2, issue #191).
+
+    El DNI es ocho cifras y la letra de `n mod 23`; el NIE cambia la X, Y o Z inicial por 0, 1 o 2 y
+    se calcula igual. **Sirve para dar confianza a una columna, no para excluir valores**: un DNI
+    con la letra mal tecleada sigue siendo de una persona, y aquí un falso negativo es un dato
+    personal publicado.
+    """
+    s = (valor or "").strip().upper().replace("-", "").replace(" ", "")
+    casado = re.fullmatch(r"([XYZ]?)(\d{7,8})([A-Z])", s)
+    if not casado:
+        return False
+    prefijo, cifras, letra = casado.groups()
+    if prefijo:
+        if len(cifras) != 7:
+            return False
+        cifras = str("XYZ".index(prefijo)) + cifras
+    elif len(cifras) != 8:
+        return False
+    return _LETRAS_DNI[int(cifras) % 23] == letra
+
+
 #: El *lookahead* que corta el valor. Se compone una vez y se interpola en los tres patrones.
 _NO_ES_ETIQUETA = (
     r"(?!(?:" + "|".join((*ETIQUETAS_DE_VARIAS_PALABRAS, *ETIQUETAS_DE_FORMULARIO)) + r")\b)"
@@ -554,40 +586,35 @@ class AnonymizationContext:
                 continue
             entity_type = config.get("type", "UNKNOWN")
             mode = config.get("mode", "FAKER")
+            transformar = self._transformacion(col, entity_type, mode)
 
-            if entity_type in ("DNI", "NIE", "PASSPORT", "ID"):
-                if mode in ("MASK", "AEPD"):
-                    result_df[col] = result_df[col].astype(str).apply(
-                        lambda x, m=mode: self.anonymize_document_id(x, mode=m)
-                    )
-                else:
-                    result_df[col] = result_df[col].astype(str).apply(
-                        lambda x, t=entity_type, c=col: self.fakes.generate(t, x, context=c)
-                    )
-            elif mode == "MASK":
-                result_df[col] = result_df[col].astype(str).apply(
-                    lambda x, t=entity_type: self._mask_generic(t, x)
-                )
-            elif entity_type in ("PERSON_NAME", "PERSON"):
-                if mode == "INITIALS":
-                    result_df[col] = result_df[col].astype(str).apply(
-                        lambda x: self.anonymize_name(x, mode="INITIALS")
-                    )
-                else:
-                    result_df[col] = result_df[col].astype(str).apply(
-                        lambda x, c=col: self.fakes.generate("PERSON_NAME", x, context=c)
-                    )
-            elif entity_type in ("EMAIL", "PHONE", "IBAN"):
-                result_df[col] = result_df[col].astype(str).apply(
-                    lambda x, t=entity_type, c=col: self.fakes.generate(t, x, context=c)
-                )
-            elif entity_type in self.PATTERNS or entity_type in ("ADDRESS", "ORGANIZATION"):
-                result_df[col] = result_df[col].astype(str).apply(
-                    lambda x, t=entity_type, c=col: self.fakes.generate(t, x, context=c)
-                )
-            else:
-                result_df[col] = result_df[col].astype(str).apply(self.anonymize)
+            # **Una celda vacía sigue vacía** (UTL.2, issue #191). Antes se pasaba todo por
+            # `astype(str)`, y un NaN se convertía en `"nan"` y salía enmascarado como `***`: el
+            # fichero resultante tenía contenido donde el original no tenía nada.
+            serie = result_df[col]
+            vacias = serie.isna() | (serie.astype(str).str.strip() == "")
+            nueva = serie.astype(object).copy()
+            nueva[~vacias] = serie[~vacias].astype(str).apply(transformar)
+            result_df[col] = nueva
         return result_df
+
+    def _transformacion(self, col: str, entity_type: str, mode: str):
+        """La función que se aplica a cada celda no vacía de la columna, según tipo y modo."""
+        if entity_type in ("DNI", "NIE", "PASSPORT", "ID"):
+            if mode in ("MASK", "AEPD"):
+                return lambda x, m=mode: self.anonymize_document_id(x, mode=m)
+            return lambda x, t=entity_type, c=col: self.fakes.generate(t, x, context=c)
+        if mode == "MASK":
+            return lambda x, t=entity_type: self._mask_generic(t, x)
+        if entity_type in ("PERSON_NAME", "PERSON"):
+            if mode == "INITIALS":
+                return lambda x: self.anonymize_name(x, mode="INITIALS")
+            return lambda x, c=col: self.fakes.generate("PERSON_NAME", x, context=c)
+        if entity_type in ("EMAIL", "PHONE", "IBAN"):
+            return lambda x, t=entity_type, c=col: self.fakes.generate(t, x, context=c)
+        if entity_type in self.PATTERNS or entity_type in ("ADDRESS", "ORGANIZATION"):
+            return lambda x, t=entity_type, c=col: self.fakes.generate(t, x, context=c)
+        return self.anonymize
 
     # ------------------------------------------------------------------
     # Heurística de cabecera + análisis de DataFrame
@@ -632,6 +659,7 @@ class AnonymizationContext:
                 findings.extend(ent.type for ent in entities)
 
             detected_type = "NONE"
+            pii_type = "NONE"
             confidence = 0.0
             if findings:
                 counts: dict[str, int] = {}
@@ -649,6 +677,11 @@ class AnonymizationContext:
                     "CREDIT_CARD": "ID",
                 }
                 detected_type = type_map.get(best, "NONE")
+                # UTL.2 — el tipo **sin reducir**. `type` colapsa teléfono, IBAN, tarjeta y DNI en
+                # `"ID"`, y con el modo AEPD una columna de teléfonos se enmascararía como un DNI.
+                # Va en un campo nuevo y no en `type`, que consumen el servicio de informes y
+                # `PiiDetector.scan_dataframe` con su vocabulario reducido.
+                pii_type = best if best in _TIPOS_PERSONALES else "NONE"
                 total = sample_size + (3 if header_type else 0)
                 confidence = counts[best] / total if total else 0.0
 
@@ -662,6 +695,7 @@ class AnonymizationContext:
                 {
                     "field": col,
                     "type": detected_type,
+                    "pii_type": pii_type,
                     "is_sensitive": detected_type != "NONE",
                     "confidence": min(confidence, 1.0),
                     "recommended_strategy": strategy,

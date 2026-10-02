@@ -137,7 +137,8 @@ export function UsuariosPage() {
   const { data: catalogoDeModulos } = useGetCatalogoApiV1HubModulosCatalogoGet({
     query: { enabled: puede('crear') },
   })
-  const modulosVigentes = (catalogoDeModulos ?? []).filter((m) => m.vigente)
+  // Lo de oficio no se ofrece en el alta: lo tiene cualquier persona sin concesión.
+  const modulosVigentes = (catalogoDeModulos ?? []).filter((m) => m.vigente && !m.de_oficio)
 
   function alternarModulo(codigo: string) {
     setModulosDelAlta((antes) =>

@@ -46,7 +46,10 @@ export function ModulosPage() {
   const [sujeto, setSujeto] = useState('')
   const [modulo, setModulo] = useState('')
 
-  const vigentes = (catalogo ?? []).filter((m) => m.vigente)
+  // Un módulo de oficio lo tiene cualquier persona sin concesión: no se ofrece para conceder,
+  // y se dice aparte para que nadie lo busque en las concesiones.
+  const vigentes = (catalogo ?? []).filter((m) => m.vigente && !m.de_oficio)
+  const deOficio = (catalogo ?? []).filter((m) => m.vigente && m.de_oficio)
 
   function enviar(evento: React.FormEvent) {
     evento.preventDefault()
@@ -73,6 +76,12 @@ export function ModulosPage() {
         {/* El superadministrador no tiene fila: entra en todo por su rol. Dicho aquí para que
             nadie la busque en la tabla y crea que falta. */}
         <p className="text-sm text-muted-foreground">{t('plataforma.modulos.nota_superadmin')}</p>
+        {/* Lo de oficio tampoco tiene fila: lo tiene todo el mundo. Dicho por la misma razón. */}
+        {deOficio.length > 0 && (
+          <p className="text-sm text-muted-foreground" data-testid="nota-de-oficio">
+            {t('plataforma.modulos.nota_de_oficio', { modulos: deOficio.map((m) => m.label).join(', ') })}
+          </p>
+        )}
       </header>
 
       <form onSubmit={enviar} className="flex flex-wrap items-end gap-3 rounded-md border p-4">

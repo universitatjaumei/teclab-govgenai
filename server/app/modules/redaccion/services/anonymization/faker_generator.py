@@ -77,14 +77,19 @@ class FakerGenerator:
         if entity_type == "IBAN":
             return f"ES{self.faker.random_number(digits=22, fix_len=True)}"
         if entity_type in ("PERSON_NAME", "PERSON"):
+            # **El falso tiene la forma del verdadero** (UTL.2, issue #191): tantas palabras como
+            # el original. Antes decidía sólo por la cabecera, y «Nombre completo» contiene «nom»,
+            # así que «Ana García López» salía como un nombre de pila suelto: anonimizado, pero no
+            # verosímil, y la columna perdía su forma.
+            palabras = max(len(original.split()), 1)
             if any(x in ctx_lower for x in ("apellido", "surname", "cognom")):
-                fake = self.faker.last_name()
-                if self.faker.random_int(0, 1):
-                    fake += f" {self.faker.last_name()}"
-                return fake
-            if any(x in ctx_lower for x in ("nom", "name", "nombre")):
-                return self.faker.first_name()
-            return self.faker.name()
+                return " ".join(self._una_palabra(self.faker.last_name) for _ in range(palabras))
+            if palabras == 1:
+                return self._una_palabra(self.faker.first_name)
+            return " ".join(
+                [self._una_palabra(self.faker.first_name)]
+                + [self._una_palabra(self.faker.last_name) for _ in range(palabras - 1)]
+            )
         if entity_type == "CREDIT_CARD":
             return self.faker.credit_card_number(card_type=None)
         if entity_type == "NSS":
@@ -104,6 +109,15 @@ class FakerGenerator:
         return (
             self.faker.word() if not original[0].isdigit() else self.faker.numerify("####")
         )
+
+    def _una_palabra(self, generar) -> str:
+        """Un valor de una sola palabra: Faker da a veces compuestos («del Río», «María José»)."""
+        valor = generar()
+        for _ in range(10):
+            if " " not in valor:
+                return valor
+            valor = generar()
+        return valor.replace(" ", "")
 
     def get_stats(self) -> dict[str, int]:
         return dict(self.stats)

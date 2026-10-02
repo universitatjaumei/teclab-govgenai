@@ -17,6 +17,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
+from sqlalchemy import false as sa_false
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -931,6 +932,13 @@ class HubPlatformModule(HubConfigBase):
     code: Mapped[str] = mapped_column(String(50), primary_key=True)
     label: Mapped[str] = mapped_column(String(120), nullable=False)
     vigente: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    #: **De oficio**: lo tiene cualquier persona de la plataforma, sin concesión (UTL, 2026-10-02).
+    #: Una marca y no una fila por persona: conceder a cada cuenta obligaría a acordarse en cada
+    #: alta —también en las que llegan por Google o SAML—, y la que se olvidara dejaría a alguien
+    #: sin el módulo sin que nada lo dijera.
+    de_oficio: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=sa_false()
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
     )

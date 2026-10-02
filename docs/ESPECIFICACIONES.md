@@ -349,8 +349,10 @@ por `funcion_id@versión`.
   pueden administrar la misma organización. `AdminAccount` se queda con el partner y la
   facturación. Decisión escrita en [`DECISION_IDENTIDAD_DE_ADMINISTRACION.md`](DECISION_IDENTIDAD_DE_ADMINISTRACION.md).
 - **Acceso por módulos concedidos, no por roles nuevos**: `chatbots`, `curacion`, `informes`,
-  `personas`, `registro`, `plataforma`. El catálogo es tabla (I4). El superadmin no necesita
-  concesión.
+  `personas`, `registro`, `utilidades`, `plataforma`. El catálogo es tabla (I4). El superadmin no
+  necesita concesión, y **un módulo marcado `de_oficio` en el catálogo tampoco**: lo tiene
+  cualquier persona de la plataforma, también quien se dé de alta mañana, y concederlo se rechaza
+  porque no cambiaría nada. Hoy lo es `utilidades`.
 - Toda consulta que sirva datos de inquilino se acota con `scope_query_to_orgs`, y **la lista vacía
   significa «ninguna»** (I5, I8).
 - Contraseña local para personas, con interruptor `LOCAL_USER_LOGIN_ENABLED` para apagarla cuando
@@ -649,6 +651,40 @@ pronunciamiento sería aprobación previa, que es lo que el nivel 2 prohíbe.
 La comparación honesta con la Instrucció sigue en `docs/CATALOGO_FUNCIONES.md` §4 — y es **una
 lectura nuestra del texto, no algo que el texto prevea**: la Instrucció no nombrará la
 plataforma mientras sea un desarrollo experimental.
+
+### 5.13 Utilidades de uso directo
+
+**Qué hace.** Operaciones sueltas sobre un fichero que alguien tiene en el escritorio y que hoy
+hace en webs que no aseguran el RGPD: **unir, dividir y optimizar PDF** (#190) y **anonimizar un
+CSV o un Excel para compartirlo** (#191), revisando antes la regla de cada columna y cómo queda.
+No son funciones del catálogo ni pasos de un flujo. Lo que la plataforma aporta no es la capacidad
+sino el **trayecto**.
+
+**Lo que garantiza.**
+
+- **Nada se guarda**: el fichero entra en la petición y sale en la respuesta, sin
+  `StorageService`. Un PDF de más de 1 MB pasa por un temporal de la petición mientras se valida,
+  que se cierra —y con eso se borra— al leerlo. No queda nada que borrar ni ningún plazo que
+  cumplir.
+- **Queda constancia, sólo de metadatos**: quién, cuándo, qué operación, cuántos ficheros, páginas
+  o filas, qué regla a cada tipo de columna y la huella de lo que entró. **Nunca el nombre del
+  fichero ni su contenido**, con el mismo contrato que el registro de actividad (§5.9).
+- **Quien no pertenece a una sola organización no opera**: el uso se anota en el registro de la
+  organización, y sin una no habría dónde.
+- **La anonimización no se descarga sin revisión**: hay que ver la vista previa de las reglas
+  actuales y confirmarlo, y lo comprueba el servidor. La vista previa **es** la descarga —misma
+  semilla sobre el fichero entero—. **No se promete anonimato**: es seudonimización asistida, la
+  pantalla lo dice, y la responsabilidad de lo que se comparte es de quien lo comparte.
+
+**Dónde vive.** `modules/utilidades/` (`pdf.py`, `anonimizar.py`) sobre el motor de
+anonimización de `redaccion`; router `/api/v1/utilidades`; pantallas en `/utilidades`. Módulo de
+acceso `utilidades`, **de oficio**: lo tiene cualquier persona de la plataforma sin concesión
+(§5.6), porque lo que sustituye son webs que cualquiera usa.
+
+**Madurez**: `construido` — verificado en el navegador contra el backend de desarrollo, con
+ficheros sintéticos: las tres operaciones de PDF y la anonimización de punta a punta. Sin
+desplegar. El PDF se procesa con MuPDF **en el proceso de la API**; el sandbox sería más seguro
+frente a un PDF malicioso, y es una decisión abierta.
 
 ---
 

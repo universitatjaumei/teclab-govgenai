@@ -94,6 +94,10 @@ dependencies = [
     # `uv lock --upgrade` lo traeria y romperia el arranque entero.
     "chardet>=5.1.0,<8",
     "pdfplumber>=0.11.0",
+    # UTL.1 (issue #190) — unir, dividir y optimizar PDF sin que el documento salga. Es PyMuPDF,
+    # **AGPL-3.0**: la plataforma ya es AGPL-3.0-or-later, así que no cambia nada de lo que se
+    # distribuye. El sandbox ya la tenía para los guiones; ésta es la del servidor.
+    "pymupdf>=1.24",
     "spacy>=3.7",
     # **El modelo, y va en las dependencias por defecto a propósito** (issue #170). spaCy sin
     # modelo degrada a regex + anclajes de cabecera **sin decirlo**, así que un despliegue

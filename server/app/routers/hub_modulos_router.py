@@ -52,6 +52,8 @@ class ModuloDelCatalogo(BaseModel):
     code: str
     label: str
     vigente: bool
+    #: Lo tiene cualquier persona sin concesión: la pantalla no lo ofrece para conceder.
+    de_oficio: bool = False
 
 
 class ConcesionRead(BaseModel):
@@ -108,7 +110,8 @@ async def get_catalogo(
         await session.execute(select(HubPlatformModule).order_by(HubPlatformModule.code))
     ).scalars().all()
     return [
-        ModuloDelCatalogo(code=f.code, label=f.label, vigente=f.vigente) for f in filas
+        ModuloDelCatalogo(code=f.code, label=f.label, vigente=f.vigente, de_oficio=f.de_oficio)
+        for f in filas
     ]
 
 
@@ -207,6 +210,14 @@ async def conceder(
             detail=(
                 f"El módulo {body.module_code} está retirado del catálogo: concederlo no daría "
                 "acceso a nada."
+            ),
+        )
+    if modulo.de_oficio:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"El módulo {body.module_code} es de oficio: lo tiene cualquier persona de la "
+                "plataforma, así que concederlo no cambiaría nada."
             ),
         )
 

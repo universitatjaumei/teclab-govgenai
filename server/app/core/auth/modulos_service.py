@@ -45,6 +45,23 @@ async def _vigentes(session: AsyncSession) -> set[str]:
     )
 
 
+async def _de_oficio(session: AsyncSession) -> set[str]:
+    """Los módulos vigentes que tiene cualquier persona, sin concesión (UTL, 2026-10-02).
+
+    Es la única excepción a «sin fila no hay acceso», y por eso es una marca del catálogo y no
+    una regla escrita aquí: qué es de oficio lo dice la tabla, que se cambia sin desplegar.
+    """
+    return set(
+        (
+            await session.execute(
+                select(PlatformModule.code).where(
+                    PlatformModule.vigente.is_(True), PlatformModule.de_oficio.is_(True)
+                )
+            )
+        ).scalars().all()
+    )
+
+
 def _condicion_del_sujeto(user: UserInfo):
     """Las dos vías por las que una concesión alcanza a esta persona.
 
@@ -118,7 +135,7 @@ async def modulos_del_usuario(
             )
         ).scalars().all()
     )
-    return sorted(concedidos & vigentes)
+    return sorted((concedidos & vigentes) | await _de_oficio(session))
 
 
 async def modulos_con_origen(
@@ -168,7 +185,11 @@ async def modulos_con_origen(
                 "organizacion": str(organizacion) if organizacion else "",
             }
         )
-    return origen
+    # Lo de oficio se dice como tal, y no como una concesión que no existe: buscarla después en la
+    # tabla y no encontrarla es peor que saber que no está.
+    for modulo in await _de_oficio(session):
+        origen.setdefault(modulo, []).append({"tipo": "de_oficio", "sujeto": "", "organizacion": ""})
+    return dict(sorted(origen.items()))
 
 
 async def tiene_modulo(session: AsyncSession, user: UserInfo, codigo: str) -> bool:

@@ -79,7 +79,7 @@ autorizado, revisión posterior y anonimización**. A eso se dedican los cuatro 
 |---|---|---|---|
 | [1 — Cerrar lo que ya no se hace](https://github.com/universitatjaumei/teclab-govgenai/milestone/9) | ✅ Completo | La especificación declara como límite deliberado que no se ejecuta nada en el equipo de quien la usa; los planes de fase 2 se cierran | [#112](https://github.com/universitatjaumei/teclab-govgenai/issues/112), [#113](https://github.com/universitatjaumei/teclab-govgenai/issues/113) |
 | [2 — Registrar lo que corre fuera](https://github.com/universitatjaumei/teclab-govgenai/milestone/10) | ✅ Completo | Funciones de **origen externo** (un cuaderno se registra por su hash sin ejecutarlo); paquete MCP y *skill* de gobernanza para agentes de código; registro de la ejecución de un cuaderno en tres líneas; depósito del manifiesto de una ejecución hecha fuera | [#114](https://github.com/universitatjaumei/teclab-govgenai/issues/114), [#115](https://github.com/universitatjaumei/teclab-govgenai/issues/115), [#124](https://github.com/universitatjaumei/teclab-govgenai/issues/124), [#116](https://github.com/universitatjaumei/teclab-govgenai/issues/116) |
-| [3 — Funciones de tarea](https://github.com/universitatjaumei/teclab-govgenai/milestone/11) | En curso | Una función produce **ficheros**; red saliente sólo hacia **orígenes declarados**; el ecosistema de módulos ampliado y vigilado; los dos cuadernos reales como casos guía con datos sintéticos | [#117](https://github.com/universitatjaumei/teclab-govgenai/issues/117), [#118](https://github.com/universitatjaumei/teclab-govgenai/issues/118), [#119](https://github.com/universitatjaumei/teclab-govgenai/issues/119), [#120](https://github.com/universitatjaumei/teclab-govgenai/issues/120) |
+| [3 — Funciones de tarea](https://github.com/universitatjaumei/teclab-govgenai/milestone/11) | En curso | Una función produce **ficheros**; red saliente sólo hacia **orígenes declarados**; el ecosistema de módulos ampliado y vigilado; el cuaderno del presupuesto propio como caso guía, partido en dos funciones —anonimizar, y luego CSV limpio y Word— y con datos sintéticos. El de las subvenciones nominativas **se aplaza** ([#211](https://github.com/universitatjaumei/teclab-govgenai/issues/211)): tiene que bajar decenas de PDF y no cabe en una URL por slot | [#117](https://github.com/universitatjaumei/teclab-govgenai/issues/117), [#118](https://github.com/universitatjaumei/teclab-govgenai/issues/118), [#119](https://github.com/universitatjaumei/teclab-govgenai/issues/119), [#120](https://github.com/universitatjaumei/teclab-govgenai/issues/120) |
 | [4 — Decisiones de la institución](https://github.com/universitatjaumei/teclab-govgenai/milestone/12) | ✅ Completo | El régimen de ejecución frente a la regla de soberanía local; la lista del ecosistema autorizado y el plazo de revisión; quién revisa, quién suspende y la ruta a protección de datos | [#121](https://github.com/universitatjaumei/teclab-govgenai/issues/121), [#122](https://github.com/universitatjaumei/teclab-govgenai/issues/122), [#123](https://github.com/universitatjaumei/teclab-govgenai/issues/123) |
 | [5 — Agentes de unidad sobre el asistente general](https://github.com/universitatjaumei/teclab-govgenai/milestone/17) | Previsto | Una unidad publica un **agente** —prompt, carpeta de documentos, índice y colectivo— y la plataforma lo cataloga, lo acota, selecciona los documentos de cada consulta y registra el uso; el modelo lo ejecuta el asistente general de la organización | [#172](https://github.com/universitatjaumei/teclab-govgenai/issues/172), [#173](https://github.com/universitatjaumei/teclab-govgenai/issues/173), [#174](https://github.com/universitatjaumei/teclab-govgenai/issues/174), [#175](https://github.com/universitatjaumei/teclab-govgenai/issues/175), [#176](https://github.com/universitatjaumei/teclab-govgenai/issues/176) |
 
@@ -224,7 +224,7 @@ de los asistentes informativos. Recorre su propio procedimiento, y ningún dato 
 El razonamiento completo, con las cinco piezas del vínculo y cómo se dan de alta más tipos de
 trámite, está en [`docs/DECISION_TRAMITES_ASISTIDOS.md`](docs/DECISION_TRAMITES_ASISTIDOS.md).
 
-### 9. Utilidades de uso directo — Previsto
+### 9. Utilidades de uso directo — En curso
 
 Los otros ocho temas son capacidades que la plataforma construye. Éste es más corto de explicar:
 hay operaciones que la gente necesita a diario y que **hoy resuelve subiendo el documento a una
@@ -237,14 +237,14 @@ alternativa es la web. Y el documento suele llevar datos personales, a menudo de
 
 | Hito | Estado | Qué entrega | Issues |
 |---|---|---|---|
-| [1 — Lo que hoy se hace fuera](https://github.com/universitatjaumei/teclab-govgenai/milestone/18) | Previsto | Unir, dividir y optimizar PDF sin que el fichero salga; anonimizar un fichero tabular y descargarlo, como utilidad suelta y no como paso de un flujo | [#190](https://github.com/universitatjaumei/teclab-govgenai/issues/190), [#191](https://github.com/universitatjaumei/teclab-govgenai/issues/191) |
+| [1 — Lo que hoy se hace fuera](https://github.com/universitatjaumei/teclab-govgenai/milestone/18) | En curso | Unir, dividir y optimizar PDF sin que el fichero salga; anonimizar un fichero tabular y descargarlo, como utilidad suelta y no como paso de un flujo. Construido; falta desplegarlo | [#190](https://github.com/universitatjaumei/teclab-govgenai/issues/190), [#191](https://github.com/universitatjaumei/teclab-govgenai/issues/191) |
 
-Las dos issues llevan **lo que hay que decidir antes de escribir**, y no es poco: si van como
-funciones del catálogo —con declaración, auditoría y registro, pero entonces dependen de que una
-función pueda producir ficheros— o como utilidad aparte; si queda constancia de que un documento
-pasó por aquí; y, en la anonimización, qué se le promete a quien descarga. **Lo que no se
-promete es que el resultado sea anónimo**: es seudonimización asistida, y la responsabilidad de
-publicar sigue siendo de quien publica.
+Lo que había que decidir antes de escribir **se decidió el 2026-10-01**: van como **utilidad
+aparte**, en un módulo propio (`utilidades`), y no como funciones del catálogo; **queda constancia
+de metadatos y nunca del contenido**; la anonimización es **por columnas**, sobre CSV y Excel, y
+no se descarga sin revisar la vista previa. **Lo que no se promete es que el resultado sea
+anónimo**: es seudonimización asistida, y la responsabilidad de publicar sigue siendo de quien
+publica.
 
 ## Lo que no se hace
 

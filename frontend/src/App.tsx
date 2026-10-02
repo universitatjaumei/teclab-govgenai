@@ -58,6 +58,9 @@ const CatalogoDeFuncionesPage = lazy(() => import('@/redaccion/pages/CatalogoDeF
 const RevisionPosteriorPage = lazy(() => import('@/redaccion/pages/RevisionPosteriorPage').then(m => ({ default: m.RevisionPosteriorPage })))
 const WorkspacePreview = lazy(() => import('@/redaccion/preview/WorkspacePreview').then(m => ({ default: m.WorkspacePreview })))
 const WorkspacePage = lazy(() => import('@/redaccion/pages/WorkspacePage').then(m => ({ default: m.WorkspacePage })))
+const UtilidadesLayout = lazy(() => import('@/utilidades/UtilidadesLayout').then(m => ({ default: m.UtilidadesLayout })))
+const UtilidadesPdfPage = lazy(() => import('@/utilidades/pages/UtilidadesPdfPage').then(m => ({ default: m.UtilidadesPdfPage })))
+const AnonimizarFicheroPage = lazy(() => import('@/utilidades/pages/AnonimizarFicheroPage').then(m => ({ default: m.AnonimizarFicheroPage })))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -142,6 +145,13 @@ function App() {
                       configuracion de la plataforma (`Deploy: cloud`). Meterlo alli obligaria
                       a dar los modelos de LLM y los tokens para poder dar el registro. */}
                   <Route path="/registro" element={<RutaDeModulo modulo="registro"><RegistroActividadPage /></RutaDeModulo>} />
+                  {/* UTL (#190, #191) — lo que hoy se hace en webs que no aseguran el RGPD:
+                      unir o partir un PDF, anonimizar un listado para compartirlo. */}
+                  <Route path="/utilidades" element={<RutaDeModulo modulo="utilidades"><UtilidadesLayout /></RutaDeModulo>}>
+                    <Route index element={<Navigate to="/utilidades/pdf" replace />} />
+                    <Route path="pdf" element={<UtilidadesPdfPage />} />
+                    <Route path="anonimizar" element={<AnonimizarFicheroPage />} />
+                  </Route>
                   <Route path="/plataforma" element={<RutaDeModulo modulo="plataforma"><PlataformaLayout /></RutaDeModulo>}>
                     <Route index element={<Navigate to="/plataforma/modelos" replace />} />
                     {/* REV.11 — sale de /hub: su router ya exigia el modulo plataforma para

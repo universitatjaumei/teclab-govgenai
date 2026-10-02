@@ -41,6 +41,10 @@ MODULOS_INICIALES: tuple[tuple[str, str], ...] = (
     # (`Deploy: cloud`). Meterlo ahí obligaría a dar los modelos de LLM, las organizaciones y los
     # tokens para poder dar el registro.
     ("registro", "Registro de actividad IA"),
+    # UTL (#190, #191) — operaciones sueltas sobre un fichero que hoy se hacen en webs que no
+    # aseguran el RGPD: unir o partir un PDF, anonimizar un listado. Módulo propio y no dentro
+    # de `informes`, porque no son informes: las necesita cualquiera que trabaje con documentos.
+    ("utilidades", "Utilidades"),
     ("plataforma", "Administración de la plataforma"),
 )
 

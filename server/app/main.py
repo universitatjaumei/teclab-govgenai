@@ -64,6 +64,7 @@ from server.app.routers.hub_agents_router import router as hub_agents_router
 from server.app.routers.hub_sites_router import router as hub_sites_router
 from server.app.routers.hub_content_quality_router import router as hub_content_quality_router
 from server.app.routers.hub_test_scenarios_router import router as hub_test_scenarios_router
+from server.app.routers.utilidades_router import router as utilidades_router
 
 
 _log = logging.getLogger("govgenai")
@@ -519,6 +520,7 @@ def _register_edge(app: FastAPI) -> None:
     app.include_router(hub_sites_router, prefix="/api/v1")  # Deploy: edge
     app.include_router(hub_content_quality_router, prefix="/api/v1")  # Deploy: edge
     app.include_router(hub_test_scenarios_router, prefix="/api/v1")  # Deploy: edge
+    app.include_router(utilidades_router, prefix="/api/v1")  # Deploy: edge
 
 
 if DEPLOY_MODE in ("cloud", "all"):

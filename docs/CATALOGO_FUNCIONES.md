@@ -484,6 +484,22 @@ por pantalla**: no hace falta escribir nada fuera del panel.
 Tu script de nivel 1 ya hace lo que tiene que hacer. Lo que el catálogo te pide es **declararlo**,
 y eso es lo que permite que otra persona lo use sin leerlo.
 
+### Un ejemplo completo: un cuaderno real convertido
+
+En [`docs/ejemplos/funciones/presupuesto/`](ejemplos/funciones/presupuesto/) está el cuaderno del
+presupuesto propio convertido en **dos funciones encadenadas**, con sus contratos y un generador
+de datos sintéticos (AUT.10, issue #120). Primero **anonimiza** y después hace el **CSV limpio y el
+Word** sobre lo anonimizado. Lo que cuesta adaptar al pasar de un cuaderno a una función, y cómo se
+resolvió allí:
+
+- **Leer un fichero de texto sin `open`**, que el auditor deniega: con
+  `pandas.read_csv(ruta, header=None, sep="\x1f", quoting=3)`, una fila por línea.
+- **Lo que el cuaderno leía de tu Drive** —la prosa de un Google Doc— pasa a un fichero que se
+  sube, aquí un Markdown con los mismos marcadores.
+- **Sin `pip install`**: lo que la función importa tiene que estar en el ecosistema autorizado (§5).
+- **El sandbox no usa la misma versión de pandas que el modo local**, así que un guion se prueba
+  en los dos. Los dos tests del ejemplo lo hacen.
+
 ### El recorrido, paso a paso
 
 Entra en **Informes → Pedir un script** (`/redaccion/scripts/wizard`). El asistente tiene siete

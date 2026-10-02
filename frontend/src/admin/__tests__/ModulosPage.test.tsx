@@ -35,6 +35,7 @@ const CATALOGO = [
   { code: 'chatbots', label: 'Chatbots y asistentes', vigente: true },
   { code: 'informes', label: 'Informes', vigente: true },
   { code: 'curacion', label: 'Curación de contenido', vigente: false },
+  { code: 'utilidades', label: 'Utilidades', vigente: true, de_oficio: true },
 ]
 
 const CONCESIONES = [
@@ -114,6 +115,23 @@ describe('IDE.5 — el catálogo se itera, no se escribe', () => {
     const selector = screen.getByLabelText(/^módulo/i)
     const opciones = [...selector.querySelectorAll('option')].map((o) => o.textContent)
     expect(opciones).not.toContain('Curación de contenido')
+  })
+})
+
+describe('UTL — un módulo de oficio no se concede', () => {
+  it('should_not_offer_a_module_everyone_already_has', () => {
+    // Concederlo no cambiaría nada, y el servidor lo rechaza con un 400.
+    renderPage()
+
+    const selector = screen.getByLabelText(/^módulo/i)
+    const opciones = [...selector.querySelectorAll('option')].map((o) => o.textContent)
+    expect(opciones).not.toContain('Utilidades')
+  })
+
+  it('should_say_which_modules_everyone_has_so_nobody_looks_for_their_grant', () => {
+    renderPage()
+
+    expect(screen.getByTestId('nota-de-oficio')).toHaveTextContent('Utilidades')
   })
 })
 
