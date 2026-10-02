@@ -1,0 +1,65 @@
+{
+  "titulo": "Unit agents",
+  "intro": "A unit publishes an agent —a prompt, a folder of documents and the group of people who may use it— and the organisation's general assistant runs it. Publishing it is registering it: it is offered straight away, and a reviewer can suspend it afterwards.",
+  "publicar_uno": "Publish an agent",
+  "publicar": "Publish",
+  "nueva_version": "New version",
+  "nueva_version_de": "New version of {{nombre}}",
+  "registrar_version": "Register the version",
+  "cancelar": "Cancel",
+  "cargando": "Loading…",
+  "ninguno": "Your organisation has not published any agent yet.",
+  "fallo": "It could not be saved. Try again.",
+  "campos": {
+    "nombre": "Name",
+    "unidad": "Unit",
+    "finalidad": "Purpose",
+    "responsable": "Responsible",
+    "prompt": "Prompt",
+    "carpeta_url": "Document folder",
+    "colectivo": "Who may use it",
+    "grupos": "Groups",
+    "revision_prevista_en": "Planned review date"
+  },
+  "pistas": {
+    "carpeta_url": "The folder's address in the organisation's storage. The platform keeps no documents: the storage authorises them.",
+    "grupos": "Comma separated, as the identity provider declares them.",
+    "revision_prevista_en": "When the unit will look at it again. If it passes, the agent is still offered, but flagged."
+  },
+  "colectivos": {
+    "organizacion": "The whole organisation",
+    "grupos": "Some identity provider groups"
+  },
+  "colectivo_grupos": "The groups {{grupos}}",
+  "aviso_sin_grupos": "No identity provider groups are arriving right now: only institutional SAML sign-in sends them. An agent limited to some groups would be offered to nobody.",
+  "estados": {
+    "registrada": "Published",
+    "suspendida": "Suspended",
+    "retirada": "Withdrawn"
+  },
+  "revision_vencida": "Review overdue ({{fecha}})",
+  "ultima_revision": "Last review",
+  "motivo_suspension": "Reason for suspension",
+  "motivo_de_la_suspension": "Reason for suspension",
+  "confirmar_suspension": "Confirm the suspension",
+  "resultado": "Result",
+  "nota": "Note",
+  "guardar_revision": "Save the review",
+  "resultados": {
+    "conforme": "Compliant",
+    "correcciones": "Asks for corrections"
+  },
+  "acciones": {
+    "versionar": "New version",
+    "revisar": "Review",
+    "suspender": "Suspend",
+    "reactivar": "Reactivate",
+    "retirar": "Withdraw"
+  },
+  "errores": {
+    "obligatorio": "This field is required.",
+    "carpeta_https": "It has to be an https address in the organisation's storage.",
+    "fecha_obligatoria": "Say when it will be reviewed again.",
+    "grupos_obligatorios": "Give at least one group."
+  }
+}

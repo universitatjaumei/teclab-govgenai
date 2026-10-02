@@ -1,0 +1,65 @@
+{
+  "titulo": "Agents d'unitat",
+  "intro": "Una unitat publica un agent —un prompt, una carpeta de documents i el col·lectiu que el pot fer servir— i l'executa l'assistent general de l'organització. Publicar-lo és registrar-lo: s'ofereix des d'ara, i qui revisa el pot suspendre després.",
+  "publicar_uno": "Publicar un agent",
+  "publicar": "Publicar",
+  "nueva_version": "Nova versió",
+  "nueva_version_de": "Nova versió de {{nombre}}",
+  "registrar_version": "Registrar la versió",
+  "cancelar": "Cancel·lar",
+  "cargando": "S'està carregant…",
+  "ninguno": "La teua organització encara no ha publicat cap agent.",
+  "fallo": "No s'ha pogut desar. Torna-ho a provar.",
+  "campos": {
+    "nombre": "Nom",
+    "unidad": "Unitat",
+    "finalidad": "Finalitat",
+    "responsable": "Responsable",
+    "prompt": "Prompt",
+    "carpeta_url": "Carpeta de documents",
+    "colectivo": "Qui el pot fer servir",
+    "grupos": "Grups",
+    "revision_prevista_en": "Data de revisió prevista"
+  },
+  "pistas": {
+    "carpeta_url": "L'adreça de la carpeta en el magatzem de l'organització. La plataforma no guarda cap document: els autoritza el magatzem.",
+    "grupos": "Separats per comes, tal com els declara el proveïdor d'identitat.",
+    "revision_prevista_en": "Quan el tornarà a mirar la unitat. Si passa, l'agent se segueix oferint, però marcat."
+  },
+  "colectivos": {
+    "organizacion": "Tota l'organització",
+    "grupos": "Uns grups del proveïdor d'identitat"
+  },
+  "colectivo_grupos": "Els grups {{grupos}}",
+  "aviso_sin_grupos": "Ara mateix no arriben grups del proveïdor d'identitat: només els envia l'inici de sessió institucional per SAML. Un agent limitat a uns grups no s'oferiria a ningú.",
+  "estados": {
+    "registrada": "Publicat",
+    "suspendida": "Suspès",
+    "retirada": "Retirat"
+  },
+  "revision_vencida": "Revisió vençuda ({{fecha}})",
+  "ultima_revision": "Última revisió",
+  "motivo_suspension": "Motiu de la suspensió",
+  "motivo_de_la_suspension": "Motiu de la suspensió",
+  "confirmar_suspension": "Confirmar la suspensió",
+  "resultado": "Resultat",
+  "nota": "Nota",
+  "guardar_revision": "Desar la revisió",
+  "resultados": {
+    "conforme": "Conforme",
+    "correcciones": "Demana correccions"
+  },
+  "acciones": {
+    "versionar": "Nova versió",
+    "revisar": "Revisar",
+    "suspender": "Suspendre",
+    "reactivar": "Reactivar",
+    "retirar": "Retirar"
+  },
+  "errores": {
+    "obligatorio": "Aquest camp és obligatori.",
+    "carpeta_https": "Ha de ser una adreça https del magatzem de l'organització.",
+    "fecha_obligatoria": "Indica quan es tornarà a revisar.",
+    "grupos_obligatorios": "Indica almenys un grup."
+  }
+}

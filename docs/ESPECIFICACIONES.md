@@ -349,7 +349,7 @@ por `funcion_id@versión`.
   pueden administrar la misma organización. `AdminAccount` se queda con el partner y la
   facturación. Decisión escrita en [`DECISION_IDENTIDAD_DE_ADMINISTRACION.md`](DECISION_IDENTIDAD_DE_ADMINISTRACION.md).
 - **Acceso por módulos concedidos, no por roles nuevos**: `chatbots`, `curacion`, `informes`,
-  `personas`, `registro`, `utilidades`, `plataforma`. El catálogo es tabla (I4). El superadmin no
+  `personas`, `registro`, `utilidades`, `agentes`, `plataforma`. El catálogo es tabla (I4). El superadmin no
   necesita concesión, y **un módulo marcado `de_oficio` en el catálogo tampoco**: lo tiene
   cualquier persona de la plataforma, también quien se dé de alta mañana, y concederlo se rechaza
   porque no cambiaría nada. Hoy lo es `utilidades`.
@@ -686,6 +686,39 @@ ficheros sintéticos: las tres operaciones de PDF y la anonimización de punta a
 desplegar. El PDF se procesa con MuPDF **en el proceso de la API**; el sandbox sería más seguro
 frente a un PDF malicioso, y es una decisión abierta.
 
+### 5.14 Agentes de unidad
+
+**Qué hace.** Una unidad de la organización —contratación, control interno, calidad— publica un
+**agente**: un prompt, una carpeta de documentos en el almacén de la organización y un colectivo
+que puede usarlo. **Ninguna de las tres cosas es código**, y el modelo lo pone el asistente
+general de la organización. La plataforma cataloga, acota y gobierna (#172). El índice de
+documentos, la consulta, el guion de curación y la extensión son #173–#176 (§6).
+
+**Lo que garantiza.**
+
+- **Registrar es publicar**, como en el catálogo de funciones (§5.12): sin aprobación previa.
+  Publicar exige el módulo `agentes`; **usarlo no**, porque el catálogo se ofrece a su colectivo.
+- **Sin declaración no se publica**: finalidad, responsable, colectivo y **fecha de revisión
+  prevista**, que no puede haber pasado. La unidad se declara como texto: la plataforma no tiene
+  unidades.
+- **El colectivo dice quién, no cuánto**: toda la organización o una lista de grupos del IdP. **La
+  organización va siempre primero**, y los grupos se comparan sin mayúsculas. Con el login de
+  Google no llegan grupos, así que un agente por grupos no se le ofrece a nadie; la pantalla lo
+  dice.
+- **Suspender es de quien revisa, retirar de quien publica**. Revisa el administrador de la
+  organización o el superadministrador, **nunca quien lo publicó**. Suspender exige motivo y deja
+  de ofrecerlo; revisar no cambia nada de lo que se ofrece. Corregir es versionar: se ofrece la
+  última versión.
+- **Una revisión vencida avisa, no oculta**: el agente sigue ofreciéndose marcado. Dejar de
+  ofrecerlo es decisión de quien revisa.
+- **El catálogo no lleva el prompt**: lo entregará la consulta (#175), que es lo que se registra.
+
+**Dónde vive.** `modules/agentes/acciones.py` (quién puede qué y quién lo ve) y
+`routers/agentes_router.py`: `/api/v1/agentes` para la gestión y `/api/v1/agentes/catalogo` para
+quien usa. Tablas operacionales `hub_agentes_unidad` y `hub_agente_unidad_versiones`.
+
+**Madurez**: `construido`, sin desplegar.
+
 ---
 
 ## 6. Automatización gobernada
@@ -708,6 +741,10 @@ sandbox, el `RunManifest`, el registro de actividad y las verificaciones por API
 - **Funciones de tarea**: artefactos de salida, red saliente sólo hacia **orígenes declarados** y
   el ecosistema de módulos ampliado. Abrir la red debilita el argumento de §5.12 («una función no
   puede hablar con nada»), así que es una **clase distinta**, visible y con revisión en plazo.
+- **Agentes de unidad sobre el asistente general**: el catálogo está construido (§5.14). Falta el
+  índice como corpus ligero —una ficha por documento— (#173), la consulta que devuelve prompt y
+  URL y nunca el contenido (#175), el guion de curación del índice como función del catálogo
+  (#174) y la extensión de navegador que cierra el registro (#176).
 
 **Madurez**: `previsto`, sobre una base `construido`: lo que ejecuta ya existe.
 

@@ -40,6 +40,9 @@ const NAV_SECTIONS = [
   // UTL (#190, #191) — operaciones sueltas sobre un fichero que hoy se hacen en webs que no
   // aseguran el RGPD. Modulo propio: no son informes y las necesita cualquiera.
   { key: 'utilidades', path: '/utilidades', modulo: 'utilidades' },
+  // #172 — publicar y gobernar los agentes de unidad. Usarlos no pasa por aquí: los ofrece el
+  // asistente general de la organización.
+  { key: 'agentes', path: '/agentes', modulo: 'agentes' },
   { key: 'plataforma', path: '/plataforma', modulo: 'plataforma' },
 ] as const
 

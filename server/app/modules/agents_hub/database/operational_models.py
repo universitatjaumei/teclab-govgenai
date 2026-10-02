@@ -24,6 +24,7 @@ from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
 from sqlalchemy.dialects.postgresql import ARRAY as PG_ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from server.app.core.ambito import Ambito, declarar
 from server.app.modules.agents_hub.database.base import HubOperationalBase
 
 
@@ -1072,4 +1073,110 @@ class HubActividadIA(HubOperationalBase):
     #: cuadernos existen» con «cuándo corrieron». Indexado porque ése es justamente el cruce.
     funcion_sha256: Mapped[str | None] = mapped_column(
         String(64), nullable=True, index=True
+    )
+
+
+class HubAgenteUnidad(HubOperationalBase):
+    """Un agente que publica una unidad de la organización (#172).
+
+    Un agente es un prompt, una carpeta de documentos, un índice y un colectivo, **y ninguna de
+    las cuatro es código**. Lo ejecuta el asistente general de la organización; la plataforma lo
+    cataloga, lo acota y registra su uso.
+
+    **En el lado operacional, como el catálogo de funciones**: el prompt y la declaración son
+    texto escrito por una persona de la organización, el criterio que mandó aquí a
+    `hub_funcion_versiones` y a `hub_lexicon_pairs`. Sin FK a `hub_organizaciones`, como el resto.
+
+    **La unidad es texto declarado**, no una tabla (decisión del usuario, 2026-10-02): la
+    plataforma no tiene unidades, y crearlas para esto sería una pantalla más que mantener sin
+    que nada la consuma. Publica quien tenga el módulo `agentes`.
+    """
+
+    __tablename__ = "hub_agentes_unidad"
+    __ambito__ = Ambito.ORGANIZACION
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    organizacion_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), nullable=False, index=True
+    )
+    nombre: Mapped[str] = mapped_column(String(200), nullable=False)
+    unidad: Mapped[str] = mapped_column(String(200), nullable=False)
+    #: Quien lo publicó. Es quien lo versiona y lo retira, y quien **no** puede revisarlo.
+    creado_por: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class HubAgenteUnidadVersion(HubOperationalBase):
+    """Una versión de un agente: su prompt y su declaración. **La que se ofrece es la última.**
+
+    Corregir es versionar: una versión registrada no se edita, como en FUN, porque lo que se
+    revisó tiene que seguir siendo lo que se revisó. Revisar y suspender actúan sobre la última.
+
+    **El colectivo no es un nivel de acceso.** `nivell_acces` dice cuánto se protege un
+    documento; esto dice **quién** usa el agente. Grano grueso: toda la organización, o una
+    lista de grupos del IdP —que sólo llegan por SAML; con Google no hay ninguno—.
+    """
+
+    __tablename__ = "hub_agente_unidad_versiones"
+    __ambito__ = declarar(Ambito.DERIVADA, via="agente_id")
+    __table_args__ = (
+        UniqueConstraint("agente_id", "version", name="uq_agente_unidad_version"),
+        # Estructura, no vocabulario: cada valor tiene código que lo aplica (CLAUDE.md §5).
+        CheckConstraint(
+            "estado IN ('registrada', 'suspendida', 'retirada')",
+            name="ck_agente_unidad_version_estado",
+        ),
+        CheckConstraint(
+            "colectivo IN ('organizacion', 'grupos')",
+            name="ck_agente_unidad_version_colectivo",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    agente_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("hub_agentes_unidad.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    estado: Mapped[str] = mapped_column(String(20), nullable=False)
+    prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    #: Dónde están los documentos. **La plataforma no guarda ni uno**: los autoriza el almacén.
+    carpeta_url: Mapped[str] = mapped_column(String(2048), nullable=False)
+
+    # ── La declaración: sin ella no se publica ─────────────────────────────────────
+    finalidad: Mapped[str] = mapped_column(Text, nullable=False)
+    responsable: Mapped[str] = mapped_column(String(255), nullable=False)
+    colectivo: Mapped[str] = mapped_column(String(20), nullable=False)
+    grupos: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default="[]"
+    )
+    #: Cuándo dice la unidad que lo volverá a mirar. **Vencida avisa, no oculta.**
+    revision_prevista_en: Mapped[date] = mapped_column(Date, nullable=False)
+    declarada_por: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    declarada_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    # ── La revisión posterior ─────────────────────────────────────────────────────
+    revisada_por: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    revisada_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revision_resultado: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    revision_nota: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # ── La suspensión: con motivo, que se conserva al reactivar ──────────────────
+    suspendida_por: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    suspendida_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    motivo_suspension: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
     )

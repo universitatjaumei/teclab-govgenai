@@ -1,0 +1,65 @@
+{
+  "titulo": "Agentes de unidad",
+  "intro": "Una unidad publica un agente —un prompt, una carpeta de documentos y el colectivo que puede usarlo— y lo ejecuta el asistente general de la organización. Publicarlo es registrarlo: se ofrece desde ya, y quien revisa puede suspenderlo después.",
+  "publicar_uno": "Publicar un agente",
+  "publicar": "Publicar",
+  "nueva_version": "Nueva versión",
+  "nueva_version_de": "Nueva versión de {{nombre}}",
+  "registrar_version": "Registrar la versión",
+  "cancelar": "Cancelar",
+  "cargando": "Cargando…",
+  "ninguno": "Tu organización todavía no ha publicado ningún agente.",
+  "fallo": "No se ha podido guardar. Inténtalo de nuevo.",
+  "campos": {
+    "nombre": "Nombre",
+    "unidad": "Unidad",
+    "finalidad": "Finalidad",
+    "responsable": "Responsable",
+    "prompt": "Prompt",
+    "carpeta_url": "Carpeta de documentos",
+    "colectivo": "Quién puede usarlo",
+    "grupos": "Grupos",
+    "revision_prevista_en": "Fecha de revisión prevista"
+  },
+  "pistas": {
+    "carpeta_url": "La dirección de la carpeta en el almacén de la organización. La plataforma no guarda ningún documento: los autoriza el almacén.",
+    "grupos": "Separados por comas, tal como los declara el proveedor de identidad.",
+    "revision_prevista_en": "Cuándo volverá a mirarlo la unidad. Si pasa, el agente se sigue ofreciendo, pero marcado."
+  },
+  "colectivos": {
+    "organizacion": "Toda la organización",
+    "grupos": "Unos grupos del proveedor de identidad"
+  },
+  "colectivo_grupos": "Los grupos {{grupos}}",
+  "aviso_sin_grupos": "Ahora mismo no llegan grupos del proveedor de identidad: sólo los envía el inicio de sesión institucional por SAML. Un agente limitado a unos grupos no se le ofrecería a nadie.",
+  "estados": {
+    "registrada": "Publicado",
+    "suspendida": "Suspendido",
+    "retirada": "Retirado"
+  },
+  "revision_vencida": "Revisión vencida ({{fecha}})",
+  "ultima_revision": "Última revisión",
+  "motivo_suspension": "Motivo de la suspensión",
+  "motivo_de_la_suspension": "Motivo de la suspensión",
+  "confirmar_suspension": "Confirmar la suspensión",
+  "resultado": "Resultado",
+  "nota": "Nota",
+  "guardar_revision": "Guardar la revisión",
+  "resultados": {
+    "conforme": "Conforme",
+    "correcciones": "Pide correcciones"
+  },
+  "acciones": {
+    "versionar": "Nueva versión",
+    "revisar": "Revisar",
+    "suspender": "Suspender",
+    "reactivar": "Reactivar",
+    "retirar": "Retirar"
+  },
+  "errores": {
+    "obligatorio": "Este campo es obligatorio.",
+    "carpeta_https": "Tiene que ser una dirección https del almacén de la organización.",
+    "fecha_obligatoria": "Indica cuándo se volverá a revisar.",
+    "grupos_obligatorios": "Indica al menos un grupo."
+  }
+}

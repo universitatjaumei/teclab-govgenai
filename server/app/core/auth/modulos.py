@@ -45,6 +45,9 @@ MODULOS_INICIALES: tuple[tuple[str, str], ...] = (
     # aseguran el RGPD: unir o partir un PDF, anonimizar un listado. Módulo propio y no dentro
     # de `informes`, porque no son informes: las necesita cualquiera que trabaje con documentos.
     ("utilidades", "Utilidades"),
+    # #172 — publicar agentes de unidad. Usarlos no lo exige: el catálogo se le ofrece a su
+    # colectivo, tenga o no el módulo. Lo que se concede es publicar.
+    ("agentes", "Agentes de unidad"),
     ("plataforma", "Administración de la plataforma"),
 )
 
