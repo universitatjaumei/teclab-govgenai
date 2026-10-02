@@ -10,88 +10,15 @@ from __future__ import annotations
 
 import io
 import uuid
-from datetime import date, timedelta
 
 import pytest
-from fastapi import FastAPI
-from httpx import ASGITransport, AsyncClient
 
-from server.app.core.auth.models import UserInfo
-from server.tests.modules.agentes.test_agu2_indice import EmbebedorFalso
-
-ORG = str(uuid.uuid4())
-
-
-def _persona(role="user", orgs=(ORG,)) -> UserInfo:
-    return UserInfo(
-        user_id=str(uuid.uuid4()), email=f"{role}@uji.es", role=role, organizacion_ids=tuple(orgs)
-    )
-
-
-AUTORA = _persona()
-
-
-class _Quien:
-    def __init__(self) -> None:
-        self.actual = AUTORA
-
-
-@pytest.fixture
-async def http(db_session):
-    from server.app.api.deps import get_current_user, get_session
-    from server.app.routers.agentes_router import obtener_embedder, router, router_catalogo
-
-    quien = _Quien()
-    app = FastAPI()
-    app.include_router(router, prefix="/api/v1")
-    app.include_router(router_catalogo, prefix="/api/v1")
-
-    async def _sesion():
-        yield db_session
-
-    app.dependency_overrides[get_current_user] = lambda: quien.actual
-    app.dependency_overrides[get_session] = _sesion
-    app.dependency_overrides[obtener_embedder] = lambda: EmbebedorFalso()
-    for dependencia in router.dependencies:
-        app.dependency_overrides[dependencia.dependency] = lambda: quien.actual
-
-    @app.middleware("http")
-    async def _como_un_pat(request, call_next):
-        # Lo que hace `get_current_user` con un token personal: dejar sus scopes en el estado.
-        if "x-prueba-scopes" in request.headers:
-            request.state.pat_scopes = set(request.headers["x-prueba-scopes"].split(","))
-        return await call_next(request)
-
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://prueba") as c:
-        yield c, quien
-
-
-def _declaracion(**cambios) -> dict:
-    cuerpo = {
-        "nombre": "Contratación menor",
-        "unidad": "Servicio de Contratación",
-        "prompt": "Eres el asistente de contratación.",
-        "carpeta_url": "https://drive.google.com/drive/folders/abc",
-        "finalidad": "Orientar",
-        "responsable": "Jefatura",
-        "colectivo": "organizacion",
-        "grupos": [],
-        "revision_prevista_en": (date.today() + timedelta(days=180)).isoformat(),
-    }
-    cuerpo.update(cambios)
-    return cuerpo
-
-
-async def _publicar(c, **cambios) -> dict:
-    r = await c.post("/api/v1/agentes", json=_declaracion(**cambios))
-    assert r.status_code == 201, r.text
-    return r.json()
-
-
-FICHAS = [
-    {"url": "https://drive.google.com/file/d/1", "titulo": "Instrucción de contrato menor", "resumen": "Trata del contrato menor."},
-    {"url": "https://drive.google.com/file/d/2", "titulo": "Guía de viajes", "resumen": "Trata de viajes.", "vigente": False},
-]
+from server.tests.modules.agentes._comun import (
+    FICHAS,
+    declaracion as _declaracion,
+    persona as _persona,
+    publicar as _publicar,
+)
 
 HOJA = (
     "url;título;resumen;vigente;materia\n"

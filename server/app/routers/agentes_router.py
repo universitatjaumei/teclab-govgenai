@@ -22,6 +22,7 @@ una persona de la organización.
 """
 from __future__ import annotations
 
+import hashlib
 import uuid
 from datetime import date, datetime, timezone
 from typing import Literal
@@ -35,11 +36,14 @@ from server.app.api.deps import get_current_user, get_session, require_module, r
 from server.app.core.auth.models import UserInfo
 from server.app.core.auth.tenancy import organizacion_unica_de
 from server.app.core.config import get_settings
-from server.app.core.auth.pat.scopes import AGENTES_INDICE_WRITE
+from server.app.core.auth.pat.scopes import AGENTES_CONSULTA, AGENTES_INDICE_WRITE
 from server.app.core.identidad import user_to_uuid
 from server.app.core.uploads import read_within_limit, sanitizar_nombre
-from server.app.modules.agentes import acciones, indice
+from server.app.modules.agentes import acciones, consulta, indice
+from server.app.modules.agents_hub.contracts.actividad import ActividadIAEvent
 from server.app.modules.agents_hub.database.operational_models import (
+    HubActividadIA,
+    HubAgenteConsulta,
     HubAgenteFicha,
     HubAgenteUnidad,
     HubAgenteUnidadVersion,
@@ -612,3 +616,124 @@ async def catalogo(
         for a, v in filas
         if acciones.lo_puede_usar(a, v, principal=user)
     ]
+
+
+# =============================================================================
+#  La consulta (#175)
+# =============================================================================
+
+
+class Consulta(BaseModel):
+    consulta: str = Field(min_length=1, max_length=2000)
+    #: La lengua de las instrucciones fijas; el prompt del agente va como lo escribió su unidad.
+    lengua: Literal["es", "ca", "en"] = "es"
+
+    model_config = {"extra": "forbid"}
+
+    @field_validator("consulta")
+    @classmethod
+    def _con_texto(cls, valor: str) -> str:
+        limpio = valor.strip()
+        if not limpio:
+            raise ValueError("la consulta no puede estar vacía")
+        return limpio
+
+
+class DocumentoOfrecido(BaseModel):
+    url: str
+    titulo: str
+    score: float
+    revision_vencida: bool
+
+
+class RespuestaDeConsulta(BaseModel):
+    """El prompt y los enlaces. **Ningún contenido**: los documentos los abre el asistente."""
+
+    agente: str
+    version: int
+    prompt: str
+    documentos: list[DocumentoOfrecido]
+
+
+@router_catalogo.post("/{agente_id}/consulta", response_model=RespuestaDeConsulta)
+async def consultar(
+    agente_id: uuid.UUID,
+    body: Consulta,
+    user: UserInfo = Depends(require_scopes(AGENTES_CONSULTA)),
+    session: AsyncSession = Depends(get_session),
+    embedder=Depends(obtener_embedder),
+) -> RespuestaDeConsulta:
+    """El prompt del agente con los enlaces a los documentos pertinentes para esta pregunta.
+
+    No exige el módulo `agentes`: lo usa su colectivo. **No se comprueba si cada enlace se puede
+    abrir**: la plataforma sólo podría hacerlo con su propia identidad, que no dice nada de la de
+    quien pregunta; la puerta es el almacén, y el prompt pide decirlo si no se abre.
+
+    Se registra lo que se ofreció —quién, cuándo, qué agente, qué documentos y con qué
+    puntuación—, nunca la pregunta. Si la consulta falla, no se registra nada.
+    """
+    agente, version = await _el_agente(session, agente_id, user)
+    try:
+        elegidas = await indice.seleccionar(
+            session, agente, version, body.consulta, embedder, principal=user
+        )
+    except indice.AgenteNoDisponible as fallo:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "AGENTE_NO_DISPONIBLE",
+                "message": (
+                    "Este agente no se te ofrece: está suspendido o retirado, o no es para tu "
+                    "colectivo."
+                ),
+            },
+        ) from fallo
+    except indice.IndiceDeOtroModelo as fallo:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(fallo)) from fallo
+
+    prompt = consulta.componer(version.prompt, body.consulta, elegidas, body.lengua)
+    respuesta = RespuestaDeConsulta(
+        agente=agente.nombre,
+        version=version.version,
+        prompt=prompt,
+        documentos=[
+            DocumentoOfrecido(
+                url=e.url, titulo=e.titulo, score=e.score, revision_vencida=e.revision_vencida
+            )
+            for e in elegidas
+        ],
+    )
+
+    # El evento pasa por la misma validación que un uso declarado desde fuera, que rechaza
+    # cualquier campo de contenido. El hash es del prompt entregado: coteja sin guardar el texto.
+    evento = ActividadIAEvent(
+        ocurrido_en=datetime.now(timezone.utc),
+        actor=user.user_id,
+        herramienta="agente-de-unidad",
+        agente=f"{agente.nombre} v{version.version} ({agente.id})"[-255:],
+        finalidad=version.finalidad[:500],
+        payload_hash=hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
+    )
+    actividad = HubActividadIA(
+        id=uuid.uuid4(),
+        organizacion_id=agente.organizacion_id,
+        ocurrido_en=evento.ocurrido_en,
+        actor=evento.actor,
+        herramienta=evento.herramienta,
+        agente=evento.agente,
+        finalidad=evento.finalidad,
+        categorias_datos=evento.categorias_datos,
+        payload_hash=evento.payload_hash,
+    )
+    session.add(actividad)
+    session.add(
+        HubAgenteConsulta(
+            agente_id=agente.id,
+            version=version.version,
+            actor=user.user_id,
+            documentos=[{"url": e.url, "score": e.score} for e in elegidas],
+            actividad_id=actividad.id,
+        )
+    )
+    await session.commit()
+    return respuesta

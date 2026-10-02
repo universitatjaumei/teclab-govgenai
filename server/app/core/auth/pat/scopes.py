@@ -48,6 +48,10 @@ MANIFIESTOS_WRITE = "manifiestos:write"
 # es de un agente de su organización, y quién puede cargarlo lo decide además la acción
 # `cargar_indice` del agente —el token sólo abre la puerta, no elige el agente—.
 AGENTES_INDICE_WRITE = "agentes:indice"
+# #175: consultar un agente de unidad —recibir su prompt y los enlaces— desde fuera, que es lo que
+# hará la extensión de #176. **Aparte de `agentes:indice`**: usar un agente no es mantenerlo, y un
+# token que sólo consulta no tiene por qué poder vaciar un índice.
+AGENTES_CONSULTA = "agentes:consulta"
 
 ALL_SCOPES: frozenset[str] = frozenset(
     {
@@ -64,6 +68,7 @@ ALL_SCOPES: frozenset[str] = frozenset(
         FUNCIONES_EXECUTE,
         MANIFIESTOS_WRITE,
         AGENTES_INDICE_WRITE,
+        AGENTES_CONSULTA,
     }
 )
 

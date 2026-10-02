@@ -1242,3 +1242,41 @@ class HubAgenteFicha(HubOperationalBase):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
     )
+
+
+class HubAgenteConsulta(HubOperationalBase):
+    """Lo que se ofreció en una consulta a un agente de unidad (#175). **Nunca lo que se preguntó.**
+
+    El registro de actividad dice quién usó qué agente, cuándo y para qué; esto añade **qué
+    documentos se ofrecieron y con qué puntuación**, que su contrato no tiene dónde poner. Son
+    metadatos: la URL y la puntuación, no el contenido de nada.
+
+    Y hay que ser honesto con lo que no se puede saber: la plataforma registra lo que **ofreció**,
+    no lo que el modelo **respondió**. Para conservar registros sirve; para demostrar qué contestó
+    el asistente, no.
+    """
+
+    __tablename__ = "hub_agente_consultas"
+    __ambito__ = declarar(Ambito.DERIVADA, via="agente_id")
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    agente_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("hub_agentes_unidad.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    #: El mismo identificador opaco que lleva el registro de actividad.
+    actor: Mapped[str] = mapped_column(String(255), nullable=False)
+    ocurrido_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    #: `[{url, score}]`, en el orden en que se ofrecieron.
+    documentos: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default="[]"
+    )
+    #: La fila del registro de actividad que corresponde a esta consulta.
+    actividad_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)

@@ -693,8 +693,8 @@ frente a un PDF malicioso, y es una decisión abierta.
 que puede usarlo. **Ninguna de las tres cosas es código**, y el modelo lo pone el asistente
 general de la organización. La plataforma cataloga, acota y gobierna (#172) y guarda el
 **índice**: una ficha por documento —URL, título, resumen, vigencia— sobre la que se seleccionan
-los documentos de cada consulta (#173). La consulta, el guion de curación y la extensión son
-#174–#176 (§6).
+los documentos de cada **consulta**, que devuelve el prompt del agente con los enlaces (#173,
+#175). El guion de curación y la extensión son #174 y #176 (§6).
 
 **Lo que garantiza.**
 
@@ -713,7 +713,16 @@ los documentos de cada consulta (#173). La consulta, el guion de curación y la 
   última versión.
 - **Una revisión vencida avisa, no oculta**: el agente sigue ofreciéndose marcado. Dejar de
   ofrecerlo es decisión de quien revisa.
-- **El catálogo no lleva el prompt**: lo entregará la consulta (#175), que es lo que se registra.
+- **El catálogo no lleva el prompt**: lo entrega la consulta, que es lo que se registra.
+- **La consulta devuelve prompt y URL, nunca contenido** (`POST …/consulta`, token con alcance
+  `agentes:consulta`, sin exigir el módulo): el prompt del agente, la pregunta, los enlaces y una
+  **instrucción de abstención literal** —si no puede abrir los documentos, que lo diga—. Hay dos
+  puertas independientes: la plataforma selecciona y el almacén autoriza. **No se comprueba si cada
+  enlace se puede abrir**, porque la plataforma sólo podría hacerlo con su propia identidad.
+- **Se registra lo que se ofreció, no lo que se preguntó**: el uso va al registro de actividad
+  (§5.9) con el hash del prompt entregado, y qué documentos se ofrecieron y con qué puntuación a
+  `hub_agente_consultas`. Ni la pregunta ni los documentos llegan a ningún registro. **Lo que no
+  se puede saber**: la plataforma registra lo que ofreció, no lo que el modelo respondió.
 - **El índice es de fichas, no de documentos**: la plataforma guarda la URL y el resumen, **nunca
   el documento**, que autoriza el almacén. Un vector por ficha, hecho **sólo del título y el
   resumen**: cambiar la vigencia o un metadato no re-embebe.
@@ -727,7 +736,8 @@ los documentos de cada consulta (#173). La consulta, el guion de curación y la 
 **Dónde vive.** `modules/agentes/acciones.py` (quién puede qué y quién lo ve) y
 `routers/agentes_router.py`: `/api/v1/agentes` para la gestión y `/api/v1/agentes/catalogo` para
 quien usa; `modules/agentes/indice.py` (cargar y seleccionar) y `/api/v1/agentes/{id}/indice`.
-Tablas operacionales `hub_agentes_unidad`, `hub_agente_unidad_versiones` y `hub_agente_fichas`.
+`modules/agentes/consulta.py` compone el prompt en es, ca o en. Tablas operacionales
+`hub_agentes_unidad`, `hub_agente_unidad_versiones`, `hub_agente_fichas` y `hub_agente_consultas`.
 
 **Madurez**: `construido`, sin desplegar.
 
@@ -753,10 +763,9 @@ sandbox, el `RunManifest`, el registro de actividad y las verificaciones por API
 - **Funciones de tarea**: artefactos de salida, red saliente sólo hacia **orígenes declarados** y
   el ecosistema de módulos ampliado. Abrir la red debilita el argumento de §5.12 («una función no
   puede hablar con nada»), así que es una **clase distinta**, visible y con revisión en plazo.
-- **Agentes de unidad sobre el asistente general**: el catálogo y el índice están construidos
-  (§5.14). Falta la consulta que devuelve prompt y URL y nunca el contenido (#175), el guion de
-  curación del índice como función del catálogo (#174) y la extensión de navegador que cierra el
-  registro (#176).
+- **Agentes de unidad sobre el asistente general**: el catálogo, el índice y la consulta están
+  construidos (§5.14). Falta el guion de curación del índice como función del catálogo (#174) y
+  la extensión de navegador que cierra el registro (#176).
 
 **Madurez**: `previsto`, sobre una base `construido`: lo que ejecuta ya existe.
 

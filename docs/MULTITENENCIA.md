@@ -74,7 +74,7 @@ Lo comprueba `test_fun1_catalogo.py`, que es el guardarraíl que a estas dos les
 
 **Las de los agentes de unidad (#172) siguen el mismo criterio**: el prompt y la declaración son
 texto de una persona de la organización. Declaran su ámbito —`organizacion` y `derivada`, también
-las fichas del índice (#173)— y lo comprueba `test_agu1_ambito.py`.
+las fichas del índice (#173) y las consultas (#175)— y lo comprueba `test_agu1_ambito.py`.
 
 | Tabla | Camino a la organización |
 |---|---|
@@ -104,6 +104,7 @@ las fichas del índice (#173)— y lo comprueba `test_agu1_ambito.py`.
 | `hub_agentes_unidad` | `organizacion_id`, **siempre** (#172): un agente es de una organización y no hay agentes de plataforma |
 | `hub_agente_unidad_versiones` | `agente_id` → agente |
 | `hub_agente_fichas` | `agente_id` → agente (#173): la ficha guarda la URL y el resumen, nunca el documento |
+| `hub_agente_consultas` | `agente_id` → agente (#175): qué documentos se ofrecieron y con qué puntuación, nunca la pregunta |
 
 ## Las dos capas que hacen cumplir la frontera
 
