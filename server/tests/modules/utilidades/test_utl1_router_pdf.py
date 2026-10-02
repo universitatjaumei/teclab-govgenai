@@ -2,8 +2,8 @@
 
 Lo que este fichero fija, además de que las operaciones respondan:
 
-* **Nada se guarda.** El PDF entra en la petición y sale en la respuesta; no hay `StorageService`
-  ni disco de por medio, así que no hay nada que borrar después.
+* **Nada se guarda.** El PDF entra en la petición y sale en la respuesta; no hay `StorageService`,
+  y el temporal que la validación usa pasado 1 MB se cierra —y con eso se borra— al leerlo.
 * **Queda constancia, y sólo de metadatos** (decisión del usuario, 2026-10-01): quién, cuándo, qué
   operación y cuántos ficheros y páginas. **Nunca el nombre del fichero ni su contenido**, que es el
   criterio del bloque REG. El nombre de un expediente ya dice de quién es.
@@ -239,3 +239,24 @@ def test_el_router_exige_el_modulo_utilidades():
     assert 'require_module("utilidades")' in open(
         utilidades_router.__file__, encoding="utf-8"
     ).read()
+
+
+async def test_the_validation_buffer_is_closed_once_read(monkeypatch):
+    # Copilot en la PR #212: pasado 1 MB, `validate_upload` devuelve un temporal en disco, y sin
+    # cerrarlo sigue ahí, con su descriptor, hasta que pase el recolector.
+    from server.app.routers import utilidades_router
+    from server.app.core.uploads import validate_upload as real
+
+    entregados = []
+
+    async def _que_recuerda(*args, **kwargs):
+        buffer = await real(*args, **kwargs)
+        entregados.append(buffer)
+        return buffer
+
+    monkeypatch.setattr(utilidades_router, "validate_upload", _que_recuerda)
+
+    leidos = await utilidades_router._leer_pdfs([_subida(_pdf(1)), _subida(_pdf(2))])
+
+    assert len(leidos) == 2
+    assert entregados and all(b.closed for b in entregados)

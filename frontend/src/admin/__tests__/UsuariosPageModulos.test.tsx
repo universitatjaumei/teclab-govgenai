@@ -109,6 +109,7 @@ function montar(
       { code: 'chatbots', label: 'Chatbots', vigente: true },
       { code: 'informes', label: 'Informes', vigente: true },
       { code: 'retirado', label: 'Retirado', vigente: false },
+      { code: 'utilidades', label: 'Utilidades', vigente: true, de_oficio: true },
     ],
   } as never)
 
@@ -141,6 +142,22 @@ describe('Los módulos se eligen al dar de alta', () => {
     montar([])
 
     expect(screen.queryByLabelText('Retirado')).not.toBeInTheDocument()
+  })
+
+  it('no ofrece un módulo de oficio ni lo envía: lo tiene cualquiera sin concesión', () => {
+    // Copilot en la PR #212. Concederlo al dar de alta escribiría una fila que no cambia nada,
+    // y el servidor la rechazaría con un 400.
+    montar([])
+
+    expect(screen.queryByLabelText('Utilidades')).not.toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Correo'), {
+      target: { value: 'nueva@uji.es' },
+    })
+    fireEvent.click(screen.getByLabelText('Informes'))
+    fireEvent.click(screen.getByRole('button', { name: 'Dar de alta' }))
+
+    expect(crear.mock.calls[0][0].data.modulos).toEqual(['informes'])
   })
 
   it('envía los módulos marcados junto con el alta', () => {

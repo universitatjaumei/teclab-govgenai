@@ -8,9 +8,9 @@ que no aseguran el RGPD; lo que la plataforma aporta no es la capacidad sino el 
 
 **Tres reglas, y las tres son el argumento de estas utilidades:**
 
-* **Nada se guarda.** El fichero entra en la petición y sale en la respuesta, en memoria: no hay
-  `StorageService` ni disco de por medio, así que no queda nada que borrar ni ningún plazo que
-  cumplir. Una utilidad que existe para que el documento no salga no puede convertirse en un
+* **Nada se guarda.** El fichero entra en la petición y sale en la respuesta, sin
+  `StorageService`; un PDF de más de 1 MB pasa por un temporal de la validación, que se cierra
+  —y con eso se borra— al leerlo. No queda nada que borrar ni ningún plazo que cumplir. Una utilidad que existe para que el documento no salga no puede convertirse en un
   archivo de documentos ajenos.
 * **Queda constancia, y sólo de metadatos** (decisión del usuario, 2026-10-01): quién, cuándo,
   qué operación, cuántos ficheros, páginas o filas. **Nunca el nombre del fichero ni su
@@ -96,9 +96,11 @@ async def _leer_pdfs(ficheros: list[UploadFile]) -> list[tuple[str, bytes]]:
     leidos: list[tuple[str, bytes]] = []
     restante = MAXIMO_BYTES_TOTAL
     for fichero in ficheros:
-        buffer = await validate_upload(fichero, kind=UploadKind.PDF, max_bytes=restante)
-        buffer.seek(0)
-        datos = buffer.read()
+        # Se cierra al leerlo: pasado 1 MB el buffer es un temporal en disco, y cerrarlo es lo
+        # que lo borra. Esperar al recolector lo dejaría vivo con su descriptor entre peticiones.
+        with await validate_upload(fichero, kind=UploadKind.PDF, max_bytes=restante) as buffer:
+            buffer.seek(0)
+            datos = buffer.read()
         restante -= len(datos)
         leidos.append((sanitizar_nombre(fichero.filename), datos))
     return leidos

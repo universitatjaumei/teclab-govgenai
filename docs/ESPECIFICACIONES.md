@@ -662,8 +662,10 @@ sino el **trayecto**.
 
 **Lo que garantiza.**
 
-- **Nada se guarda**: el fichero entra en la petición y sale en la respuesta, en memoria, sin
-  `StorageService` ni disco. No hay nada que borrar ni ningún plazo que cumplir.
+- **Nada se guarda**: el fichero entra en la petición y sale en la respuesta, sin
+  `StorageService`. Un PDF de más de 1 MB pasa por un temporal de la petición mientras se valida,
+  que se cierra —y con eso se borra— al leerlo. No queda nada que borrar ni ningún plazo que
+  cumplir.
 - **Queda constancia, sólo de metadatos**: quién, cuándo, qué operación, cuántos ficheros, páginas
   o filas, qué regla a cada tipo de columna y la huella de lo que entró. **Nunca el nombre del
   fichero ni su contenido**, con el mismo contrato que el registro de actividad (§5.9).

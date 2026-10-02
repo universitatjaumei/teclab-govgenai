@@ -179,7 +179,10 @@ def taula_concepte(d, subtotals_article=True):
     g["k_cap"] = pd.to_numeric(g["cap"], errors="coerce")
     g["k_art"] = pd.to_numeric(g["art"], errors="coerce")
     g["k_conc"] = pd.to_numeric(g["conc"], errors="coerce")
-    total = g["importe"].sum() or 1.0
+    total = g["importe"].sum()
+    # El divisor de los porcentajes, aparte: si fuera el total, un subconjunto sin gasto
+    # saldría con una fila TOTAL de 1,00 €.
+    divisor = total or 1.0
     rows = []
     for cap, capd in _caps_ordenats(d)[["cap", "cap_desc"]].itertuples(index=False):
         gc = g[g["cap"] == cap].sort_values(["k_art", "k_conc"])
@@ -188,13 +191,13 @@ def taula_concepte(d, subtotals_article=True):
             ga = gc[gc["art"] == art]
             for r in ga.itertuples(index=False):
                 rows.append(["detall", r.cap_desc, r.art_desc, r.conc_desc, r.importe,
-                             r.importe / cap_sum if cap_sum else 0, r.importe / total])
+                             r.importe / cap_sum if cap_sum else 0, r.importe / divisor])
             if subtotals_article and len(ga) > 1:
                 asum = ga["importe"].sum()
                 rows.append(["subtotal_art", capd, ga.iloc[0]["art_desc"], "Subtotal article",
-                             asum, asum / cap_sum if cap_sum else 0, asum / total])
-        rows.append(["subtotal_cap", capd, "", "Subtotal capítol", cap_sum, 1.0, cap_sum / total])
-    rows.append(["total", "TOTAL", "", "", total, 1.0, 1.0])
+                             asum, asum / cap_sum if cap_sum else 0, asum / divisor])
+        rows.append(["subtotal_cap", capd, "", "Subtotal capítol", cap_sum, 1.0, cap_sum / divisor])
+    rows.append(["total", "TOTAL", "", "", total, 1.0, 1.0 if total else 0])
     return pd.DataFrame(rows, columns=["tipus_fila", "capitol", "article", "concepte",
                                        "import", "pct_cap", "pct_total"])
 

@@ -260,3 +260,32 @@ class TestElDocumento:
         assert "{{VAL:" not in texto, "un marcador de cifra se ha quedado sin sustituir"
         assert "‹?" not in texto, "la prosa pide una cifra que el documento no calcula"
         assert len(word.tables) >= 5
+
+
+def _funciones_del_documento() -> dict:
+    """Las funciones de `documento_presupuesto`, sin la parte que lee `options` y ejecuta."""
+    codigo = _guion("documento_presupuesto")
+    definiciones = codigo.split('\nrutas = options["ficheros"]', 1)[0]
+    espacio: dict = {}
+    exec(compile(definiciones, "documento_presupuesto.py", "exec"), espacio)
+    return espacio
+
+
+def test_a_subset_that_adds_up_to_zero_reports_zero_not_one_euro():
+    # Copilot en la PR #212: `total = suma or 1.0` servía de divisor y de total a la vez, así que
+    # un subconjunto sin gasto salía en el Word con una fila TOTAL de 1,00 €.
+    import pandas as pd
+
+    taula_concepte = _funciones_del_documento()["taula_concepte"]
+    vacio = pd.DataFrame(
+        {
+            "cap": ["2"], "cap_desc": ["Gastos corrientes"], "art": ["22"],
+            "art_desc": ["Material"], "conc": ["220"], "conc_desc": ["Oficina"],
+            "importe": [0.0],
+        }
+    )
+
+    tabla = taula_concepte(vacio)
+
+    total = tabla[tabla["tipus_fila"] == "total"].iloc[0]
+    assert total["import"] == 0
