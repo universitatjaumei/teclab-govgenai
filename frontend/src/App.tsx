@@ -62,6 +62,7 @@ const UtilidadesLayout = lazy(() => import('@/utilidades/UtilidadesLayout').then
 const UtilidadesPdfPage = lazy(() => import('@/utilidades/pages/UtilidadesPdfPage').then(m => ({ default: m.UtilidadesPdfPage })))
 const AnonimizarFicheroPage = lazy(() => import('@/utilidades/pages/AnonimizarFicheroPage').then(m => ({ default: m.AnonimizarFicheroPage })))
 const AgentesPage = lazy(() => import('@/agentes/AgentesPage').then(m => ({ default: m.AgentesPage })))
+const ConsultarAgentesPage = lazy(() => import('@/agentes/ConsultarAgentesPage').then(m => ({ default: m.ConsultarAgentesPage })))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -159,6 +160,8 @@ function App() {
                   </Route>
                   {/* #172 — publicar y gobernar los agentes de unidad. */}
                   <Route path="/agentes" element={<RutaDeModulo modulo="agentes"><AgentesPage /></RutaDeModulo>} />
+                  {/* #175 — consultar un agente y copiar el prompt, para cualquiera. */}
+                  <Route path="/consultar-agentes" element={<RutaDeModulo modulo="consulta_agentes"><ConsultarAgentesPage /></RutaDeModulo>} />
                   <Route path="/plataforma" element={<RutaDeModulo modulo="plataforma"><PlataformaLayout /></RutaDeModulo>}>
                     <Route index element={<Navigate to="/plataforma/modelos" replace />} />
                     {/* REV.11 — sale de /hub: su router ya exigia el modulo plataforma para

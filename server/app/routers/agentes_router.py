@@ -56,7 +56,13 @@ router = APIRouter(
     tags=["agentes"],
     dependencies=[Depends(require_module("agentes"))],
 )
-router_catalogo = APIRouter(prefix="/agentes", tags=["agentes"])
+#: El de quien **usa** los agentes: el catálogo y la consulta. Exige `consulta_agentes`, que es de
+#: oficio —lo tiene cualquiera— y por eso retirarlo del catálogo apaga la consulta para todos.
+router_catalogo = APIRouter(
+    prefix="/agentes",
+    tags=["agentes"],
+    dependencies=[Depends(require_module("consulta_agentes"))],
+)
 
 
 # =============================================================================

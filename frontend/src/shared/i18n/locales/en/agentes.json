@@ -85,5 +85,23 @@
   "retiradas_one": "{{count}} withdrawn",
   "retiradas_other": "{{count}} withdrawn",
   "no_vigente": "Not in force",
-  "revision_de_la_ficha": "planned review: {{fecha}}"
+  "revision_de_la_ficha": "planned review: {{fecha}}",
+  "consulta": {
+    "titulo": "Ask an agent",
+    "intro": "Choose an agent, write your question and copy the prompt that is prepared: it carries the links to the relevant documents. Paste it into the organisation's general assistant, which will open them with your account. The platform does not keep your question; only that you asked and which documents were offered.",
+    "ninguno": "There is no agent for you yet.",
+    "elige": "Agent",
+    "responsable": "Responsible: {{responsable}}",
+    "revision_vencida": "Review overdue",
+    "pregunta": "Your question",
+    "preparar": "Prepare the prompt",
+    "fallo": "The prompt could not be prepared. Try again.",
+    "listo": "Prompt for {{agente}}",
+    "como_usarlo": "Copy it and paste it into the general assistant. If the assistant cannot open a document, it will say so instead of answering from memory.",
+    "prompt": "Prepared prompt",
+    "copiar": "Copy the prompt",
+    "copiado": "Copied. Paste it into the organisation's general assistant.",
+    "documento_pendiente": "pending review",
+    "no_copiado": "It could not be copied. The prompt is selected: copy it with Ctrl+C."
+  }
 }

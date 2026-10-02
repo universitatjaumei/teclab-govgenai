@@ -85,5 +85,23 @@
   "retiradas_one": "{{count}} retirada",
   "retiradas_other": "{{count}} retirades",
   "no_vigente": "No vigent",
-  "revision_de_la_ficha": "revisió prevista: {{fecha}}"
+  "revision_de_la_ficha": "revisió prevista: {{fecha}}",
+  "consulta": {
+    "titulo": "Consultar un agent",
+    "intro": "Tria un agent, escriu la teua pregunta i copia el prompt que es prepara: porta els enllaços als documents que toquen. Apega'l a l'assistent general de l'organització, que els obrirà amb el teu compte. La plataforma no guarda la teua pregunta; només que vas consultar i quins documents se't van oferir.",
+    "ninguno": "Encara no hi ha cap agent per a tu.",
+    "elige": "Agent",
+    "responsable": "Responsable: {{responsable}}",
+    "revision_vencida": "Revisió vençuda",
+    "pregunta": "La teua pregunta",
+    "preparar": "Preparar el prompt",
+    "fallo": "No s'ha pogut preparar el prompt. Torna-ho a provar.",
+    "listo": "Prompt de {{agente}}",
+    "como_usarlo": "Copia'l i apega'l a l'assistent general. Si l'assistent no pot obrir algun document, t'ho dirà en lloc de contestar de memòria.",
+    "prompt": "Prompt preparat",
+    "copiar": "Copiar el prompt",
+    "copiado": "Copiat. Apega'l a l'assistent general de l'organització.",
+    "documento_pendiente": "pendent de revisió",
+    "no_copiado": "No s'ha pogut copiar. El prompt està seleccionat: copia'l amb Ctrl+C."
+  }
 }

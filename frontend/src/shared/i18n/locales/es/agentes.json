@@ -85,5 +85,23 @@
   "retiradas_one": "{{count}} retirada",
   "retiradas_other": "{{count}} retiradas",
   "no_vigente": "No vigente",
-  "revision_de_la_ficha": "revisión prevista: {{fecha}}"
+  "revision_de_la_ficha": "revisión prevista: {{fecha}}",
+  "consulta": {
+    "titulo": "Consultar un agente",
+    "intro": "Elige un agente, escribe tu pregunta y copia el prompt que se prepara: lleva los enlaces a los documentos que tocan. Pégalo en el asistente general de la organización, que los abrirá con tu cuenta. La plataforma no guarda tu pregunta; sólo que consultaste y qué documentos se te ofrecieron.",
+    "ninguno": "No hay ningún agente para ti todavía.",
+    "elige": "Agente",
+    "responsable": "Responsable: {{responsable}}",
+    "revision_vencida": "Revisión vencida",
+    "pregunta": "Tu pregunta",
+    "preparar": "Preparar el prompt",
+    "fallo": "No se ha podido preparar el prompt. Inténtalo de nuevo.",
+    "listo": "Prompt de {{agente}}",
+    "como_usarlo": "Cópialo y pégalo en el asistente general. Si el asistente no puede abrir algún documento, te lo dirá en vez de contestar de memoria.",
+    "prompt": "Prompt preparado",
+    "copiar": "Copiar el prompt",
+    "copiado": "Copiado. Pégalo en el asistente general de la organización.",
+    "documento_pendiente": "pendiente de revisión",
+    "no_copiado": "No se ha podido copiar. El prompt está seleccionado: cópialo con Ctrl+C."
+  }
 }

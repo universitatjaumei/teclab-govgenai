@@ -48,6 +48,10 @@ MODULOS_INICIALES: tuple[tuple[str, str], ...] = (
     # #172 — publicar agentes de unidad. Usarlos no lo exige: el catálogo se le ofrece a su
     # colectivo, tenga o no el módulo. Lo que se concede es publicar.
     ("agentes", "Agentes de unidad"),
+    # #175 — consultar los agentes de tu colectivo y copiar el prompt. **De oficio**: lo tiene
+    # cualquiera, como `utilidades`; existe para que la pantalla esté en el menú y para que
+    # retirarlo apague la consulta de una vez.
+    ("consulta_agentes", "Consulta de agentes"),
     ("plataforma", "Administración de la plataforma"),
 )
 

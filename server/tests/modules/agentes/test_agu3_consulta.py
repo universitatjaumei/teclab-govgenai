@@ -274,3 +274,45 @@ class TestElToken:
         assert AGENTES_CONSULTA == "agentes:consulta"
         assert AGENTES_CONSULTA in ALL_SCOPES
 
+
+
+class TestElModuloDeOficio:
+    """Decisión del usuario (2026-10-02): consultar es de cualquiera, desde una pantalla propia.
+
+    El módulo `consulta_agentes` es **de oficio**: lo tiene todo el mundo sin concesión, que es lo
+    que pone la pantalla en el menú. Y como la ruta lo exige, retirarlo del catálogo apaga la
+    consulta para todos de una vez: es el interruptor general.
+    """
+
+    async def _catalogo(self, db_session, *, vigente: bool):
+        from server.app.modules.agents_hub.database.config_models import HubPlatformModule
+
+        db_session.add(HubPlatformModule(code="agentes", label="Agentes", vigente=True))
+        db_session.add(
+            HubPlatformModule(
+                code="consulta_agentes", label="Consulta", vigente=vigente, de_oficio=True
+            )
+        )
+        await db_session.commit()
+
+    @pytest.mark.sin_guarda_de_modulos
+    @pytest.mark.asyncio
+    async def test_cualquiera_consulta_sin_concesion(self, http, db_session):
+        await self._catalogo(db_session, vigente=True)
+        c, quien = http
+        # Publicar sí exige `agentes`: aquí se publica saltándose la guarda de ese router.
+        agente = await _con_indice(c)
+        quien.actual = _persona()
+        r = await _consultar(c, agente["id"])
+        assert r.status_code == 200, r.text
+
+    @pytest.mark.sin_guarda_de_modulos
+    @pytest.mark.asyncio
+    async def test_retirado_del_catalogo_no_consulta_nadie(self, http, db_session):
+        await self._catalogo(db_session, vigente=False)
+        c, quien = http
+        agente = await _con_indice(c)
+        quien.actual = _persona()
+        r = await _consultar(c, agente["id"])
+        assert r.status_code == 403
+        assert "consulta_agentes" in r.text

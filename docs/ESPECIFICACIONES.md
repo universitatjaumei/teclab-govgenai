@@ -349,10 +349,10 @@ por `funcion_id@versión`.
   pueden administrar la misma organización. `AdminAccount` se queda con el partner y la
   facturación. Decisión escrita en [`DECISION_IDENTIDAD_DE_ADMINISTRACION.md`](DECISION_IDENTIDAD_DE_ADMINISTRACION.md).
 - **Acceso por módulos concedidos, no por roles nuevos**: `chatbots`, `curacion`, `informes`,
-  `personas`, `registro`, `utilidades`, `agentes`, `plataforma`. El catálogo es tabla (I4). El superadmin no
+  `personas`, `registro`, `utilidades`, `agentes`, `consulta_agentes`, `plataforma`. El catálogo es tabla (I4). El superadmin no
   necesita concesión, y **un módulo marcado `de_oficio` en el catálogo tampoco**: lo tiene
   cualquier persona de la plataforma, también quien se dé de alta mañana, y concederlo se rechaza
-  porque no cambiaría nada. Hoy lo es `utilidades`.
+  porque no cambiaría nada. Hoy lo son `utilidades` y `consulta_agentes`.
 - Toda consulta que sirva datos de inquilino se acota con `scope_query_to_orgs`, y **la lista vacía
   significa «ninguna»** (I5, I8).
 - Contraseña local para personas, con interruptor `LOCAL_USER_LOGIN_ENABLED` para apagarla cuando
@@ -719,6 +719,10 @@ los documentos de cada **consulta**, que devuelve el prompt del agente con los e
   **instrucción de abstención literal** —si no puede abrir los documentos, que lo diga—. Hay dos
   puertas independientes: la plataforma selecciona y el almacén autoriza. **No se comprueba si cada
   enlace se puede abrir**, porque la plataforma sólo podría hacerlo con su propia identidad.
+- **Cualquiera consulta desde el panel** («Consultar agentes», módulo `consulta_agentes`, de
+  oficio): ve el catálogo de su colectivo, prepara el prompt y lo copia para pegarlo en el
+  asistente general. Es el circuito de validación antes de la extensión (#176). Retirar el módulo
+  del catálogo apaga la consulta para todos.
 - **Se registra lo que se ofreció, no lo que se preguntó**: el uso va al registro de actividad
   (§5.9) con el hash del prompt entregado, y qué documentos se ofrecieron y con qué puntuación a
   `hub_agente_consultas`. Ni la pregunta ni los documentos llegan a ningún registro. **Lo que no

@@ -43,6 +43,8 @@ const NAV_SECTIONS = [
   // #172 — publicar y gobernar los agentes de unidad. Usarlos no pasa por aquí: los ofrece el
   // asistente general de la organización.
   { key: 'agentes', path: '/agentes', modulo: 'agentes' },
+  // #175 — consultar los agentes de tu colectivo. De oficio: lo tiene cualquiera.
+  { key: 'consulta_agentes', path: '/consultar-agentes', modulo: 'consulta_agentes' },
   { key: 'plataforma', path: '/plataforma', modulo: 'plataforma' },
 ] as const
 
