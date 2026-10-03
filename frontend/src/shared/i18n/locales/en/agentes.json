@@ -168,5 +168,16 @@
     "conectar_texto": "The extension will be able to see the agents offered to you and prepare their prompts with your account. It cannot publish, change or see anything else. The connection expires in 30 days and you can revoke it from “Consult”.",
     "no_es_control": "The extension is a convenience: the assistant can be used without it just the same.",
     "conectar": "Connect"
+  },
+  "nav_integracion": "Gemini integration",
+  "integracion": {
+    "titulo": "Assistant integration",
+    "intro": "The extension inserts the prompt into the assistant and reads the answer with these selectors. When the assistant changes its page, extensions report which selector stopped working and it is fixed here: each change is a new version all of them pick up without updating.",
+    "version": "version {{version}}",
+    "funciona": "No failures in this version",
+    "como_corregir": "Check the selector on the assistant page before saving it. Then add the capture of the new page to extension/instantaneas and update extension/adaptadores in the repository, so the tests watch it.",
+    "guardar": "Save a new version",
+    "rota_one": "Broken: one report, for selector “{{selector}}” on {{fecha}}",
+    "rota_other": "Broken: {{count}} reports, the last for selector “{{selector}}” on {{fecha}}"
   }
 }

@@ -1307,3 +1307,37 @@ class HubAgenteConsulta(HubOperationalBase):
     )
     #: La fila del registro de actividad que corresponde a esta consulta.
     actividad_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+
+
+class HubAsistenteAdaptador(HubOperationalBase):
+    """Cómo encuentra la extensión del navegador las piezas de la página de un asistente (#215).
+
+    **Los selectores son datos y no código**: el asistente —Gemini— cambia su página sin avisar, y
+    con los selectores dentro de la extensión cada cambio exigiría publicarla de nuevo y esperar a
+    que llegara a todos los navegadores. Aquí se corrige la fila y cada cambio es una `version`.
+
+    La extensión avisa de **qué selector** dejó de casar; se cuentan los fallos de la versión
+    vigente, de modo que uno que llega tarde de una versión ya corregida no la marca como rota.
+
+    De la instalación entera, sin organización: la página de Gemini es la misma para todas. En el
+    lado operacional, junto a los agentes que la usan y donde la extensión avisa.
+    """
+
+    __tablename__ = "hub_asistente_adaptadores"
+
+    asistente: Mapped[str] = mapped_column(String(40), primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(80), nullable=False)
+    #: El origen donde actúa la extensión, p. ej. `https://gemini.google.com`.
+    origen: Mapped[str] = mapped_column(String(200), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    #: `{cuadro, respuesta, texto, ocupado, fuentes}`: lo que lee `extension/asistente.js`.
+    selectores: Mapped[dict[str, str]] = mapped_column(JSONB, nullable=False)
+    actualizado_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    actualizado_por: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    fallos_de_la_version: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    ultimo_fallo_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ultimo_fallo_selector: Mapped[str | None] = mapped_column(String(40), nullable=True)

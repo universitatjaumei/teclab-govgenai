@@ -39,6 +39,7 @@ from server.app.api.deps import (
     require_module,
     require_scopes,
     require_sesion_humana,
+    require_superadmin,
 )
 from server.app.api.deps import modulos_concedidos
 from server.app.core.auth.pat.service import PatForbiddenError, PatInvalidError, PatService
@@ -61,6 +62,7 @@ from server.app.modules.agents_hub.database.operational_models import (
     HubAgenteFicha,
     HubAgenteUnidad,
     HubAgenteUnidadVersion,
+    HubAsistenteAdaptador,
 )
 from server.app.modules.agents_hub.services.embedding_resolver import resolve_embedding_service
 from server.app.modules.utilidades.anonimizar import FicheroNoValido, leer_tabla
@@ -1263,3 +1265,142 @@ async def revocar_conexion_de_la_extension(
     except PatInvalidError as fallo:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conexión no encontrada") from fallo
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# =============================================================================
+#  El adaptador del asistente (#215)
+# =============================================================================
+
+#: Lo que lee `extension/asistente.js`. Un adaptador sin alguno no se guarda: la extensión fallaría
+#: en todos los navegadores a la vez.
+SELECTORES_DEL_ADAPTADOR = ("cuadro", "respuesta", "texto", "ocupado", "fuentes")
+#: De qué puede avisar la extensión: un selector, o que el editor no aceptó el texto insertado.
+SelectorQueFalla = Literal["cuadro", "respuesta", "texto", "ocupado", "fuentes", "insercion"]
+
+
+class AdaptadorDelAsistente(BaseModel):
+    asistente: str
+    nombre: str
+    origen: str
+    version: int
+    selectores: dict[str, str]
+
+
+class EstadoDelAdaptador(AdaptadorDelAsistente):
+    actualizado_en: datetime
+    fallos_de_la_version: int
+    ultimo_fallo_en: datetime | None
+    ultimo_fallo_selector: str | None
+    #: Hay fallos de la versión vigente. Lo calcula el servidor: la pantalla sólo lo pinta.
+    rota: bool
+
+
+class CambioDelAdaptador(BaseModel):
+    selectores: dict[str, str]
+
+    model_config = {"extra": "forbid"}
+
+    @field_validator("selectores")
+    @classmethod
+    def _completos(cls, valor: dict[str, str]) -> dict[str, str]:
+        faltan = [k for k in SELECTORES_DEL_ADAPTADOR if not (valor.get(k) or "").strip()]
+        if faltan:
+            raise ValueError(f"faltan selectores: {', '.join(faltan)}")
+        return {k: valor[k].strip() for k in SELECTORES_DEL_ADAPTADOR}
+
+
+class FalloDelAdaptador(BaseModel):
+    version: int
+    selector: SelectorQueFalla
+
+    model_config = {"extra": "forbid"}
+
+
+def _estado(a: HubAsistenteAdaptador) -> EstadoDelAdaptador:
+    return EstadoDelAdaptador(
+        asistente=a.asistente,
+        nombre=a.nombre,
+        origen=a.origen,
+        version=a.version,
+        selectores=a.selectores,
+        actualizado_en=a.actualizado_en,
+        fallos_de_la_version=a.fallos_de_la_version,
+        ultimo_fallo_en=a.ultimo_fallo_en,
+        ultimo_fallo_selector=a.ultimo_fallo_selector,
+        rota=a.fallos_de_la_version > 0,
+    )
+
+
+async def _el_adaptador(session: AsyncSession, asistente: str, *, bloquear: bool = False) -> HubAsistenteAdaptador:
+    consulta = select(HubAsistenteAdaptador).where(HubAsistenteAdaptador.asistente == asistente)
+    if bloquear:
+        consulta = consulta.with_for_update()
+    adaptador = (await session.execute(consulta)).scalar_one_or_none()
+    if adaptador is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asistente no encontrado")
+    return adaptador
+
+
+@router_catalogo.get("/asistentes/{asistente}/adaptador", response_model=AdaptadorDelAsistente)
+async def adaptador_del_asistente(
+    asistente: str,
+    _user: UserInfo = Depends(require_scopes(AGENTES_CONSULTA)),
+    session: AsyncSession = Depends(get_session),
+) -> AdaptadorDelAsistente:
+    """Los selectores vigentes, para la extensión. Con el token de consulta, como el catálogo."""
+    a = await _el_adaptador(session, asistente)
+    return AdaptadorDelAsistente(
+        asistente=a.asistente, nombre=a.nombre, origen=a.origen, version=a.version, selectores=a.selectores
+    )
+
+
+@router_catalogo.post("/asistentes/{asistente}/fallos", status_code=status.HTTP_204_NO_CONTENT)
+async def avisar_de_un_fallo(
+    asistente: str,
+    body: FalloDelAdaptador,
+    _user: UserInfo = Depends(require_scopes(AGENTES_CONSULTA)),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    """La extensión avisa de que un selector dejó de casar. **Sólo metadatos**: qué selector y de
+    qué versión, nunca la página. El de una versión que ya no es la vigente no cuenta: ya se
+    corrigió."""
+    a = await _el_adaptador(session, asistente, bloquear=True)
+    if body.version == a.version:
+        a.fallos_de_la_version += 1
+        a.ultimo_fallo_en = datetime.now(timezone.utc)
+        a.ultimo_fallo_selector = body.selector
+        await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router_catalogo.get("/asistentes", response_model=list[EstadoDelAdaptador])
+async def estado_de_los_adaptadores(
+    _user: UserInfo = Depends(require_superadmin),
+    session: AsyncSession = Depends(get_session),
+) -> list[EstadoDelAdaptador]:
+    """Si la integración con cada asistente funciona, para quien la mantiene."""
+    filas = (await session.execute(select(HubAsistenteAdaptador).order_by(HubAsistenteAdaptador.asistente))).scalars()
+    return [_estado(a) for a in filas]
+
+
+@router_catalogo.put("/asistentes/{asistente}/adaptador", response_model=EstadoDelAdaptador)
+async def cambiar_el_adaptador(
+    asistente: str,
+    body: CambioDelAdaptador,
+    user: UserInfo = Depends(require_superadmin),
+    _sesion: UserInfo = Depends(require_sesion_humana()),
+    session: AsyncSession = Depends(get_session),
+) -> EstadoDelAdaptador:
+    """Corrige los selectores: una versión nueva, con los fallos a cero. Todas las extensiones la
+    toman la próxima vez que la piden, sin publicar nada."""
+    a = await _el_adaptador(session, asistente, bloquear=True)
+    a.selectores = body.selectores
+    a.version += 1
+    a.fallos_de_la_version = 0
+    a.ultimo_fallo_en = None
+    a.ultimo_fallo_selector = None
+    a.actualizado_en = datetime.now(timezone.utc)
+    a.actualizado_por = user.user_id
+    await session.commit()
+    await session.refresh(a)
+    return _estado(a)

@@ -89,6 +89,9 @@ def test_operational_base_contains_only_operational_models() -> None:
         "hub_agente_unidad_versiones",
         "hub_agente_fichas",
         "hub_agente_consultas",
+        # #215 — cómo encuentra la extensión la página del asistente. Vive con los agentes que la
+        # usan, y es donde la extensión avisa de que un selector dejó de casar.
+        "hub_asistente_adaptadores",
         # Módulo redacción (edge, 9R) — procesan expedientes del cliente
         "hub_report_templates",
         "hub_report_template_versions",

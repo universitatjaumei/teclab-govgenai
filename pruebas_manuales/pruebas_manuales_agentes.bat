@@ -209,8 +209,10 @@ echo      pulsa Guardar y luego Conectar. Chrome te pedira permiso para
 echo      hablar con localhost: aceptalo.
 echo   4. En la ventana que se abre, entra si hace falta y pulsa
 echo      "Conectar".
-echo   5. En el panel lateral, elige un agente, escribe una pregunta y
-echo      pulsa "Preparar y copiar". Pegalo en el asistente.
+echo   5. Abre Gemini en la pestana activa. En el panel lateral, elige un
+echo      agente, escribe una pregunta y pulsa "Insertar en Gemini". Chrome
+echo      pedira permiso sobre gemini.google.com: aceptalo. Revisa el texto
+echo      en Gemini y envialo tu.
 echo   6. En el panel web, Agentes - Consultar: abajo, "Extension del
 echo      navegador". Pulsa Desconectar y vuelve a usar la extension.
 echo.
@@ -218,13 +220,18 @@ echo QUE DEBES VER:
 echo   - Si no tenias sesion, tras entrar vuelves a la pagina de
 echo     conexion, no a tu primer modulo.
 echo   - El panel lateral lista los mismos agentes que "Consultar".
-echo   - Lo copiado es el mismo prompt que prepara "Consultar".
+echo   - El prompt aparece en el cuadro de Gemini, sin enviarse.
+echo   - Tras la respuesta, el panel dice "Respuesta leida (N caracteres)".
+echo   - Con Gemini en otra pestana, "Insertar" copia y te pide abrirlo.
 echo   - En "Consultar" aparece la conexion, con su caducidad.
 echo   - Tras desconectarla alli, la extension pide conectar de nuevo.
 echo   - Con el login de Google tambien vuelves a la pagina de conexion.
 echo.
-echo JUZGA: si tener los agentes al lado del asistente hace que los
-echo uses mas que copiando desde el panel. Es lo que mide la issue.
+echo   - Como superadministrador: Agentes - Integracion con Gemini dice
+echo     "Sin fallos en esta version".
+echo.
+echo JUZGA: si insertar y leer funcionan con tus agentes reales durante
+echo unos dias. Es la prueba que decide si el modulo sigue (issue #215).
 echo.
 pause
 echo.

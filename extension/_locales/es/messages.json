@@ -67,5 +67,71 @@
   },
   "copiadoConAdjunto": {
     "message": "Copiado. Pégalo en el asistente y adjunta allí tu documento."
+  },
+  "insertar": {
+    "message": "Insertar en $ASISTENTE$",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "sinPermisoAsistente": {
+    "message": "Sin permiso sobre la página de $ASISTENTE$ no se puede insertar. Usa «Preparar y copiar».",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "abreElAsistente": {
+    "message": "Copiado. Para insertarlo directamente, ten $ASISTENTE$ abierto en la pestaña activa.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "insercionFallida": {
+    "message": "No se ha podido insertar en $ASISTENTE$: se ha copiado para pegarlo. Ya se ha avisado a la plataforma.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "insertado": {
+    "message": "Insertado en $ASISTENTE$. Revísalo y envíalo.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "insertadoConAdjunto": {
+    "message": "Insertado en $ASISTENTE$. Adjunta tu documento y envíalo.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "respuestaLeida": {
+    "message": "Respuesta leída ($CARACTERES$ caracteres).",
+    "placeholders": {
+      "caracteres": {
+        "content": "$1",
+        "example": "420"
+      }
+    }
+  },
+  "respuestaNoLeida": {
+    "message": "No se ha podido leer la respuesta."
   }
 }

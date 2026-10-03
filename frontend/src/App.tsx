@@ -65,6 +65,7 @@ const AgentesPage = lazy(() => import('@/agentes/AgentesPage').then(m => ({ defa
 const ConsultarAgentesPage = lazy(() => import('@/agentes/ConsultarAgentesPage').then(m => ({ default: m.ConsultarAgentesPage })))
 const AgentesLayout = lazy(() => import('@/agentes/AgentesLayout').then(m => ({ default: m.AgentesLayout })))
 const ConectarExtensionPage = lazy(() => import('@/agentes/ConectarExtensionPage').then(m => ({ default: m.ConectarExtensionPage })))
+const IntegracionAsistentePage = lazy(() => import('@/agentes/IntegracionAsistentePage').then(m => ({ default: m.IntegracionAsistentePage })))
 const EntradaDeAgentes = lazy(() => import('@/agentes/EntradaDeAgentes').then(m => ({ default: m.EntradaDeAgentes })))
 
 const queryClient = new QueryClient({
@@ -169,6 +170,7 @@ function App() {
                     <Route index element={<EntradaDeAgentes />} />
                     <Route path="consultar" element={<RutaDeModulo modulo="consulta_agentes"><ConsultarAgentesPage /></RutaDeModulo>} />
                     <Route path="gestion" element={<RutaDeModulo modulo="agentes"><AgentesPage /></RutaDeModulo>} />
+                    <Route path="integracion" element={<RutaDeModulo modulo="consulta_agentes"><IntegracionAsistentePage /></RutaDeModulo>} />
                   </Route>
                   <Route path="/plataforma" element={<RutaDeModulo modulo="plataforma"><PlataformaLayout /></RutaDeModulo>}>
                     <Route index element={<Navigate to="/plataforma/modelos" replace />} />

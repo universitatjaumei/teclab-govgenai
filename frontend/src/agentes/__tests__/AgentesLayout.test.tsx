@@ -11,8 +11,11 @@ import { AgentesLayout } from '../AgentesLayout'
  * módulos que concede el servidor**, como el propio menú.
  */
 vi.mock('@/shared/auth/useModulos', () => ({ useModulos: vi.fn() }))
+const rol = { actual: 'user' }
+vi.mock('@/shared/auth', () => ({ useAuth: () => ({ user: { role: rol.actual } }) }))
 
-function montar(modulos: string[]) {
+function montar(modulos: string[], role = 'user') {
+  rol.actual = role
   vi.mocked(useModulos).mockReturnValue({ modulos, cargando: false })
   return render(
     <MemoryRouter initialEntries={['/agentes/consultar']}>
@@ -42,5 +45,12 @@ describe('AgentesLayout', () => {
     montar(['agentes'])
     expect(screen.queryByRole('link', { name: 'Consultar' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Publicar y gestionar' })).toBeInTheDocument()
+  })
+
+  it('la integración con Gemini sólo la ve el superadministrador (#215)', () => {
+    montar(['consulta_agentes', 'agentes'], 'admin')
+    expect(screen.queryByRole('link', { name: 'Integración con Gemini' })).not.toBeInTheDocument()
+    montar(['consulta_agentes'], 'superadmin')
+    expect(screen.getByRole('link', { name: 'Integración con Gemini' })).toHaveAttribute('href', '/agentes/integracion')
   })
 })

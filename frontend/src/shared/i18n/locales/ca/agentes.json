@@ -168,5 +168,16 @@
     "conectar_texto": "L'extensió podrà veure els agents que se t'ofereixen i preparar els seus prompts amb el teu compte. No podrà publicar, canviar ni veure res més. La connexió caduca en 30 dies i la pots revocar des de «Consultar».",
     "no_es_control": "L'extensió és una comoditat: l'assistent es pot usar igual sense ella.",
     "conectar": "Connectar"
+  },
+  "nav_integracion": "Integració amb Gemini",
+  "integracion": {
+    "titulo": "Integració amb l'assistent",
+    "intro": "L'extensió insereix el prompt en l'assistent i llig la resposta amb aquests selectors. Quan l'assistent canvia la seua pàgina, les extensions avisen de quin selector ha deixat de funcionar i ací es corregeix: cada canvi és una versió nova que totes prenen sense actualitzar-se.",
+    "version": "versió {{version}}",
+    "funciona": "Sense errors en aquesta versió",
+    "como_corregir": "Comprova el selector en la pàgina de l'assistent abans de desar-lo. Després, afig la captura de la pàgina nova a extension/instantaneas i actualitza extension/adaptadores en el repositori, perquè les proves el vigilen.",
+    "guardar": "Desar una versió nova",
+    "rota_one": "Trencada: un avís, del selector «{{selector}}» el {{fecha}}",
+    "rota_other": "Trencada: {{count}} avisos, l'últim del selector «{{selector}}» el {{fecha}}"
   }
 }

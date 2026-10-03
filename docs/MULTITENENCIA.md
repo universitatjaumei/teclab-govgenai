@@ -105,6 +105,7 @@ las fichas del índice (#173) y las consultas (#175)— y lo comprueba `test_agu
 | `hub_agente_unidad_versiones` | `agente_id` → agente |
 | `hub_agente_fichas` | `agente_id` → agente (#173): la ficha guarda la URL y el resumen, nunca el documento |
 | `hub_agente_consultas` | `agente_id` → agente (#175): qué documentos se ofrecieron y con qué puntuación, nunca la pregunta |
+| `hub_asistente_adaptadores` | **ninguno, a propósito** (#215): los selectores de la página de Gemini son los mismos para todas las organizaciones. Lo cambia sólo el superadministrador |
 
 ## Las dos capas que hacen cumplir la frontera
 

@@ -763,13 +763,23 @@ del navegador (#176).
   agentes —publicar, retirar, emitir tokens— exige la sesión de una persona, no un token.
 - **La extensión del navegador es la misma consulta, al lado del asistente** (#176): un panel
   lateral con el catálogo, que pide el prompt a la API —lo que queda registrado— y lo copia.
-  **No toca la página del asistente** ni pide permiso sobre ninguna otra. Se conecta con la cuenta
+  Se conecta con la cuenta
   de la persona: la página `/extension/conectar` del panel, con su sesión y un botón explícito,
   emite un token **sólo `agentes:consulta`** que **caduca a los 30 días**, y sólo lo entrega a una
   extensión declarada en `AGENTES_EXTENSION_IDS`; vacía, no se conecta ninguna. Las conexiones se
   ven y se revocan en «Consultar». El catálogo exige ese alcance a un token. **No es un control de
   acceso**: el asistente se usa igual sin ella, y quien guarda un prompt copiado lo reutiliza sin
   pasar por la plataforma. Lo que da es que el camino cómodo sea el registrado.
+- **En Gemini, la extensión inserta el prompt y lee la respuesta** (#215). **No envía**: lo envía
+  la persona, que en un agente de revisión tiene que adjuntar antes su documento. Actúa sólo en la
+  página de Gemini, con permiso opcional que pide al usarla. **Los selectores son datos que sirve
+  la plataforma** (`hub_asistente_adaptadores`), versionados, y los cambia sólo el
+  superadministrador, desde «Agentes → Integración con Gemini», sin publicar la extensión. Si
+  insertar falla, copia; si un selector deja de casar, la extensión **avisa de cuál** y la
+  plataforma marca la integración como rota, contando sólo los avisos de la versión vigente.
+  **Lo que no puede garantizar**: que Gemini no cambie su página. Las instantáneas de su página en
+  `extension/instantaneas/` hacen que una corrección no rompa lo que ya funcionaba; el aviso de
+  campo dice cuándo ha cambiado, no lo evita.
 - **La selección nunca pasa del presupuesto** que declara el agente —de 1 a 10 documentos, 5 por
   defecto— y **lo no vigente no ocupa plaza**: el filtro va en el `WHERE`. Un índice embebido con
   otro modelo no se compara: se dice que hay que volver a cargarlo.

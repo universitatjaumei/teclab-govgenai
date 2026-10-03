@@ -7,8 +7,11 @@
  * copiar y pegar a mano, quien reutiliza un prompt viejo no vuelve a pasar por la plataforma, y el
  * registro subcuenta y el prompt se queda desfasado.
  *
- * **No toca la interfaz del asistente** (decisión del usuario, 2026-10-03): inyectar en su cuadro
- * de texto depende de lo que permitan sus condiciones y es lo frágil. **No es un control de
+ * **En Gemini, inserta el prompt y lee la respuesta** (#215): las funciones que actúan en su página
+ * están en `asistente.js`, y los selectores los sirve la plataforma —el adaptador—, de modo que un
+ * cambio de Gemini se corrige sin publicar la extensión. Si insertar falla, se copia, como antes,
+ * y la plataforma recibe el aviso de qué selector dejó de casar. **No envía**: lo envía la persona,
+ * que en un agente de revisión tiene que adjuntar antes su documento. **No es un control de
  * acceso**: cualquiera puede usar el asistente sin la extensión.
  *
  * Se identifica con la cuenta de la persona: «Conectar» abre la página de la plataforma, que pide
@@ -109,6 +112,34 @@ async function llamar(conf, ruta, opciones) {
 
 function catalogo(conf) {
   return llamar(conf, '/api/v1/agentes/catalogo');
+}
+
+// El asistente sobre el que se inserta. Sólo Gemini por ahora; Copilot, después (2026-10-03).
+const ASISTENTE = 'gemini';
+// Cuánto se espera a que la persona envíe y el asistente termine: puede tener que adjuntar antes.
+const ESPERA_DE_LA_RESPUESTA_MS = 10 * 60 * 1000;
+
+function adaptador(conf) {
+  return llamar(conf, '/api/v1/agentes/asistentes/' + ASISTENTE + '/adaptador');
+}
+
+/** Sin esperar ni molestar: si el aviso no llega, la persona sigue trabajando. */
+function avisarDeUnFallo(conf, ad, selector) {
+  return llamar(conf, '/api/v1/agentes/asistentes/' + ad.asistente + '/fallos', {
+    method: 'POST',
+    cuerpo: { version: ad.version, selector: selector },
+  }).catch(function () {});
+}
+
+/** La pestaña del asistente, si es la que la persona tiene delante. */
+async function pestanaDelAsistente(ad) {
+  const pestanas = await chrome.tabs.query({ active: true, lastFocusedWindow: true, url: ad.origen + '/*' });
+  return pestanas[0] || null;
+}
+
+async function enLaPagina(pestana, funcion, args) {
+  const resultados = await chrome.scripting.executeScript({ target: { tabId: pestana.id }, func: funcion, args: args });
+  return resultados[0] && resultados[0].result;
 }
 
 function consultar(conf, agenteId, pregunta) {
@@ -230,11 +261,70 @@ async function construir(raiz) {
   });
   raiz.appendChild(lista);
 
+  // El adaptador se pide al pintar y no al pulsar: el permiso sobre la página del asistente hay que
+  // pedirlo mientras el clic aún cuenta como gesto de la persona, sin nada esperando delante.
+  let ad = null;
+  try {
+    ad = await adaptador(conf);
+  } catch (e) {
+    ad = null;
+  }
+
   const pregunta = el('textarea', { id: 'pregunta', rows: '3', maxlength: '2000', 'aria-label': texto('pregunta') });
   const pista = el('p', { class: 'nota' });
-  const boton = el('button', { class: 'principal', id: 'preparar', texto: texto('preparar') });
+  const insertar = ad ? el('button', { class: 'principal', id: 'insertar', texto: texto('insertar', [ad.nombre]) }) : null;
+  const boton = el('button', { class: ad ? '' : 'principal', id: 'preparar', texto: texto('preparar') });
   const resultado = el('p', { role: 'status' });
+  const lectura = el('p', { class: 'nota', id: 'lectura' });
   pregunta.addEventListener('input', actualizar);
+  if (insertar) {
+    insertar.addEventListener('click', async function () {
+      resultado.textContent = '';
+      resultado.className = '';
+      lectura.textContent = '';
+      insertar.disabled = true;
+      boton.disabled = true;
+      try {
+        const permiso = await chrome.permissions.request({ origins: [ad.origen + '/*'] });
+        if (!permiso) throw new Error(texto('sinPermisoAsistente', [ad.nombre]));
+        const pestana = await pestanaDelAsistente(ad);
+        const r = await consultar(conf, elegido.id, pregunta.value.trim());
+        if (!pestana) {
+          await navigator.clipboard.writeText(r.prompt);
+          resultado.textContent = texto('abreElAsistente', [ad.nombre]);
+          return;
+        }
+        const previas = await enLaPagina(pestana, contarRespuestas, [ad.selectores]);
+        const insercion = await enLaPagina(pestana, insertarEnElAsistente, [ad.selectores, r.prompt]);
+        if (!insercion || !insercion.ok) {
+          avisarDeUnFallo(conf, ad, (insercion && insercion.selector) || 'insercion');
+          await navigator.clipboard.writeText(r.prompt);
+          resultado.textContent = texto('insercionFallida', [ad.nombre]);
+          return;
+        }
+        resultado.textContent = texto(r.espera_adjunto ? 'insertadoConAdjunto' : 'insertado', [ad.nombre]);
+        // La lectura no bloquea el panel: la persona puede tardar en enviar.
+        enLaPagina(pestana, esperarRespuesta, [ad.selectores, previas, ESPERA_DE_LA_RESPUESTA_MS])
+          .then(function (leida) {
+            if (leida && leida.ok) {
+              lectura.textContent = texto('respuestaLeida', [String(leida.texto.length)]);
+              return;
+            }
+            if (leida && leida.selector) avisarDeUnFallo(conf, ad, leida.selector);
+            lectura.textContent = texto('respuestaNoLeida');
+          })
+          .catch(function () {
+            lectura.textContent = texto('respuestaNoLeida');
+          });
+      } catch (e) {
+        resultado.textContent = e.message;
+        resultado.className = 'error';
+        if (e instanceof Desconectado) await pintar();
+      } finally {
+        actualizar();
+      }
+    });
+  }
   boton.addEventListener('click', async function () {
     resultado.textContent = '';
     resultado.className = '';
@@ -255,8 +345,10 @@ async function construir(raiz) {
   raiz.appendChild(el('label', { for: 'pregunta', texto: texto('pregunta') }));
   raiz.appendChild(pregunta);
   raiz.appendChild(pista);
+  if (insertar) raiz.appendChild(insertar);
   raiz.appendChild(boton);
   raiz.appendChild(resultado);
+  raiz.appendChild(lectura);
   raiz.appendChild(
     el('button', {
       texto: texto('desconectar'),
@@ -269,6 +361,7 @@ async function construir(raiz) {
 
   function actualizar() {
     boton.disabled = !elegido || !pregunta.value.trim();
+    if (insertar) insertar.disabled = boton.disabled;
     pista.textContent = elegido && elegido.espera_adjunto ? texto('describeElAdjunto') : '';
   }
   actualizar();

@@ -67,5 +67,71 @@
   },
   "copiadoConAdjunto": {
     "message": "Copied. Paste it into the assistant and attach your document there."
+  },
+  "insertar": {
+    "message": "Insert into $ASISTENTE$",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "sinPermisoAsistente": {
+    "message": "Without permission on the $ASISTENTE$ page it cannot insert. Use “Prepare and copy”.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "abreElAsistente": {
+    "message": "Copied. To insert it directly, have $ASISTENTE$ open in the active tab.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "insercionFallida": {
+    "message": "It could not be inserted into $ASISTENTE$: it was copied to paste. The platform has been notified.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "insertado": {
+    "message": "Inserted into $ASISTENTE$. Review it and send it.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "insertadoConAdjunto": {
+    "message": "Inserted into $ASISTENTE$. Attach your document and send it.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "respuestaLeida": {
+    "message": "Answer read ($CARACTERES$ characters).",
+    "placeholders": {
+      "caracteres": {
+        "content": "$1",
+        "example": "420"
+      }
+    }
+  },
+  "respuestaNoLeida": {
+    "message": "The answer could not be read."
   }
 }

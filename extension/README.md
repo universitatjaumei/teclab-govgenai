@@ -5,9 +5,20 @@ Un panel lateral de Chrome con los agentes de unidad que la organización ofrece
 la pregunta y la extensión **pide el prompt vigente a la plataforma** —que es lo que queda
 registrado— y lo copia para pegarlo en el asistente general.
 
-**No toca la página del asistente** ni pide permiso sobre ninguna otra: sólo habla con la API de la
-plataforma, y pide ese permiso al conectarse. **No es un control de acceso**: el asistente se usa
-igual sin ella.
+**En Gemini inserta el prompt y lee la respuesta** (#215), con las funciones de `asistente.js`. No
+envía: lo envía la persona. Sólo actúa en `gemini.google.com`, con un permiso opcional que pide la
+primera vez. **No es un control de acceso**: el asistente se usa igual sin ella.
+
+## Cuando Gemini cambia su página
+
+Los selectores no están en la extensión: los sirve la plataforma (el *adaptador*), y la extensión
+avisa de cuál dejó de casar. Para corregirlo:
+
+1. En **Agentes → Integración con Gemini** se ve qué selector falla. Se busca el bueno en la página
+   de Gemini y se guarda: es una versión nueva, y todas las extensiones la toman sin actualizarse.
+2. En el repositorio, se captura la página nueva en `instantaneas/` (mismo formato que la que hay) y
+   se actualiza `adaptadores/gemini.json`. Las pruebas comprueban el adaptador contra **todas** las
+   instantáneas, así que una corrección que rompa lo que ya funcionaba no pasa.
 
 Es JavaScript sin empaquetar, sin dependencias ni compilación: Chrome carga esta carpeta tal cual.
 Las pruebas viven en `frontend/src/__tests__/extensionPanel.test.ts`, que la carga con un `chrome`

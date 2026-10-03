@@ -67,5 +67,71 @@
   },
   "copiadoConAdjunto": {
     "message": "Copiat. Enganxa'l en l'assistent i adjunta-hi el teu document."
+  },
+  "insertar": {
+    "message": "Inserir en $ASISTENTE$",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "sinPermisoAsistente": {
+    "message": "Sense permís sobre la pàgina de $ASISTENTE$ no es pot inserir. Usa «Preparar i copiar».",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "abreElAsistente": {
+    "message": "Copiat. Per a inserir-lo directament, tingues $ASISTENTE$ obert en la pestanya activa.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "insercionFallida": {
+    "message": "No s'ha pogut inserir en $ASISTENTE$: s'ha copiat per a enganxar-lo. Ja s'ha avisat la plataforma.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "insertado": {
+    "message": "Inserit en $ASISTENTE$. Revisa'l i envia'l.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "insertadoConAdjunto": {
+    "message": "Inserit en $ASISTENTE$. Adjunta el teu document i envia'l.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "respuestaLeida": {
+    "message": "Resposta llegida ($CARACTERES$ caràcters).",
+    "placeholders": {
+      "caracteres": {
+        "content": "$1",
+        "example": "420"
+      }
+    }
+  },
+  "respuestaNoLeida": {
+    "message": "No s'ha pogut llegir la resposta."
   }
 }

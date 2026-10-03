@@ -14,10 +14,22 @@ import { resolve } from 'node:path'
  * - **conectar** pasa por la página de la plataforma y guarda el token que vuelve en el fragmento;
  * - **el prompt se pide a la API**, que es lo que queda registrado, y se copia tal cual llega;
  * - **un 401 olvida el token** y pide conectar de nuevo;
- * - **no toca ninguna otra página**: no hay `scripting` ni `tabs` entre lo que usa.
+ * - en Gemini (#215) **inserta**, y si falla **copia y avisa de qué selector** a la plataforma; lee
+ *   la respuesta sin bloquear el panel; sin Gemini delante, copia;
+ * - **sólo actúa en la página del asistente**, con permiso opcional: ni `tabs` ni scripts fijos.
  */
 
-const CODIGO = readFileSync(resolve(__dirname, '../../../extension/panel.js'), 'utf-8')
+const CODIGO =
+  readFileSync(resolve(__dirname, '../../../extension/asistente.js'), 'utf-8') +
+  '\n' +
+  readFileSync(resolve(__dirname, '../../../extension/panel.js'), 'utf-8')
+const ADAPTADOR = {
+  asistente: 'gemini',
+  nombre: 'Gemini',
+  origen: 'https://gemini.google.com',
+  version: 3,
+  selectores: { cuadro: 'x', respuesta: 'y', texto: 'z', ocupado: 'aria-busy', fuentes: 'w' },
+}
 const MANIFIESTO = JSON.parse(readFileSync(resolve(__dirname, '../../../extension/manifest.json'), 'utf-8'))
 const MENSAJES: Record<string, { message: string }> = JSON.parse(
   readFileSync(resolve(__dirname, '../../../extension/_locales/es/messages.json'), 'utf-8'),
@@ -32,6 +44,11 @@ interface Mundo {
   flujo: string[]
   vuelta: string
   permiso: boolean
+  /** La pestaña activa de Gemini, si la hay. */
+  pestanaGemini: boolean
+  inyectadas: { func: string; args: unknown[] }[]
+  insercion: { ok: boolean; selector?: string }
+  lectura: Promise<{ ok: boolean; texto?: string; selector?: string; motivo?: string }>
 }
 
 const AGENTES = [
@@ -70,6 +87,8 @@ function mundoBase(): Mundo {
         status: 200,
         cuerpo: { agente: 'Becas', version: 2, prompt: 'PROMPT COMPUESTO', documentos: [], espera_adjunto: false },
       },
+      '/api/v1/agentes/asistentes/gemini/adaptador': { status: 200, cuerpo: ADAPTADOR },
+      '/api/v1/agentes/asistentes/gemini/fallos': { status: 204, cuerpo: null },
       '/api/v1/agentes/a2/consulta': {
         status: 200,
         cuerpo: { agente: 'Revisión de facturas', version: 1, prompt: 'OTRO', documentos: [], espera_adjunto: true },
@@ -79,6 +98,10 @@ function mundoBase(): Mundo {
     flujo: [],
     vuelta: 'https://abc.chromiumapp.org/#token=ggai_pat_nuevo',
     permiso: true,
+    pestanaGemini: true,
+    inyectadas: [],
+    insercion: { ok: true },
+    lectura: Promise.resolve({ ok: true, texto: 'Respuesta de Gemini.', fuentes: [] }),
   }
 }
 
@@ -101,6 +124,19 @@ function cargar(mundo: Mundo) {
       },
     },
     permissions: { request: async () => mundo.permiso },
+    tabs: {
+      query: async ({ url }: { url: string }) =>
+        mundo.pestanaGemini && url === 'https://gemini.google.com/*' ? [{ id: 7 }] : [],
+    },
+    scripting: {
+      executeScript: async ({ target, func, args }: { target: { tabId: number }; func: { name: string }; args: unknown[] }) => {
+        expect(target.tabId).toBe(7)
+        mundo.inyectadas.push({ func: func.name, args })
+        const resultado =
+          func.name === 'contarRespuestas' ? 1 : func.name === 'insertarEnElAsistente' ? mundo.insercion : await mundo.lectura
+        return [{ result: resultado }]
+      },
+    },
     identity: {
       getRedirectURL: () => 'https://abc.chromiumapp.org/',
       launchWebAuthFlow: async ({ url }: { url: string }) => {
@@ -142,11 +178,12 @@ describe('#176 — el panel de la extensión', () => {
     mundo = mundoBase()
   })
 
-  it('no pide más permisos que los suyos: ni scripting ni tabs, y los hosts son opcionales', () => {
-    expect(MANIFIESTO.permissions).not.toContain('scripting')
+  it('sólo actúa en la página del asistente, y con permiso opcional: ni tabs ni scripts fijos', () => {
+    expect(MANIFIESTO.permissions).toContain('scripting')
     expect(MANIFIESTO.permissions).not.toContain('tabs')
     expect(MANIFIESTO.host_permissions).toBeUndefined()
     expect(MANIFIESTO.content_scripts).toBeUndefined()
+    expect(MANIFIESTO.optional_host_permissions).toContain('https://gemini.google.com/*')
   })
 
   it('las tres lenguas tienen las mismas claves', () => {
@@ -252,5 +289,96 @@ describe('#176 — el panel de la extensión', () => {
     await esperar()
     await vi.waitFor(() => expect(boton('conectar')).not.toBeNull())
     expect(mundo.local.token).toBeUndefined()
+  })
+
+  describe('#215 — en Gemini', () => {
+    async function preparado(m: Mundo, agente = 'a1') {
+      m.gestionada = { panel_url: 'https://normativa.uji.es/panel' }
+      m.local = { token: 'ggai_pat_x' }
+      await cargar(m).pintar()
+      await vi.waitFor(() => expect(document.getElementById('insertar')).not.toBeNull())
+      ;(document.querySelector(`[data-agente="${agente}"] input`) as HTMLInputElement).click()
+      const pregunta = document.getElementById('pregunta') as HTMLTextAreaElement
+      pregunta.value = '¿Plazo?'
+      pregunta.dispatchEvent(new Event('input'))
+    }
+    const estado = () => document.querySelector('[role="status"]')?.textContent
+    const fallos = (m: Mundo) => m.peticiones.filter((p) => p.url.endsWith('/fallos')).map((p) => p.cuerpo)
+
+    it('inserta el prompt que da la API, sin enviarlo, y luego lee la respuesta', async () => {
+      let terminar: (v: { ok: boolean; texto: string }) => void = () => {}
+      mundo.lectura = new Promise((r) => (terminar = r))
+      await preparado(mundo)
+      boton('insertar').click()
+      await vi.waitFor(() => expect(estado()).toBe(MENSAJES.insertado.message))
+      expect(mundo.inyectadas.map((i) => i.func)).toEqual(['contarRespuestas', 'insertarEnElAsistente', 'esperarRespuesta'])
+      expect(mundo.inyectadas[1].args).toEqual([ADAPTADOR.selectores, 'PROMPT COMPUESTO'])
+      // Espera la respuesta siguiente a las que ya había.
+      expect(mundo.inyectadas[2].args.slice(0, 2)).toEqual([ADAPTADOR.selectores, 1])
+      expect(mundo.copiado).toEqual([])
+      // El panel no se queda bloqueado mientras la persona envía.
+      expect(boton('insertar').disabled).toBe(false)
+      terminar({ ok: true, texto: 'Respuesta de Gemini.' })
+      await vi.waitFor(() => expect(document.getElementById('lectura')?.textContent).toBe(MENSAJES.respuestaLeida.message))
+      expect(fallos(mundo)).toEqual([])
+    })
+
+    it('si no puede insertar, copia, lo dice y avisa a la plataforma de qué selector falló', async () => {
+      mundo.insercion = { ok: false, selector: 'cuadro' }
+      await preparado(mundo)
+      boton('insertar').click()
+      await vi.waitFor(() => expect(estado()).toBe(MENSAJES.insercionFallida.message))
+      expect(mundo.copiado).toEqual(['PROMPT COMPUESTO'])
+      expect(fallos(mundo)).toEqual([{ version: 3, selector: 'cuadro' }])
+    })
+
+    it('si no lee la respuesta por un selector, avisa; si es que no se envió, no', async () => {
+      mundo.lectura = Promise.resolve({ ok: false, selector: 'texto' })
+      await preparado(mundo)
+      boton('insertar').click()
+      await vi.waitFor(() => expect(document.getElementById('lectura')?.textContent).toBe(MENSAJES.respuestaNoLeida.message))
+      await vi.waitFor(() => expect(fallos(mundo)).toEqual([{ version: 3, selector: 'texto' }]))
+
+      const otro = mundoBase()
+      otro.lectura = Promise.resolve({ ok: false, motivo: 'sin_respuesta' })
+      document.body.innerHTML = '<main id="raiz"></main>'
+      await preparado(otro)
+      boton('insertar').click()
+      await vi.waitFor(() => expect(document.getElementById('lectura')?.textContent).toBe(MENSAJES.respuestaNoLeida.message))
+      expect(fallos(otro)).toEqual([])
+    })
+
+    it('sin Gemini en la pestaña activa, copia y dice que lo abra', async () => {
+      mundo.pestanaGemini = false
+      await preparado(mundo)
+      boton('insertar').click()
+      await vi.waitFor(() => expect(estado()).toBe(MENSAJES.abreElAsistente.message))
+      expect(mundo.copiado).toEqual(['PROMPT COMPUESTO'])
+      expect(mundo.inyectadas).toEqual([])
+    })
+
+    it('sin permiso sobre Gemini no pide nada a la API', async () => {
+      mundo.permiso = false
+      await preparado(mundo)
+      boton('insertar').click()
+      await vi.waitFor(() => expect(estado()).toBe(MENSAJES.sinPermisoAsistente.message))
+      expect(mundo.peticiones.some((p) => p.url.endsWith('/consulta'))).toBe(false)
+    })
+
+    it('al agente que pide documento le recuerda adjuntarlo antes de enviar', async () => {
+      await preparado(mundo, 'a2')
+      boton('insertar').click()
+      await vi.waitFor(() => expect(estado()).toBe(MENSAJES.insertadoConAdjunto.message))
+    })
+
+    it('sin adaptador no hay botón de insertar, y copiar sigue siendo lo principal', async () => {
+      mundo.respuestas['/api/v1/agentes/asistentes/gemini/adaptador'] = { status: 404, cuerpo: { detail: 'no' } }
+      mundo.gestionada = { panel_url: 'https://normativa.uji.es/panel' }
+      mundo.local = { token: 'ggai_pat_x' }
+      await cargar(mundo).pintar()
+      await vi.waitFor(() => expect(document.getElementById('preparar')).not.toBeNull())
+      expect(document.getElementById('insertar')).toBeNull()
+      expect(boton('preparar').className).toBe('principal')
+    })
   })
 })

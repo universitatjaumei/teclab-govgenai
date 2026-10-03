@@ -168,5 +168,16 @@
     "conectar_texto": "La extensión podrá ver los agentes que se te ofrecen y preparar sus prompts con tu cuenta. No podrá publicar, cambiar ni ver nada más. La conexión caduca en 30 días y la puedes revocar desde «Consultar».",
     "no_es_control": "La extensión es una comodidad: el asistente se puede usar igual sin ella.",
     "conectar": "Conectar"
+  },
+  "nav_integracion": "Integración con Gemini",
+  "integracion": {
+    "titulo": "Integración con el asistente",
+    "intro": "La extensión inserta el prompt en el asistente y lee la respuesta con estos selectores. Cuando el asistente cambia su página, las extensiones avisan de qué selector dejó de funcionar y aquí se corrige: cada cambio es una versión nueva que todas toman sin actualizarse.",
+    "version": "versión {{version}}",
+    "funciona": "Sin fallos en esta versión",
+    "como_corregir": "Comprueba el selector en la página del asistente antes de guardarlo. Después, añade la captura de la página nueva a extension/instantaneas y actualiza extension/adaptadores en el repositorio, para que las pruebas lo vigilen.",
+    "guardar": "Guardar una versión nueva",
+    "rota_one": "Rota: un aviso, del selector «{{selector}}» el {{fecha}}",
+    "rota_other": "Rota: {{count}} avisos, el último del selector «{{selector}}» el {{fecha}}"
   }
 }

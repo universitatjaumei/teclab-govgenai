@@ -13,8 +13,18 @@
   "background": {
     "service_worker": "fondo.js"
   },
-  "permissions": ["sidePanel", "storage", "identity", "clipboardWrite"],
-  "optional_host_permissions": ["https://*/*", "http://localhost/*"],
+  "permissions": [
+    "sidePanel",
+    "storage",
+    "identity",
+    "clipboardWrite",
+    "scripting"
+  ],
+  "optional_host_permissions": [
+    "https://gemini.google.com/*",
+    "https://*/*",
+    "http://localhost/*"
+  ],
   "storage": {
     "managed_schema": "esquema.json"
   }
