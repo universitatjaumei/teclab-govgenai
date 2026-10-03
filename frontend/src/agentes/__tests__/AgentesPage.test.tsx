@@ -23,6 +23,13 @@ import { AgentesPage } from '../AgentesPage'
  * autorización estaría escrita dos veces. Y lo que exige el servidor —la declaración, el motivo de
  * una suspensión— se pide **antes** de mandar.
  */
+
+// La organización elegida en el panel. Vacía, como la ve quien no puede listar organizaciones.
+const organizacion = { elegida: '' }
+vi.mock('@/shared/organizacion/useOrganizacionElegida', () => ({
+  useOrganizacionElegida: () => ({ organizaciones: [], elegida: organizacion.elegida, elegir: vi.fn(), hayVarias: false }),
+}))
+
 vi.mock('@/shared/api/generated/agentes/agentes', () => ({
   useListarApiV1AgentesGet: vi.fn(),
   usePublicarApiV1AgentesPost: vi.fn(),
@@ -150,6 +157,7 @@ beforeAll(async () => {
 })
 
 beforeEach(() => {
+  organizacion.elegida = ''
   Object.values(mutaciones).forEach((m) => m.mockClear())
 })
 
@@ -345,5 +353,26 @@ describe('#175 — el agente que espera un adjunto', () => {
   it('su ficha lo dice', () => {
     montar([agente({}, { espera_adjunto: true })])
     expect(within(screen.getByTestId('agente')).getByText('Quien consulta adjunta un documento')).toBeInTheDocument()
+  })
+})
+
+describe('La organización elegida (2026-10-03)', () => {
+  it('quien no pertenece a una sola publica en la elegida en el panel', async () => {
+    organizacion.elegida = 'org-1'
+    montar([])
+    fireEvent.click(screen.getByRole('button', { name: 'Publicar un agente' }))
+    rellenar(DECLARACION)
+    fireEvent.click(screen.getByRole('button', { name: 'Publicar' }))
+    await waitFor(() => expect(mutaciones.publicar).toHaveBeenCalledTimes(1))
+    expect(mutaciones.publicar.mock.calls[0][0].params).toEqual({ organizacion_id: 'org-1' })
+  })
+
+  it('sin elegida, no manda nada y vale la suya', async () => {
+    montar([])
+    fireEvent.click(screen.getByRole('button', { name: 'Publicar un agente' }))
+    rellenar(DECLARACION)
+    fireEvent.click(screen.getByRole('button', { name: 'Publicar' }))
+    await waitFor(() => expect(mutaciones.publicar).toHaveBeenCalledTimes(1))
+    expect(mutaciones.publicar.mock.calls[0][0].params).toBeUndefined()
   })
 })

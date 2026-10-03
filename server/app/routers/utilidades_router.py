@@ -17,8 +17,9 @@ que no aseguran el RGPD; lo que la plataforma aporta no es la capacidad sino el 
   contenido**, que es el criterio del bloque REG; el nombre de un expediente ya dice de quién es.
   El `payload_hash` es la huella de lo que entró, para poder decir después «este fichero pasó por
   aquí» sin guardarlo.
-* **Quien no tiene una organización no opera.** El registro va por organización y su columna no
-  admite nulo: operar sin anotar sería un uso sin rastro.
+* **Cada uso se anota en una organización**: la de quien opera, o la elegida en el panel si no
+  pertenece a una sola —el superadministrador—, comprobada aquí. Sin ninguna no se opera: la
+  columna del registro no admite nulo, y operar sin anotar sería un uso sin rastro.
 """
 from __future__ import annotations
 
@@ -28,18 +29,19 @@ import hashlib
 import io
 import json
 import secrets
+import uuid
 import zipfile
 from datetime import datetime, timezone
-from typing import Literal
+from typing import Annotated, Literal
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.app.api.deps import get_current_user, get_session, require_module
 from server.app.core.auth.models import UserInfo
-from server.app.core.auth.tenancy import organizacion_unica_de
+from server.app.core.auth.tenancy import organizacion_para_operar
 from server.app.core.uploads import (
     UploadKind,
     read_within_limit,
@@ -70,20 +72,20 @@ MAXIMO_BYTES_TOTAL = 50 * 1024 * 1024
 # =============================================================================
 
 
-def _organizacion(user: UserInfo):
-    organizacion = organizacion_unica_de(user)
-    if organizacion is None:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail={
-                "code": "ORGANIZACION_INDETERMINADA",
-                "message": (
-                    "Estas utilidades anotan cada uso en el registro de tu organización, y tu "
-                    "cuenta no pertenece a una sola. Entra con una cuenta de una organización."
-                ),
-            },
-        )
-    return organizacion
+#: La organización elegida en el panel, para quien no pertenece a una sola. Con `Annotated` el
+#: valor por defecto es `None` de verdad, también cuando se llama a la función sin FastAPI.
+OrganizacionElegida = Annotated[
+    uuid.UUID | None,
+    Query(description="Obligatoria sólo si quien opera no pertenece a una sola organización."),
+]
+
+
+def _organizacion(user: UserInfo, organizacion_id: uuid.UUID | None = None):
+    return organizacion_para_operar(
+        user,
+        organizacion_id,
+        para="Estas utilidades anotan cada uso en el registro de una organización.",
+    )
 
 
 async def _leer_pdfs(ficheros: list[UploadFile]) -> list[tuple[str, bytes]]:
@@ -185,11 +187,12 @@ def _sin_hacer(fallo: ValueError) -> HTTPException:
 async def unir_pdf(
     files: list[UploadFile] = File(...),
     optimizar: bool = Form(True),
+    organizacion_id: OrganizacionElegida = None,
     user: UserInfo = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> Response:
     """Une los PDF en el orden en que llegan."""
-    organizacion = _organizacion(user)
+    organizacion = _organizacion(user, organizacion_id)
     leidos = await _leer_pdfs(files)
     documentos = [d for _, d in leidos]
     try:
@@ -215,6 +218,7 @@ async def partir_pdf(
     modo: Literal["rangos", "paginas", "todas"] = Form(...),
     rangos: str = Form(""),
     optimizar: bool = Form(True),
+    organizacion_id: OrganizacionElegida = None,
     user: UserInfo = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> Response:
@@ -222,7 +226,7 @@ async def partir_pdf(
 
     Un fichero sale como PDF; varios, en un ZIP.
     """
-    organizacion = _organizacion(user)
+    organizacion = _organizacion(user, organizacion_id)
     (nombre, datos), = await _leer_pdfs([file])
     base = _base(nombre)
     try:
@@ -265,11 +269,12 @@ async def optimizar_pdf(
     # en vez de escribir 1-4 a mano. Y `IntEnum`, no `Literal`, porque desde un formulario llega
     # «3» como texto (ver `pdf.NivelDeOptimizacion`).
     nivel: pdf.NivelDeOptimizacion = Form(pdf.NivelDeOptimizacion.EQUILIBRADO),
+    organizacion_id: OrganizacionElegida = None,
     user: UserInfo = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> Response:
     """Reescribe el PDF para que ocupe menos: 1 limpieza básica … 4 el más agresivo."""
-    organizacion = _organizacion(user)
+    organizacion = _organizacion(user, organizacion_id)
     (nombre, datos), = await _leer_pdfs([file])
     try:
         resultado = await asyncio.to_thread(pdf.optimizar, datos, nivel=int(nivel))
@@ -416,6 +421,7 @@ async def descargar_anonimizado(
     reglas: str = Form(...),
     semilla: int = Form(...),
     revisado: bool = Form(False),
+    organizacion_id: OrganizacionElegida = None,
     user: UserInfo = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> Response:
@@ -424,7 +430,7 @@ async def descargar_anonimizado(
     El detector no lo ve todo y un falso negativo aquí es un dato personal publicado: la revisión
     humana no es opcional, y el servidor no lo deja en manos de la pantalla.
     """
-    organizacion = _organizacion(user)
+    organizacion = _organizacion(user, organizacion_id)
     if not revisado:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

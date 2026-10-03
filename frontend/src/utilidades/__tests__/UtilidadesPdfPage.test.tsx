@@ -4,6 +4,13 @@ import { MemoryRouter } from 'react-router-dom'
 import i18n from '@/shared/i18n'
 
 const descargar = vi.fn()
+
+// La organización elegida en el panel. Vacía, como la ve quien no puede listar organizaciones.
+const organizacion = { elegida: '' }
+vi.mock('@/shared/organizacion/useOrganizacionElegida', () => ({
+  useOrganizacionElegida: () => ({ organizaciones: [], elegida: organizacion.elegida, elegir: vi.fn(), hayVarias: false }),
+}))
+
 vi.mock('@/shared/api/download', () => ({
   descargarConAutorizacion: (...args: unknown[]) => descargar(...args),
 }))
@@ -27,6 +34,7 @@ describe('UtilidadesPdfPage (UTL.1, #190)', () => {
     await i18n.changeLanguage('es')
   })
   beforeEach(() => {
+    organizacion.elegida = ''
     descargar.mockReset()
     descargar.mockResolvedValue(undefined)
   })
@@ -87,5 +95,16 @@ describe('UtilidadesPdfPage (UTL.1, #190)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Dividir y descargar' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('el documento tiene 3 páginas')
+  })
+})
+
+describe('UtilidadesPdfPage — la organización elegida (2026-10-03)', () => {
+  it('con una organización elegida en el panel, la operación va a su registro', async () => {
+    organizacion.elegida = 'org-1'
+    montar()
+    fireEvent.change(screen.getByTestId('input-pdf'), { target: { files: [pdf('a.pdf'), pdf('b.pdf')] } })
+    fireEvent.click(screen.getByRole('button', { name: 'Unir y descargar' }))
+    await waitFor(() => expect(descargar).toHaveBeenCalled())
+    expect(descargar.mock.calls[0][0]).toBe('/api/v1/utilidades/pdf/unir?organizacion_id=org-1')
   })
 })

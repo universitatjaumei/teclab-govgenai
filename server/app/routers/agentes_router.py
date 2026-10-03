@@ -25,16 +25,16 @@ from __future__ import annotations
 import hashlib
 import uuid
 from datetime import date, datetime, timezone
-from typing import Literal
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.app.api.deps import get_current_user, get_session, require_module, require_scopes
 from server.app.core.auth.models import UserInfo
-from server.app.core.auth.tenancy import organizacion_unica_de
+from server.app.core.auth.tenancy import organizacion_para_operar
 from server.app.core.config import get_settings
 from server.app.core.auth.pat.scopes import AGENTES_CONSULTA, AGENTES_INDICE_WRITE
 from server.app.core.identidad import user_to_uuid
@@ -340,22 +340,21 @@ async def _responder(session: AsyncSession, agente, version, user: UserInfo) -> 
 @router.post("", response_model=AgenteView, status_code=status.HTTP_201_CREATED)
 async def publicar(
     body: AgenteCreate,
+    organizacion_id: Annotated[
+        uuid.UUID | None,
+        Query(description="Obligatoria sólo si quien publica no pertenece a una sola organización."),
+    ] = None,
     user: UserInfo = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> AgenteView:
-    """Publica un agente. **Registrar es publicar**: se ofrece a su colectivo desde ya."""
-    organizacion = organizacion_unica_de(user)
-    if organizacion is None:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail={
-                "code": "ORGANIZACION_INDETERMINADA",
-                "message": (
-                    "Un agente es de una organización, y tu cuenta no pertenece a una sola. "
-                    "Entra con una cuenta de una organización."
-                ),
-            },
-        )
+    """Publica un agente. **Registrar es publicar**: se ofrece a su colectivo desde ya.
+
+    Un agente es de una organización: la de quien publica, o la elegida en el panel si pertenece
+    a varias o a ninguna (el superadministrador).
+    """
+    organizacion = organizacion_para_operar(
+        user, organizacion_id, para="Un agente se publica en una organización."
+    )
     agente = HubAgenteUnidad(
         id=uuid.uuid4(),
         organizacion_id=uuid.UUID(str(organizacion)),

@@ -341,3 +341,33 @@ class TestGestion:
         assert (await c.get("/api/v1/agentes")).json()["agentes"] == []
         r = await c.post(f"/api/v1/agentes/{agente['id']}/suspender", json={"motivo": "x"})
         assert r.status_code == 404
+
+
+class TestLaOrganizacionElegida:
+    """El superadmin publica en la organización que ha elegido en el panel (2026-10-03)."""
+
+    @pytest.mark.asyncio
+    async def test_el_superadmin_publica_en_la_elegida(self, http):
+        c, quien = http
+        quien.actual = _persona("superadmin", orgs=())
+        r = await c.post("/api/v1/agentes", params={"organizacion_id": ORG}, json=_declaracion())
+        assert r.status_code == 201, r.text
+
+        quien.actual = _persona()
+        assert len((await c.get("/api/v1/agentes/catalogo")).json()) == 1
+
+    @pytest.mark.asyncio
+    async def test_sin_elegir_ninguna_no_publica(self, http):
+        c, quien = http
+        quien.actual = _persona("superadmin", orgs=())
+        r = await c.post("/api/v1/agentes", json=_declaracion())
+        assert r.status_code == 403
+        assert "selector" in r.json()["detail"]["message"]
+
+    @pytest.mark.asyncio
+    async def test_nadie_publica_en_una_organizacion_que_no_es_suya(self, http):
+        c, quien = http
+        r = await c.post(
+            "/api/v1/agentes", params={"organizacion_id": str(uuid.uuid4())}, json=_declaracion()
+        )
+        assert r.status_code == 403

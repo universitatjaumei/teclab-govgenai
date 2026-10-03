@@ -4,6 +4,13 @@ import { MemoryRouter } from 'react-router-dom'
 import i18n from '@/shared/i18n'
 
 const descargar = vi.fn()
+
+// La organización elegida en el panel. Vacía, como la ve quien no puede listar organizaciones.
+const organizacion = { elegida: '' }
+vi.mock('@/shared/organizacion/useOrganizacionElegida', () => ({
+  useOrganizacionElegida: () => ({ organizaciones: [], elegida: organizacion.elegida, elegir: vi.fn(), hayVarias: false }),
+}))
+
 vi.mock('@/shared/api/download', () => ({
   descargarConAutorizacion: (...args: unknown[]) => descargar(...args),
 }))
@@ -146,5 +153,20 @@ describe('AnonimizarFicheroPage (UTL.2, #191)', () => {
     subir()
 
     expect(screen.getByText(/tiene 3 hojas y sólo se anonimiza la primera/)).toBeInTheDocument()
+  })
+})
+
+describe('AnonimizarFicheroPage — la organización elegida (2026-10-03)', () => {
+  it('la descarga se anota en la organización elegida en el panel', async () => {
+    organizacion.elegida = 'org-1'
+    montar()
+    subir()
+    fireEvent.click(screen.getByRole('button', { name: 'Ver cómo queda' }))
+    fireEvent.click(screen.getByRole('checkbox'))
+    fireEvent.click(screen.getByRole('button', { name: 'Descargar el fichero anonimizado' }))
+
+    await waitFor(() => expect(descargar).toHaveBeenCalled())
+    expect(descargar.mock.calls[0][0]).toBe('/api/v1/utilidades/anonimizar/descargar?organizacion_id=org-1')
+    organizacion.elegida = ''
   })
 })

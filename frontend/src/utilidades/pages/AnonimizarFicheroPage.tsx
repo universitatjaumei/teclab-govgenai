@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { descargarConAutorizacion } from '@/shared/api/download'
+import { conLaOrganizacion } from '@/utilidades/conLaOrganizacion'
+import { useOrganizacionElegida } from '@/shared/organizacion/useOrganizacionElegida'
 import type { AnalisisDeFichero, VistaPrevia } from '@/shared/api/generated/model'
 import {
   useAnalizarFicheroParaAnonimizar,
@@ -26,6 +28,8 @@ type Regla = { tipo: string; modo: string }
  */
 export function AnonimizarFicheroPage() {
   const { t } = useTranslation('utilidades')
+  // La descarga se anota en el registro de una organización: la elegida, si no es de una sola.
+  const { elegida } = useOrganizacionElegida()
   const [fichero, setFichero] = useState<File | null>(null)
   const [analisis, setAnalisis] = useState<AnalisisDeFichero | null>(null)
   const [reglas, setReglas] = useState<Record<string, Regla>>({})
@@ -105,7 +109,7 @@ export function AnonimizarFicheroPage() {
     setDescargando(true)
     try {
       await descargarConAutorizacion(
-        '/api/v1/utilidades/anonimizar/descargar',
+        conLaOrganizacion('/api/v1/utilidades/anonimizar/descargar', elegida),
         `anonimizado.${analisis.formato}`,
         cuerpo,
       )

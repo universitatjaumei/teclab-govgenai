@@ -669,8 +669,10 @@ sino el **trayecto**.
 - **Queda constancia, sólo de metadatos**: quién, cuándo, qué operación, cuántos ficheros, páginas
   o filas, qué regla a cada tipo de columna y la huella de lo que entró. **Nunca el nombre del
   fichero ni su contenido**, con el mismo contrato que el registro de actividad (§5.9).
-- **Quien no pertenece a una sola organización no opera**: el uso se anota en el registro de la
-  organización, y sin una no habría dónde.
+- **Cada uso se anota en el registro de una organización**: la de quien opera o, si no pertenece
+  a una sola —el superadministrador—, **la elegida en el selector del panel**, comprobada en el
+  servidor: nadie anota en el registro de una organización que no gestiona. Sin ninguna, no se
+  opera, y el mensaje dice que se elija una.
 - **La anonimización no se descarga sin revisión**: hay que ver la vista previa de las reglas
   actuales y confirmarlo, y lo comprueba el servidor. La vista previa **es** la descarga —misma
   semilla sobre el fichero entero—. **No se promete anonimato**: es seudonimización asistida, la
@@ -700,6 +702,8 @@ los documentos de cada **consulta**, que devuelve el prompt del agente con los e
 
 - **Registrar es publicar**, como en el catálogo de funciones (§5.12): sin aprobación previa.
   Publicar exige el módulo `agentes`; **usarlo no**, porque el catálogo se ofrece a su colectivo.
+  El agente es de la organización de quien publica, o de la elegida en el panel si no pertenece a
+  una sola.
 - **Sin declaración no se publica**: finalidad, responsable, colectivo y **fecha de revisión
   prevista**, que no puede haber pasado. La unidad se declara como texto: la plataforma no tiene
   unidades.

@@ -17,6 +17,7 @@ import {
 } from '@/shared/api/generated/agentes/agentes'
 import type { AgenteView, InformeDeCarga } from '@/shared/api/generated/model'
 import { mensajeDelFallo } from '@/utilidades/mensajeDelFallo'
+import { useOrganizacionElegida } from '@/shared/organizacion/useOrganizacionElegida'
 
 /**
  * Los agentes de unidad (#172): publicar, versionar, revisar, suspender y retirar.
@@ -152,6 +153,8 @@ function FormularioDeDeclaracion({
   const { t } = useTranslation('agentes')
   const [fallo, setFallo] = useState<string | null>(null)
   const publicar = usePublicarApiV1AgentesPost()
+  // Un agente es de una organización: la elegida en el panel, si quien publica no es de una sola.
+  const { elegida } = useOrganizacionElegida()
   const versionar = useVersionarApiV1AgentesAgenteIdVersionesPost()
   const alCambiar = useAlCambiar(alTerminar)
 
@@ -202,7 +205,10 @@ function FormularioDeDeclaracion({
       )
     } else {
       publicar.mutate(
-        { data: { nombre: v.nombre.trim(), unidad: v.unidad.trim(), ...declaracion } },
+        {
+          data: { nombre: v.nombre.trim(), unidad: v.unidad.trim(), ...declaracion },
+          params: elegida ? { organizacion_id: elegida } : undefined,
+        },
         { ...alCambiar, ...alFallar },
       )
     }
