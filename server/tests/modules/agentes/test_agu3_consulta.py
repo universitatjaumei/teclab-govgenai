@@ -13,8 +13,9 @@ Lo que fija este fichero:
   —un enlace que no se puede abrir— en uno que quien pregunta lee.
 * **Lo usa el colectivo, no quien publica**: la consulta no exige el módulo `agentes`, y un token
   necesita un alcance propio y estrecho, `agentes:consulta`.
-* **Se registra lo que se ofreció, nunca lo que se preguntó**: quién, cuándo, qué agente, qué
-  documentos y con qué puntuación. Ni la consulta ni el contenido llegan al registro.
+* **Se registra lo que se ofreció**: quién, cuándo, qué agente, qué documentos y con qué
+  puntuación. La pregunta no llega nunca al registro de actividad; en un agente en validación
+  (#216) la guarda la consulta, como las conversaciones de los chatbots.
 """
 from __future__ import annotations
 
@@ -238,8 +239,13 @@ class TestLoQueSeRegistra:
         assert consulta.documentos == [{"url": d["url"], "score": d["score"]} for d in cuerpo["documentos"]]
 
     @pytest.mark.asyncio
-    async def test_la_pregunta_no_llega_a_ningun_registro(self, http, db_session):
-        """Ni en el registro de actividad ni en el de consultas, en ninguna columna."""
+    async def test_en_incidencias_la_pregunta_no_llega_a_ningun_registro(self, http, db_session):
+        """Ni en el registro de actividad ni en el de consultas, en ninguna columna.
+
+        #216 — en validación la consulta sí la guarda (decisión del usuario, 2026-10-03); lo de
+        este test vale para un agente en incidencias. El registro de actividad no la lleva nunca:
+        lo comprueba `test_agu9_conversaciones.py`.
+        """
         from server.app.modules.agents_hub.database.operational_models import (
             HubActividadIA,
             HubAgenteConsulta,
@@ -247,6 +253,7 @@ class TestLoQueSeRegistra:
 
         c, quien = http
         agente = await _con_indice(c)
+        await c.post(f"/api/v1/agentes/{agente['id']}/registro", json={"modo": "incidencias"})
         quien.actual = _persona()
         await _consultar(c, agente["id"])
 

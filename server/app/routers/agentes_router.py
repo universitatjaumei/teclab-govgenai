@@ -50,7 +50,7 @@ from server.app.core.auth.pat.scopes import AGENTES_CONSULTA, AGENTES_INDICE_WRI
 from server.app.core.identidad import user_to_uuid
 from server.app.core.uploads import read_within_limit, sanitizar_nombre
 from server.app.core.llm_text import texto_de
-from server.app.modules.agentes import acciones, consulta, indice, propuesta
+from server.app.modules.agentes import acciones, consulta, indice, propuesta, registro
 from server.app.modules.agents_hub.services.config_provider import LocalConfigProvider
 from server.app.modules.agents_hub.services.model_factory import get_model_for_tier
 from server.app.routers.redaccion._actor import nombre_del_modelo
@@ -207,6 +207,8 @@ class AgenteView(BaseModel):
     unidad: str
     es_mio: bool
     indice: EstadoDelIndice
+    #: #216 — qué se guarda de sus conversaciones.
+    modo_registro: Literal["validacion", "incidencias"]
     version: VersionDelAgente
 
 
@@ -231,6 +233,8 @@ class AgenteDelCatalogo(BaseModel):
     espera_adjunto: bool
     #: #174 — el guion lleva días sin mandar el índice: se ofrece, pero marcado.
     indice_sin_actualizar: bool
+    #: #216 — para avisar, antes de consultar, de que en validación se guarda la conversación.
+    modo_registro: Literal["validacion", "incidencias"]
 
 
 # =============================================================================
@@ -287,6 +291,7 @@ def _vista(
         unidad=agente.unidad,
         es_mio=agente.creado_por == user_to_uuid(user.user_id),
         indice=_estado_del_indice(agente, *cuentas),
+        modo_registro=agente.modo_registro,
         version=VersionDelAgente(
             version=version.version,
             estado=version.estado,
@@ -1007,6 +1012,7 @@ async def catalogo(
             revision_vencida=acciones.revision_vencida(v),
             espera_adjunto=v.espera_adjunto,
             indice_sin_actualizar=_sin_actualizar(a),
+            modo_registro=a.modo_registro,
         )
         for a, v in filas
         if acciones.lo_puede_usar(a, v, principal=user)
@@ -1050,6 +1056,11 @@ class RespuestaDeConsulta(BaseModel):
     documentos: list[DocumentoOfrecido]
     #: El adjunto va directo al asistente: la plataforma no lo ve, y por eso tampoco lo registra.
     espera_adjunto: bool
+    #: #216 — contra qué se mandan la respuesta y la valoración.
+    consulta_id: uuid.UUID
+    #: #216 — en `validacion` la extensión manda la respuesta que lea; en `incidencias`, sólo un
+    #: informe si la persona lo pide.
+    modo_registro: Literal["validacion", "incidencias"]
 
 
 @router_catalogo.post("/{agente_id}/consulta", response_model=RespuestaDeConsulta)
@@ -1095,7 +1106,10 @@ async def consultar(
         body.lengua,
         espera_adjunto=version.espera_adjunto,
     )
+    consulta_id = uuid.uuid4()
     respuesta = RespuestaDeConsulta(
+        consulta_id=consulta_id,
+        modo_registro=agente.modo_registro,
         agente=agente.nombre,
         version=version.version,
         prompt=prompt,
@@ -1132,11 +1146,15 @@ async def consultar(
     session.add(actividad)
     session.add(
         HubAgenteConsulta(
+            id=consulta_id,
             agente_id=agente.id,
             version=version.version,
             actor=user.user_id,
             documentos=[{"url": e.url, "score": e.score} for e in elegidas],
             actividad_id=actividad.id,
+            modo=agente.modo_registro,
+            # #216 — en validación se guarda la pregunta; el registro de actividad, nunca.
+            pregunta=body.consulta if agente.modo_registro == "validacion" else None,
         )
     )
     await session.commit()
@@ -1404,3 +1422,144 @@ async def cambiar_el_adaptador(
     await session.commit()
     await session.refresh(a)
     return _estado(a)
+
+
+# =============================================================================
+#  Las conversaciones (#216)
+# =============================================================================
+
+
+class CambioDelRegistro(BaseModel):
+    modo: Literal["validacion", "incidencias"]
+
+    model_config = {"extra": "forbid"}
+
+
+@router.post("/{agente_id}/registro", response_model=AgenteView)
+async def cambiar_registro(
+    agente_id: uuid.UUID,
+    body: CambioDelRegistro,
+    user: UserInfo = Depends(require_sesion_humana()),
+    session: AsyncSession = Depends(get_session),
+) -> AgenteView:
+    """Qué se guarda de sus conversaciones: todo (`validacion`) o sólo lo informado
+    (`incidencias`). Lo deciden quien lo publica y quien lo revisa. No versiona: no cambia lo que
+    se ofrece."""
+    agente, version = await _el_agente(session, agente_id, user)
+    _exigir("cambiar_registro", agente, version, user)
+    agente.modo_registro = body.modo
+    agente.updated_at = datetime.now(timezone.utc)
+    return await _responder(session, agente, version, user)
+
+
+class RespuestaLeida(BaseModel):
+    """Lo que la extensión leyó en el asistente, o por qué no pudo leerlo. Una de las dos."""
+
+    texto: str | None = Field(default=None, min_length=1, max_length=100_000)
+    fuentes: list[str] = Field(default_factory=list, max_length=50)
+    no_capturada: Literal["sin_respuesta", "sin_terminar", "selector"] | None = None
+
+    model_config = {"extra": "forbid"}
+
+    @model_validator(mode="after")
+    def _una_de_las_dos(self) -> "RespuestaLeida":
+        if (self.texto is None) == (self.no_capturada is None):
+            raise ValueError("o la respuesta, o por qué no se pudo leer")
+        return self
+
+
+class Valoracion(BaseModel):
+    """1 o -1. **-1 es un informe**, y lleva motivo. En `incidencias` el informe trae la pregunta
+    y la respuesta, que la consulta no guardó."""
+
+    puntuacion: Literal[1, -1]
+    motivo: str | None = None
+    comentario: str | None = Field(default=None, max_length=4000)
+    pregunta: str | None = Field(default=None, max_length=2000)
+    respuesta: str | None = Field(default=None, max_length=100_000)
+
+    model_config = {"extra": "forbid"}
+
+    @model_validator(mode="after")
+    def _el_informe_lleva_motivo(self) -> "Valoracion":
+        if self.puntuacion == -1 and self.motivo not in registro.MOTIVOS:
+            raise ValueError(f"un informe lleva uno de estos motivos: {', '.join(registro.MOTIVOS)}")
+        if self.puntuacion == 1 and self.motivo is not None:
+            raise ValueError("una valoración buena no lleva motivo")
+        return self
+
+
+class MotivoDeInforme(BaseModel):
+    codigo: str
+    etiqueta: str
+
+
+async def _la_consulta(session: AsyncSession, consulta_id: uuid.UUID, user: UserInfo) -> HubAgenteConsulta:
+    """La consulta de **quien pregunta**: la de otra persona no existe para él (404)."""
+    fila = (
+        await session.execute(
+            select(HubAgenteConsulta)
+            .where(HubAgenteConsulta.id == consulta_id, HubAgenteConsulta.actor == user.user_id)
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    if fila is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Consulta no encontrada")
+    return fila
+
+
+@router_catalogo.post("/consultas/{consulta_id}/respuesta", status_code=status.HTTP_204_NO_CONTENT)
+async def guardar_respuesta(
+    consulta_id: uuid.UUID,
+    body: RespuestaLeida,
+    user: UserInfo = Depends(require_scopes(AGENTES_CONSULTA)),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    """La respuesta que la extensión leyó en el asistente, en un agente en validación. Una vez: la
+    conversación es la que fue. En incidencias no se manda la de cada consulta, sólo un informe."""
+    fila = await _la_consulta(session, consulta_id, user)
+    if fila.modo != "validacion":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Este agente sólo guarda lo que se informa: la respuesta va con el informe.",
+        )
+    if fila.respuesta is not None or fila.respuesta_no_capturada is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="La respuesta ya está guardada.")
+    fila.respuesta = body.texto
+    fila.fuentes = body.fuentes if body.texto is not None else None
+    fila.respuesta_no_capturada = body.no_capturada
+    fila.respuesta_en = datetime.now(timezone.utc)
+    await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router_catalogo.post("/consultas/{consulta_id}/valoracion", status_code=status.HTTP_204_NO_CONTENT)
+async def valorar(
+    consulta_id: uuid.UUID,
+    body: Valoracion,
+    user: UserInfo = Depends(require_scopes(AGENTES_CONSULTA)),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    """👍 o 👎 sobre la respuesta de su consulta; 👎 con motivo es un informe. Se puede cambiar.
+
+    En incidencias, el informe es lo único que se guarda, y por eso trae la pregunta y la respuesta;
+    una valoración buena guarda la puntuación y nada más. En validación ya estaban: no se pisan."""
+    fila = await _la_consulta(session, consulta_id, user)
+    fila.puntuacion = body.puntuacion
+    fila.motivo = body.motivo
+    fila.comentario = (body.comentario or "").strip() or None
+    fila.valorada_en = datetime.now(timezone.utc)
+    if fila.modo == "incidencias" and body.puntuacion == -1:
+        fila.pregunta = body.pregunta
+        fila.respuesta = body.respuesta
+    await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router_catalogo.get("/motivos-de-informe", response_model=list[MotivoDeInforme])
+async def motivos_de_informe(
+    lengua: Literal["es", "ca", "en"] = "es",
+    _user: UserInfo = Depends(require_scopes(AGENTES_CONSULTA)),
+) -> list[MotivoDeInforme]:
+    """Los motivos de un informe, con su etiqueta: la extensión los pinta, no los conoce."""
+    return [MotivoDeInforme(codigo=c, etiqueta=e[lengua]) for c, e in registro.MOTIVOS.items()]

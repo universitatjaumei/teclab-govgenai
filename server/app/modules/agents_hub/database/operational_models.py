@@ -1095,6 +1095,9 @@ class HubAgenteUnidad(HubOperationalBase):
 
     __tablename__ = "hub_agentes_unidad"
     __ambito__ = Ambito.ORGANIZACION
+    __table_args__ = (
+        CheckConstraint("modo_registro IN ('validacion', 'incidencias')", name="ck_agente_unidad_modo_registro"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
@@ -1116,6 +1119,13 @@ class HubAgenteUnidad(HubOperationalBase):
     indice_origen: Mapped[str | None] = mapped_column(String(10), nullable=True)
     #: Cuántos documentos encontró el guion en la carpeta, para contarlos contra las fichas.
     documentos_en_carpeta: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: #216 — qué se guarda de sus conversaciones: `validacion` (todo: pregunta y respuesta) o
+    #: `incidencias` (sólo lo que quien lo usa informa como inadecuado). Empieza en validación:
+    #: primero se comprueba que funciona (decisión del usuario, 2026-10-03). Es del agente y no de
+    #: la versión: cambiarlo no cambia lo que se ofrece.
+    modo_registro: Mapped[str] = mapped_column(
+        String(12), nullable=False, default="validacion", server_default="validacion"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
     )
@@ -1272,19 +1282,28 @@ class HubAgenteFicha(HubOperationalBase):
 
 
 class HubAgenteConsulta(HubOperationalBase):
-    """Lo que se ofreció en una consulta a un agente de unidad (#175). **Nunca lo que se preguntó.**
+    """Una consulta a un agente de unidad (#175) y, según el modo del agente, su conversación (#216).
 
     El registro de actividad dice quién usó qué agente, cuándo y para qué; esto añade **qué
-    documentos se ofrecieron y con qué puntuación**, que su contrato no tiene dónde poner. Son
-    metadatos: la URL y la puntuación, no el contenido de nada.
+    documentos se ofrecieron y con qué puntuación**, que su contrato no tiene dónde poner.
 
-    Y hay que ser honesto con lo que no se puede saber: la plataforma registra lo que **ofreció**,
-    no lo que el modelo **respondió**. Para conservar registros sirve; para demostrar qué contestó
-    el asistente, no.
+    **#216 — la conversación**, como las de los chatbots (`hub_interactions`): son conversaciones de
+    trabajo sobre documentos de la organización, quien las tiene sabe que se registran, y prevalece
+    la calidad de las respuestas (decisión del usuario, 2026-10-03). En `validacion` se guarda la
+    pregunta al consultar y la respuesta que la extensión leyó en el asistente; en `incidencias`,
+    sólo lo que quien lo usa informa como inadecuado. `modo` es el del agente **cuando se
+    consultó**: dice por qué hay, o no hay, contenido.
+
+    Lo que sigue sin poder saberse: la respuesta es la que leyó la extensión en la página del
+    asistente. Si la persona la editó, la regeneró o siguió conversando, eso no llega.
     """
 
     __tablename__ = "hub_agente_consultas"
     __ambito__ = declarar(Ambito.DERIVADA, via="agente_id")
+    __table_args__ = (
+        CheckConstraint("modo IN ('validacion', 'incidencias')", name="ck_agente_consulta_modo"),
+        CheckConstraint("puntuacion IS NULL OR puntuacion IN (-1, 1)", name="ck_agente_consulta_puntuacion"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
@@ -1307,6 +1326,22 @@ class HubAgenteConsulta(HubOperationalBase):
     )
     #: La fila del registro de actividad que corresponde a esta consulta.
     actividad_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    #: #216 — el modo del agente al consultar. Las anteriores no guardaron nada: `incidencias`.
+    modo: Mapped[str] = mapped_column(String(12), nullable=False, server_default="incidencias")
+    pregunta: Mapped[str | None] = mapped_column(Text, nullable=True)
+    respuesta: Mapped[str | None] = mapped_column(Text, nullable=True)
+    respuesta_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: Por qué la extensión no pudo leer la respuesta: cuenta la cobertura de la captura.
+    respuesta_no_capturada: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    #: Las fuentes que citó el asistente, si las mostró.
+    fuentes: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    #: 1 o -1, como `feedback_score` de los chatbots. -1 con su motivo es un informe.
+    puntuacion: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: Un código de `modules/agentes/registro.MOTIVOS`. Sin restricción en la base: es un
+    #: vocabulario que puede crecer, como `fallback_reason` de las conversaciones.
+    motivo: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    comentario: Mapped[str | None] = mapped_column(Text, nullable=True)
+    valorada_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class HubAsistenteAdaptador(HubOperationalBase):

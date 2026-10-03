@@ -99,7 +99,7 @@ class TestPublicar:
         assert agente["version"]["estado"] == "registrada"
         assert agente["version"]["version"] == 1
         assert agente["unidad"] == "Servicio de Contratación"
-        assert agente["version"]["acciones_permitidas"] == ["versionar", "cargar_indice", "retirar"]
+        assert agente["version"]["acciones_permitidas"] == ["versionar", "cargar_indice", "cambiar_registro", "retirar"]
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -250,7 +250,7 @@ class TestRevisarYSuspender:
         )
         assert r.status_code == 200, r.text
         assert r.json()["version"]["estado"] == "suspendida"
-        assert r.json()["version"]["acciones_permitidas"] == ["versionar", "cargar_indice", "reactivar", "retirar"]
+        assert r.json()["version"]["acciones_permitidas"] == ["versionar", "cargar_indice", "cambiar_registro", "reactivar", "retirar"]
 
         quien.actual = _persona()
         assert (await c.get("/api/v1/agentes/catalogo")).json() == []

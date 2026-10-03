@@ -733,10 +733,19 @@ del navegador (#176).
   se analiza, y la abstención cubre también el adjunto que no llega. **La plataforma no ve el
   adjunto nunca**, así que tampoco puede registrarlo; lo gobierna el asistente general. Como la
   selección sólo ve la pregunta, la pantalla pide describir en ella el documento.
-- **Se registra lo que se ofreció, no lo que se preguntó**: el uso va al registro de actividad
-  (§5.9) con el hash del prompt entregado, y qué documentos se ofrecieron y con qué puntuación a
-  `hub_agente_consultas`. Ni la pregunta ni los documentos llegan a ningún registro. **Lo que no
-  se puede saber**: la plataforma registra lo que ofreció, no lo que el modelo respondió.
+- **El uso va al registro de actividad (§5.9) sin la pregunta**, con el hash del prompt
+  entregado; qué documentos se ofrecieron y con qué puntuación, a `hub_agente_consultas`.
+- **Las conversaciones se guardan como las de los chatbots** (#216; decisión del usuario,
+  2026-10-03: son conversaciones de trabajo sobre documentos de la organización, quien las tiene
+  sabe que se registran, y prevalece la calidad de las respuestas). Cada agente tiene un **modo**:
+  en `validacion`, el de partida, la consulta guarda la pregunta y la extensión manda la respuesta
+  que leyó en el asistente —o por qué no pudo leerla, que cuenta la cobertura—; en `incidencias`,
+  sólo se guarda lo que quien lo usa **informa** como inadecuado, con su pregunta y su respuesta.
+  El modo lo cambian quien publica y quien revisa, y el catálogo y la consulta lo anuncian para que
+  la pantalla avise. Sólo quien consultó manda la respuesta y la valoración de su consulta; un
+  informe lleva un motivo de los que sirve la plataforma. **Lo que no se puede saber**: la
+  respuesta es la que leyó la extensión; si la persona la regeneró o siguió conversando, eso no
+  llega. Y sin plazo de conservación, como las de los chatbots: el reglamento de archivo no lo fija.
 - **El índice es de fichas, no de documentos**: la plataforma guarda la URL y el resumen, **nunca
   el documento**, que autoriza el almacén. Un vector por ficha, hecho **sólo del título y el
   resumen**: cambiar la vigencia o un metadato no re-embebe.

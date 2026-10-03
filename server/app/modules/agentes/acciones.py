@@ -29,7 +29,7 @@ from server.app.core.identidad import user_to_uuid
 RESULTADOS_DE_REVISION: tuple[str, ...] = ("conforme", "correcciones")
 
 #: Orden estable de los botones: primero lo que hace avanzar el agente, después lo que lo frena.
-_ORDEN = ("versionar", "cargar_indice", "revisar", "suspender", "reactivar", "retirar")
+_ORDEN = ("versionar", "cargar_indice", "cambiar_registro", "revisar", "suspender", "reactivar", "retirar")
 
 
 class AgenteIncoherente(ValueError):
@@ -66,8 +66,9 @@ def acciones_permitidas(agente: Any, version: Any, *, principal: Any) -> list[st
 
     acciones: set[str] = set()
     if superadmin or autora or admin_de_la_casa:
-        # Cargar el índice es mantener el agente, como versionarlo: de quien lo publicó (#173).
-        acciones.update({"versionar", "cargar_indice", "retirar"})
+        # Cargar el índice es mantener el agente, como versionarlo: de quien lo publicó (#173). Y
+        # qué se guarda de sus conversaciones (#216), que también decide quien lo revisa.
+        acciones.update({"versionar", "cargar_indice", "cambiar_registro", "retirar"})
     if manda and not autora:
         if version.estado == "registrada":
             acciones.update({"revisar", "suspender"})
