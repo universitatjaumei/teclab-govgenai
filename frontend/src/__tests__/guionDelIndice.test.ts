@@ -138,7 +138,6 @@ function cargar(mundo: Mundo) {
     },
   }
   const nombres = Object.keys(globales)
-  // eslint-disable-next-line @typescript-eslint/no-implied-eval
   const fabrica = new Function(
     ...nombres,
     `${CODIGO}\nreturn { actualizarIndice, planificar, componerIndice, regenerarResumenes, VERSION_DEL_GUION };`,
