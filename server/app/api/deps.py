@@ -187,6 +187,31 @@ def require_scopes(*needed: str):
     return _check
 
 
+def require_sesion_humana():
+    """Dependency factory que **rechaza los PAT**: la operación es de una persona con sesión.
+
+    `require_scopes` deja pasar a un token que lleve el alcance pedido, y un endpoint que no pide
+    ninguno deja pasar a **cualquier** token. Para lo que un token no debe poder hacer —publicar,
+    retirar, emitir otros tokens—, esto (#174: el token del guion de un agente vive en las
+    propiedades del guion, que ve cualquiera que pueda editarlo).
+    """
+
+    async def _check(
+        request: Request, user: UserInfo = Depends(get_current_user)
+    ) -> UserInfo:
+        if getattr(request.state, "pat_scopes", None) is not None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "code": "PAT_NO_PERMITIDO",
+                    "message": "Esto lo hace una persona con su sesión, no un token.",
+                },
+            )
+        return user
+
+    return _check
+
+
 def require_pat_scopes(*needed: str):
     """Como `require_scopes`, pero **exige además que el principal sea un PAT** (REG.2).
 

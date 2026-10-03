@@ -28,12 +28,20 @@ import uuid
 from datetime import date, datetime, timedelta, timezone
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from server.app.api.deps import get_current_user, get_session, require_module, require_scopes
+from server.app.api.deps import (
+    get_current_user,
+    get_session,
+    require_module,
+    require_scopes,
+    require_sesion_humana,
+)
+from server.app.api.deps import modulos_concedidos
+from server.app.core.auth.pat.service import PatForbiddenError, PatInvalidError, PatService
 from server.app.core.auth.models import UserInfo
 from server.app.core.auth.tenancy import organizacion_para_operar
 from server.app.core.config import get_settings
@@ -415,7 +423,7 @@ async def publicar(
         uuid.UUID | None,
         Query(description="Obligatoria sólo si quien publica no pertenece a una sola organización."),
     ] = None,
-    user: UserInfo = Depends(get_current_user),
+    user: UserInfo = Depends(require_sesion_humana()),
     session: AsyncSession = Depends(get_session),
 ) -> AgenteView:
     """Publica un agente. **Registrar es publicar**: se ofrece a su colectivo desde ya.
@@ -442,7 +450,7 @@ async def publicar(
 
 @router.get("", response_model=GestionDeAgentes)
 async def listar(
-    user: UserInfo = Depends(get_current_user),
+    user: UserInfo = Depends(require_sesion_humana()),
     session: AsyncSession = Depends(get_session),
 ) -> GestionDeAgentes:
     """Los agentes de su organización, con lo que quien pregunta puede hacer con cada uno."""
@@ -458,7 +466,7 @@ async def listar(
 async def versionar(
     agente_id: uuid.UUID,
     body: DeclaracionDelAgente,
-    user: UserInfo = Depends(get_current_user),
+    user: UserInfo = Depends(require_sesion_humana()),
     session: AsyncSession = Depends(get_session),
 ) -> AgenteView:
     """Corregir es versionar: lo revisado sigue siendo lo que se revisó."""
@@ -474,7 +482,7 @@ async def versionar(
 async def revisar(
     agente_id: uuid.UUID,
     body: RevisionDelAgente,
-    user: UserInfo = Depends(get_current_user),
+    user: UserInfo = Depends(require_sesion_humana()),
     session: AsyncSession = Depends(get_session),
 ) -> AgenteView:
     agente, version = await _el_agente(session, agente_id, user)
@@ -489,7 +497,7 @@ async def revisar(
 async def suspender(
     agente_id: uuid.UUID,
     body: MotivoDeSuspension,
-    user: UserInfo = Depends(get_current_user),
+    user: UserInfo = Depends(require_sesion_humana()),
     session: AsyncSession = Depends(get_session),
 ) -> AgenteView:
     """Deja de ofrecerlo, con motivo. Es de quien revisa, nunca de quien lo publicó."""
@@ -509,7 +517,7 @@ async def suspender(
 @router.post("/{agente_id}/reactivar", response_model=AgenteView)
 async def reactivar(
     agente_id: uuid.UUID,
-    user: UserInfo = Depends(get_current_user),
+    user: UserInfo = Depends(require_sesion_humana()),
     session: AsyncSession = Depends(get_session),
 ) -> AgenteView:
     agente, version = await _el_agente(session, agente_id, user)
@@ -521,7 +529,7 @@ async def reactivar(
 @router.post("/{agente_id}/retirar", response_model=AgenteView)
 async def retirar(
     agente_id: uuid.UUID,
-    user: UserInfo = Depends(get_current_user),
+    user: UserInfo = Depends(require_sesion_humana()),
     session: AsyncSession = Depends(get_session),
 ) -> AgenteView:
     """Retirar es de quien lo publicó (y del admin de su organización). Es terminal."""
@@ -650,7 +658,7 @@ async def cargar_indice(
 async def subir_hoja(
     agente_id: uuid.UUID,
     file: UploadFile = File(...),
-    user: UserInfo = Depends(get_current_user),
+    user: UserInfo = Depends(require_sesion_humana()),
     session: AsyncSession = Depends(get_session),
     embedder=Depends(obtener_embedder),
 ) -> InformeDeCarga:
@@ -684,7 +692,7 @@ async def prompt_de_resumen(
 @router.get("/{agente_id}/indice", response_model=list[FichaView])
 async def ver_indice(
     agente_id: uuid.UUID,
-    user: UserInfo = Depends(get_current_user),
+    user: UserInfo = Depends(require_sesion_humana()),
     session: AsyncSession = Depends(get_session),
 ) -> list[FichaView]:
     agente, _ = await _el_agente(session, agente_id, user)
@@ -709,6 +717,101 @@ async def ver_indice(
         )
         for f in filas
     ]
+
+
+# =============================================================================
+#  El token del guion (#174)
+# =============================================================================
+
+
+class TokenDelGuionCreate(BaseModel):
+    nombre: str = Field(min_length=1, max_length=100)
+
+    model_config = {"extra": "forbid"}
+
+
+class TokenDelGuion(BaseModel):
+    """Un token del guion, **sin su texto**: éste se ve una sola vez, al emitirlo."""
+
+    id: uuid.UUID
+    nombre: str
+    prefijo: str
+    creado_en: datetime
+    ultimo_uso_en: datetime | None
+
+
+class TokenDelGuionEmitido(TokenDelGuion):
+    #: El texto del token. **Única vez que se devuelve**: va a las propiedades del guion.
+    token: str
+
+
+def _es_del_guion(pat) -> bool:
+    return list(pat.scopes) == [AGENTES_INDICE_WRITE] and pat.revoked_at is None
+
+
+@router.post("/tokens", response_model=TokenDelGuionEmitido, status_code=status.HTTP_201_CREATED)
+async def emitir_token_del_guion(
+    body: TokenDelGuionCreate,
+    user: UserInfo = Depends(require_sesion_humana()),
+    modulos: list[str] = Depends(modulos_concedidos),
+    session: AsyncSession = Depends(get_session),
+) -> TokenDelGuionEmitido:
+    """Un token con **un solo alcance**, `agentes:indice`, para el guion que mantiene el índice.
+
+    Lo emite quien publica, sin pasar por un administrador (decisión del usuario, 2026-10-03). El
+    token abre la puerta y nada más: qué agente puede cargar lo sigue decidiendo `cargar_indice`,
+    y no sirve para publicar, retirar ni emitir otros tokens.
+    """
+    try:
+        pat, token = await PatService(session).create(
+            owner=user, name=body.nombre, scopes=[AGENTES_INDICE_WRITE], modulos=modulos
+        )
+    except PatForbiddenError as fallo:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(fallo)) from fallo
+    return TokenDelGuionEmitido(
+        id=pat.id,
+        nombre=pat.name,
+        prefijo=pat.token_prefix,
+        creado_en=pat.created_at,
+        ultimo_uso_en=pat.last_used_at,
+        token=token,
+    )
+
+
+@router.get("/tokens", response_model=list[TokenDelGuion])
+async def tokens_del_guion(
+    user: UserInfo = Depends(require_sesion_humana()),
+    session: AsyncSession = Depends(get_session),
+) -> list[TokenDelGuion]:
+    """Los tokens del guion de quien pregunta, vigentes. Para saber cuáles hay y revocarlos."""
+    return [
+        TokenDelGuion(
+            id=p.id,
+            nombre=p.name,
+            prefijo=p.token_prefix,
+            creado_en=p.created_at,
+            ultimo_uso_en=p.last_used_at,
+        )
+        for p in await PatService(session).list_for(user)
+        if _es_del_guion(p)
+    ]
+
+
+@router.delete("/tokens/{token_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def revocar_token_del_guion(
+    token_id: uuid.UUID,
+    user: UserInfo = Depends(require_sesion_humana()),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    """Revoca un token del guion propio. El de otra persona no existe para quien pregunta."""
+    servicio = PatService(session)
+    if not any(p.id == token_id and _es_del_guion(p) for p in await servicio.list_for(user)):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Token no encontrado")
+    try:
+        await servicio.revoke(user, token_id)
+    except PatInvalidError as fallo:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Token no encontrado") from fallo
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # =============================================================================

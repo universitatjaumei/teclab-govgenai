@@ -94,6 +94,23 @@ def validate_scopes(scopes: list[str]) -> None:
         raise UnknownScopeError(f"Unknown scopes: {', '.join(sorted(unknown))}")
 
 
+#: #174 — lo que concede un módulo, además del rol. Quien tiene `agentes` mantiene el índice de sus
+#: agentes con un guion, y ese guion necesita un token; sin esto, cada unidad dependería de un
+#: administrador para automatizar su agente (decisión del usuario, 2026-10-03). **Sólo ese
+#: alcance**: el módulo no abre ningún otro.
+_MODULE_SCOPES: dict[str, frozenset[str]] = {
+    "agentes": frozenset({AGENTES_INDICE_WRITE}),
+}
+
+
+def allowed_scopes_for(role: str, modulos: list[str] | tuple[str, ...] = ()) -> frozenset[str]:
+    """Lo que un principal puede emitir: el techo de su rol más lo que le dan sus módulos."""
+    permitidos = set(_ROLE_SCOPES.get(role, frozenset()))
+    for modulo in modulos:
+        permitidos |= _MODULE_SCOPES.get(modulo, frozenset())
+    return frozenset(permitidos)
+
+
 def allowed_scopes_for_role(role: str) -> frozenset[str]:
     """Scopes que un rol puede emitir en un PAT (vacío si el rol no puede emitir)."""
     return _ROLE_SCOPES.get(role, frozenset())
