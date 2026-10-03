@@ -1,0 +1,71 @@
+{
+  "nombre": {
+    "message": "Unit agents"
+  },
+  "descripcion": {
+    "message": "The agents your organisation publishes, ready to paste into the assistant."
+  },
+  "titulo": {
+    "message": "Unit agents"
+  },
+  "direccion": {
+    "message": "Panel address"
+  },
+  "sinDireccion": {
+    "message": "Enter the platform panel address. If your organisation installs the extension, it is already set."
+  },
+  "guardar": {
+    "message": "Save"
+  },
+  "sinConectar": {
+    "message": "Connect the extension to your platform account to see the agents offered to you."
+  },
+  "conectar": {
+    "message": "Connect"
+  },
+  "desconectar": {
+    "message": "Disconnect"
+  },
+  "sinPermiso": {
+    "message": "Without permission to talk to the platform, the extension cannot work."
+  },
+  "sinToken": {
+    "message": "The platform did not hand over access. Try again."
+  },
+  "reconectar": {
+    "message": "The connection has expired or been revoked. Connect again."
+  },
+  "fallo": {
+    "message": "It could not be completed."
+  },
+  "ninguno": {
+    "message": "Your organisation does not offer you any agent yet."
+  },
+  "agente": {
+    "message": "Agent"
+  },
+  "conAdjunto": {
+    "message": "Asks for a document"
+  },
+  "revisionVencida": {
+    "message": "Review overdue"
+  },
+  "indiceSinActualizar": {
+    "message": "Index out of date"
+  },
+  "pregunta": {
+    "message": "Your question"
+  },
+  "describeElAdjunto": {
+    "message": "This agent works on a document of yours: attach it in the assistant, not here."
+  },
+  "preparar": {
+    "message": "Prepare and copy"
+  },
+  "copiado": {
+    "message": "Copied. Paste it into the assistant."
+  },
+  "copiadoConAdjunto": {
+    "message": "Copied. Paste it into the assistant and attach your document there."
+  }
+}

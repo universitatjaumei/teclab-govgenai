@@ -194,9 +194,42 @@ echo un valenciano que publicarias. El tono es juicio tuyo.
 echo.
 pause
 echo.
+echo ----------------------------------------------------------
+echo  PASO 7 - La extension del navegador (issue #176)
+echo ----------------------------------------------------------
+echo.
+echo   1. En Chrome, abre chrome://extensions, activa "Modo de
+echo      desarrollador" y pulsa "Cargar descomprimida". Elige la
+echo      carpeta extension\ del repositorio.
+echo   2. Copia el ID que Chrome le pone. En server\.env anade
+echo      AGENTES_EXTENSION_IDS=ese-id y reinicia el backend.
+echo   3. Pulsa el icono de la extension: se abre un panel lateral.
+echo      Escribe la direccion del panel (http://localhost:5173) y
+echo      pulsa Guardar y luego Conectar. Chrome te pedira permiso para
+echo      hablar con localhost: aceptalo.
+echo   4. En la ventana que se abre, entra si hace falta y pulsa
+echo      "Conectar".
+echo   5. En el panel lateral, elige un agente, escribe una pregunta y
+echo      pulsa "Preparar y copiar". Pegalo en el asistente.
+echo   6. En el panel web, Agentes - Consultar: abajo, "Extension del
+echo      navegador". Pulsa Desconectar y vuelve a usar la extension.
+echo.
+echo QUE DEBES VER:
+echo   - Si no tenias sesion, tras entrar vuelves a la pagina de
+echo     conexion, no a tu primer modulo.
+echo   - El panel lateral lista los mismos agentes que "Consultar".
+echo   - Lo copiado es el mismo prompt que prepara "Consultar".
+echo   - En "Consultar" aparece la conexion, con su caducidad.
+echo   - Tras desconectarla alli, la extension pide conectar de nuevo.
+echo   - Con el login de Google tambien vuelves a la pagina de conexion.
+echo.
+echo JUZGA: si tener los agentes al lado del asistente hace que los
+echo uses mas que copiando desde el panel. Es lo que mide la issue.
+echo.
+pause
+echo.
 echo ==========================================================
-echo   FIN. Anota lo que no cuadre en la issue #176, que es la
-echo   siguiente del hito y la que mide el uso real.
+echo   FIN. Anota lo que no cuadre en las issues del hito 5.
 echo ==========================================================
 echo.
 pause

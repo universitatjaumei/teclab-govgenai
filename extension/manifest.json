@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "__MSG_nombre__",
+  "description": "__MSG_descripcion__",
+  "version": "0.1.0",
+  "default_locale": "es",
+  "action": {
+    "default_title": "__MSG_nombre__"
+  },
+  "side_panel": {
+    "default_path": "panel.html"
+  },
+  "background": {
+    "service_worker": "fondo.js"
+  },
+  "permissions": ["sidePanel", "storage", "identity", "clipboardWrite"],
+  "optional_host_permissions": ["https://*/*", "http://localhost/*"],
+  "storage": {
+    "managed_schema": "esquema.json"
+  }
+}

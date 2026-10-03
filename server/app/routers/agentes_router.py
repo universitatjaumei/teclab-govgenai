@@ -35,7 +35,6 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.app.api.deps import (
-    get_current_user,
     get_session,
     require_module,
     require_scopes,
@@ -986,7 +985,7 @@ async def revocar_token_del_guion(
 
 @router_catalogo.get("/catalogo", response_model=list[AgenteDelCatalogo])
 async def catalogo(
-    user: UserInfo = Depends(get_current_user),
+    user: UserInfo = Depends(require_scopes(AGENTES_CONSULTA)),
     session: AsyncSession = Depends(get_session),
 ) -> list[AgenteDelCatalogo]:
     """Los agentes que se le ofrecen a quien pregunta: los de su organización y su colectivo.
@@ -1140,3 +1139,127 @@ async def consultar(
     )
     await session.commit()
     return respuesta
+
+
+# =============================================================================
+#  La extensión del navegador (#176)
+# =============================================================================
+
+#: Los identificadores de extensión a los que se entrega un token, separados por comas. El de una
+#: extensión cargada sin empaquetar cambia con la carpeta; el de la publicada es fijo. Vacío, no se
+#: conecta ninguna.
+VARIABLE_DE_LAS_EXTENSIONES = "AGENTES_EXTENSION_IDS"
+#: Lo que dura una conexión. Vive en el navegador, y una olvidada no debe durar para siempre;
+#: al caducar, la extensión pide conectar otra vez.
+DURACION_DE_LA_CONEXION = timedelta(days=30)
+NOMBRE_DE_LA_CONEXION = "Extensión del navegador"
+
+
+def _destinos_de_la_extension() -> set[str]:
+    ids = (i.strip() for i in os.getenv(VARIABLE_DE_LAS_EXTENSIONES, "").split(","))
+    return {f"https://{i}.chromiumapp.org/" for i in ids if i}
+
+
+def _es_de_la_extension(pat) -> bool:
+    return list(pat.scopes) == [AGENTES_CONSULTA] and pat.revoked_at is None
+
+
+def _vigente(pat) -> bool:
+    if pat.expires_at is None:
+        return True
+    caduca = pat.expires_at if pat.expires_at.tzinfo else pat.expires_at.replace(tzinfo=timezone.utc)
+    return caduca > datetime.now(timezone.utc)
+
+
+class PeticionDeConexion(BaseModel):
+    #: La dirección de vuelta de la extensión: `chrome.identity.getRedirectURL()`.
+    destino: str = Field(max_length=200)
+
+    model_config = {"extra": "forbid"}
+
+
+class ConexionDeLaExtension(BaseModel):
+    """Una conexión, **sin el texto del token**: ése sólo lo recibe la extensión."""
+
+    id: uuid.UUID
+    prefijo: str
+    creado_en: datetime
+    ultimo_uso_en: datetime | None
+    caduca_en: datetime | None
+
+
+class ConexionEmitida(BaseModel):
+    id: uuid.UUID
+    token: str
+
+
+@router_catalogo.post(
+    "/extension/conectar", response_model=ConexionEmitida, status_code=status.HTTP_201_CREATED
+)
+async def conectar_la_extension(
+    body: PeticionDeConexion,
+    user: UserInfo = Depends(require_sesion_humana()),
+    modulos: list[str] = Depends(modulos_concedidos),
+    session: AsyncSession = Depends(get_session),
+) -> ConexionEmitida:
+    """Un token que **sólo sirve para consultar**, para la extensión de quien lo pide.
+
+    **Sólo a un destino declarado**: la página del panel redirige al destino con el token, y si
+    aceptara cualquiera, una página ajena podría pedir uno haciéndose pasar por la extensión y
+    llevárselo. Lo pide una persona con su sesión: un token no emite otro.
+    """
+    if body.destino not in _destinos_de_la_extension():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "EXTENSION_NO_RECONOCIDA",
+                "message": "Esta extensión no está reconocida por la plataforma.",
+            },
+        )
+    try:
+        pat, token = await PatService(session).create(
+            owner=user,
+            name=NOMBRE_DE_LA_CONEXION,
+            scopes=[AGENTES_CONSULTA],
+            expires_at=datetime.now(timezone.utc) + DURACION_DE_LA_CONEXION,
+            modulos=modulos,
+        )
+    except PatForbiddenError as fallo:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(fallo)) from fallo
+    return ConexionEmitida(id=pat.id, token=token)
+
+
+@router_catalogo.get("/extension/conexiones", response_model=list[ConexionDeLaExtension])
+async def conexiones_de_la_extension(
+    user: UserInfo = Depends(require_sesion_humana()),
+    session: AsyncSession = Depends(get_session),
+) -> list[ConexionDeLaExtension]:
+    """Las conexiones vigentes de quien pregunta, para saber dónde está conectada y revocarlas."""
+    return [
+        ConexionDeLaExtension(
+            id=p.id,
+            prefijo=p.token_prefix,
+            creado_en=p.created_at,
+            ultimo_uso_en=p.last_used_at,
+            caduca_en=p.expires_at,
+        )
+        for p in await PatService(session).list_for(user)
+        if _es_de_la_extension(p) and _vigente(p)
+    ]
+
+
+@router_catalogo.delete("/extension/conexiones/{conexion_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def revocar_conexion_de_la_extension(
+    conexion_id: uuid.UUID,
+    user: UserInfo = Depends(require_sesion_humana()),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    """Revoca una conexión propia. La de otra persona no existe para quien pregunta."""
+    servicio = PatService(session)
+    if not any(p.id == conexion_id and _es_de_la_extension(p) for p in await servicio.list_for(user)):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conexión no encontrada")
+    try:
+        await servicio.revoke(user, conexion_id)
+    except PatInvalidError as fallo:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conexión no encontrada") from fallo
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -1,0 +1,71 @@
+{
+  "nombre": {
+    "message": "Agentes de unidad"
+  },
+  "descripcion": {
+    "message": "Los agentes que tu organización publica, listos para pegar en el asistente."
+  },
+  "titulo": {
+    "message": "Agentes de unidad"
+  },
+  "direccion": {
+    "message": "Dirección del panel"
+  },
+  "sinDireccion": {
+    "message": "Escribe la dirección del panel de la plataforma. Si tu organización instala la extensión, ya viene puesta."
+  },
+  "guardar": {
+    "message": "Guardar"
+  },
+  "sinConectar": {
+    "message": "Conecta la extensión con tu cuenta de la plataforma para ver los agentes que se te ofrecen."
+  },
+  "conectar": {
+    "message": "Conectar"
+  },
+  "desconectar": {
+    "message": "Desconectar"
+  },
+  "sinPermiso": {
+    "message": "Sin permiso para hablar con la plataforma, la extensión no puede funcionar."
+  },
+  "sinToken": {
+    "message": "La plataforma no ha entregado el acceso. Vuelve a intentarlo."
+  },
+  "reconectar": {
+    "message": "La conexión ha caducado o se ha revocado. Vuelve a conectar."
+  },
+  "fallo": {
+    "message": "No se ha podido completar."
+  },
+  "ninguno": {
+    "message": "Tu organización no te ofrece ningún agente todavía."
+  },
+  "agente": {
+    "message": "Agente"
+  },
+  "conAdjunto": {
+    "message": "Pide un documento"
+  },
+  "revisionVencida": {
+    "message": "Revisión vencida"
+  },
+  "indiceSinActualizar": {
+    "message": "Índice sin actualizar"
+  },
+  "pregunta": {
+    "message": "Tu pregunta"
+  },
+  "describeElAdjunto": {
+    "message": "Este agente trabaja sobre un documento tuyo: lo adjuntarás en el asistente, no aquí."
+  },
+  "preparar": {
+    "message": "Preparar y copiar"
+  },
+  "copiado": {
+    "message": "Copiado. Pégalo en el asistente."
+  },
+  "copiadoConAdjunto": {
+    "message": "Copiado. Pégalo en el asistente y adjunta allí tu documento."
+  }
+}

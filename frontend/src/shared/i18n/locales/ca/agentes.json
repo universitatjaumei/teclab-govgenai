@@ -153,5 +153,20 @@
     "pedir": "Proposar un prompt",
     "aviso": "Proposta de {{modelo}}. Revisa-la i edita-la abans de publicar: la versió dirà que es va redactar amb ajuda d'IA.",
     "redactado_con_ia": "Prompt redactat amb ajuda d'IA"
+  },
+  "extension": {
+    "titulo": "Extensió del navegador",
+    "intro": "Amb l'extensió, els agents són en un panell al costat de l'assistent: en tries un, escrius la pregunta i es copia el prompt vigent. Ací veus on està connectada i la desconnectes de veritat; desconnectar des de l'extensió només l'oblida en aquell navegador.",
+    "ninguna": "L'extensió no està connectada en cap navegador.",
+    "conectada": "Connectada el {{fecha}}",
+    "usada": "últim ús: {{fecha}}",
+    "sin_usar": "sense usar",
+    "caduca": "caduca el {{fecha}}",
+    "revocar": "Desconnectar",
+    "fallo": "No s'ha pogut completar.",
+    "conectar_titulo": "Connectar l'extensió del navegador",
+    "conectar_texto": "L'extensió podrà veure els agents que se t'ofereixen i preparar els seus prompts amb el teu compte. No podrà publicar, canviar ni veure res més. La connexió caduca en 30 dies i la pots revocar des de «Consultar».",
+    "no_es_control": "L'extensió és una comoditat: l'assistent es pot usar igual sense ella.",
+    "conectar": "Connectar"
   }
 }

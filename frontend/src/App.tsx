@@ -64,6 +64,7 @@ const AnonimizarFicheroPage = lazy(() => import('@/utilidades/pages/AnonimizarFi
 const AgentesPage = lazy(() => import('@/agentes/AgentesPage').then(m => ({ default: m.AgentesPage })))
 const ConsultarAgentesPage = lazy(() => import('@/agentes/ConsultarAgentesPage').then(m => ({ default: m.ConsultarAgentesPage })))
 const AgentesLayout = lazy(() => import('@/agentes/AgentesLayout').then(m => ({ default: m.AgentesLayout })))
+const ConectarExtensionPage = lazy(() => import('@/agentes/ConectarExtensionPage').then(m => ({ default: m.ConectarExtensionPage })))
 const EntradaDeAgentes = lazy(() => import('@/agentes/EntradaDeAgentes').then(m => ({ default: m.EntradaDeAgentes })))
 
 const queryClient = new QueryClient({
@@ -118,6 +119,8 @@ function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/auth/callback" element={<AuthCallbackPage />} />
               <Route element={<PrivateRoute />}>
+                {/* #176 — la abre la extensión del navegador en su propia ventana: sin menú. */}
+                <Route path="/extension/conectar" element={<RutaDeModulo modulo="consulta_agentes"><ConectarExtensionPage /></RutaDeModulo>} />
                 <Route element={<AppLayout />}>
                   {/* INF.7 — el aterrizaje ya no es `/hub` fijo: cae en el primer modulo
                       concedido. Un trabajador que solo hace informes entra en informes. */}

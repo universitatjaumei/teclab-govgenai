@@ -98,8 +98,12 @@ def validate_scopes(scopes: list[str]) -> None:
 #: agentes con un guion, y ese guion necesita un token; sin esto, cada unidad dependería de un
 #: administrador para automatizar su agente (decisión del usuario, 2026-10-03). **Sólo ese
 #: alcance**: el módulo no abre ningún otro.
+#:
+#: #176 — `consulta_agentes`, que es de oficio, abre `agentes:consulta`: es el token que la
+#: extensión del navegador recibe al conectarse con la cuenta de cualquiera.
 _MODULE_SCOPES: dict[str, frozenset[str]] = {
     "agentes": frozenset({AGENTES_INDICE_WRITE}),
+    "consulta_agentes": frozenset({AGENTES_CONSULTA}),
 }
 
 

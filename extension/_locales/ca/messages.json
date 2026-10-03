@@ -1,0 +1,71 @@
+{
+  "nombre": {
+    "message": "Agents d'unitat"
+  },
+  "descripcion": {
+    "message": "Els agents que la teua organització publica, a punt per a enganxar en l'assistent."
+  },
+  "titulo": {
+    "message": "Agents d'unitat"
+  },
+  "direccion": {
+    "message": "Adreça del panell"
+  },
+  "sinDireccion": {
+    "message": "Escriu l'adreça del panell de la plataforma. Si la teua organització instal·la l'extensió, ja ve posada."
+  },
+  "guardar": {
+    "message": "Desar"
+  },
+  "sinConectar": {
+    "message": "Connecta l'extensió amb el teu compte de la plataforma per a veure els agents que se t'ofereixen."
+  },
+  "conectar": {
+    "message": "Connectar"
+  },
+  "desconectar": {
+    "message": "Desconnectar"
+  },
+  "sinPermiso": {
+    "message": "Sense permís per a parlar amb la plataforma, l'extensió no pot funcionar."
+  },
+  "sinToken": {
+    "message": "La plataforma no ha lliurat l'accés. Torna-ho a intentar."
+  },
+  "reconectar": {
+    "message": "La connexió ha caducat o s'ha revocat. Torna a connectar."
+  },
+  "fallo": {
+    "message": "No s'ha pogut completar."
+  },
+  "ninguno": {
+    "message": "La teua organització no t'ofereix cap agent encara."
+  },
+  "agente": {
+    "message": "Agent"
+  },
+  "conAdjunto": {
+    "message": "Demana un document"
+  },
+  "revisionVencida": {
+    "message": "Revisió vençuda"
+  },
+  "indiceSinActualizar": {
+    "message": "Índex sense actualitzar"
+  },
+  "pregunta": {
+    "message": "La teua pregunta"
+  },
+  "describeElAdjunto": {
+    "message": "Aquest agent treballa sobre un document teu: l'adjuntaràs en l'assistent, no ací."
+  },
+  "preparar": {
+    "message": "Preparar i copiar"
+  },
+  "copiado": {
+    "message": "Copiat. Enganxa'l en l'assistent."
+  },
+  "copiadoConAdjunto": {
+    "message": "Copiat. Enganxa'l en l'assistent i adjunta-hi el teu document."
+  }
+}

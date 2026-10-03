@@ -153,5 +153,20 @@
     "pedir": "Propose a prompt",
     "aviso": "Proposal by {{modelo}}. Review and edit it before publishing: the version will say it was drafted with AI help.",
     "redactado_con_ia": "Prompt drafted with AI help"
+  },
+  "extension": {
+    "titulo": "Browser extension",
+    "intro": "With the extension, the agents sit in a panel next to the assistant: pick one, type the question and the current prompt is copied. Here you see where it is connected and disconnect it for real; disconnecting from the extension only forgets it in that browser.",
+    "ninguna": "The extension is not connected in any browser.",
+    "conectada": "Connected on {{fecha}}",
+    "usada": "last used: {{fecha}}",
+    "sin_usar": "unused",
+    "caduca": "expires on {{fecha}}",
+    "revocar": "Disconnect",
+    "fallo": "It could not be completed.",
+    "conectar_titulo": "Connect the browser extension",
+    "conectar_texto": "The extension will be able to see the agents offered to you and prepare their prompts with your account. It cannot publish, change or see anything else. The connection expires in 30 days and you can revoke it from “Consult”.",
+    "no_es_control": "The extension is a convenience: the assistant can be used without it just the same.",
+    "conectar": "Connect"
   }
 }

@@ -7,7 +7,7 @@ export function PrivateRoute() {
   const location = useLocation()
 
   if (!isAuthenticated) {
-    return <Navigate to={`/login?from=${encodeURIComponent(location.pathname)}`} replace />
+    return <Navigate to={`/login?from=${encodeURIComponent(location.pathname + location.search)}`} replace />
   }
 
   // Issue #94 — con la contraseña que puso otra persona no se entra a ningún sitio. El servidor

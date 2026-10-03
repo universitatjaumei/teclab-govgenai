@@ -6,6 +6,7 @@ import {
 } from '@/shared/api/generated/agentes/agentes'
 import type { ConsultaLengua, RespuestaDeConsulta } from '@/shared/api/generated/model'
 import { mensajeDelFallo } from '@/utilidades/mensajeDelFallo'
+import { ConexionesDeLaExtension } from './ConexionesDeLaExtension'
 
 /**
  * Consultar un agente de unidad y copiar el prompt (#175; decisión del usuario, 2026-10-02).
@@ -221,6 +222,8 @@ export function ConsultarAgentesPage() {
           )}
         </section>
       )}
+
+      <ConexionesDeLaExtension />
     </div>
   )
 }

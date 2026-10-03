@@ -696,7 +696,8 @@ que puede usarlo. **Ninguna de las tres cosas es código**, y el modelo lo pone 
 general de la organización. La plataforma cataloga, acota y gobierna (#172) y guarda el
 **índice**: una ficha por documento —URL, título, resumen, vigencia— sobre la que se seleccionan
 los documentos de cada **consulta**, que devuelve el prompt del agente con los enlaces (#173,
-#175). El guion de curación y la extensión son #174 y #176 (§6).
+#175). El índice lo mantiene un guion (#174) y los agentes se usan también desde una extensión
+del navegador (#176).
 
 **Lo que garantiza.**
 
@@ -726,8 +727,7 @@ los documentos de cada **consulta**, que devuelve el prompt del agente con los e
 - **Cualquiera consulta desde el panel**: entrada «Agentes», pestaña «Consultar» (módulo
   `consulta_agentes`, de oficio); publicar y gestionar es la otra pestaña, con el módulo
   `agentes`. Ve el catálogo de su colectivo, prepara el prompt y lo copia para pegarlo en el
-  asistente general. Es el circuito de validación antes de la extensión (#176). Retirar el módulo
-  del catálogo apaga la consulta para todos.
+  asistente general. Retirar el módulo del catálogo apaga la consulta para todos.
 - **Un agente de revisión espera un adjunto** si lo declara la unidad: quien consulta adjunta su
   documento al pegar el prompt en el asistente, los enlaces pasan a ser **el criterio** con el que
   se analiza, y la abstención cubre también el adjunto que no llega. **La plataforma no ve el
@@ -761,6 +761,15 @@ los documentos de cada **consulta**, que devuelve el prompt del agente con los e
 - **El token del guion lo emite quien publica** y sólo vale para cargar el índice: un módulo
   puede abrir un alcance que su rol no tiene (`agentes` → `agentes:indice`), y la gestión de los
   agentes —publicar, retirar, emitir tokens— exige la sesión de una persona, no un token.
+- **La extensión del navegador es la misma consulta, al lado del asistente** (#176): un panel
+  lateral con el catálogo, que pide el prompt a la API —lo que queda registrado— y lo copia.
+  **No toca la página del asistente** ni pide permiso sobre ninguna otra. Se conecta con la cuenta
+  de la persona: la página `/extension/conectar` del panel, con su sesión y un botón explícito,
+  emite un token **sólo `agentes:consulta`** que **caduca a los 30 días**, y sólo lo entrega a una
+  extensión declarada en `AGENTES_EXTENSION_IDS`; vacía, no se conecta ninguna. Las conexiones se
+  ven y se revocan en «Consultar». El catálogo exige ese alcance a un token. **No es un control de
+  acceso**: el asistente se usa igual sin ella, y quien guarda un prompt copiado lo reutiliza sin
+  pasar por la plataforma. Lo que da es que el camino cómodo sea el registrado.
 - **La selección nunca pasa del presupuesto** que declara el agente —de 1 a 10 documentos, 5 por
   defecto— y **lo no vigente no ocupa plaza**: el filtro va en el `WHERE`. Un índice embebido con
   otro modelo no se compara: se dice que hay que volver a cargarlo.
@@ -768,7 +777,8 @@ los documentos de cada **consulta**, que devuelve el prompt del agente con los e
 **Dónde vive.** `modules/agentes/acciones.py` (quién puede qué y quién lo ve) y
 `routers/agentes_router.py`: `/api/v1/agentes` para la gestión y `/api/v1/agentes/catalogo` para
 quien usa; `modules/agentes/indice.py` (cargar y seleccionar) y `/api/v1/agentes/{id}/indice`.
-`modules/agentes/consulta.py` compone el prompt en es, ca o en. Tablas operacionales
+`modules/agentes/consulta.py` compone el prompt en es, ca o en. La extensión vive en
+`extension/`, fuera del panel, y se carga tal cual en Chrome. Tablas operacionales
 `hub_agentes_unidad`, `hub_agente_unidad_versiones`, `hub_agente_fichas` y `hub_agente_consultas`.
 
 **Madurez**: `construido`, sin desplegar.
@@ -796,8 +806,7 @@ sandbox, el `RunManifest`, el registro de actividad y las verificaciones por API
   el ecosistema de módulos ampliado. Abrir la red debilita el argumento de §5.12 («una función no
   puede hablar con nada»), así que es una **clase distinta**, visible y con revisión en plazo.
 - **Agentes de unidad sobre el asistente general**: el catálogo, el índice, la consulta y el guion
-  que mantiene el índice están construidos (§5.14). Falta la extensión de navegador que cierra el
-  registro (#176). **Abierto**: registrar el guion en el catálogo de funciones como función de
+  que mantiene el índice y la extensión del navegador están construidos (§5.14). **Abierto**: registrar el guion en el catálogo de funciones como función de
   origen externo, que es donde lo situaba la #174; hoy lo sirve la plataforma con su huella.
 
 **Madurez**: `previsto`, sobre una base `construido`: lo que ejecuta ya existe.

@@ -153,5 +153,20 @@
     "pedir": "Proponer un prompt",
     "aviso": "Propuesta de {{modelo}}. Revísala y edítala antes de publicar: la versión dirá que se redactó con ayuda de IA.",
     "redactado_con_ia": "Prompt redactado con ayuda de IA"
+  },
+  "extension": {
+    "titulo": "Extensión del navegador",
+    "intro": "Con la extensión, los agentes están en un panel al lado del asistente: eliges uno, escribes la pregunta y se copia el prompt vigente. Aquí ves dónde está conectada y la desconectas de verdad; desconectar desde la extensión sólo la olvida en ese navegador.",
+    "ninguna": "La extensión no está conectada en ningún navegador.",
+    "conectada": "Conectada el {{fecha}}",
+    "usada": "último uso: {{fecha}}",
+    "sin_usar": "sin usar",
+    "caduca": "caduca el {{fecha}}",
+    "revocar": "Desconectar",
+    "fallo": "No se ha podido completar.",
+    "conectar_titulo": "Conectar la extensión del navegador",
+    "conectar_texto": "La extensión podrá ver los agentes que se te ofrecen y preparar sus prompts con tu cuenta. No podrá publicar, cambiar ni ver nada más. La conexión caduca en 30 días y la puedes revocar desde «Consultar».",
+    "no_es_control": "La extensión es una comodidad: el asistente se puede usar igual sin ella.",
+    "conectar": "Conectar"
   }
 }

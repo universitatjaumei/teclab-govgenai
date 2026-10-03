@@ -19,6 +19,9 @@ import { ConsultarAgentesPage } from '../ConsultarAgentesPage'
 vi.mock('@/shared/api/generated/agentes/agentes', () => ({
   useCatalogoApiV1AgentesCatalogoGet: vi.fn(),
   useConsultarApiV1AgentesAgenteIdConsultaPost: vi.fn(),
+  // #176 — la sección de la extensión, que aquí no es lo que se prueba.
+  useConexionesDeLaExtensionApiV1AgentesExtensionConexionesGet: () => ({ data: [] }),
+  useRevocarConexionDeLaExtensionApiV1AgentesExtensionConexionesConexionIdDelete: () => ({ mutate: vi.fn() }),
 }))
 
 const CATALOGO = [

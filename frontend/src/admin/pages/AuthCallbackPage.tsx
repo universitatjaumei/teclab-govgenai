@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/shared/auth'
+import { tomarVuelta } from '@/shared/auth/vuelta'
 
 /**
  * Destino del ACS de SAML (SAML_FRONTEND_RETURN_URL). El backend redirige aquí con
@@ -28,7 +29,9 @@ export function AuthCallbackPage() {
   useEffect(() => {
     if (!token) return
     login(token)
-    navigate('/hub', { replace: true })
+    // A donde se iba antes de salir al proveedor; si no se iba a ningún sitio, a la raíz, que
+    // decide `Aterrizaje`.
+    navigate(tomarVuelta(), { replace: true })
   }, [token, login, navigate])
 
   return (
