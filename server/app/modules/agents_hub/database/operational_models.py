@@ -1148,6 +1148,10 @@ class HubAgenteUnidadVersion(HubOperationalBase):
             "colectivo IN ('organizacion', 'grupos')",
             name="ck_agente_unidad_version_colectivo",
         ),
+        CheckConstraint(
+            "autoria_prompt IN ('persona', 'ia')",
+            name="ck_agente_unidad_version_autoria_prompt",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -1184,6 +1188,12 @@ class HubAgenteUnidadVersion(HubOperationalBase):
     #: el adjunto nunca. Lo declara la unidad, que sabe para qué es su agente.
     espera_adjunto: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()
+    )
+    #: #213 — si el prompt se redactó con ayuda de IA (el asistente de propuestas), como
+    #: `autoria` en el catálogo de funciones. **Lo declara quien publica**: la plataforma propone,
+    #: pero no puede saber cuánto se editó después.
+    autoria_prompt: Mapped[str] = mapped_column(
+        String(10), nullable=False, default="persona", server_default="persona"
     )
     declarada_por: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     declarada_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

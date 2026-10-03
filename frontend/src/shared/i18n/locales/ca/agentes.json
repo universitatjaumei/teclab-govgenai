@@ -145,5 +145,13 @@
     "sin_usar": "encara sense usar",
     "revocar": "Revocar",
     "a_mano": "Pujar el full a mà (alternativa)"
+  },
+  "propuesta": {
+    "abrir": "Redactar amb ajuda d'IA",
+    "descripcion": "Descriu per a què vols l'agent",
+    "pista": "Amb les teues paraules: què ha de fer, per a qui i què no. Es tenen en compte el nom, la unitat, la finalitat i si espera un adjunt. La proposta substitueix el que hi haja al camp del prompt.",
+    "pedir": "Proposar un prompt",
+    "aviso": "Proposta de {{modelo}}. Revisa-la i edita-la abans de publicar: la versió dirà que es va redactar amb ajuda d'IA.",
+    "redactado_con_ia": "Prompt redactat amb ajuda d'IA"
   }
 }

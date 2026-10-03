@@ -49,7 +49,11 @@ from server.app.core.config import get_settings
 from server.app.core.auth.pat.scopes import AGENTES_CONSULTA, AGENTES_INDICE_WRITE
 from server.app.core.identidad import user_to_uuid
 from server.app.core.uploads import read_within_limit, sanitizar_nombre
-from server.app.modules.agentes import acciones, consulta, indice
+from server.app.core.llm_text import texto_de
+from server.app.modules.agentes import acciones, consulta, indice, propuesta
+from server.app.modules.agents_hub.services.config_provider import LocalConfigProvider
+from server.app.modules.agents_hub.services.model_factory import get_model_for_tier
+from server.app.routers.redaccion._actor import nombre_del_modelo
 from server.app.modules.agentes.guion_del_indice import guion_del_indice
 from server.app.modules.agents_hub.contracts.actividad import ActividadIAEvent
 from server.app.modules.agents_hub.database.operational_models import (
@@ -95,6 +99,8 @@ class DeclaracionDelAgente(BaseModel):
     presupuesto_documentos: int = Field(default=5, ge=1, le=10)
     #: #175 — quien consulta adjuntará un documento en el asistente general.
     espera_adjunto: bool = False
+    #: #213 — `ia` si el prompt se redactó con el asistente de propuestas. Lo declara quien publica.
+    autoria_prompt: Literal["persona", "ia"] = "persona"
 
     model_config = {"extra": "forbid"}
 
@@ -169,6 +175,7 @@ class VersionDelAgente(BaseModel):
     revision_vencida: bool
     presupuesto_documentos: int
     espera_adjunto: bool
+    autoria_prompt: str
     declarada_en: datetime
     revisada_en: datetime | None
     revision_resultado: str | None
@@ -292,6 +299,7 @@ def _vista(
             revision_vencida=acciones.revision_vencida(version),
             presupuesto_documentos=version.presupuesto_documentos,
             espera_adjunto=version.espera_adjunto,
+            autoria_prompt=version.autoria_prompt,
             declarada_en=version.declarada_en,
             revisada_en=version.revisada_en,
             revision_resultado=version.revision_resultado,
@@ -319,6 +327,7 @@ def _nueva_version(
         revision_prevista_en=declaracion.revision_prevista_en,
         presupuesto_documentos=declaracion.presupuesto_documentos,
         espera_adjunto=declaracion.espera_adjunto,
+        autoria_prompt=declaracion.autoria_prompt,
         declarada_por=user_to_uuid(user.user_id),
         declarada_en=datetime.now(timezone.utc),
     )
@@ -719,6 +728,133 @@ async def ver_indice(
         )
         for f in filas
     ]
+
+
+# =============================================================================
+#  La propuesta del prompt (#213)
+# =============================================================================
+
+
+class PeticionDePropuesta(BaseModel):
+    """Lo que la unidad describe, y lo que ya ha declarado en el formulario."""
+
+    descripcion: str = Field(min_length=10, max_length=4000)
+    nombre: str | None = Field(default=None, max_length=200)
+    unidad: str | None = Field(default=None, max_length=200)
+    finalidad: str | None = Field(default=None, max_length=2000)
+    colectivo: Literal["organizacion", "grupos"] | None = None
+    grupos: list[str] = Field(default_factory=list)
+    espera_adjunto: bool = False
+    lengua: Literal["es", "ca", "en"] = "es"
+
+    model_config = {"extra": "forbid"}
+
+    @field_validator("descripcion")
+    @classmethod
+    def _descripcion_con_texto(cls, valor: str) -> str:
+        limpio = valor.strip()
+        if len(limpio) < 10:
+            raise ValueError("describe en una frase al menos para qué quieres el agente")
+        return limpio
+
+
+class PropuestaDePrompt(BaseModel):
+    """El prompt propuesto. **No se ha guardado**: va al formulario para editarlo."""
+
+    prompt: str
+    modelo_usado: str
+    version: str
+
+
+async def obtener_modelo_de_redaccion(
+    organizacion_id: Annotated[uuid.UUID | None, Query()] = None,
+    user: UserInfo = Depends(require_sesion_humana()),
+    session: AsyncSession = Depends(get_session),
+):
+    """El modelo de nivel 1 de la organización, o el de la plataforma, como los borradores."""
+    organizacion = organizacion_para_operar(
+        user, organizacion_id, para="La propuesta usa el modelo de una organización."
+    )
+    try:
+        return await get_model_for_tier(1, LocalConfigProvider(session), organizacion_id=organizacion)
+    except Exception as fallo:  # noqa: BLE001 — sin modelo no hay propuesta, y el motivo va en el mensaje
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "No hay modelo para redactar la propuesta (nivel 1). Asígnale uno en Plataforma › "
+                f"Modelos IA. Motivo: {fallo}"
+            ),
+        ) from fallo
+
+
+@router.post("/proponer-prompt", response_model=PropuestaDePrompt)
+async def proponer_prompt(
+    body: PeticionDePropuesta,
+    organizacion_id: Annotated[uuid.UUID | None, Query()] = None,
+    user: UserInfo = Depends(require_sesion_humana()),
+    session: AsyncSession = Depends(get_session),
+    modelo=Depends(obtener_modelo_de_redaccion),
+) -> PropuestaDePrompt:
+    """Un prompt propuesto a partir de lo que la unidad describe. **Propone, no publica.**
+
+    Queda constancia del uso en el registro de actividad —quién, cuándo, con qué modelo y la huella
+    de la descripción—, nunca del texto.
+    """
+    organizacion = organizacion_para_operar(
+        user, organizacion_id, para="La propuesta se anota en el registro de una organización."
+    )
+    try:
+        respuesta = await modelo.ainvoke(
+            propuesta.mensajes(
+                descripcion=body.descripcion,
+                nombre=body.nombre,
+                unidad=body.unidad,
+                finalidad=body.finalidad,
+                colectivo=body.colectivo,
+                grupos=body.grupos,
+                espera_adjunto=body.espera_adjunto,
+                lengua=body.lengua,
+            )
+        )
+    except Exception as fallo:  # noqa: BLE001 — el proveedor puede fallar de muchas maneras
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="El modelo no ha respondido. Inténtalo de nuevo en un momento.",
+        ) from fallo
+    texto = propuesta.limpiar(texto_de(respuesta))
+    if not texto:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="El modelo no ha devuelto ninguna propuesta. Inténtalo de nuevo.",
+        )
+
+    modelo_usado = nombre_del_modelo(modelo)
+    evento = ActividadIAEvent(
+        ocurrido_en=datetime.now(timezone.utc),
+        actor=user.user_id,
+        herramienta="agentes/proponer-prompt",
+        agente=(body.nombre or None),
+        finalidad="Proponer el prompt de un agente de unidad a partir de su finalidad",
+        modelo_usado=(modelo_usado or None),
+        payload_hash=hashlib.sha256(body.descripcion.encode("utf-8")).hexdigest(),
+    )
+    session.add(
+        HubActividadIA(
+            organizacion_id=organizacion,
+            ocurrido_en=evento.ocurrido_en,
+            actor=evento.actor,
+            herramienta=evento.herramienta,
+            agente=evento.agente,
+            finalidad=evento.finalidad,
+            modelo_usado=evento.modelo_usado,
+            categorias_datos=evento.categorias_datos,
+            payload_hash=evento.payload_hash,
+        )
+    )
+    await session.commit()
+    return PropuestaDePrompt(
+        prompt=texto, modelo_usado=modelo_usado or "", version=propuesta.VERSION_META_PROMPT
+    )
 
 
 # =============================================================================

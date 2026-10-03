@@ -145,5 +145,13 @@
     "sin_usar": "not used yet",
     "revocar": "Revoke",
     "a_mano": "Upload the sheet by hand (alternative)"
+  },
+  "propuesta": {
+    "abrir": "Draft with AI help",
+    "descripcion": "Describe what you want the agent for",
+    "pista": "In your own words: what it should do, for whom and what not. The name, unit, purpose and whether it expects an attachment are taken into account. The proposal replaces whatever is in the prompt field.",
+    "pedir": "Propose a prompt",
+    "aviso": "Proposal by {{modelo}}. Review and edit it before publishing: the version will say it was drafted with AI help.",
+    "redactado_con_ia": "Prompt drafted with AI help"
   }
 }

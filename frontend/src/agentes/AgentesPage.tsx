@@ -12,9 +12,10 @@ import {
   useSuspenderApiV1AgentesAgenteIdSuspenderPost,
   useReactivarApiV1AgentesAgenteIdReactivarPost,
   useRetirarApiV1AgentesAgenteIdRetirarPost,
+  useProponerPromptApiV1AgentesProponerPromptPost,
   useVerIndiceApiV1AgentesAgenteIdIndiceGet,
 } from '@/shared/api/generated/agentes/agentes'
-import type { AgenteView, EstadoDelIndice } from '@/shared/api/generated/model'
+import type { AgenteView, EstadoDelIndice, PropuestaDePrompt } from '@/shared/api/generated/model'
 import { ActualizacionDelIndice } from './ActualizacionDelIndice'
 import { mensajeDelFallo } from '@/utilidades/mensajeDelFallo'
 import { useOrganizacionElegida } from '@/shared/organizacion/useOrganizacionElegida'
@@ -150,9 +151,19 @@ function FormularioDeDeclaracion({
   gruposDelIdp: boolean
   alTerminar: () => void
 }) {
-  const { t } = useTranslation('agentes')
+  const { t, i18n } = useTranslation('agentes')
   const [fallo, setFallo] = useState<string | null>(null)
   const publicar = usePublicarApiV1AgentesPost()
+  // #213 — el asistente que propone el prompt. La propuesta va al campo; publicar sigue siendo
+  // de la persona. Si se usa, la versión se declara redactada con ayuda de IA.
+  const proponer = useProponerPromptApiV1AgentesProponerPromptPost()
+  const [pidiendoPropuesta, setPidiendoPropuesta] = useState(false)
+  const [descripcion, setDescripcion] = useState('')
+  const [propuesta, setPropuesta] = useState<PropuestaDePrompt | null>(null)
+  const [falloPropuesta, setFalloPropuesta] = useState<string | null>(null)
+  const [autoria, setAutoria] = useState<'persona' | 'ia'>(
+    edicion.modo === 'versionar' && edicion.agente.version.autoria_prompt === 'ia' ? 'ia' : 'persona',
+  )
   // Un agente es de una organización: la elegida en el panel, si quien publica no es de una sola.
   const { elegida } = useOrganizacionElegida()
   const versionar = useVersionarApiV1AgentesAgenteIdVersionesPost()
@@ -180,8 +191,38 @@ function FormularioDeDeclaracion({
     register,
     handleSubmit,
     control,
+    getValues,
+    setValue,
     formState: { errors },
   } = useForm<Declaracion>({ resolver: zodResolver(declaracionSchema), defaultValues: inicial })
+
+  function pedirPropuesta() {
+    const v = getValues()
+    setFalloPropuesta(null)
+    proponer.mutate(
+      {
+        data: {
+          descripcion: descripcion.trim(),
+          nombre: v.nombre.trim() || null,
+          unidad: v.unidad.trim() || null,
+          finalidad: v.finalidad.trim() || null,
+          colectivo: v.colectivo,
+          grupos: v.colectivo === 'grupos' ? separarGrupos(v.grupos) : [],
+          espera_adjunto: v.espera_adjunto,
+          lengua: lenguaDe(i18n.language),
+        },
+        params: elegida ? { organizacion_id: elegida } : undefined,
+      },
+      {
+        onSuccess: (r: PropuestaDePrompt) => {
+          setValue('prompt', r.prompt, { shouldDirty: true, shouldValidate: true })
+          setPropuesta(r)
+          setAutoria('ia')
+        },
+        onError: (e: unknown) => setFalloPropuesta(mensajeDelFallo(e, t('fallo'))),
+      },
+    )
+  }
   const colectivo = useWatch({ control, name: 'colectivo' })
 
   function enviar(v: Declaracion) {
@@ -196,6 +237,7 @@ function FormularioDeDeclaracion({
       revision_prevista_en: v.revision_prevista_en,
       presupuesto_documentos: v.presupuesto_documentos,
       espera_adjunto: v.espera_adjunto,
+      autoria_prompt: autoria,
     }
     const alFallar = { onError: (e: unknown) => setFallo(mensajeDelFallo(e, t('fallo'))) }
     if (edicion.modo === 'versionar') {
@@ -264,6 +306,45 @@ function FormularioDeDeclaracion({
         <label htmlFor="agente_prompt" className="text-sm font-medium">{t('campos.prompt')}</label>
         <textarea id="agente_prompt" rows={5} className={campo} {...register('prompt')} />
         {error('prompt')}
+        <button
+          type="button"
+          onClick={() => setPidiendoPropuesta((v) => !v)}
+          className="rounded-md border px-2 py-1 text-xs"
+        >
+          {t('propuesta.abrir')}
+        </button>
+        {pidiendoPropuesta && (
+          <div className="space-y-1 rounded-md border bg-muted/40 p-2">
+            <label htmlFor="agente_descripcion" className="text-xs font-medium">{t('propuesta.descripcion')}</label>
+            <textarea
+              id="agente_descripcion"
+              rows={3}
+              maxLength={4000}
+              value={descripcion}
+              onChange={(e) => setDescripcion(e.target.value)}
+              className={campo}
+            />
+            <p className="text-xs text-muted-foreground">{t('propuesta.pista')}</p>
+            <button
+              type="button"
+              onClick={pedirPropuesta}
+              disabled={descripcion.trim().length < 10 || proponer.isPending}
+              className="rounded-md bg-primary px-2 py-1 text-xs text-primary-foreground disabled:opacity-50"
+            >
+              {t('propuesta.pedir')}
+            </button>
+            {propuesta && (
+              <p className="text-xs font-medium" data-testid="aviso-propuesta">
+                {t('propuesta.aviso', { modelo: propuesta.modelo_usado })}
+              </p>
+            )}
+            {falloPropuesta && (
+              <p className="text-xs text-destructive" role="alert" data-testid="fallo-propuesta">
+                {falloPropuesta}
+              </p>
+            )}
+          </div>
+        )}
       </div>
       <div className="space-y-1">
         <label htmlFor="agente_carpeta" className="text-sm font-medium">{t('campos.carpeta_url')}</label>
@@ -385,6 +466,11 @@ function FichaDelAgente({ agente, alVersionar }: { agente: AgenteView; alVersion
         <span data-estado={v.estado} className="rounded bg-muted px-2 py-0.5 text-xs">
           {t(`estados.${v.estado}`, v.estado)}
         </span>
+        {v.autoria_prompt === 'ia' && (
+          <span data-testid="autoria-ia" className="rounded bg-muted px-2 py-0.5 text-xs">
+            {t('propuesta.redactado_con_ia')}
+          </span>
+        )}
         {v.revision_vencida && (
           <span data-testid="revision-vencida" className="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-900">
             {t('revision_vencida', { fecha: v.revision_prevista_en })}
@@ -581,4 +667,11 @@ function estadoDelIndice(t: (k: string, o?: Record<string, unknown>) => string, 
   const fichas = t('fichas_en_el_indice', { count: indice.fichas })
   const fecha = new Date(indice.actualizado_en).toLocaleString()
   return `${fichas} · ${t(indice.origen === 'guion' ? 'actualizado_por_el_guion' : 'actualizado_desde_una_hoja', { fecha })}`
+}
+
+/** La lengua en la que se pide la propuesta: la de la pantalla. */
+function lenguaDe(idioma: string | undefined): 'es' | 'ca' | 'en' {
+  if (idioma?.startsWith('ca') || idioma?.startsWith('va')) return 'ca'
+  if (idioma?.startsWith('en')) return 'en'
+  return 'es'
 }

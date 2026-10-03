@@ -145,5 +145,13 @@
     "sin_usar": "sin usar todavía",
     "revocar": "Revocar",
     "a_mano": "Subir la hoja a mano (alternativa)"
+  },
+  "propuesta": {
+    "abrir": "Redactar con ayuda de IA",
+    "descripcion": "Describe para qué quieres el agente",
+    "pista": "Con tus palabras: qué debe hacer, para quién y qué no. Se tienen en cuenta el nombre, la unidad, la finalidad y si espera un adjunto. La propuesta sustituye lo que haya en el campo del prompt.",
+    "pedir": "Proponer un prompt",
+    "aviso": "Propuesta de {{modelo}}. Revísala y edítala antes de publicar: la versión dirá que se redactó con ayuda de IA.",
+    "redactado_con_ia": "Prompt redactado con ayuda de IA"
   }
 }

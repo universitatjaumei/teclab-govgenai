@@ -752,6 +752,12 @@ los documentos de cada **consulta**, que devuelve el prompt del agente con los e
   cambios— y, si el guion lleva más de `INDICE_SIN_ACTUALIZAR_DIAS` sin mandarlo, el agente se
   sigue ofreciendo marcado. El guion manda cuántos documentos hay en la carpeta, y se ve cuántos
   no tienen ficha: un documento que no llega no existe para el agente y nadie recibe un error.
+- **Un asistente propone el prompt** (#213): la unidad describe para qué quiere el agente y el
+  modelo de nivel 1 de la organización propone un prompt que **no se guarda**: va al formulario
+  para editarlo. Sabe lo que la plataforma añade siempre —la pregunta, los enlaces y la
+  abstención— para no repetirlo, y se le prohíbe inventar normas, plazos o importes. El uso va al
+  registro de actividad sin el texto, y la versión publicada con él lo declara
+  (`autoria_prompt = ia`), como la autoría en el catálogo de funciones.
 - **El token del guion lo emite quien publica** y sólo vale para cargar el índice: un módulo
   puede abrir un alcance que su rol no tiene (`agentes` → `agentes:indice`), y la gestión de los
   agentes —publicar, retirar, emitir tokens— exige la sesión de una persona, no un token.

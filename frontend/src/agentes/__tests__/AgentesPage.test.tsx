@@ -17,6 +17,7 @@ import {
   useTokensDelGuionApiV1AgentesTokensGet,
   useEmitirTokenDelGuionApiV1AgentesTokensPost,
   useRevocarTokenDelGuionApiV1AgentesTokensTokenIdDelete,
+  useProponerPromptApiV1AgentesProponerPromptPost,
 } from '@/shared/api/generated/agentes/agentes'
 import { AgentesPage } from '../AgentesPage'
 
@@ -48,6 +49,7 @@ vi.mock('@/shared/api/generated/agentes/agentes', () => ({
   useTokensDelGuionApiV1AgentesTokensGet: vi.fn(),
   useEmitirTokenDelGuionApiV1AgentesTokensPost: vi.fn(),
   useRevocarTokenDelGuionApiV1AgentesTokensTokenIdDelete: vi.fn(),
+  useProponerPromptApiV1AgentesProponerPromptPost: vi.fn(),
 }))
 
 function version(extra: Record<string, unknown> = {}) {
@@ -64,6 +66,7 @@ function version(extra: Record<string, unknown> = {}) {
     revision_vencida: false,
     presupuesto_documentos: 5,
     espera_adjunto: false,
+    autoria_prompt: 'persona',
     declarada_en: '2026-10-02T10:00:00Z',
     revisada_en: null,
     revision_resultado: null,
@@ -109,6 +112,7 @@ const mutaciones = {
   subirHoja: vi.fn(),
   emitirToken: vi.fn(),
   revocarToken: vi.fn(),
+  proponer: vi.fn(),
 }
 
 function montar(agentes = [agente()], gruposDelIdp = true) {
@@ -134,6 +138,7 @@ function montar(agentes = [agente()], gruposDelIdp = true) {
   } as never)
   vi.mocked(useEmitirTokenDelGuionApiV1AgentesTokensPost).mockReturnValue({ mutate: mutaciones.emitirToken, isPending: false } as never)
   vi.mocked(useRevocarTokenDelGuionApiV1AgentesTokensTokenIdDelete).mockReturnValue({ mutate: mutaciones.revocarToken, isPending: false } as never)
+  vi.mocked(useProponerPromptApiV1AgentesProponerPromptPost).mockReturnValue({ mutate: mutaciones.proponer, isPending: false } as never)
 
   return render(
     <QueryClientProvider client={new QueryClient()}>
@@ -230,6 +235,7 @@ describe('#172 — publicar exige la declaración', () => {
       revision_prevista_en: '2027-06-30',
       presupuesto_documentos: 5,
       espera_adjunto: false,
+      autoria_prompt: 'persona',
     })
   })
 
@@ -463,5 +469,72 @@ describe('#174 — el índice se mantiene solo', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Actualización del índice' }))
     fireEvent.click(screen.getByRole('button', { name: 'Revocar' }))
     expect(mutaciones.revocarToken.mock.calls[0][0]).toEqual({ tokenId: 't1' })
+  })
+})
+
+describe('#213 — el asistente que propone el prompt', () => {
+  it('propone a partir de la descripción y de lo ya declarado, y la propuesta va al campo', () => {
+    mutaciones.proponer.mockImplementation((_vars, opciones) =>
+      opciones.onSuccess({ prompt: 'Eres el asistente de control interno.', modelo_usado: 'gemini', version: 'propuesta-prompt-v1' }),
+    )
+    montar([])
+    fireEvent.click(screen.getByRole('button', { name: 'Publicar un agente' }))
+    rellenar({ Nombre: 'Control interno', Unidad: 'Servicio de Control Interno', Finalidad: 'Responder sobre el plan de control' })
+    fireEvent.click(screen.getByRole('button', { name: 'Redactar con ayuda de IA' }))
+    rellenar({ 'Describe para qué quieres el agente': 'Que oriente sobre el plan anual de control interno.' })
+    fireEvent.click(screen.getByRole('button', { name: 'Proponer un prompt' }))
+
+    const datos = mutaciones.proponer.mock.calls[0][0].data
+    expect(datos).toMatchObject({
+      descripcion: 'Que oriente sobre el plan anual de control interno.',
+      nombre: 'Control interno',
+      unidad: 'Servicio de Control Interno',
+      finalidad: 'Responder sobre el plan de control',
+      colectivo: 'organizacion',
+      espera_adjunto: false,
+      lengua: 'es',
+    })
+    expect(screen.getByLabelText('Prompt')).toHaveValue('Eres el asistente de control interno.')
+    expect(screen.getByTestId('aviso-propuesta')).toHaveTextContent('gemini')
+  })
+
+  it('lo publicado con la propuesta se declara redactado con ayuda de IA', async () => {
+    mutaciones.proponer.mockImplementation((_vars, opciones) =>
+      opciones.onSuccess({ prompt: 'Eres el asistente de control interno.', modelo_usado: 'gemini', version: 'propuesta-prompt-v1' }),
+    )
+    montar([])
+    fireEvent.click(screen.getByRole('button', { name: 'Publicar un agente' }))
+    rellenar(DECLARACION)
+    fireEvent.click(screen.getByRole('button', { name: 'Redactar con ayuda de IA' }))
+    rellenar({ 'Describe para qué quieres el agente': 'Que oriente sobre el plan anual de control interno.' })
+    fireEvent.click(screen.getByRole('button', { name: 'Proponer un prompt' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Publicar' }))
+
+    await waitFor(() => expect(mutaciones.publicar).toHaveBeenCalledTimes(1))
+    expect(mutaciones.publicar.mock.calls[0][0].data.autoria_prompt).toBe('ia')
+  })
+
+  it('sin descripción no se puede pedir', () => {
+    montar([])
+    fireEvent.click(screen.getByRole('button', { name: 'Publicar un agente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Redactar con ayuda de IA' }))
+    expect(screen.getByRole('button', { name: 'Proponer un prompt' })).toBeDisabled()
+  })
+
+  it('si no hay modelo, dice por qué', () => {
+    mutaciones.proponer.mockImplementation((_vars, opciones) =>
+      opciones.onError({ response: { data: { detail: 'No hay modelo para redactar la propuesta (nivel 1).' } } }),
+    )
+    montar([])
+    fireEvent.click(screen.getByRole('button', { name: 'Publicar un agente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Redactar con ayuda de IA' }))
+    rellenar({ 'Describe para qué quieres el agente': 'Que oriente sobre el plan anual de control interno.' })
+    fireEvent.click(screen.getByRole('button', { name: 'Proponer un prompt' }))
+    expect(screen.getByTestId('fallo-propuesta')).toHaveTextContent('No hay modelo')
+  })
+
+  it('la ficha de un agente cuyo prompt se redactó con IA lo dice', () => {
+    montar([agente({}, { autoria_prompt: 'ia' })])
+    expect(within(screen.getByTestId('agente')).getByTestId('autoria-ia')).toBeInTheDocument()
   })
 })

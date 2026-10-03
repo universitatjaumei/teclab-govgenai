@@ -162,7 +162,27 @@ echo.
 pause
 echo.
 echo ----------------------------------------------------------
-echo  PASO 5 - El texto en valenciano
+echo  PASO 5 - El asistente que propone el prompt (issue #213)
+echo ----------------------------------------------------------
+echo.
+echo   1. Al publicar un agente, pulsa "Redactar con ayuda de IA" y
+echo      describe con tus palabras para que lo quieres. Prueba uno de
+echo      preguntas y otro de revision con adjunto.
+echo   2. Pulsa "Proponer un prompt".
+echo.
+echo QUE DEBES VER:
+echo   - Una propuesta en el campo del prompt, que puedes editar.
+echo   - Que no repite la instruccion de abstencion ni lista enlaces:
+echo     eso lo anade la plataforma.
+echo   - Al publicar, la ficha dice "Prompt redactado con ayuda de IA".
+echo.
+echo JUZGA: si la propuesta te ahorra trabajo y si la publicarias con
+echo pocos cambios. Es la medida que decide si el asistente sirve.
+echo.
+pause
+echo.
+echo ----------------------------------------------------------
+echo  PASO 6 - El texto en valenciano
 echo ----------------------------------------------------------
 echo.
 echo   1. Cambia el idioma de la pantalla a Valencia.
