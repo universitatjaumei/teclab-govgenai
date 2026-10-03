@@ -427,7 +427,7 @@ function FichaDelAgente({ agente, alVersionar }: { agente: AgenteView; alVersion
         <dd>{v.revision_prevista_en}</dd>
         <dt className="text-muted-foreground">{t('campos.indice')}</dt>
         <dd>
-          {t('fichas_en_el_indice', { count: agente.fichas })}
+          {t('fichas_en_el_indice', { count: agente.indice.fichas })}
           {' · '}
           {t('presupuesto_de', { count: v.presupuesto_documentos })}
           {v.espera_adjunto && (
@@ -456,7 +456,7 @@ function FichaDelAgente({ agente, alVersionar }: { agente: AgenteView; alVersion
         )}
       </dl>
 
-      {(permitidas.length > 0 || agente.fichas > 0) && (
+      {(permitidas.length > 0 || agente.indice.fichas > 0) && (
         <div className="flex flex-wrap gap-2">
           {permitidas.map((accion) => (
             <button
@@ -468,7 +468,7 @@ function FichaDelAgente({ agente, alVersionar }: { agente: AgenteView; alVersion
               {t(`acciones.${accion}`, accion)}
             </button>
           ))}
-          {agente.fichas > 0 && (
+          {agente.indice.fichas > 0 && (
             <button
               type="button"
               onClick={() => setViendoIndice((v) => !v)}

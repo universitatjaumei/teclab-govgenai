@@ -326,6 +326,7 @@ jobs:
           GOOGLE_OAUTH_REDIRECT_URI=${{ vars.GOOGLE_OAUTH_REDIRECT_URI }}
           SAML_FRONTEND_RETURN_URL=${{ vars.SAML_FRONTEND_RETURN_URL }}
           PLAZO_REVISION_POSTERIOR_DIAS=${{ vars.PLAZO_REVISION_POSTERIOR_DIAS }}
+          INDICE_SIN_ACTUALIZAR_DIAS=${{ vars.INDICE_SIN_ACTUALIZAR_DIAS }}
           DEPLOY_MODE=all
           EOF
           sudo chmod 644 ${DESTINO}/.env.despliegue"

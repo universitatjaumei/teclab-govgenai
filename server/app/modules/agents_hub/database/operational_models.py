@@ -1106,6 +1106,16 @@ class HubAgenteUnidad(HubOperationalBase):
     unidad: Mapped[str] = mapped_column(String(200), nullable=False)
     #: Quien lo publicó. Es quien lo versiona y lo retira, y quien **no** puede revisarlo.
     creado_por: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    #: #174 — cuándo llegó el índice por última vez, **también si no traía cambios**: un guion que
+    #: corre y no encuentra nada nuevo está vivo, y uno que no corre está parado.
+    indice_actualizado_en: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    #: `guion` (por API, lo normal) u `hoja` (subida a mano). Sólo el guion promete ir a diario,
+    #: así que sólo él puede quedarse parado.
+    indice_origen: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    #: Cuántos documentos encontró el guion en la carpeta, para contarlos contra las fichas.
+    documentos_en_carpeta: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
     )

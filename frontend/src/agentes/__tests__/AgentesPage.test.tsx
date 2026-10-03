@@ -66,13 +66,26 @@ function version(extra: Record<string, unknown> = {}) {
   }
 }
 
+function indice(extra: Record<string, unknown> = {}) {
+  return {
+    fichas: 0,
+    actualizado_en: null,
+    origen: null,
+    sin_actualizar: false,
+    documentos_en_carpeta: null,
+    faltan: null,
+    desfasadas: 0,
+    ...extra,
+  }
+}
+
 function agente(extra: Record<string, unknown> = {}, v: Record<string, unknown> = {}) {
   return {
     id: 'a1',
     nombre: 'Contratación menor',
     unidad: 'Servicio de Contratación',
     es_mio: false,
-    fichas: 0,
+    indice: indice(),
     version: version(v),
     ...extra,
   }
@@ -310,7 +323,7 @@ describe('#172 — lo que la ficha dice', () => {
 
 describe('#173 — el índice', () => {
   it('la ficha dice cuántas fichas tiene su índice', () => {
-    montar([agente({ fichas: 12 })])
+    montar([agente({ indice: indice({ fichas: 12 }) })])
     expect(within(screen.getByTestId('agente')).getByText(/12 fichas/)).toBeInTheDocument()
   })
 
@@ -338,7 +351,7 @@ describe('#173 — el índice', () => {
   })
 
   it('ver el índice lista las fichas y marca las no vigentes', () => {
-    montar([agente({ fichas: 2 })])
+    montar([agente({ indice: indice({ fichas: 2 }) })])
     fireEvent.click(screen.getByRole('button', { name: 'Ver el índice' }))
     const lista = screen.getByTestId('indice')
     expect(within(lista).getByRole('link', { name: 'Instrucción de contrato menor' })).toHaveAttribute(

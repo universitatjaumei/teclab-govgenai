@@ -121,7 +121,7 @@ class TestLoQueSeVe:
         agente = await _publicar(c)
         await c.put(f"/api/v1/agentes/{agente['id']}/indice", json={"fichas": FICHAS})
         listado = (await c.get("/api/v1/agentes")).json()
-        assert listado["agentes"][0]["fichas"] == 2
+        assert listado["agentes"][0]["indice"]["fichas"] == 2
 
     @pytest.mark.asyncio
     async def test_el_listado_del_indice_no_lleva_vectores(self, http):

@@ -33,6 +33,26 @@ from server.app.modules.agentes.acciones import lo_puede_usar
 from server.app.modules.agents_hub.database.operational_models import HubAgenteFicha, HubAgenteUnidad
 from server.app.modules.agents_hub.services.embedding_service import embed_para_indexar
 
+#: #174 — el prompt con el que el guion resume cada documento. **Lo sirve la plataforma y lo
+#: ejecuta el guion**, con la cuota de la unidad: la plataforma no ve los documentos.
+#:
+#: Versionado, y la versión viaja en cada ficha (`version_prompt_resumen`): si cambia, las fichas
+#: resumidas con la anterior quedan desfasadas y la plataforma lo cuenta. **Regenerar es decisión
+#: de la unidad**: si fuera automático, un ajuste menor dispararía cientos de llamadas contra su
+#: cuota sin que nadie lo pidiera.
+#:
+#: **El resumen es lo que se embebe**, así que no pide etiquetas de ningún vocabulario (regla 5 de
+#: AGENTS.md): describe el documento, que es estable.
+VERSION_PROMPT_RESUMEN = "resumen-v1"
+PROMPT_DE_RESUMEN = (
+    "Resume este documento para que un asistente pueda decidir si es pertinente para una "
+    "pregunta. En un solo párrafo de entre tres y seis frases, di qué regula o explica, a quién "
+    "se dirige, qué trámites, plazos, importes o requisitos establece, y desde cuándo rige si el "
+    "texto lo dice. Usa las palabras del propio documento para los conceptos clave, porque son "
+    "las que usará quien pregunte. No valores el documento, no añadas lo que no dice y no "
+    "incluyas datos personales. Responde sólo con el resumen, en la lengua del documento."
+)
+
 #: Cuántas fichas como mucho en una carga. Un agente de unidad con más documentos que esto ya no
 #: es un agente de unidad, y sin tope una hoja equivocada embebe miles de filas.
 MAXIMO_FICHAS = 2000

@@ -23,13 +23,14 @@ una persona de la organización.
 from __future__ import annotations
 
 import hashlib
+import os
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel, Field, field_validator, model_validator
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.app.api.deps import get_current_user, get_session, require_module, require_scopes
@@ -166,13 +167,28 @@ class VersionDelAgente(BaseModel):
     acciones_permitidas: list[str]
 
 
+class EstadoDelIndice(BaseModel):
+    """Cómo está el índice (#173, #174). **Lo normal es que lo mantenga el guion a diario.**"""
+
+    fichas: int
+    actualizado_en: datetime | None
+    #: `guion` o `hoja`.
+    origen: str | None
+    #: Si el guion lleva más de su plazo sin mandarlo. **Avisa, no oculta.**
+    sin_actualizar: bool
+    #: Documentos que el guion encontró en la carpeta, y cuántos no tienen ficha.
+    documentos_en_carpeta: int | None
+    faltan: int | None
+    #: Fichas resumidas con una versión del prompt que ya no es la vigente.
+    desfasadas: int
+
+
 class AgenteView(BaseModel):
     id: uuid.UUID
     nombre: str
     unidad: str
     es_mio: bool
-    #: Cuántas fichas tiene su índice (#173).
-    fichas: int
+    indice: EstadoDelIndice
     version: VersionDelAgente
 
 
@@ -195,6 +211,8 @@ class AgenteDelCatalogo(BaseModel):
     revision_vencida: bool
     #: Para que la pantalla recuerde adjuntar el documento, y pida describirlo en la pregunta.
     espera_adjunto: bool
+    #: #174 — el guion lleva días sin mandar el índice: se ofrece, pero marcado.
+    indice_sin_actualizar: bool
 
 
 # =============================================================================
@@ -202,15 +220,55 @@ class AgenteDelCatalogo(BaseModel):
 # =============================================================================
 
 
+#: Días que puede pasar el guion sin mandar el índice antes de avisar. Corre a diario; tres días
+#: dejan margen a un fin de semana sin que un fallo de verdad pase desapercibido. Cada despliegue
+#: lo cambia sin tocar código.
+VARIABLE_DEL_PLAZO_DEL_INDICE = "INDICE_SIN_ACTUALIZAR_DIAS"
+PLAZO_DEL_INDICE_POR_DEFECTO = 3
+
+
+def _plazo_del_indice() -> int:
+    try:
+        dias = int(os.getenv(VARIABLE_DEL_PLAZO_DEL_INDICE, PLAZO_DEL_INDICE_POR_DEFECTO))
+    except ValueError:
+        return PLAZO_DEL_INDICE_POR_DEFECTO
+    return dias if dias > 0 else PLAZO_DEL_INDICE_POR_DEFECTO
+
+
+def _sin_actualizar(agente: HubAgenteUnidad) -> bool:
+    """Sólo el guion promete ir a diario: una hoja subida a mano no se para."""
+    if agente.indice_origen != "guion" or agente.indice_actualizado_en is None:
+        return False
+    return datetime.now(timezone.utc) - agente.indice_actualizado_en > timedelta(
+        days=_plazo_del_indice()
+    )
+
+
+def _estado_del_indice(agente: HubAgenteUnidad, fichas: int, desfasadas: int) -> EstadoDelIndice:
+    en_carpeta = agente.documentos_en_carpeta
+    return EstadoDelIndice(
+        fichas=fichas,
+        actualizado_en=agente.indice_actualizado_en,
+        origen=agente.indice_origen,
+        sin_actualizar=_sin_actualizar(agente),
+        documentos_en_carpeta=en_carpeta,
+        faltan=max(en_carpeta - fichas, 0) if en_carpeta is not None else None,
+        desfasadas=desfasadas,
+    )
+
+
 def _vista(
-    agente: HubAgenteUnidad, version: HubAgenteUnidadVersion, user: UserInfo, fichas: int = 0
+    agente: HubAgenteUnidad,
+    version: HubAgenteUnidadVersion,
+    user: UserInfo,
+    cuentas: tuple[int, int] = (0, 0),
 ) -> AgenteView:
     return AgenteView(
         id=agente.id,
         nombre=agente.nombre,
         unidad=agente.unidad,
         es_mio=agente.creado_por == user_to_uuid(user.user_id),
-        fichas=fichas,
+        indice=_estado_del_indice(agente, *cuentas),
         version=VersionDelAgente(
             version=version.version,
             estado=version.estado,
@@ -311,23 +369,36 @@ def _exigir(accion: str, agente, version, user: UserInfo) -> None:
         )
 
 
-async def _fichas_por_agente(session: AsyncSession, ids: list[uuid.UUID]) -> dict[uuid.UUID, int]:
+async def _fichas_por_agente(
+    session: AsyncSession, ids: list[uuid.UUID]
+) -> dict[uuid.UUID, tuple[int, int]]:
+    """Por agente: cuántas fichas y cuántas resumidas con otra versión del prompt.
+
+    Una ficha sin versión no está desfasada: la escribió una persona, no un prompt.
+    """
     if not ids:
         return {}
+    desfasada = (HubAgenteFicha.version_prompt_resumen.is_not(None)) & (
+        HubAgenteFicha.version_prompt_resumen != indice.VERSION_PROMPT_RESUMEN
+    )
     filas = await session.execute(
-        select(HubAgenteFicha.agente_id, func.count())
+        select(
+            HubAgenteFicha.agente_id,
+            func.count(),
+            func.count().filter(desfasada),
+        )
         .where(HubAgenteFicha.agente_id.in_(ids))
         .group_by(HubAgenteFicha.agente_id)
     )
-    return {agente_id: n for agente_id, n in filas.all()}
+    return {agente_id: (n, viejas) for agente_id, n, viejas in filas.all()}
 
 
 async def _responder(session: AsyncSession, agente, version, user: UserInfo) -> AgenteView:
     # La vista se construye antes del commit: la sesión de los routers expira los atributos al
     # commitear, y leerlos después costaría un 500.
     await session.flush()
-    fichas = (await _fichas_por_agente(session, [agente.id])).get(agente.id, 0)
-    vista = _vista(agente, version, user, fichas)
+    cuentas = (await _fichas_por_agente(session, [agente.id])).get(agente.id, (0, 0))
+    vista = _vista(agente, version, user, cuentas)
     await session.commit()
     return vista
 
@@ -378,7 +449,7 @@ async def listar(
     filas = await _vigentes(session, _de_sus_organizaciones(user))
     fichas = await _fichas_por_agente(session, [a.id for a, _ in filas])
     return GestionDeAgentes(
-        agentes=[_vista(a, v, user, fichas.get(a.id, 0)) for a, v in filas],
+        agentes=[_vista(a, v, user, fichas.get(a.id, (0, 0))) for a, v in filas],
         grupos_del_idp=get_settings().saml_enabled,
     )
 
@@ -490,6 +561,14 @@ class IndiceCompleto(BaseModel):
     """**El estado completo** del índice: lo que no venga, se retira."""
 
     fichas: list[FichaDelIndice]
+    #: #174 — cuántos documentos encontró el guion en la carpeta, tengan o no ficha. Es lo que
+    #: permite ver los que se quedaron fuera: sin contarlos, un documento que no llega no existe.
+    documentos_en_carpeta: int | None = Field(default=None, ge=0)
+
+
+class PromptDeResumen(BaseModel):
+    version: str
+    texto: str
 
 
 class InformeDeCarga(BaseModel):
@@ -513,13 +592,26 @@ class FichaView(BaseModel):
     updated_at: datetime
 
 
-async def _cargar(session, agente_id, fichas, embedder) -> InformeDeCarga:
+async def _cargar(
+    session, agente_id, fichas, embedder, *, origen: str, documentos_en_carpeta: int | None = None
+) -> InformeDeCarga:
     try:
         informe = await indice.cargar(session, agente_id, fichas, embedder)
     except indice.IndiceNoValido as fallo:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(fallo)
         ) from fallo
+    # La fecha se apunta **también sin cambios**: es la prueba de que el guion sigue vivo.
+    await session.execute(
+        update(HubAgenteUnidad)
+        .where(HubAgenteUnidad.id == agente_id)
+        .values(
+            indice_actualizado_en=datetime.now(timezone.utc),
+            indice_origen=origen,
+            documentos_en_carpeta=documentos_en_carpeta,
+        )
+    )
+    await session.commit()
     return InformeDeCarga(
         nuevas=informe.nuevas,
         actualizadas=informe.actualizadas,
@@ -544,7 +636,14 @@ async def cargar_indice(
     agente, version = await _el_agente(session, agente_id, user)
     _exigir("cargar_indice", agente, version, user)
     fichas = [indice.FichaEntrada(**f.model_dump()) for f in body.fichas]
-    return await _cargar(session, agente.id, fichas, embedder)
+    return await _cargar(
+        session,
+        agente.id,
+        fichas,
+        embedder,
+        origen="guion",
+        documentos_en_carpeta=body.documentos_en_carpeta,
+    )
 
 
 @router.post("/{agente_id}/indice/hoja", response_model=InformeDeCarga)
@@ -566,7 +665,20 @@ async def subir_hoja(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(fallo)
         ) from fallo
-    return await _cargar(session, agente.id, fichas, embedder)
+    return await _cargar(session, agente.id, fichas, embedder, origen="hoja")
+
+
+@router.get("/prompt-de-resumen", response_model=PromptDeResumen)
+async def prompt_de_resumen(
+    _: UserInfo = Depends(require_scopes(AGENTES_INDICE_WRITE)),
+) -> PromptDeResumen:
+    """El prompt con el que el guion resume cada documento, y su versión (#174).
+
+    Lo sirve la plataforma y lo ejecuta el guion. El guion escribe la versión en cada ficha, y si
+    la plataforma no responde usa la última que guardó **y escribe esa**: el índice sigue diciendo
+    con qué se hizo cada resumen.
+    """
+    return PromptDeResumen(version=indice.VERSION_PROMPT_RESUMEN, texto=indice.PROMPT_DE_RESUMEN)
 
 
 @router.get("/{agente_id}/indice", response_model=list[FichaView])
@@ -625,6 +737,7 @@ async def catalogo(
             version=v.version,
             revision_vencida=acciones.revision_vencida(v),
             espera_adjunto=v.espera_adjunto,
+            indice_sin_actualizar=_sin_actualizar(a),
         )
         for a, v in filas
         if acciones.lo_puede_usar(a, v, principal=user)
