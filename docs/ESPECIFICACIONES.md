@@ -740,9 +740,21 @@ los documentos de cada **consulta**, que devuelve el prompt del agente con los e
 - **El índice es de fichas, no de documentos**: la plataforma guarda la URL y el resumen, **nunca
   el documento**, que autoriza el almacén. Un vector por ficha, hecho **sólo del título y el
   resumen**: cambiar la vigencia o un metadato no re-embebe.
-- **Cargar es dar el estado completo**, por API con un token `agentes:indice` (el guion de #174)
-  o subiendo la hoja en CSV o Excel. Lo que no viene se retira, lo que no cambió no se toca, y
-  una hoja incoherente no se carga a medias. Las cargas de un mismo agente se hacen de una en una.
+- **Cargar es dar el estado completo**, por API con un token `agentes:indice` o subiendo la hoja
+  en CSV o Excel. Lo que no viene se retira, lo que no cambió no se toca, y una hoja incoherente
+  no se carga a medias. Las cargas de un mismo agente se hacen de una en una.
+- **El índice se mantiene solo** (#174): un guion de Apps Script, **uno para todas las unidades**,
+  versionado y servido por la plataforma con su huella, corre a diario en el Drive de la unidad
+  con su cuenta, resume con Gemini sólo lo nuevo o cambiado y manda el índice. **Los documentos no
+  salen de Google.** El prompt de resumen lo sirve la plataforma, versionado; cada ficha anota con
+  qué versión se hizo y se cuentan las desfasadas, pero **regenerar es decisión de la unidad**.
+- **Un índice parado, o incompleto, se ve**: se apunta cuándo llegó por última vez —también sin
+  cambios— y, si el guion lleva más de `INDICE_SIN_ACTUALIZAR_DIAS` sin mandarlo, el agente se
+  sigue ofreciendo marcado. El guion manda cuántos documentos hay en la carpeta, y se ve cuántos
+  no tienen ficha: un documento que no llega no existe para el agente y nadie recibe un error.
+- **El token del guion lo emite quien publica** y sólo vale para cargar el índice: un módulo
+  puede abrir un alcance que su rol no tiene (`agentes` → `agentes:indice`), y la gestión de los
+  agentes —publicar, retirar, emitir tokens— exige la sesión de una persona, no un token.
 - **La selección nunca pasa del presupuesto** que declara el agente —de 1 a 10 documentos, 5 por
   defecto— y **lo no vigente no ocupa plaza**: el filtro va en el `WHERE`. Un índice embebido con
   otro modelo no se compara: se dice que hay que volver a cargarlo.
@@ -777,9 +789,10 @@ sandbox, el `RunManifest`, el registro de actividad y las verificaciones por API
 - **Funciones de tarea**: artefactos de salida, red saliente sólo hacia **orígenes declarados** y
   el ecosistema de módulos ampliado. Abrir la red debilita el argumento de §5.12 («una función no
   puede hablar con nada»), así que es una **clase distinta**, visible y con revisión en plazo.
-- **Agentes de unidad sobre el asistente general**: el catálogo, el índice y la consulta están
-  construidos (§5.14). Falta el guion de curación del índice como función del catálogo (#174) y
-  la extensión de navegador que cierra el registro (#176).
+- **Agentes de unidad sobre el asistente general**: el catálogo, el índice, la consulta y el guion
+  que mantiene el índice están construidos (§5.14). Falta la extensión de navegador que cierra el
+  registro (#176). **Abierto**: registrar el guion en el catálogo de funciones como función de
+  origen externo, que es donde lo situaba la #174; hoy lo sirve la plataforma con su huella.
 
 **Madurez**: `previsto`, sobre una base `construido`: lo que ejecuta ya existe.
 

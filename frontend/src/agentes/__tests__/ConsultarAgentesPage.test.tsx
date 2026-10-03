@@ -31,6 +31,7 @@ const CATALOGO = [
     version: 2,
     revision_vencida: false,
     espera_adjunto: false,
+    indice_sin_actualizar: false,
   },
   {
     id: 'a2',
@@ -41,6 +42,7 @@ const CATALOGO = [
     version: 1,
     revision_vencida: true,
     espera_adjunto: true,
+    indice_sin_actualizar: true,
   },
 ]
 
@@ -227,5 +229,13 @@ describe('#175 — un agente que espera un documento adjunto', () => {
     preguntar('¿importe?')
     fireEvent.click(screen.getByRole('button', { name: 'Preparar el prompt' }))
     expect(screen.queryByTestId('recordatorio-adjunto')).not.toBeInTheDocument()
+  })
+})
+
+describe('#174 — un índice parado se avisa a quien consulta', () => {
+  it('el agente se ofrece, pero marcado', () => {
+    montar()
+    expect(within(screen.getByTestId('agente-a2')).getByTestId('indice-sin-actualizar')).toBeInTheDocument()
+    expect(within(screen.getByTestId('agente-a1')).queryByTestId('indice-sin-actualizar')).not.toBeInTheDocument()
   })
 })

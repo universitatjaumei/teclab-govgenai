@@ -123,7 +123,46 @@ echo.
 pause
 echo.
 echo ----------------------------------------------------------
-echo  PASO 4 - El texto en valenciano
+echo  PASO 4 - El guion que mantiene el indice (issue #174)
+echo ----------------------------------------------------------
+echo.
+echo   OJO: el guion corre en los servidores de Google y NO puede
+echo   llegar a tu localhost. Este paso se hace contra PRODUCCION
+echo   despues de desplegar, o contra un entorno publicado.
+echo.
+echo   1. En Agentes - Publicar y gestionar, pulsa "Actualizacion del
+echo      indice" en tu agente. Apunta el identificador del agente y
+echo      la direccion de la plataforma. Pulsa "Ver el guion".
+echo   2. Crea una hoja de calculo junto a la carpeta del agente y,
+echo      desde ella, Extensiones - Apps Script. Pega el guion y, en
+echo      Configuracion del proyecto, el manifiesto (appsscript.json).
+echo   3. Pulsa "Emitir un token para el guion" y copialo: solo se ve
+echo      una vez.
+echo   4. En Propiedades del guion pon PLATAFORMA_URL, AGENTE_ID, TOKEN,
+echo      CARPETA_ID, HOJA_ID y PROYECTO_GCP (un proyecto con Vertex AI
+echo      activado). La cabecera del guion lo explica.
+echo   5. Ejecuta actualizarIndice. La primera vez pide permisos.
+echo.
+echo QUE DEBES VER:
+echo   - La hoja se llena con una fila por documento y su resumen.
+echo   - En la plataforma, el agente dice "actualizado
+echo     automaticamente" y, si hay documentos que no sabe leer (fotos,
+echo     Word), cuantos faltan.
+echo   - Marca un documento como "no" en la columna vigente de la hoja,
+echo     ejecuta otra vez actualizarIndice y comprueba que ese documento
+echo     ya no sale en la consulta.
+echo.
+echo   6. Ejecuta instalarActualizacionDiaria y, al dia siguiente,
+echo      comprueba que la fecha de actualizacion ha cambiado sola.
+echo.
+echo APUNTA: cuanto tardo la primera pasada y cuantos documentos
+echo resumio. Es la medida de las cuotas que la #174 pedia tomar con la
+echo primera unidad antes de replicar.
+echo.
+pause
+echo.
+echo ----------------------------------------------------------
+echo  PASO 5 - El texto en valenciano
 echo ----------------------------------------------------------
 echo.
 echo   1. Cambia el idioma de la pantalla a Valencia.

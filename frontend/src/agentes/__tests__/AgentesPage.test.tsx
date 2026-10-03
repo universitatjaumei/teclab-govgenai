@@ -13,6 +13,10 @@ import {
   useRetirarApiV1AgentesAgenteIdRetirarPost,
   useSubirHojaApiV1AgentesAgenteIdIndiceHojaPost,
   useVerIndiceApiV1AgentesAgenteIdIndiceGet,
+  useGuionApiV1AgentesGuionGet,
+  useTokensDelGuionApiV1AgentesTokensGet,
+  useEmitirTokenDelGuionApiV1AgentesTokensPost,
+  useRevocarTokenDelGuionApiV1AgentesTokensTokenIdDelete,
 } from '@/shared/api/generated/agentes/agentes'
 import { AgentesPage } from '../AgentesPage'
 
@@ -40,6 +44,10 @@ vi.mock('@/shared/api/generated/agentes/agentes', () => ({
   useRetirarApiV1AgentesAgenteIdRetirarPost: vi.fn(),
   useSubirHojaApiV1AgentesAgenteIdIndiceHojaPost: vi.fn(),
   useVerIndiceApiV1AgentesAgenteIdIndiceGet: vi.fn(),
+  useGuionApiV1AgentesGuionGet: vi.fn(),
+  useTokensDelGuionApiV1AgentesTokensGet: vi.fn(),
+  useEmitirTokenDelGuionApiV1AgentesTokensPost: vi.fn(),
+  useRevocarTokenDelGuionApiV1AgentesTokensTokenIdDelete: vi.fn(),
 }))
 
 function version(extra: Record<string, unknown> = {}) {
@@ -99,6 +107,8 @@ const mutaciones = {
   reactivar: vi.fn(),
   retirar: vi.fn(),
   subirHoja: vi.fn(),
+  emitirToken: vi.fn(),
+  revocarToken: vi.fn(),
 }
 
 function montar(agentes = [agente()], gruposDelIdp = true) {
@@ -114,6 +124,16 @@ function montar(agentes = [agente()], gruposDelIdp = true) {
   vi.mocked(useRetirarApiV1AgentesAgenteIdRetirarPost).mockReturnValue({ mutate: mutaciones.retirar, isPending: false } as never)
   vi.mocked(useSubirHojaApiV1AgentesAgenteIdIndiceHojaPost).mockReturnValue({ mutate: mutaciones.subirHoja, isPending: false } as never)
   vi.mocked(useVerIndiceApiV1AgentesAgenteIdIndiceGet).mockReturnValue({ data: FICHAS, isLoading: false } as never)
+  vi.mocked(useGuionApiV1AgentesGuionGet).mockReturnValue({
+    data: { version: 'indice-v1', sha256: 'abcdef0123456789', codigo: 'function actualizarIndice() {}', manifiesto: '{}' },
+    isLoading: false,
+  } as never)
+  vi.mocked(useTokensDelGuionApiV1AgentesTokensGet).mockReturnValue({
+    data: [{ id: 't1', nombre: 'Guion · Contratación', prefijo: 'abcd1234', creado_en: '2026-10-01T10:00:00Z', ultimo_uso_en: null }],
+    isLoading: false,
+  } as never)
+  vi.mocked(useEmitirTokenDelGuionApiV1AgentesTokensPost).mockReturnValue({ mutate: mutaciones.emitirToken, isPending: false } as never)
+  vi.mocked(useRevocarTokenDelGuionApiV1AgentesTokensTokenIdDelete).mockReturnValue({ mutate: mutaciones.revocarToken, isPending: false } as never)
 
   return render(
     <QueryClientProvider client={new QueryClient()}>
@@ -323,7 +343,7 @@ describe('#172 — lo que la ficha dice', () => {
 
 describe('#173 — el índice', () => {
   it('la ficha dice cuántas fichas tiene su índice', () => {
-    montar([agente({ indice: indice({ fichas: 12 }) })])
+    montar([agente({ indice: indice({ fichas: 12, origen: 'hoja', actualizado_en: '2026-10-02T06:00:00Z' }) })])
     expect(within(screen.getByTestId('agente')).getByText(/12 fichas/)).toBeInTheDocument()
   })
 
@@ -332,7 +352,7 @@ describe('#173 — el índice', () => {
       opciones.onSuccess({ nuevas: 2, actualizadas: 1, sin_cambios: 3, retiradas: 1 }),
     )
     montar([agente({}, { acciones_permitidas: ['versionar', 'cargar_indice', 'retirar'] })])
-    fireEvent.click(screen.getByRole('button', { name: 'Cargar el índice' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Actualización del índice' }))
 
     const hoja = new File(['url;titulo;resumen'], 'indice.csv', { type: 'text/csv' })
     fireEvent.change(screen.getByLabelText('Hoja del índice'), { target: { files: [hoja] } })
@@ -347,7 +367,7 @@ describe('#173 — el índice', () => {
 
   it('sin la acción, no se ofrece cargar', () => {
     montar([agente({}, { acciones_permitidas: ['revisar'] })])
-    expect(screen.queryByRole('button', { name: 'Cargar el índice' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Actualización del índice' })).not.toBeInTheDocument()
   })
 
   it('ver el índice lista las fichas y marca las no vigentes', () => {
@@ -387,5 +407,61 @@ describe('La organización elegida (2026-10-03)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Publicar' }))
     await waitFor(() => expect(mutaciones.publicar).toHaveBeenCalledTimes(1))
     expect(mutaciones.publicar.mock.calls[0][0].params).toBeUndefined()
+  })
+})
+
+describe('#174 — el índice se mantiene solo', () => {
+  it('dice cuándo se actualizó y que lo hace el guion', () => {
+    montar([agente({ indice: indice({ fichas: 3, origen: 'guion', actualizado_en: '2026-10-02T06:00:00Z' }) })])
+    expect(screen.getByTestId('estado-del-indice')).toHaveTextContent('automáticamente')
+  })
+
+  it('sin cargar nunca, lo dice', () => {
+    montar([agente()])
+    expect(screen.getByTestId('estado-del-indice')).toHaveTextContent('todavía sin índice')
+  })
+
+  it('un guion parado, los documentos que faltan y las fichas desfasadas se ven', () => {
+    montar([
+      agente({
+        indice: indice({ fichas: 2, origen: 'guion', actualizado_en: '2026-09-01T06:00:00Z', sin_actualizar: true, documentos_en_carpeta: 5, faltan: 3, desfasadas: 1 }),
+      }),
+    ])
+    expect(screen.getByTestId('indice-sin-actualizar')).toBeInTheDocument()
+    expect(screen.getByTestId('faltan-documentos')).toHaveTextContent('3')
+    expect(screen.getByTestId('fichas-desfasadas')).toHaveTextContent('1')
+  })
+
+  it('la actualización automática da el identificador del agente y la dirección de la plataforma', () => {
+    montar([agente({}, { acciones_permitidas: ['cargar_indice'] })])
+    fireEvent.click(screen.getByRole('button', { name: 'Actualización del índice' }))
+    expect(screen.getByTestId('agente-id')).toHaveTextContent('a1')
+    expect(screen.getByTestId('plataforma-url')).toHaveTextContent(window.location.origin)
+  })
+
+  it('enseña el guion con su versión y su huella', () => {
+    montar([agente({}, { acciones_permitidas: ['cargar_indice'] })])
+    fireEvent.click(screen.getByRole('button', { name: 'Actualización del índice' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Ver el guion' }))
+    expect(screen.getByTestId('codigo-del-guion')).toHaveValue('function actualizarIndice() {}')
+    expect(screen.getByText(/indice-v1/)).toBeInTheDocument()
+  })
+
+  it('emite el token del guion y lo enseña una sola vez', () => {
+    mutaciones.emitirToken.mockImplementation((_vars, opciones) =>
+      opciones.onSuccess({ id: 't2', nombre: 'Guion · Contratación menor', prefijo: 'ffff', creado_en: '2026-10-03T10:00:00Z', ultimo_uso_en: null, token: 'pat_ffff_secreto' }),
+    )
+    montar([agente({}, { acciones_permitidas: ['cargar_indice'] })])
+    fireEvent.click(screen.getByRole('button', { name: 'Actualización del índice' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Emitir un token para el guion' }))
+    expect(mutaciones.emitirToken.mock.calls[0][0]).toEqual({ data: { nombre: 'Guion · Contratación menor' } })
+    expect(screen.getByTestId('token-emitido')).toHaveValue('pat_ffff_secreto')
+  })
+
+  it('los tokens del guion se pueden revocar', () => {
+    montar([agente({}, { acciones_permitidas: ['cargar_indice'] })])
+    fireEvent.click(screen.getByRole('button', { name: 'Actualización del índice' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Revocar' }))
+    expect(mutaciones.revocarToken.mock.calls[0][0]).toEqual({ tokenId: 't1' })
   })
 })

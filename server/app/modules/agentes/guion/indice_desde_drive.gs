@@ -13,7 +13,7 @@
  *   2. Pega este código. Configuración del proyecto › marca «Mostrar appsscript.json» y pega el
  *      manifiesto que da la plataforma.
  *   3. Propiedades del guion (Configuración del proyecto › Propiedades del guion):
- *        PLATAFORMA_URL  la dirección del panel, p. ej. https://normativa.uji.es/panel
+ *        PLATAFORMA_URL  la dirección de la plataforma, tal como la da su pantalla de actualización
  *        AGENTE_ID       el identificador del agente (lo da la plataforma)
  *        TOKEN           el token del guion (Agentes › Publicar y gestionar › Actualización automática)
  *        CARPETA_ID      el identificador de la carpeta (lo que va tras /folders/ en su dirección)

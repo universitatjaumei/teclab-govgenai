@@ -110,6 +110,14 @@ export function ConsultarAgentesPage() {
                   {a.espera_adjunto && (
                     <span className="rounded bg-muted px-2 py-0.5 text-xs">{t('consulta.con_adjunto')}</span>
                   )}
+                  {a.indice_sin_actualizar && (
+                    <span
+                      data-testid="indice-sin-actualizar"
+                      className="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-900"
+                    >
+                      {t('consulta.indice_sin_actualizar')}
+                    </span>
+                  )}
                   {a.revision_vencida && (
                     <span
                       data-testid="revision-vencida"

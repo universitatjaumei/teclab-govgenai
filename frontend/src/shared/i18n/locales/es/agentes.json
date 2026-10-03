@@ -61,7 +61,7 @@
     "suspender": "Suspender",
     "reactivar": "Reactivar",
     "retirar": "Retirar",
-    "cargar_indice": "Cargar el índice"
+    "cargar_indice": "Actualización del índice"
   },
   "errores": {
     "obligatorio": "Este campo es obligatorio.",
@@ -107,10 +107,43 @@
     "no_copiado": "No se ha podido copiar. El prompt está seleccionado: cópialo con Ctrl+C.",
     "con_adjunto": "Con documento adjunto",
     "describe_el_adjunto": "Describe en tu pregunta el documento que vas a adjuntar (por ejemplo, «revisa un pliego de contrato menor de servicios»): es lo que permite elegir la normativa que toca.",
-    "adjunta_el_documento": "Al pegar el prompt en el asistente, adjunta tu documento en el mismo mensaje."
+    "adjunta_el_documento": "Al pegar el prompt en el asistente, adjunta tu documento en el mismo mensaje.",
+    "indice_sin_actualizar": "Índice sin actualizar"
   },
   "con_adjunto": "Quien consulta adjunta un documento",
   "nav_aria": "Agentes",
   "nav_consultar": "Consultar",
-  "nav_gestion": "Publicar y gestionar"
+  "nav_gestion": "Publicar y gestionar",
+  "todavia_sin_indice": "todavía sin índice",
+  "actualizado_por_el_guion": "actualizado automáticamente el {{fecha}}",
+  "actualizado_desde_una_hoja": "cargado desde una hoja el {{fecha}}",
+  "indice_sin_actualizar": "El guion no ha mandado el índice en los últimos días",
+  "faltan_documentos_one": "Falta {{count}} documento de la carpeta en el índice ({{carpeta}} en la carpeta)",
+  "faltan_documentos_other": "Faltan {{count}} documentos de la carpeta en el índice ({{carpeta}} en la carpeta)",
+  "fichas_desfasadas_one": "{{count}} ficha resumida con un prompt anterior",
+  "fichas_desfasadas_other": "{{count}} fichas resumidas con un prompt anterior",
+  "actualizacion": {
+    "automatica": "Actualización automática (recomendada)",
+    "intro": "Un guion de Apps Script, instalado junto a la carpeta, recorre los documentos cada mañana, resume con Gemini los nuevos o cambiados y manda el índice. Corre con la cuenta de la unidad: los documentos no salen de Google.",
+    "agente_id": "Identificador del agente",
+    "plataforma_url": "Dirección de la plataforma",
+    "paso_hoja": "Crea una hoja de cálculo junto a la carpeta y, desde ella, abre Extensiones › Apps Script. Mejor en una unidad compartida: un guion de una cuenta personal se pierde cuando esa persona se va.",
+    "paso_guion": "Pega el guion y su manifiesto (el botón de abajo los muestra).",
+    "paso_propiedades": "En las propiedades del guion, pon el identificador del agente, la dirección de la plataforma, el token, la carpeta, la hoja y el proyecto de Google Cloud. La cabecera del guion lo explica.",
+    "paso_diario": "Ejecuta una vez actualizarIndice para autorizarlo y después instalarActualizacionDiaria.",
+    "ver_guion": "Ver el guion",
+    "ocultar_guion": "Ocultar el guion",
+    "version_y_huella": "Versión {{version}} · huella {{huella}}",
+    "codigo": "Código del guion",
+    "manifiesto": "Manifiesto (appsscript.json)",
+    "tokens": "Token del guion",
+    "tokens_intro": "Sólo sirve para mandar el índice de los agentes que tú mantienes: no publica, no retira ni emite otros tokens. Quien pueda editar el guion lo verá, así que revócalo si deja de usarse.",
+    "emitir": "Emitir un token para el guion",
+    "token_emitido": "Token emitido",
+    "solo_una_vez": "Cópialo ahora a las propiedades del guion: no se volverá a ver.",
+    "usado": "último uso: {{fecha}}",
+    "sin_usar": "sin usar todavía",
+    "revocar": "Revocar",
+    "a_mano": "Subir la hoja a mano (alternativa)"
+  }
 }

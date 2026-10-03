@@ -12,10 +12,10 @@ import {
   useSuspenderApiV1AgentesAgenteIdSuspenderPost,
   useReactivarApiV1AgentesAgenteIdReactivarPost,
   useRetirarApiV1AgentesAgenteIdRetirarPost,
-  useSubirHojaApiV1AgentesAgenteIdIndiceHojaPost,
   useVerIndiceApiV1AgentesAgenteIdIndiceGet,
 } from '@/shared/api/generated/agentes/agentes'
-import type { AgenteView, InformeDeCarga } from '@/shared/api/generated/model'
+import type { AgenteView, EstadoDelIndice } from '@/shared/api/generated/model'
+import { ActualizacionDelIndice } from './ActualizacionDelIndice'
 import { mensajeDelFallo } from '@/utilidades/mensajeDelFallo'
 import { useOrganizacionElegida } from '@/shared/organizacion/useOrganizacionElegida'
 
@@ -354,7 +354,6 @@ function FichaDelAgente({ agente, alVersionar }: { agente: AgenteView; alVersion
   const [resultado, setResultado] = useState<'conforme' | 'correcciones'>('conforme')
   const [nota, setNota] = useState('')
   const [fallo, setFallo] = useState<string | null>(null)
-  const [informe, setInforme] = useState<InformeDeCarga | null>(null)
   const [viendoIndice, setViendoIndice] = useState(false)
 
   const alCambiar = useAlCambiar(() => {
@@ -368,25 +367,6 @@ function FichaDelAgente({ agente, alVersionar }: { agente: AgenteView; alVersion
   const suspender = useSuspenderApiV1AgentesAgenteIdSuspenderPost()
   const reactivar = useReactivarApiV1AgentesAgenteIdReactivarPost()
   const retirar = useRetirarApiV1AgentesAgenteIdRetirarPost()
-  const subirHoja = useSubirHojaApiV1AgentesAgenteIdIndiceHojaPost()
-  const alCargar = useAlCambiar()
-
-  function cargarHoja(fichero: File | undefined) {
-    if (!fichero) return
-    setFallo(null)
-    setInforme(null)
-    subirHoja.mutate(
-      { agenteId: agente.id, data: { file: fichero } },
-      {
-        onSuccess: (resultado: InformeDeCarga) => {
-          setInforme(resultado)
-          setPidiendo(null)
-          alCargar.onSuccess()
-        },
-        onError: (e: unknown) => setFallo(mensajeDelFallo(e, t('fallo'))),
-      },
-    )
-  }
 
   function pulsar(accion: string) {
     setFallo(null)
@@ -427,7 +407,7 @@ function FichaDelAgente({ agente, alVersionar }: { agente: AgenteView; alVersion
         <dd>{v.revision_prevista_en}</dd>
         <dt className="text-muted-foreground">{t('campos.indice')}</dt>
         <dd>
-          {t('fichas_en_el_indice', { count: agente.indice.fichas })}
+          <span data-testid="estado-del-indice">{estadoDelIndice(t, agente.indice)}</span>
           {' · '}
           {t('presupuesto_de', { count: v.presupuesto_documentos })}
           {v.espera_adjunto && (
@@ -456,6 +436,27 @@ function FichaDelAgente({ agente, alVersionar }: { agente: AgenteView; alVersion
         )}
       </dl>
 
+      {/* Avisan, no ocultan: el agente se sigue ofreciendo. */}
+      {(agente.indice.sin_actualizar || (agente.indice.faltan ?? 0) > 0 || agente.indice.desfasadas > 0) && (
+        <div className="flex flex-wrap gap-2 text-xs">
+          {agente.indice.sin_actualizar && (
+            <span data-testid="indice-sin-actualizar" className="rounded bg-amber-100 px-2 py-0.5 text-amber-900">
+              {t('indice_sin_actualizar')}
+            </span>
+          )}
+          {(agente.indice.faltan ?? 0) > 0 && (
+            <span data-testid="faltan-documentos" className="rounded bg-amber-100 px-2 py-0.5 text-amber-900">
+              {t('faltan_documentos', { count: agente.indice.faltan ?? 0, carpeta: agente.indice.documentos_en_carpeta })}
+            </span>
+          )}
+          {agente.indice.desfasadas > 0 && (
+            <span data-testid="fichas-desfasadas" className="rounded bg-muted px-2 py-0.5">
+              {t('fichas_desfasadas', { count: agente.indice.desfasadas })}
+            </span>
+          )}
+        </div>
+      )}
+
       {(permitidas.length > 0 || agente.indice.fichas > 0) && (
         <div className="flex flex-wrap gap-2">
           {permitidas.map((accion) => (
@@ -480,31 +481,7 @@ function FichaDelAgente({ agente, alVersionar }: { agente: AgenteView; alVersion
         </div>
       )}
 
-      {pidiendo === 'cargar_indice' && (
-        <div className="space-y-1">
-          <label htmlFor={`hoja_${agente.id}`} className="text-sm font-medium">{t('hoja_del_indice')}</label>
-          <input
-            id={`hoja_${agente.id}`}
-            type="file"
-            accept=".csv,.xlsx"
-            disabled={subirHoja.isPending}
-            onChange={(e) => cargarHoja(e.target.files?.[0])}
-            className="block text-sm"
-          />
-          <p className="text-xs text-muted-foreground">{t('pistas.hoja_del_indice')}</p>
-        </div>
-      )}
-
-      {informe && (
-        <p className="text-sm" data-testid="informe-de-carga" role="status">
-          {t('informe_de_carga', {
-            nuevas: t('nuevas', { count: informe.nuevas }),
-            actualizadas: t('actualizadas', { count: informe.actualizadas }),
-            sin_cambios: t('sin_cambios', { count: informe.sin_cambios }),
-            retiradas: t('retiradas', { count: informe.retiradas }),
-          })}
-        </p>
-      )}
+      {pidiendo === 'cargar_indice' && <ActualizacionDelIndice agente={agente} />}
 
       {viendoIndice && <IndiceDelAgente agenteId={agente.id} />}
 
@@ -596,4 +573,12 @@ function IndiceDelAgente({ agenteId }: { agenteId: string }) {
       ))}
     </ul>
   )
+}
+
+/** «12 fichas · actualizado automáticamente el …», o que todavía no hay índice. */
+function estadoDelIndice(t: (k: string, o?: Record<string, unknown>) => string, indice: EstadoDelIndice): string {
+  if (!indice.actualizado_en) return t('todavia_sin_indice')
+  const fichas = t('fichas_en_el_indice', { count: indice.fichas })
+  const fecha = new Date(indice.actualizado_en).toLocaleString()
+  return `${fichas} · ${t(indice.origen === 'guion' ? 'actualizado_por_el_guion' : 'actualizado_desde_una_hoja', { fecha })}`
 }

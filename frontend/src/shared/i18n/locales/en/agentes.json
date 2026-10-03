@@ -61,7 +61,7 @@
     "suspender": "Suspend",
     "reactivar": "Reactivate",
     "retirar": "Withdraw",
-    "cargar_indice": "Load the index"
+    "cargar_indice": "Index updates"
   },
   "errores": {
     "obligatorio": "This field is required.",
@@ -107,10 +107,43 @@
     "no_copiado": "It could not be copied. The prompt is selected: copy it with Ctrl+C.",
     "con_adjunto": "With attached document",
     "describe_el_adjunto": "Describe in your question the document you will attach (for example, \"review a tender for a minor services contract\"): it is what lets the right regulations be chosen.",
-    "adjunta_el_documento": "When you paste the prompt into the assistant, attach your document in the same message."
+    "adjunta_el_documento": "When you paste the prompt into the assistant, attach your document in the same message.",
+    "indice_sin_actualizar": "Index not updated"
   },
   "con_adjunto": "The person asking attaches a document",
   "nav_aria": "Agents",
   "nav_consultar": "Ask",
-  "nav_gestion": "Publish and manage"
+  "nav_gestion": "Publish and manage",
+  "todavia_sin_indice": "no index yet",
+  "actualizado_por_el_guion": "updated automatically on {{fecha}}",
+  "actualizado_desde_una_hoja": "loaded from a sheet on {{fecha}}",
+  "indice_sin_actualizar": "The script has not sent the index in recent days",
+  "faltan_documentos_one": "{{count}} document of the folder is missing from the index ({{carpeta}} in the folder)",
+  "faltan_documentos_other": "{{count}} documents of the folder are missing from the index ({{carpeta}} in the folder)",
+  "fichas_desfasadas_one": "{{count}} entry summarised with an earlier prompt",
+  "fichas_desfasadas_other": "{{count}} entries summarised with an earlier prompt",
+  "actualizacion": {
+    "automatica": "Automatic updates (recommended)",
+    "intro": "An Apps Script installed next to the folder goes through the documents every morning, summarises the new or changed ones with Gemini and sends the index. It runs with the unit's account: the documents never leave Google.",
+    "agente_id": "Agent identifier",
+    "plataforma_url": "Platform address",
+    "paso_hoja": "Create a spreadsheet next to the folder and, from it, open Extensions › Apps Script. Preferably in a shared drive: a script in a personal account is lost when that person leaves.",
+    "paso_guion": "Paste the script and its manifest (the button below shows them).",
+    "paso_propiedades": "In the script properties, set the agent identifier, the platform address, the token, the folder, the sheet and the Google Cloud project. The script's header explains it.",
+    "paso_diario": "Run actualizarIndice once to authorise it, and then instalarActualizacionDiaria.",
+    "ver_guion": "View the script",
+    "ocultar_guion": "Hide the script",
+    "version_y_huella": "Version {{version}} · fingerprint {{huella}}",
+    "codigo": "Script code",
+    "manifiesto": "Manifest (appsscript.json)",
+    "tokens": "Script token",
+    "tokens_intro": "It only sends the index of the agents you maintain: it cannot publish, withdraw or issue other tokens. Anyone who can edit the script will see it, so revoke it when no longer used.",
+    "emitir": "Issue a token for the script",
+    "token_emitido": "Issued token",
+    "solo_una_vez": "Copy it now into the script properties: it will not be shown again.",
+    "usado": "last used: {{fecha}}",
+    "sin_usar": "not used yet",
+    "revocar": "Revoke",
+    "a_mano": "Upload the sheet by hand (alternative)"
+  }
 }
