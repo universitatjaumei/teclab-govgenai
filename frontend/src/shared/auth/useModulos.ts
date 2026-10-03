@@ -48,8 +48,8 @@ export const RUTA_DEL_MODULO: ReadonlyArray<readonly [string, string]> = [
   // tuviera utilidades aterrizaría en `/sin-acceso` teniendo acceso.
   ['utilidades', '/utilidades'],
   // #172 — sin esta fila, quien sólo tuviera `agentes` aterrizaría en `/sin-acceso`.
-  ['agentes', '/agentes'],
-  ['consulta_agentes', '/consultar-agentes'],
+  ['consulta_agentes', '/agentes/consultar'],
+  ['agentes', '/agentes/gestion'],
   // USR.9 — antes de `plataforma` y después del trabajo: administrar a las personas de tu
   // organización es administración, pero es la única que tiene quien no administra la
   // plataforma, y sin esta fila aterrizaría en `/sin-acceso` teniendo acceso.

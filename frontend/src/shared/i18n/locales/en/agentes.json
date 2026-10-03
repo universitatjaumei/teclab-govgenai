@@ -109,5 +109,8 @@
     "describe_el_adjunto": "Describe in your question the document you will attach (for example, \"review a tender for a minor services contract\"): it is what lets the right regulations be chosen.",
     "adjunta_el_documento": "When you paste the prompt into the assistant, attach your document in the same message."
   },
-  "con_adjunto": "The person asking attaches a document"
+  "con_adjunto": "The person asking attaches a document",
+  "nav_aria": "Agents",
+  "nav_consultar": "Ask",
+  "nav_gestion": "Publish and manage"
 }

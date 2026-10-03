@@ -109,5 +109,8 @@
     "describe_el_adjunto": "Descriu a la teua pregunta el document que adjuntaràs (per exemple, «revisa un plec de contracte menor de serveis»): és el que permet triar la normativa que toca.",
     "adjunta_el_documento": "Quan apegues el prompt a l'assistent, adjunta el teu document en el mateix missatge."
   },
-  "con_adjunto": "Qui consulta adjunta un document"
+  "con_adjunto": "Qui consulta adjunta un document",
+  "nav_aria": "Agents",
+  "nav_consultar": "Consultar",
+  "nav_gestion": "Publicar i gestionar"
 }

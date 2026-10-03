@@ -63,6 +63,8 @@ const UtilidadesPdfPage = lazy(() => import('@/utilidades/pages/UtilidadesPdfPag
 const AnonimizarFicheroPage = lazy(() => import('@/utilidades/pages/AnonimizarFicheroPage').then(m => ({ default: m.AnonimizarFicheroPage })))
 const AgentesPage = lazy(() => import('@/agentes/AgentesPage').then(m => ({ default: m.AgentesPage })))
 const ConsultarAgentesPage = lazy(() => import('@/agentes/ConsultarAgentesPage').then(m => ({ default: m.ConsultarAgentesPage })))
+const AgentesLayout = lazy(() => import('@/agentes/AgentesLayout').then(m => ({ default: m.AgentesLayout })))
+const EntradaDeAgentes = lazy(() => import('@/agentes/EntradaDeAgentes').then(m => ({ default: m.EntradaDeAgentes })))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -158,10 +160,13 @@ function App() {
                     <Route path="pdf" element={<UtilidadesPdfPage />} />
                     <Route path="anonimizar" element={<AnonimizarFicheroPage />} />
                   </Route>
-                  {/* #172 — publicar y gobernar los agentes de unidad. */}
-                  <Route path="/agentes" element={<RutaDeModulo modulo="agentes"><AgentesPage /></RutaDeModulo>} />
-                  {/* #175 — consultar un agente y copiar el prompt, para cualquiera. */}
-                  <Route path="/consultar-agentes" element={<RutaDeModulo modulo="consulta_agentes"><ConsultarAgentesPage /></RutaDeModulo>} />
+                  {/* #172, #175 — los agentes de unidad: consultar, para cualquiera, y publicar y
+                      gestionar, con el módulo `agentes`. Cada pestaña con su guarda. */}
+                  <Route path="/agentes" element={<AgentesLayout />}>
+                    <Route index element={<EntradaDeAgentes />} />
+                    <Route path="consultar" element={<RutaDeModulo modulo="consulta_agentes"><ConsultarAgentesPage /></RutaDeModulo>} />
+                    <Route path="gestion" element={<RutaDeModulo modulo="agentes"><AgentesPage /></RutaDeModulo>} />
+                  </Route>
                   <Route path="/plataforma" element={<RutaDeModulo modulo="plataforma"><PlataformaLayout /></RutaDeModulo>}>
                     <Route index element={<Navigate to="/plataforma/modelos" replace />} />
                     {/* REV.11 — sale de /hub: su router ya exigia el modulo plataforma para

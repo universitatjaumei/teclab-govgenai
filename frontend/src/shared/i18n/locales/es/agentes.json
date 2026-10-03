@@ -109,5 +109,8 @@
     "describe_el_adjunto": "Describe en tu pregunta el documento que vas a adjuntar (por ejemplo, «revisa un pliego de contrato menor de servicios»): es lo que permite elegir la normativa que toca.",
     "adjunta_el_documento": "Al pegar el prompt en el asistente, adjunta tu documento en el mismo mensaje."
   },
-  "con_adjunto": "Quien consulta adjunta un documento"
+  "con_adjunto": "Quien consulta adjunta un documento",
+  "nav_aria": "Agentes",
+  "nav_consultar": "Consultar",
+  "nav_gestion": "Publicar y gestionar"
 }

@@ -67,7 +67,7 @@ echo ----------------------------------------------------------
 echo  PASO 1 - Publicar un agente y cargar su indice
 echo ----------------------------------------------------------
 echo.
-echo   1. Abre  http://localhost:5173/agentes  y publica un agente.
+echo   1. Abre  http://localhost:5173/agentes/gestion  y publica un agente.
 echo   2. Prepara una hoja (CSV o Excel) con las columnas url, titulo
 echo      y resumen, una fila por documento, con los tres enlaces.
 echo   3. Pulsa "Cargar el indice" y sube la hoja.
@@ -82,7 +82,7 @@ echo ----------------------------------------------------------
 echo  PASO 2 - Consultar y pegar en el asistente general (el que importa)
 echo ----------------------------------------------------------
 echo.
-echo   1. Abre  http://localhost:5173/consultar-agentes
+echo   1. Abre  http://localhost:5173/agentes/consultar
 echo   2. Elige el agente, escribe una pregunta que respondan tus
 echo      documentos y pulsa "Preparar el prompt".
 echo   3. Pulsa "Copiar el prompt". Debe decir "Copiado".
@@ -108,7 +108,7 @@ echo ----------------------------------------------------------
 echo.
 echo   1. Publica otro agente y marca "Quien consulta adjuntara un
 echo      documento". Cargale el indice con la normativa del paso 1.
-echo   2. En "Consultar agentes" eligelo, describe en la pregunta el
+echo   2. En Agentes - Consultar, eligelo, describe en la pregunta el
 echo      documento que vas a adjuntar y prepara el prompt.
 echo   3. Pega el prompt en el asistente general y, en el MISMO
 echo      mensaje, adjunta un documento de prueba (un pliego, una

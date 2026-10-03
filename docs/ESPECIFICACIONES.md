@@ -723,8 +723,9 @@ los documentos de cada **consulta**, que devuelve el prompt del agente con los e
   **instrucción de abstención literal** —si no puede abrir los documentos, que lo diga—. Hay dos
   puertas independientes: la plataforma selecciona y el almacén autoriza. **No se comprueba si cada
   enlace se puede abrir**, porque la plataforma sólo podría hacerlo con su propia identidad.
-- **Cualquiera consulta desde el panel** («Consultar agentes», módulo `consulta_agentes`, de
-  oficio): ve el catálogo de su colectivo, prepara el prompt y lo copia para pegarlo en el
+- **Cualquiera consulta desde el panel**: entrada «Agentes», pestaña «Consultar» (módulo
+  `consulta_agentes`, de oficio); publicar y gestionar es la otra pestaña, con el módulo
+  `agentes`. Ve el catálogo de su colectivo, prepara el prompt y lo copia para pegarlo en el
   asistente general. Es el circuito de validación antes de la extensión (#176). Retirar el módulo
   del catálogo apaga la consulta para todos.
 - **Un agente de revisión espera un adjunto** si lo declara la unidad: quien consulta adjunta su
