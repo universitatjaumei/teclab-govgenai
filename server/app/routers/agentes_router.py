@@ -22,6 +22,7 @@ una persona de la organización.
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import os
 import uuid
@@ -49,6 +50,7 @@ from server.app.core.auth.pat.scopes import AGENTES_CONSULTA, AGENTES_INDICE_WRI
 from server.app.core.identidad import user_to_uuid
 from server.app.core.uploads import read_within_limit, sanitizar_nombre
 from server.app.modules.agentes import acciones, consulta, indice
+from server.app.modules.agentes.guion_del_indice import guion_del_indice
 from server.app.modules.agents_hub.contracts.actividad import ActividadIAEvent
 from server.app.modules.agents_hub.database.operational_models import (
     HubActividadIA,
@@ -717,6 +719,33 @@ async def ver_indice(
         )
         for f in filas
     ]
+
+
+# =============================================================================
+#  El guion (#174)
+# =============================================================================
+
+
+class GuionDelIndiceView(BaseModel):
+    """El guion de Apps Script, su manifiesto, su versión y su huella."""
+
+    version: str
+    sha256: str
+    codigo: str
+    manifiesto: str
+
+
+@router.get("/guion", response_model=GuionDelIndiceView)
+async def guion(
+    _: UserInfo = Depends(require_sesion_humana()),
+) -> GuionDelIndiceView:
+    """El guion que mantiene el índice. **Uno para todas las unidades**, con sus parámetros.
+
+    Se entrega con su huella: quien lo instala puede comprobar que es este, y no una copia que
+    alguien haya retocado.
+    """
+    g = await asyncio.to_thread(guion_del_indice)
+    return GuionDelIndiceView(version=g.version, sha256=g.sha256, codigo=g.codigo, manifiesto=g.manifiesto)
 
 
 # =============================================================================

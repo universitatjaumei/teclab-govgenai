@@ -175,3 +175,36 @@ async def test_el_token_emitido_carga_el_indice_por_el_camino_de_verdad(db_sessi
         assert (
             await c.post("/api/v1/agentes/tokens", json={"nombre": "otro"}, headers=cabecera)
         ).status_code == 403
+
+
+class TestElGuionLoSirveLaPlataforma:
+    """Uno, versionado y con su huella: las unidades lo instancian, no escriben el suyo (#174)."""
+
+    @pytest.mark.asyncio
+    async def test_da_el_codigo_el_manifiesto_la_version_y_la_huella(self, http):
+        import hashlib
+        import json
+        from pathlib import Path
+
+        c, _ = http
+        r = await c.get("/api/v1/agentes/guion")
+        assert r.status_code == 200, r.text
+        cuerpo = r.json()
+        fuente = (
+            Path(__file__).resolve().parents[3]
+            / "app" / "modules" / "agentes" / "guion" / "indice_desde_drive.gs"
+        )
+        assert cuerpo["codigo"] == fuente.read_text(encoding="utf-8")
+        assert cuerpo["sha256"] == hashlib.sha256(fuente.read_bytes()).hexdigest()
+        assert cuerpo["version"] == "indice-v1"
+        manifiesto = json.loads(cuerpo["manifiesto"])
+        assert "https://www.googleapis.com/auth/drive.readonly" in manifiesto["oauthScopes"]
+
+    @pytest.mark.asyncio
+    async def test_no_pide_mas_permisos_de_drive_que_leer(self, http):
+        """El guion lee la carpeta; si pidiera escribir en todo Drive, nadie debería instalarlo."""
+        import json
+
+        c, _ = http
+        manifiesto = json.loads((await c.get("/api/v1/agentes/guion")).json()["manifiesto"])
+        assert "https://www.googleapis.com/auth/drive" not in manifiesto["oauthScopes"]
