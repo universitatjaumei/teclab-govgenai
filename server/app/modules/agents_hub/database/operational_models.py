@@ -1323,6 +1323,12 @@ class HubAgenteConsulta(HubOperationalBase):
     __table_args__ = (
         CheckConstraint("modo IN ('validacion', 'incidencias')", name="ck_agente_consulta_modo"),
         CheckConstraint("puntuacion IS NULL OR puntuacion IN (-1, 1)", name="ck_agente_consulta_puntuacion"),
+        # #217 — los mismos tres valores que `ck_interaction_review_verdict` de los chatbots, a
+        # propósito: un informe que cruce las dos revisiones no tiene que traducir.
+        CheckConstraint(
+            "veredicto IS NULL OR veredicto IN ('good', 'bad', 'mixed')",
+            name="ck_agente_consulta_veredicto",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -1364,6 +1370,12 @@ class HubAgenteConsulta(HubOperationalBase):
     motivo: Mapped[str | None] = mapped_column(String(40), nullable=True)
     comentario: Mapped[str | None] = mapped_column(Text, nullable=True)
     valorada_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: #217 — lo que dice quien revisa la calidad del agente. NULL = sin revisar: es lo que
+    #: alimenta los informes pendientes, como `review_verdict` en los chatbots.
+    veredicto: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    nota_revision: Mapped[str | None] = mapped_column(Text, nullable=True)
+    revisada_por: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    revisada_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class HubAsistenteAdaptador(HubOperationalBase):

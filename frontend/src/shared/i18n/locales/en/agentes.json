@@ -26,7 +26,8 @@
     "adjunto": "Attached document",
     "lengua_respuesta": "Language of the answer",
     "datos_consulta": "Query details",
-    "indicaciones": "Guidance for the person asking"
+    "indicaciones": "Guidance for the person asking",
+    "calidad": "Quality"
   },
   "pistas": {
     "carpeta_url": "The folder's address in the organisation's storage. The platform keeps no documents: the storage authorises them.",
@@ -70,7 +71,8 @@
     "retirar": "Withdraw",
     "cargar_indice": "Index updates",
     "cambiar_registro_desde_validacion": "Switch to incidents only",
-    "cambiar_registro_desde_incidencias": "Back to validation"
+    "cambiar_registro_desde_incidencias": "Back to validation",
+    "ver_calidad": "See quality"
   },
   "errores": {
     "obligatorio": "This field is required.",
@@ -224,5 +226,45 @@
       "opciones": "List of options"
     }
   },
-  "dato_obligatorio": "{{etiqueta}} (required)"
+  "dato_obligatorio": "{{etiqueta}} (required)",
+  "registro_corto": {
+    "validacion": "In validation",
+    "incidencias": "Incidents only"
+  },
+  "calidad": {
+    "titulo": "Conversations and reports",
+    "contadores": "Queries: {{consultas}} · answers read: {{leidas}} · reports to review: {{informes}}",
+    "filtro_modo": "Mode",
+    "filtro_valoracion": "Rating",
+    "filtro_motivo": "Reason",
+    "todos": "All",
+    "todas": "All",
+    "sin_revisar": "Only not reviewed",
+    "ninguna": "No conversations with these filters.",
+    "mira_primero": "Look first at:",
+    "documentos_ofrecidos_one": "{{count}} document offered",
+    "documentos_ofrecidos_other": "{{count}} documents offered",
+    "respuesta": "Assistant's answer",
+    "fuentes_citadas": "Sources cited:",
+    "veredicto": "Verdict",
+    "sin_veredicto": "No verdict",
+    "nota": "Review note",
+    "guardar": "Save",
+    "pistas": {
+      "almacen": "the document's permission or link",
+      "indice": "the folder or the index summary",
+      "prompt": "the agent's instructions (the prompt)",
+      "seleccion": "the document budget or the query details"
+    },
+    "veredictos": {
+      "good": "Adequate",
+      "mixed": "Partly",
+      "bad": "Inadequate"
+    },
+    "sin_captura": {
+      "sin_respuesta": "It was not sent, or no answer came.",
+      "sin_terminar": "The answer did not finish in time.",
+      "selector": "It could not be read: the assistant integration failed."
+    }
+  }
 }

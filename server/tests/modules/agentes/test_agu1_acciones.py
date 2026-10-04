@@ -62,13 +62,14 @@ def _acciones(version, principal, agente=None):
 class TestAcciones:
 
     def test_la_autora_versiona_y_retira_pero_no_revisa_ni_suspende(self):
-        assert _acciones(_version(), _persona(AUTORA)) == ["versionar", "cargar_indice", "cambiar_registro", "retirar"]
+        assert _acciones(_version(), _persona(AUTORA)) == ["versionar", "cargar_indice", "cambiar_registro", "ver_calidad", "retirar"]
 
     def test_el_admin_de_la_organizacion_revisa_suspende_y_retira(self):
         assert _acciones(_version(), _persona(role="admin")) == [
             "versionar",
             "cargar_indice",
             "cambiar_registro",
+            "ver_calidad",
             "revisar",
             "suspender",
             "retirar",

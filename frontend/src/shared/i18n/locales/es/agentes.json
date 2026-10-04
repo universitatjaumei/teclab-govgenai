@@ -26,7 +26,8 @@
     "adjunto": "Documento adjunto",
     "lengua_respuesta": "Lengua de la respuesta",
     "datos_consulta": "Datos de la consulta",
-    "indicaciones": "Indicaciones para quien pregunta"
+    "indicaciones": "Indicaciones para quien pregunta",
+    "calidad": "Calidad"
   },
   "pistas": {
     "carpeta_url": "La dirección de la carpeta en el almacén de la organización. La plataforma no guarda ningún documento: los autoriza el almacén.",
@@ -70,7 +71,8 @@
     "retirar": "Retirar",
     "cargar_indice": "Actualización del índice",
     "cambiar_registro_desde_validacion": "Pasar a sólo incidencias",
-    "cambiar_registro_desde_incidencias": "Volver a validación"
+    "cambiar_registro_desde_incidencias": "Volver a validación",
+    "ver_calidad": "Ver la calidad"
   },
   "errores": {
     "obligatorio": "Este campo es obligatorio.",
@@ -224,5 +226,45 @@
       "opciones": "Lista de opciones"
     }
   },
-  "dato_obligatorio": "{{etiqueta}} (obligatorio)"
+  "dato_obligatorio": "{{etiqueta}} (obligatorio)",
+  "registro_corto": {
+    "validacion": "En validación",
+    "incidencias": "Sólo incidencias"
+  },
+  "calidad": {
+    "titulo": "Conversaciones e informes",
+    "contadores": "Consultas: {{consultas}} · respuestas leídas: {{leidas}} · informes sin revisar: {{informes}}",
+    "filtro_modo": "Modo",
+    "filtro_valoracion": "Valoración",
+    "filtro_motivo": "Motivo",
+    "todos": "Todos",
+    "todas": "Todas",
+    "sin_revisar": "Sólo sin revisar",
+    "ninguna": "No hay conversaciones con estos filtros.",
+    "mira_primero": "Mira primero:",
+    "documentos_ofrecidos_one": "{{count}} documento ofrecido",
+    "documentos_ofrecidos_other": "{{count}} documentos ofrecidos",
+    "respuesta": "Respuesta del asistente",
+    "fuentes_citadas": "Fuentes que citó:",
+    "veredicto": "Veredicto",
+    "sin_veredicto": "Sin veredicto",
+    "nota": "Nota de la revisión",
+    "guardar": "Guardar",
+    "pistas": {
+      "almacen": "el permiso o el enlace del documento",
+      "indice": "la carpeta o el resumen del índice",
+      "prompt": "las instrucciones del agente (el prompt)",
+      "seleccion": "el presupuesto de documentos o los datos de la consulta"
+    },
+    "veredictos": {
+      "good": "Adecuada",
+      "mixed": "En parte",
+      "bad": "Inadecuada"
+    },
+    "sin_captura": {
+      "sin_respuesta": "No se envió, o no llegó la respuesta.",
+      "sin_terminar": "La respuesta no terminó en el plazo.",
+      "selector": "No se pudo leer: la integración con el asistente falló."
+    }
+  }
 }

@@ -18,6 +18,7 @@ import {
 } from '@/shared/api/generated/agentes/agentes'
 import type { AgenteView, DatoDeLaConsulta, DatoDeLaConsultaView, EstadoDelIndice, PropuestaDePrompt } from '@/shared/api/generated/model'
 import { ActualizacionDelIndice } from './ActualizacionDelIndice'
+import { CalidadDelAgente } from './CalidadDelAgente'
 import { mensajeDelFallo } from '@/utilidades/mensajeDelFallo'
 import { useOrganizacionElegida } from '@/shared/organizacion/useOrganizacionElegida'
 
@@ -535,6 +536,7 @@ function FichaDelAgente({ agente, alVersionar }: { agente: AgenteView; alVersion
   const [nota, setNota] = useState('')
   const [fallo, setFallo] = useState<string | null>(null)
   const [viendoIndice, setViendoIndice] = useState(false)
+  const [viendoCalidad, setViendoCalidad] = useState(false)
 
   const alCambiar = useAlCambiar(() => {
     setPidiendo(null)
@@ -554,6 +556,7 @@ function FichaDelAgente({ agente, alVersionar }: { agente: AgenteView; alVersion
     if (accion === 'versionar') alVersionar()
     else if (accion === 'reactivar') reactivar.mutate({ agenteId: agente.id }, opciones)
     else if (accion === 'retirar') retirar.mutate({ agenteId: agente.id }, opciones)
+    else if (accion === 'ver_calidad') setViendoCalidad((v) => !v)
     else if (accion === 'cambiar_registro')
       cambiarRegistro.mutate(
         { agenteId: agente.id, data: { modo: agente.modo_registro === 'validacion' ? 'incidencias' : 'validacion' } },
@@ -609,6 +612,19 @@ function FichaDelAgente({ agente, alVersionar }: { agente: AgenteView; alVersion
           </>
         )}
         {/* #216 — qué se guarda de sus conversaciones. */}
+        {/* #217 — sólo lo trae quien puede ver la calidad. */}
+        {agente.calidad && (
+          <>
+            <dt className="text-muted-foreground">{t('campos.calidad')}</dt>
+            <dd data-testid="contadores-calidad">
+              {t('calidad.contadores', {
+                consultas: agente.calidad.consultas,
+                leidas: agente.calidad.respuestas_leidas,
+                informes: agente.calidad.informes_sin_revisar,
+              })}
+            </dd>
+          </>
+        )}
         <dt className="text-muted-foreground">{t('campos.registro')}</dt>
         <dd data-testid="modo-registro">{t(`registro.${agente.modo_registro}`)}</dd>
         <dt className="text-muted-foreground">{t('campos.indice')}</dt>
@@ -693,6 +709,8 @@ function FichaDelAgente({ agente, alVersionar }: { agente: AgenteView; alVersion
       {pidiendo === 'cargar_indice' && <ActualizacionDelIndice agente={agente} />}
 
       {viendoIndice && <IndiceDelAgente agenteId={agente.id} />}
+
+      {viendoCalidad && <CalidadDelAgente agenteId={agente.id} />}
 
       {pidiendo === 'suspender' && (
         <div className="space-y-2">

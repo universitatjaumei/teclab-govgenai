@@ -255,6 +255,14 @@ class EstadoDelIndice(BaseModel):
     desfasadas: int
 
 
+class CalidadDelAgente(BaseModel):
+    """#217 — los contadores de la ficha. Sólo los ve quien puede ver la calidad."""
+
+    consultas: int
+    respuestas_leidas: int
+    informes_sin_revisar: int
+
+
 class AgenteView(BaseModel):
     id: uuid.UUID
     nombre: str
@@ -263,6 +271,8 @@ class AgenteView(BaseModel):
     indice: EstadoDelIndice
     #: #216 — qué se guarda de sus conversaciones.
     modo_registro: Literal["validacion", "incidencias"]
+    #: #217 — nulo para quien no puede ver la calidad del agente.
+    calidad: CalidadDelAgente | None = None
     version: VersionDelAgente
 
 
@@ -342,8 +352,15 @@ def _vista(
     version: HubAgenteUnidadVersion,
     user: UserInfo,
     cuentas: tuple[int, int] = (0, 0),
+    calidad: tuple[int, int, int] = (0, 0, 0),
 ) -> AgenteView:
+    permitidas = acciones.acciones_permitidas(agente, version, principal=user)
     return AgenteView(
+        calidad=CalidadDelAgente(
+            consultas=calidad[0], respuestas_leidas=calidad[1], informes_sin_revisar=calidad[2]
+        )
+        if "ver_calidad" in permitidas
+        else None,
         id=agente.id,
         nombre=agente.nombre,
         unidad=agente.unidad,
@@ -372,7 +389,7 @@ def _vista(
             revision_resultado=version.revision_resultado,
             revision_nota=version.revision_nota,
             motivo_suspension=version.motivo_suspension,
-            acciones_permitidas=acciones.acciones_permitidas(agente, version, principal=user),
+            acciones_permitidas=permitidas,
         ),
     )
 
@@ -484,12 +501,32 @@ async def _fichas_por_agente(
     return cuentas
 
 
+async def _calidad_por_agente(
+    session: AsyncSession, ids: list[uuid.UUID]
+) -> dict[uuid.UUID, tuple[int, int, int]]:
+    """#217 — por agente: consultas, respuestas leídas e informes sin revisar."""
+    if not ids:
+        return {}
+    filas = await session.execute(
+        select(
+            HubAgenteConsulta.agente_id,
+            func.count(),
+            func.count().filter(HubAgenteConsulta.respuesta.is_not(None)),
+            func.count().filter((HubAgenteConsulta.puntuacion == -1) & HubAgenteConsulta.veredicto.is_(None)),
+        )
+        .where(HubAgenteConsulta.agente_id.in_(ids))
+        .group_by(HubAgenteConsulta.agente_id)
+    )
+    return {agente_id: (n, leidas, abiertos) for agente_id, n, leidas, abiertos in filas.all()}
+
+
 async def _responder(session: AsyncSession, agente, version, user: UserInfo) -> AgenteView:
     # La vista se construye antes del commit: la sesión de los routers expira los atributos al
     # commitear, y leerlos después costaría un 500.
     await session.flush()
     cuentas = (await _fichas_por_agente(session, {agente.id: version})).get(agente.id, (0, 0))
-    vista = _vista(agente, version, user, cuentas)
+    calidad = (await _calidad_por_agente(session, [agente.id])).get(agente.id, (0, 0, 0))
+    vista = _vista(agente, version, user, cuentas, calidad)
     await session.commit()
     return vista
 
@@ -539,8 +576,9 @@ async def listar(
     """Los agentes de su organización, con lo que quien pregunta puede hacer con cada uno."""
     filas = await _vigentes(session, _de_sus_organizaciones(user))
     fichas = await _fichas_por_agente(session, {a.id: v for a, v in filas})
+    calidad = await _calidad_por_agente(session, [a.id for a, _ in filas])
     return GestionDeAgentes(
-        agentes=[_vista(a, v, user, fichas.get(a.id, (0, 0))) for a, v in filas],
+        agentes=[_vista(a, v, user, fichas.get(a.id, (0, 0)), calidad.get(a.id, (0, 0, 0))) for a, v in filas],
         grupos_del_idp=get_settings().saml_enabled,
     )
 
@@ -1670,3 +1708,144 @@ async def motivos_de_informe(
 ) -> list[MotivoDeInforme]:
     """Los motivos de un informe, con su etiqueta: la extensión los pinta, no los conoce."""
     return [MotivoDeInforme(codigo=c, etiqueta=e[lengua]) for c, e in registro.MOTIVOS.items()]
+
+
+# =============================================================================
+#  La calidad (#217)
+# =============================================================================
+
+
+class DocumentoOfrecidoEnLaConsulta(BaseModel):
+    url: str
+    #: El de la ficha del índice ahora; vacío si la ficha ya no existe.
+    titulo: str | None
+    score: float
+
+
+class ConversacionDelAgente(BaseModel):
+    """Una consulta con lo que se guardó de ella. **Sin quién preguntó**: para corregir el agente
+    no hace falta, y no se enseña."""
+
+    id: uuid.UUID
+    ocurrido_en: datetime
+    version: int
+    modo: str
+    pregunta: str | None
+    datos: dict[str, str] | None
+    documentos: list[DocumentoOfrecidoEnLaConsulta]
+    respuesta: str | None
+    respuesta_no_capturada: str | None
+    fuentes: list[str] | None
+    puntuacion: int | None
+    motivo: str | None
+    comentario: str | None
+    #: Dónde mirar primero, según el motivo. La calcula el servidor; nula si no apunta a nada.
+    pista: Literal["almacen", "indice", "prompt", "seleccion"] | None
+    veredicto: Literal["good", "bad", "mixed"] | None
+    nota_revision: str | None
+    revisada_en: datetime | None
+
+
+class RevisionDeLaConversacion(BaseModel):
+    veredicto: Literal["good", "bad", "mixed"]
+    nota: str | None = Field(default=None, max_length=4000)
+
+    model_config = {"extra": "forbid"}
+
+
+def _conversacion(fila: HubAgenteConsulta, titulos: dict[str, str]) -> ConversacionDelAgente:
+    return ConversacionDelAgente(
+        id=fila.id,
+        ocurrido_en=fila.ocurrido_en,
+        version=fila.version,
+        modo=fila.modo,
+        pregunta=fila.pregunta,
+        datos=fila.datos,
+        documentos=[
+            DocumentoOfrecidoEnLaConsulta(url=d["url"], titulo=titulos.get(d["url"]), score=d["score"])
+            for d in (fila.documentos or [])
+        ],
+        respuesta=fila.respuesta,
+        respuesta_no_capturada=fila.respuesta_no_capturada,
+        fuentes=fila.fuentes,
+        puntuacion=fila.puntuacion,
+        motivo=fila.motivo,
+        comentario=fila.comentario,
+        pista=registro.PISTAS.get(fila.motivo or ""),
+        veredicto=fila.veredicto,
+        nota_revision=fila.nota_revision,
+        revisada_en=fila.revisada_en,
+    )
+
+
+@router.get("/{agente_id}/conversaciones", response_model=list[ConversacionDelAgente])
+async def conversaciones(
+    agente_id: uuid.UUID,
+    modo: Literal["validacion", "incidencias"] | None = None,
+    # Entero y no `Literal[1, -1]`: en la consulta de la URL llega como texto, y el literal
+    # rechazaba el «-1» (la misma trampa que el «3» de un formulario, ver la memoria del proyecto).
+    puntuacion: int | None = Query(default=None, ge=-1, le=1),
+    motivo: str | None = None,
+    sin_revisar: bool = False,
+    limite: int = Query(default=50, ge=1, le=200),
+    user: UserInfo = Depends(require_sesion_humana()),
+    session: AsyncSession = Depends(get_session),
+) -> list[ConversacionDelAgente]:
+    """Las conversaciones y los informes de un agente, de lo más reciente a lo más antiguo. Para
+    quien lo publicó y quien lo revisa: es lo que permite ver dónde está el fallo."""
+    agente, version = await _el_agente(session, agente_id, user)
+    _exigir("ver_calidad", agente, version, user)
+    consulta_sql = select(HubAgenteConsulta).where(HubAgenteConsulta.agente_id == agente.id)
+    if modo:
+        consulta_sql = consulta_sql.where(HubAgenteConsulta.modo == modo)
+    if puntuacion == 0:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="la valoración es 1 o -1")
+    if puntuacion is not None:
+        consulta_sql = consulta_sql.where(HubAgenteConsulta.puntuacion == puntuacion)
+    if motivo:
+        consulta_sql = consulta_sql.where(HubAgenteConsulta.motivo == motivo)
+    if sin_revisar:
+        consulta_sql = consulta_sql.where(HubAgenteConsulta.veredicto.is_(None))
+    filas = (
+        await session.execute(consulta_sql.order_by(HubAgenteConsulta.ocurrido_en.desc()).limit(limite))
+    ).scalars().all()
+    urls = {d["url"] for f in filas for d in (f.documentos or [])}
+    titulos = (
+        dict(
+            (
+                await session.execute(
+                    select(HubAgenteFicha.url, HubAgenteFicha.titulo).where(
+                        HubAgenteFicha.agente_id == agente.id, HubAgenteFicha.url.in_(urls)
+                    )
+                )
+            ).all()
+        )
+        if urls
+        else {}
+    )
+    return [_conversacion(f, titulos) for f in filas]
+
+
+@router.put("/consultas/{consulta_id}/revision", response_model=ConversacionDelAgente)
+async def revisar_conversacion(
+    consulta_id: uuid.UUID,
+    body: RevisionDeLaConversacion,
+    user: UserInfo = Depends(require_sesion_humana()),
+    session: AsyncSession = Depends(get_session),
+) -> ConversacionDelAgente:
+    """El veredicto sobre una conversación, como en la revisión de los chatbots. Se puede cambiar."""
+    fila = (
+        await session.execute(select(HubAgenteConsulta).where(HubAgenteConsulta.id == consulta_id))
+    ).scalar_one_or_none()
+    if fila is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Consulta no encontrada")
+    agente, version = await _el_agente(session, fila.agente_id, user)
+    _exigir("ver_calidad", agente, version, user)
+    fila.veredicto = body.veredicto
+    fila.nota_revision = (body.nota or "").strip() or None
+    fila.revisada_por = user.user_id
+    fila.revisada_en = datetime.now(timezone.utc)
+    await session.flush()
+    vista = _conversacion(fila, {})
+    await session.commit()
+    return vista

@@ -653,3 +653,24 @@ describe('#219 — los datos de la consulta, al publicar', () => {
     expect(within(screen.getByTestId('dato-0')).getByLabelText('Columna del índice (opcional)')).toHaveValue('CPV')
   })
 })
+
+describe('#217 — la calidad, en la ficha', () => {
+  it('quien puede verla ve los contadores y el botón; quien no, ninguno de los dos', () => {
+    montar([
+      agente(
+        { calidad: { consultas: 12, respuestas_leidas: 9, informes_sin_revisar: 2 } },
+        { acciones_permitidas: ['ver_calidad'] },
+      ),
+    ])
+    const ficha = screen.getByTestId('agente')
+    expect(within(ficha).getByTestId('contadores-calidad')).toHaveTextContent('Consultas: 12 · respuestas leídas: 9 · informes sin revisar: 2')
+    expect(within(ficha).getByRole('button', { name: 'Ver la calidad' })).toBeInTheDocument()
+  })
+
+  it('sin la acción ni los contadores, nada', () => {
+    montar([agente({ calidad: null }, { acciones_permitidas: ['versionar'] })])
+    const ficha = screen.getByTestId('agente')
+    expect(within(ficha).queryByTestId('contadores-calidad')).not.toBeInTheDocument()
+    expect(within(ficha).queryByRole('button', { name: 'Ver la calidad' })).not.toBeInTheDocument()
+  })
+})

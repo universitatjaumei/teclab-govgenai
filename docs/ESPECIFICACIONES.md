@@ -784,6 +784,14 @@ del navegador (#176).
 - **El token del guion lo emite quien publica** y sólo vale para cargar el índice: un módulo
   puede abrir un alcance que su rol no tiene (`agentes` → `agentes:indice`), y la gestión de los
   agentes —publicar, retirar, emitir tokens— exige la sesión de una persona, no un token.
+- **La calidad de un agente se ve y se revisa** (#217): quien lo publicó y quien lo revisa —nadie
+  más— ven sus conversaciones e informes, de lo más reciente a lo más antiguo, con la pregunta, los
+  datos, los documentos ofrecidos con su título y puntuación, la respuesta leída y la valoración, y
+  **sin decir quién preguntó**. Se filtran por modo, valoración, motivo y lo pendiente; cada una
+  admite un veredicto `good`/`bad`/`mixed` con nota, el mismo vocabulario que la revisión de los
+  chatbots. Cada informe lleva una **pista** que calcula el servidor según el motivo —el almacén,
+  el índice, el prompt o la selección— y la ficha cuenta consultas, respuestas leídas e informes
+  sin revisar.
 - **La extensión del navegador es la misma consulta, al lado del asistente** (#176): un panel
   lateral con el catálogo, que pide el prompt a la API —lo que queda registrado— y lo copia.
   Se conecta con la cuenta

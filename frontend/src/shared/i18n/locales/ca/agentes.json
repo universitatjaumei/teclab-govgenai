@@ -26,7 +26,8 @@
     "adjunto": "Document adjunt",
     "lengua_respuesta": "Llengua de la resposta",
     "datos_consulta": "Dades de la consulta",
-    "indicaciones": "Indicacions per a qui pregunta"
+    "indicaciones": "Indicacions per a qui pregunta",
+    "calidad": "Qualitat"
   },
   "pistas": {
     "carpeta_url": "L'adreça de la carpeta en el magatzem de l'organització. La plataforma no guarda cap document: els autoritza el magatzem.",
@@ -70,7 +71,8 @@
     "retirar": "Retirar",
     "cargar_indice": "Actualització de l'índex",
     "cambiar_registro_desde_validacion": "Passar a només incidències",
-    "cambiar_registro_desde_incidencias": "Tornar a validació"
+    "cambiar_registro_desde_incidencias": "Tornar a validació",
+    "ver_calidad": "Veure la qualitat"
   },
   "errores": {
     "obligatorio": "Aquest camp és obligatori.",
@@ -224,5 +226,45 @@
       "opciones": "Llista d'opcions"
     }
   },
-  "dato_obligatorio": "{{etiqueta}} (obligatori)"
+  "dato_obligatorio": "{{etiqueta}} (obligatori)",
+  "registro_corto": {
+    "validacion": "En validació",
+    "incidencias": "Només incidències"
+  },
+  "calidad": {
+    "titulo": "Converses i informes",
+    "contadores": "Consultes: {{consultas}} · respostes llegides: {{leidas}} · informes sense revisar: {{informes}}",
+    "filtro_modo": "Mode",
+    "filtro_valoracion": "Valoració",
+    "filtro_motivo": "Motiu",
+    "todos": "Tots",
+    "todas": "Totes",
+    "sin_revisar": "Només sense revisar",
+    "ninguna": "No hi ha converses amb aquests filtres.",
+    "mira_primero": "Mira primer:",
+    "documentos_ofrecidos_one": "{{count}} document oferit",
+    "documentos_ofrecidos_other": "{{count}} documents oferits",
+    "respuesta": "Resposta de l'assistent",
+    "fuentes_citadas": "Fonts que va citar:",
+    "veredicto": "Veredicte",
+    "sin_veredicto": "Sense veredicte",
+    "nota": "Nota de la revisió",
+    "guardar": "Desar",
+    "pistas": {
+      "almacen": "el permís o l'enllaç del document",
+      "indice": "la carpeta o el resum de l'índex",
+      "prompt": "les instruccions de l'agent (el prompt)",
+      "seleccion": "el pressupost de documents o les dades de la consulta"
+    },
+    "veredictos": {
+      "good": "Adequada",
+      "mixed": "En part",
+      "bad": "Inadequada"
+    },
+    "sin_captura": {
+      "sin_respuesta": "No es va enviar, o no va arribar la resposta.",
+      "sin_terminar": "La resposta no va acabar en el termini.",
+      "selector": "No es va poder llegir: la integració amb l'assistent va fallar."
+    }
+  }
 }

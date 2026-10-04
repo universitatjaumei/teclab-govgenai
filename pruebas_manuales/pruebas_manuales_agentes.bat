@@ -329,6 +329,27 @@ echo JUZGA: si los valores extraidos son los correctos en tus pliegos.
 echo.
 pause
 echo.
+echo ----------------------------------------------------------
+echo  PASO 12 - La calidad de un agente (#217)
+echo ----------------------------------------------------------
+echo.
+echo   1. Tras las consultas e informes de los pasos 8 a 11, en
+echo      Publicar y gestionar pulsa "Ver la calidad" en el agente.
+echo   2. Filtra por valoracion, motivo y "Solo sin revisar".
+echo   3. Pon un veredicto y una nota a un informe y guardalo.
+echo.
+echo QUE DEBES VER:
+echo   - Los contadores en la ficha (consultas, respuestas leidas,
+echo     informes sin revisar), que bajan al revisar un informe.
+echo   - Cada conversacion con su pregunta, datos, documentos ofrecidos
+echo     y respuesta, y la pista de donde mirar primero.
+echo   - Que no aparece quien pregunto.
+echo.
+echo JUZGA: si con esto sabrias que corregir: el indice, el prompt o
+echo los datos de la consulta.
+echo.
+pause
+echo.
 echo ==========================================================
 echo   FIN. Anota lo que no cuadre en las issues del hito 5.
 echo ==========================================================

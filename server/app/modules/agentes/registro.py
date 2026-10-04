@@ -52,3 +52,16 @@ MOTIVOS: dict[str, dict[str, str]] = {
         "en": "Another reason",
     },
 }
+
+
+#: #217 — dónde mirar primero según el motivo del informe. **Una pista, no un diagnóstico**: quien
+#: revisa tiene la pregunta, los documentos ofrecidos y la respuesta, y decide. `almacen` es el
+#: permiso o el enlace; `indice`, la carpeta o el resumen; `prompt`, las instrucciones del agente;
+#: `seleccion`, el presupuesto de documentos o los datos de la consulta. «Otro» no apunta a nada.
+PISTAS: dict[str, str] = {
+    "no_abre": "almacen",
+    "desactualizado": "indice",
+    "inventa": "prompt",
+    "incompleta": "seleccion",
+    "no_responde": "prompt",
+}
