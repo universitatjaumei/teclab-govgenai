@@ -349,10 +349,10 @@ por `funcion_id@versión`.
   pueden administrar la misma organización. `AdminAccount` se queda con el partner y la
   facturación. Decisión escrita en [`DECISION_IDENTIDAD_DE_ADMINISTRACION.md`](DECISION_IDENTIDAD_DE_ADMINISTRACION.md).
 - **Acceso por módulos concedidos, no por roles nuevos**: `chatbots`, `curacion`, `informes`,
-  `personas`, `registro`, `utilidades`, `plataforma`. El catálogo es tabla (I4). El superadmin no
+  `personas`, `registro`, `utilidades`, `agentes`, `consulta_agentes`, `plataforma`. El catálogo es tabla (I4). El superadmin no
   necesita concesión, y **un módulo marcado `de_oficio` en el catálogo tampoco**: lo tiene
   cualquier persona de la plataforma, también quien se dé de alta mañana, y concederlo se rechaza
-  porque no cambiaría nada. Hoy lo es `utilidades`.
+  porque no cambiaría nada. Hoy lo son `utilidades` y `consulta_agentes`.
 - Toda consulta que sirva datos de inquilino se acota con `scope_query_to_orgs`, y **la lista vacía
   significa «ninguna»** (I5, I8).
 - Contraseña local para personas, con interruptor `LOCAL_USER_LOGIN_ENABLED` para apagarla cuando
@@ -669,8 +669,10 @@ sino el **trayecto**.
 - **Queda constancia, sólo de metadatos**: quién, cuándo, qué operación, cuántos ficheros, páginas
   o filas, qué regla a cada tipo de columna y la huella de lo que entró. **Nunca el nombre del
   fichero ni su contenido**, con el mismo contrato que el registro de actividad (§5.9).
-- **Quien no pertenece a una sola organización no opera**: el uso se anota en el registro de la
-  organización, y sin una no habría dónde.
+- **Cada uso se anota en el registro de una organización**: la de quien opera o, si no pertenece
+  a una sola —el superadministrador—, **la elegida en el selector del panel**, comprobada en el
+  servidor: nadie anota en el registro de una organización que no gestiona. Sin ninguna, no se
+  opera, y el mensaje dice que se elija una.
 - **La anonimización no se descarga sin revisión**: hay que ver la vista previa de las reglas
   actuales y confirmarlo, y lo comprueba el servidor. La vista previa **es** la descarga —misma
   semilla sobre el fichero entero—. **No se promete anonimato**: es seudonimización asistida, la
@@ -685,6 +687,153 @@ acceso `utilidades`, **de oficio**: lo tiene cualquier persona de la plataforma 
 ficheros sintéticos: las tres operaciones de PDF y la anonimización de punta a punta. Sin
 desplegar. El PDF se procesa con MuPDF **en el proceso de la API**; el sandbox sería más seguro
 frente a un PDF malicioso, y es una decisión abierta.
+
+### 5.14 Agentes de unidad
+
+**Qué hace.** Una unidad de la organización —contratación, control interno, calidad— publica un
+**agente**: un prompt, una carpeta de documentos en el almacén de la organización y un colectivo
+que puede usarlo. **Ninguna de las tres cosas es código**, y el modelo lo pone el asistente
+general de la organización. La plataforma cataloga, acota y gobierna (#172) y guarda el
+**índice**: una ficha por documento —URL, título, resumen, vigencia— sobre la que se seleccionan
+los documentos de cada **consulta**, que devuelve el prompt del agente con los enlaces (#173,
+#175). El índice lo mantiene un guion (#174) y los agentes se usan también desde una extensión
+del navegador (#176).
+
+**Lo que garantiza.**
+
+- **Registrar es publicar**, como en el catálogo de funciones (§5.12): sin aprobación previa.
+  Publicar exige el módulo `agentes`; **usarlo no**, porque el catálogo se ofrece a su colectivo.
+  El agente es de la organización de quien publica, o de la elegida en el panel si no pertenece a
+  una sola.
+- **Sin declaración no se publica**: finalidad, responsable, colectivo y **fecha de revisión
+  prevista**, que no puede haber pasado. La unidad se declara como texto: la plataforma no tiene
+  unidades.
+- **El colectivo dice quién, no cuánto**: toda la organización o una lista de grupos del IdP. **La
+  organización va siempre primero**, y los grupos se comparan sin mayúsculas. Con el login de
+  Google no llegan grupos, así que un agente por grupos no se le ofrece a nadie; la pantalla lo
+  dice.
+- **Suspender es de quien revisa, retirar de quien publica** —y del administrador de su
+  organización, por si quien lo publicó ya no está—. Revisa el administrador de la organización o
+  el superadministrador, **nunca quien lo publicó**, aunque sea un superadministrador que publicó
+  en la organización elegida sin pertenecer a ella. Suspender exige motivo y deja
+  de ofrecerlo; revisar no cambia nada de lo que se ofrece. Corregir es versionar: se ofrece la
+  última versión.
+- **Una revisión vencida avisa, no oculta**: el agente sigue ofreciéndose marcado. Dejar de
+  ofrecerlo es decisión de quien revisa.
+- **El catálogo no lleva el prompt**: lo entrega la consulta, que es lo que se registra.
+- **La consulta devuelve prompt y URL, nunca contenido** (`POST …/consulta`, token con alcance
+  `agentes:consulta`, sin exigir el módulo): el prompt del agente, la pregunta, los enlaces y una
+  **instrucción de abstención literal** —si no puede abrir los documentos, que lo diga—. Hay dos
+  puertas independientes: la plataforma selecciona y el almacén autoriza. **No se comprueba si cada
+  enlace se puede abrir**, porque la plataforma sólo podría hacerlo con su propia identidad.
+- **Cualquiera consulta desde el panel**: entrada «Agentes», pestaña «Consultar» (módulo
+  `consulta_agentes`, de oficio); publicar y gestionar es la otra pestaña, con el módulo
+  `agentes`. Ve el catálogo de su colectivo, prepara el prompt y lo copia para pegarlo en el
+  asistente general. Retirar el módulo del catálogo apaga la consulta para todos.
+- **El adjunto, en tres niveles que declara la unidad** (#218): `no`, `opcional` —quien pregunta
+  dice en cada consulta si adjunta— u `obligatorio`, un agente de revisión. Con adjunto, quien
+  consulta lo pega con el prompt en el asistente, los enlaces pasan a ser **el criterio** con el
+  que se analiza, y la abstención cubre también el adjunto que no llega. **La plataforma no ve el
+  adjunto nunca**, así que tampoco puede registrarlo; lo gobierna el asistente general. Como la
+  selección sólo ve la pregunta, la pantalla pide describir en ella el documento.
+- **La lengua de la respuesta es una declaración del agente** (#218): la de la pregunta, o siempre
+  castellano o siempre valenciano —los pliegos, las resoluciones—. **La instrucción la añade la
+  plataforma al componer**, como la abstención, para que se cumpla aunque la unidad no la escriba;
+  «la de la pregunta» es la lengua en que está escrita, no la de la pantalla. El asistente de
+  prompts recibe las dos declaraciones para no repetirlas ni contradecirlas.
+- **El uso va al registro de actividad (§5.9) sin la pregunta**, con el hash del prompt
+  entregado; qué documentos se ofrecieron y con qué puntuación, a `hub_agente_consultas`.
+- **Las conversaciones se guardan como las de los chatbots** (#216; decisión del usuario,
+  2026-10-03: son conversaciones de trabajo sobre documentos de la organización, quien las tiene
+  sabe que se registran, y prevalece la calidad de las respuestas). Cada agente tiene un **modo**:
+  en `validacion`, el de partida, la consulta guarda la pregunta y la extensión manda la respuesta
+  que leyó en el asistente —o por qué no pudo leerla, que cuenta la cobertura—; en `incidencias`,
+  sólo se guarda lo que quien lo usa **informa** como inadecuado, con su pregunta y su respuesta.
+  El modo lo cambian quien publica y quien revisa, y el catálogo y la consulta lo anuncian para que
+  la pantalla avise. Sólo quien consultó manda la respuesta y la valoración de su consulta; un
+  informe lleva un motivo de los que sirve la plataforma. **Lo que no se puede saber**: la
+  respuesta es la que leyó la extensión; si la persona la regeneró o siguió conversando, eso no
+  llega. Y sin plazo de conservación, como las de los chatbots: el reglamento de archivo no lo fija.
+- **El índice es de fichas, no de documentos**: la plataforma guarda la URL y el resumen, **nunca
+  el documento**, que autoriza el almacén. Un vector por ficha, hecho **sólo del título y el
+  resumen**: cambiar la vigencia o un metadato no re-embebe.
+- **Cargar es dar el estado completo**, por API con un token `agentes:indice` o subiendo la hoja
+  en CSV o Excel. Lo que no viene se retira, lo que no cambió no se toca, y una hoja incoherente
+  no se carga a medias. Las cargas de un mismo agente se hacen de una en una.
+- **El índice se mantiene solo** (#174): un guion de Apps Script, **uno para todas las unidades**,
+  versionado y servido por la plataforma con su huella, corre a diario en el Drive de la unidad
+  con su cuenta, resume con Gemini sólo lo nuevo o cambiado y manda el índice. **Los documentos no
+  salen de Google.** El prompt de resumen lo sirve la plataforma, versionado; cada ficha anota con
+  qué versión se hizo y se cuentan las desfasadas, pero **regenerar es decisión de la unidad**.
+- **El guion extrae los datos de la consulta al resumir** (#220): si el agente declara datos
+  ligados a una columna del índice, su prompt de resumen —el del agente, que sirve la plataforma—
+  los pide detrás de una línea fija, y el guion los guarda en esas columnas de la hoja y los manda
+  como datos del documento. **El resumen no los lleva**: es lo que se embebe. En una lista sólo vale
+  una de sus opciones; lo que la unidad escribe a mano se respeta —sólo se rellenan las celdas
+  vacías— y cualquier columna que añada se conserva. La versión del prompt sigue a lo que se
+  extrae, así que cambiar los datos deja desfasado lo resumido antes, y se cuenta contra la versión
+  **de ese agente**.
+- **Un índice parado, o incompleto, se ve**: se apunta cuándo llegó por última vez —también sin
+  cambios— y, si el guion lleva más de `INDICE_SIN_ACTUALIZAR_DIAS` sin mandarlo, el agente se
+  sigue ofreciendo marcado. El guion manda cuántos documentos hay en la carpeta, y se ve cuántos
+  no tienen ficha: un documento que no llega no existe para el agente y nadie recibe un error.
+- **Un asistente propone el prompt** (#213): la unidad describe para qué quiere el agente y el
+  modelo de nivel 1 de la organización propone un prompt que **no se guarda**: va al formulario
+  para editarlo. Sabe lo que la plataforma añade siempre —la pregunta, los enlaces y la
+  abstención— para no repetirlo, y se le prohíbe inventar normas, plazos o importes. El uso va al
+  registro de actividad sin el texto, y la versión publicada con él lo declara
+  (`autoria_prompt = ia`), como la autoría en el catálogo de funciones.
+- **El token del guion lo emite quien publica** y sólo vale para cargar el índice: un módulo
+  puede abrir un alcance que su rol no tiene (`agentes` → `agentes:indice`), y la gestión de los
+  agentes —publicar, retirar, emitir tokens— exige la sesión de una persona, no un token.
+- **La calidad de un agente se ve y se revisa** (#217): quien lo publicó y quien lo revisa —nadie
+  más— ven sus conversaciones e informes, de lo más reciente a lo más antiguo, con la pregunta, los
+  datos, los documentos ofrecidos con su título y puntuación, la respuesta leída y la valoración, y
+  **sin decir quién preguntó**. Se filtran por modo, valoración, motivo y lo pendiente; cada una
+  admite un veredicto `good`/`bad`/`mixed` con nota, el mismo vocabulario que la revisión de los
+  chatbots. Cada informe lleva una **pista** que calcula el servidor según el motivo —el almacén,
+  el índice, el prompt o la selección— y la ficha cuenta consultas, respuestas leídas e informes
+  sin revisar.
+- **La extensión del navegador es la misma consulta, al lado del asistente** (#176): un panel
+  lateral con el catálogo, que pide el prompt a la API —lo que queda registrado— y lo copia.
+  Se conecta con la cuenta
+  de la persona: la página `/extension/conectar` del panel, con su sesión y un botón explícito,
+  emite un token **sólo `agentes:consulta`** que **caduca a los 30 días**, y sólo lo entrega a una
+  extensión declarada en `AGENTES_EXTENSION_IDS`; vacía, no se conecta ninguna. Las conexiones se
+  ven y se revocan en «Consultar». El catálogo exige ese alcance a un token. **No es un control de
+  acceso**: el asistente se usa igual sin ella, y quien guarda un prompt copiado lo reutiliza sin
+  pasar por la plataforma. Lo que da es que el camino cómodo sea el registrado.
+- **En Gemini, la extensión inserta el prompt y lee la respuesta** (#215). **No envía**: lo envía
+  la persona, que en un agente de revisión tiene que adjuntar antes su documento. Actúa sólo en la
+  página de Gemini, con permiso opcional que pide al usarla. **Los selectores son datos que sirve
+  la plataforma** (`hub_asistente_adaptadores`), versionados, y los cambia sólo el
+  superadministrador, desde «Agentes → Integración con Gemini», sin publicar la extensión. Si
+  insertar falla, copia; si un selector deja de casar, la extensión **avisa de cuál** y la
+  plataforma marca la integración como rota, contando sólo los avisos de la versión vigente.
+  **Lo que no puede garantizar**: que Gemini no cambie su página. Las instantáneas de su página en
+  `extension/instantaneas/` hacen que una corrección no rompa lo que ya funcionaba; el aviso de
+  campo dice cuándo ha cambiado, no lo evita.
+- **Los datos de la consulta** (#219): la unidad declara los datos esenciales que tiene que dar
+  quien pregunta —en un agente de pliegos, el tipo de contrato y el CPV—, de dos tipos, lista de
+  opciones o texto, y una línea de indicaciones. La pantalla pinta el formulario a partir de lo
+  declarado; la consulta valida los obligatorios y las opciones; la plataforma los añade al prompt
+  y los suma al texto con que se busca. **Si un dato está ligado a una columna del índice, filtra
+  en suave**: se excluye la ficha cuyo valor lo contradice y se conserva la que no tiene el dato
+  —la ley vale para todos—, con coincidencia por prefijo en los dos sentidos para códigos
+  jerárquicos; y se filtra antes de gastar el presupuesto. Por qué: los embeddings van bien con
+  conceptos y mal con códigos.
+- **La selección nunca pasa del presupuesto** que declara el agente —de 1 a 10 documentos, 5 por
+  defecto— y **lo no vigente no ocupa plaza**: el filtro va en el `WHERE`. Un índice embebido con
+  otro modelo no se compara: se dice que hay que volver a cargarlo.
+
+**Dónde vive.** `modules/agentes/acciones.py` (quién puede qué y quién lo ve) y
+`routers/agentes_router.py`: `/api/v1/agentes` para la gestión y `/api/v1/agentes/catalogo` para
+quien usa; `modules/agentes/indice.py` (cargar y seleccionar) y `/api/v1/agentes/{id}/indice`.
+`modules/agentes/consulta.py` compone el prompt en es, ca o en. La extensión vive en
+`extension/`, fuera del panel, y se carga tal cual en Chrome. Tablas operacionales
+`hub_agentes_unidad`, `hub_agente_unidad_versiones`, `hub_agente_fichas` y `hub_agente_consultas`.
+
+**Madurez**: `construido`, sin desplegar.
 
 ---
 
@@ -708,6 +857,9 @@ sandbox, el `RunManifest`, el registro de actividad y las verificaciones por API
 - **Funciones de tarea**: artefactos de salida, red saliente sólo hacia **orígenes declarados** y
   el ecosistema de módulos ampliado. Abrir la red debilita el argumento de §5.12 («una función no
   puede hablar con nada»), así que es una **clase distinta**, visible y con revisión en plazo.
+- **Agentes de unidad sobre el asistente general**: el catálogo, el índice, la consulta y el guion
+  que mantiene el índice y la extensión del navegador están construidos (§5.14). **Abierto**: registrar el guion en el catálogo de funciones como función de
+  origen externo, que es donde lo situaba la #174; hoy lo sirve la plataforma con su huella.
 
 **Madurez**: `previsto`, sobre una base `construido`: lo que ejecuta ya existe.
 

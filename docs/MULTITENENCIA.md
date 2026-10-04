@@ -72,6 +72,10 @@ y no en configuración, porque `hub_funcion_versiones.code` y su declaración re
 escrito por una persona de la organización: el mismo criterio que mandó aquí a `hub_lexicon_pairs`.
 Lo comprueba `test_fun1_catalogo.py`, que es el guardarraíl que a estas dos les faltaba.
 
+**Las de los agentes de unidad (#172) siguen el mismo criterio**: el prompt y la declaración son
+texto de una persona de la organización. Declaran su ámbito —`organizacion` y `derivada`, también
+las fichas del índice (#173) y las consultas (#175)— y lo comprueba `test_agu1_ambito.py`.
+
 | Tabla | Camino a la organización |
 |---|---|
 | `hub_web_sites` | `organizacion_id` |
@@ -97,6 +101,11 @@ Lo comprueba `test_fun1_catalogo.py`, que es el guardarraíl que a estas dos les
 | `hub_script_proposals` | por su informe |
 | `hub_usage_counters` | `subject_type='organizacion'` desde SEC.4 |
 | `hub_actividad_ia` | `organizacion_id`, la del dueño del token que registra (REG.1) |
+| `hub_agentes_unidad` | `organizacion_id`, **siempre** (#172): un agente es de una organización y no hay agentes de plataforma |
+| `hub_agente_unidad_versiones` | `agente_id` → agente |
+| `hub_agente_fichas` | `agente_id` → agente (#173): la ficha guarda la URL y el resumen, nunca el documento |
+| `hub_agente_consultas` | `agente_id` → agente (#175): qué documentos se ofrecieron y con qué puntuación; en un agente en validación, la pregunta y la respuesta, y en incidencias lo informado (#216) |
+| `hub_asistente_adaptadores` | **ninguno, a propósito** (#215): los selectores de la página de Gemini son los mismos para todas las organizaciones. Lo cambia sólo el superadministrador |
 
 ## Las dos capas que hacen cumplir la frontera
 

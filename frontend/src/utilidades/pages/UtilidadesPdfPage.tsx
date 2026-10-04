@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { descargarConAutorizacion } from '@/shared/api/download'
+import { conLaOrganizacion } from '@/utilidades/conLaOrganizacion'
+import { useOrganizacionElegida } from '@/shared/organizacion/useOrganizacionElegida'
 import { NivelDeOptimizacion, BodyPartirPdfModo } from '@/shared/api/generated/model'
 import { mensajeDelFallo } from '@/utilidades/mensajeDelFallo'
 
@@ -23,6 +25,8 @@ const NIVELES = Object.values(NivelDeOptimizacion) as Nivel[]
  */
 export function UtilidadesPdfPage() {
   const { t } = useTranslation('utilidades')
+  // El uso se anota en el registro de una organización: la elegida, si quien opera no es de una sola.
+  const { elegida } = useOrganizacionElegida()
   const [operacion, setOperacion] = useState<Operacion>('unir')
   const [ficheros, setFicheros] = useState<File[]>([])
   const [optimizarSalida, setOptimizarSalida] = useState(true)
@@ -75,7 +79,7 @@ export function UtilidadesPdfPage() {
       cuerpo.append('file', ficheros[0])
       cuerpo.append('nivel', String(nivel))
     }
-    const ruta = `/api/v1/utilidades/pdf/${operacion}`
+    const ruta = conLaOrganizacion(`/api/v1/utilidades/pdf/${operacion}`, elegida)
     setTrabajando(true)
     try {
       await descargarConAutorizacion(ruta, 'resultado.pdf', cuerpo)

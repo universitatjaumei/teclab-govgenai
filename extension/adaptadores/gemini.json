@@ -1,0 +1,12 @@
+{
+  "asistente": "gemini",
+  "nombre": "Gemini",
+  "origen": "https://gemini.google.com",
+  "selectores": {
+    "cuadro": "rich-textarea [role='textbox'][contenteditable='true']",
+    "respuesta": "model-response",
+    "texto": "message-content [aria-live]",
+    "ocupado": "aria-busy",
+    "fuentes": "sources-list a[href]"
+  }
+}

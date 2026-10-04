@@ -10,6 +10,7 @@ import esRedaccion from './locales/es/redaccion.json'
 import esCuration from './locales/es/curation.json'
 import esAuth from './locales/es/auth.json'
 import esUtilidades from './locales/es/utilidades.json'
+import esAgentes from './locales/es/agentes.json'
 import enCommon from './locales/en/common.json'
 import enChat from './locales/en/chat.json'
 import enAdmin from './locales/en/admin.json'
@@ -18,6 +19,7 @@ import enRedaccion from './locales/en/redaccion.json'
 import enCuration from './locales/en/curation.json'
 import enAuth from './locales/en/auth.json'
 import enUtilidades from './locales/en/utilidades.json'
+import enAgentes from './locales/en/agentes.json'
 import caCommon from './locales/ca/common.json'
 import caChat from './locales/ca/chat.json'
 import caAdmin from './locales/ca/admin.json'
@@ -26,6 +28,7 @@ import caRedaccion from './locales/ca/redaccion.json'
 import caCuration from './locales/ca/curation.json'
 import caAuth from './locales/ca/auth.json'
 import caUtilidades from './locales/ca/utilidades.json'
+import caAgentes from './locales/ca/agentes.json'
 
 export const SUPPORTED_LANGUAGES = ['es', 'ca', 'en'] as const
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number]
@@ -40,16 +43,16 @@ export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number]
  */
 export const OPCIONES_I18N = {
   resources: {
-      es: { common: esCommon, chat: esChat, admin: esAdmin, scripts: esScripts, redaccion: esRedaccion, curation: esCuration, auth: esAuth, utilidades: esUtilidades },
-      ca: { common: caCommon, chat: caChat, admin: caAdmin, scripts: caScripts, redaccion: caRedaccion, curation: caCuration, auth: caAuth, utilidades: caUtilidades },
-      en: { common: enCommon, chat: enChat, admin: enAdmin, scripts: enScripts, redaccion: enRedaccion, curation: enCuration, auth: enAuth, utilidades: enUtilidades },
+      es: { common: esCommon, chat: esChat, admin: esAdmin, scripts: esScripts, redaccion: esRedaccion, curation: esCuration, auth: esAuth, utilidades: esUtilidades, agentes: esAgentes },
+      ca: { common: caCommon, chat: caChat, admin: caAdmin, scripts: caScripts, redaccion: caRedaccion, curation: caCuration, auth: caAuth, utilidades: caUtilidades, agentes: caAgentes },
+      en: { common: enCommon, chat: enChat, admin: enAdmin, scripts: enScripts, redaccion: enRedaccion, curation: enCuration, auth: enAuth, utilidades: enUtilidades, agentes: enAgentes },
     },
     fallbackLng: {
       'ca-ES': ['ca', 'es'],
       default: ['es'],
     },
     supportedLngs: [...SUPPORTED_LANGUAGES],
-    ns: ['common', 'chat', 'admin', 'scripts', 'redaccion', 'curation', 'auth', 'utilidades'],
+    ns: ['common', 'chat', 'admin', 'scripts', 'redaccion', 'curation', 'auth', 'utilidades', 'agentes'],
     defaultNS: 'common',
     interpolation: { escapeValue: false },
     detection: {

@@ -86,6 +86,32 @@ def organizacion_unica_de(sujeto: Any) -> uuid.UUID | None:
     return orgs[0] if len(orgs) == 1 else None
 
 
+def organizacion_para_operar(sujeto: Any, organizacion_id: Any, *, para: str) -> uuid.UUID:
+    """La organización sobre la que opera esta petición: **la indicada, o la única del principal**.
+
+    Para lo que tiene que ser de una organización —un uso que se anota en su registro, un agente
+    que se publica en ella— y lo pide alguien que no pertenece a una sola: el superadministrador
+    con una elegida en el selector del panel, o un token de varias. **Siempre se comprueba**: si
+    no, cualquiera anotaría usos en el registro de otra organización pasando su id.
+
+    `para` dice qué se iba a hacer, y es el principio del mensaje cuando no hay ninguna.
+    """
+    org = organizacion_id or organizacion_unica_de(sujeto)
+    if org is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "ORGANIZACION_INDETERMINADA",
+                "message": (
+                    f"{para} Tu cuenta no pertenece a una sola organización: elige una en el "
+                    "selector del panel."
+                ),
+            },
+        )
+    assert_org_access(sujeto, org)
+    return org if isinstance(org, uuid.UUID) else uuid.UUID(str(org))
+
+
 def scope_query_to_orgs(stmt, sujeto: Any, model, columna: str = "organizacion_id"):
     """Acota un SELECT a las organizaciones del principal. El superadmin no se acota.
 

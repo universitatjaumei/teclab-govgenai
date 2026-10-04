@@ -98,10 +98,22 @@ def test_no_queda_ninguna_navegacion_absoluta_en_el_frontend() -> None:
 
     Se permite la que va a la API: `/api/v1/…` NO está bajo el prefijo —la sirve la aplicación,
     no el frontend—, así que ahí la ruta absoluta es la correcta.
+
+    Y la vuelta a la extensión del navegador (#176): va a otro origen, `https://<id>.chromiumapp.org/`,
+    que el servidor ha validado contra `AGENTES_EXTENSION_IDS`. No es una ruta del panel, así que
+    el prefijo no le aplica. Se exceptúa el fichero, no el patrón: otra navegación en él saltaría.
     """
+    vuelta_a_la_extension = "frontend/src/agentes/ConectarExtensionPage.tsx"
     sospechosas: list[str] = []
     for fichero in (FRONTEND / "src").rglob("*.tsx"):
         if "__tests__" in fichero.parts:
+            continue
+        if fichero.relative_to(RAIZ).as_posix() == vuelta_a_la_extension:
+            texto = fichero.read_text(encoding="utf-8")
+            assert len(re.findall(r"location\.(href\s*=|replace\(|assign\()", texto)) == 1, (
+                f"{vuelta_a_la_extension} sólo puede navegar a la extensión, una vez"
+            )
+            assert "location.assign(`${r.destino}#token=" in texto
             continue
         for numero, linea in enumerate(fichero.read_text(encoding="utf-8").splitlines(), 1):
             if not re.search(r"(window\.)?location\.(href\s*=|replace\(|assign\()", linea):

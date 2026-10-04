@@ -160,6 +160,12 @@ services:
       # El plazo de la revisión posterior lo fija la institución que despliega (AUT.12, issue
       # #201). Vacía, vale el de por defecto: 30 días naturales.
       PLAZO_REVISION_POSTERIOR_DIAS: ${PLAZO_REVISION_POSTERIOR_DIAS:-}
+      # Días que puede pasar el guion de un agente sin mandar su índice antes de avisar (#174).
+      # Vacía, vale el de por defecto: 3.
+      INDICE_SIN_ACTUALIZAR_DIAS: ${INDICE_SIN_ACTUALIZAR_DIAS:-}
+      # Las extensiones del navegador a las que se entrega el token de consulta (#176). Vacía,
+      # no se conecta ninguna.
+      AGENTES_EXTENSION_IDS: ${AGENTES_EXTENSION_IDS:-}
     volumes:
       - /opt/govgenai/cloudsql:/cloudsql:ro
     depends_on:

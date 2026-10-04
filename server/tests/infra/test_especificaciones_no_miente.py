@@ -193,7 +193,7 @@ class TestLosVocabulariosSonLosDelCodigo:
         codigos = {codigo for codigo, _etiqueta in MODULOS_INICIALES}
         # El documento los escribe en una sola línea separados por comas, entre acentos graves.
         citados = _valores_citados(
-            texto, r"`(chatbots|curacion|informes|personas|registro|utilidades|plataforma)`"
+            texto, r"`(chatbots|curacion|informes|personas|registro|utilidades|agentes|consulta_agentes|plataforma)`"
         )
         assert codigos <= citados, (
             f"el documento no nombra todos los módulos del catálogo. Falta(n): "

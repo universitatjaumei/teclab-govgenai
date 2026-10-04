@@ -43,6 +43,15 @@ FUNCIONES_EXECUTE = "funciones:execute"
 # Lo emite también un admin de organización, como `actividad:write`: es añadir evidencia de lo
 # propio, append-only, y no muta nada de la plataforma.
 MANIFIESTOS_WRITE = "manifiestos:write"
+# #173: cargar el índice de un agente de unidad. Lo usa el guion de curación (#174), que corre
+# con la identidad de la unidad y no con la de una persona. Lo emite también un admin: el índice
+# es de un agente de su organización, y quién puede cargarlo lo decide además la acción
+# `cargar_indice` del agente —el token sólo abre la puerta, no elige el agente—.
+AGENTES_INDICE_WRITE = "agentes:indice"
+# #175: consultar un agente de unidad —recibir su prompt y los enlaces— desde fuera, que es lo que
+# hará la extensión de #176. **Aparte de `agentes:indice`**: usar un agente no es mantenerlo, y un
+# token que sólo consulta no tiene por qué poder vaciar un índice.
+AGENTES_CONSULTA = "agentes:consulta"
 
 ALL_SCOPES: frozenset[str] = frozenset(
     {
@@ -58,6 +67,8 @@ ALL_SCOPES: frozenset[str] = frozenset(
         VERIFICACIONES_USE,
         FUNCIONES_EXECUTE,
         MANIFIESTOS_WRITE,
+        AGENTES_INDICE_WRITE,
+        AGENTES_CONSULTA,
     }
 )
 
@@ -81,6 +92,27 @@ def validate_scopes(scopes: list[str]) -> None:
     unknown = [s for s in scopes if s not in ALL_SCOPES]
     if unknown:
         raise UnknownScopeError(f"Unknown scopes: {', '.join(sorted(unknown))}")
+
+
+#: #174 — lo que concede un módulo, además del rol. Quien tiene `agentes` mantiene el índice de sus
+#: agentes con un guion, y ese guion necesita un token; sin esto, cada unidad dependería de un
+#: administrador para automatizar su agente (decisión del usuario, 2026-10-03). **Sólo ese
+#: alcance**: el módulo no abre ningún otro.
+#:
+#: #176 — `consulta_agentes`, que es de oficio, abre `agentes:consulta`: es el token que la
+#: extensión del navegador recibe al conectarse con la cuenta de cualquiera.
+_MODULE_SCOPES: dict[str, frozenset[str]] = {
+    "agentes": frozenset({AGENTES_INDICE_WRITE}),
+    "consulta_agentes": frozenset({AGENTES_CONSULTA}),
+}
+
+
+def allowed_scopes_for(role: str, modulos: list[str] | tuple[str, ...] = ()) -> frozenset[str]:
+    """Lo que un principal puede emitir: el techo de su rol más lo que le dan sus módulos."""
+    permitidos = set(_ROLE_SCOPES.get(role, frozenset()))
+    for modulo in modulos:
+        permitidos |= _MODULE_SCOPES.get(modulo, frozenset())
+    return frozenset(permitidos)
 
 
 def allowed_scopes_for_role(role: str) -> frozenset[str]:

@@ -40,6 +40,10 @@ const NAV_SECTIONS = [
   // UTL (#190, #191) — operaciones sueltas sobre un fichero que hoy se hacen en webs que no
   // aseguran el RGPD. Modulo propio: no son informes y las necesita cualquiera.
   { key: 'utilidades', path: '/utilidades', modulo: 'utilidades' },
+  // #172, #175 — los agentes de unidad, una sola entrada con dos pestañas dentro: consultar (de
+  // oficio) y publicar y gestionar (módulo `agentes`). **Basta cualquiera de los dos**: con la
+  // consulta retirada del catálogo, quien publica no puede perder la entrada (2026-10-03).
+  { key: 'agentes', path: '/agentes', modulo: ['consulta_agentes', 'agentes'] },
   { key: 'plataforma', path: '/plataforma', modulo: 'plataforma' },
 ] as const
 
@@ -50,7 +54,9 @@ export function AppLayout() {
   // INF.7 — el menu se genera con lo que el servidor concede. No habia nada que filtrar:
   // cualquier cuenta veia chatbots, informes y curacion.
   const { modulos } = useModulos()
-  const secciones = NAV_SECTIONS.filter((s) => modulos.includes(s.modulo))
+  const secciones = NAV_SECTIONS.filter((s) =>
+    (typeof s.modulo === 'string' ? [s.modulo] : s.modulo).some((m) => modulos.includes(m)),
+  )
   // La marca la resuelve la cascada del servidor. Aquí estaba importada como código, así
   // que el panel llevaba el logotipo de una institución concreta en cualquier despliegue.
   const { marca, cargando: cargandoMarca } = useMarca()

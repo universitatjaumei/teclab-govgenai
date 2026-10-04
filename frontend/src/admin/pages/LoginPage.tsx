@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/shared/auth'
+import { recordarVuelta, rutaSegura } from '@/shared/auth/vuelta'
 import {
   getLoginAdminApiV1AuthAdminLoginPostUrl,
   getLoginSuperadminApiV1AuthSuperadminLoginPostUrl,
@@ -104,7 +105,7 @@ export function LoginPage() {
           // cae en el primer módulo concedido. Con el destino escrito aquí, una persona `user`
           // sin el módulo de chatbots aterrizaba en `/hub` y rebotaba a «sin acceso»: la misma
           // decisión en dos sitios, y una de las dos equivocada.
-          navigate(params.get('from') ?? '/', { replace: true })
+          navigate(rutaSegura(params.get('from')), { replace: true })
           return
         }
       }
@@ -124,7 +125,10 @@ export function LoginPage() {
           <button
             type="button"
             data-testid="btn-entrar-con-google"
-            onClick={() => { window.location.href = `${API_BASE}${getLoginConGoogleUrl()}` }}
+            onClick={() => {
+              recordarVuelta(params.get('from'))
+              window.location.href = `${API_BASE}${getLoginConGoogleUrl()}`
+            }}
             className="w-full py-2 px-4 border rounded-md text-sm font-medium bg-card hover:bg-accent/30"
           >
             {ta('google_button')}
@@ -141,7 +145,10 @@ export function LoginPage() {
           <>
             <button
               type="button"
-              onClick={() => { window.location.href = `${API_BASE}/api/v1/auth/saml/login` }}
+              onClick={() => {
+                recordarVuelta(params.get('from'))
+                window.location.href = `${API_BASE}/api/v1/auth/saml/login`
+              }}
               className="w-full py-2 px-4 bg-primary text-primary-foreground rounded-md text-sm font-medium"
             >
               {ta('sso_button')}

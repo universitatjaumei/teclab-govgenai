@@ -135,3 +135,33 @@ describe('INF.7 — el menú sólo enseña lo concedido', () => {
     expect(screen.queryByRole('link', { name: /curaci/i })).toBeNull()
   })
 })
+
+describe('Agentes — una sola entrada para consultar y para publicar (2026-10-03)', () => {
+  function entradasDeAgentes() {
+    return screen.queryAllByRole('link').filter((a) => a.getAttribute('href')?.startsWith('/agentes'))
+  }
+
+  it('quien sólo consulta ve una entrada «Agentes»', () => {
+    conModulos(['consulta_agentes'])
+    renderLayout('/agentes')
+    expect(entradasDeAgentes().map((a) => a.textContent)).toEqual(['Agentes'])
+  })
+
+  it('quien además publica sigue viendo una sola', () => {
+    conModulos(['consulta_agentes', 'agentes'])
+    renderLayout('/agentes')
+    expect(entradasDeAgentes()).toHaveLength(1)
+  })
+
+  it('con la consulta retirada, quien publica no pierde la entrada', () => {
+    conModulos(['agentes'])
+    renderLayout('/agentes')
+    expect(entradasDeAgentes()).toHaveLength(1)
+  })
+
+  it('sin ninguno de los dos, no hay entrada', () => {
+    conModulos(['informes'])
+    renderLayout('/redaccion')
+    expect(entradasDeAgentes()).toHaveLength(0)
+  })
+})

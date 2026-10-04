@@ -1,0 +1,212 @@
+{
+  "nombre": {
+    "message": "Agents d'unitat"
+  },
+  "descripcion": {
+    "message": "Els agents que la teua organització publica, a punt per a enganxar en l'assistent."
+  },
+  "titulo": {
+    "message": "Agents d'unitat"
+  },
+  "direccion": {
+    "message": "Adreça del panell"
+  },
+  "sinDireccion": {
+    "message": "Escriu l'adreça del panell de la plataforma. Si la teua organització instal·la l'extensió, ja ve posada."
+  },
+  "guardar": {
+    "message": "Desar"
+  },
+  "sinConectar": {
+    "message": "Connecta l'extensió amb el teu compte de la plataforma per a veure els agents que se t'ofereixen."
+  },
+  "conectar": {
+    "message": "Connectar"
+  },
+  "desconectar": {
+    "message": "Desconnectar"
+  },
+  "sinPermiso": {
+    "message": "Sense permís per a parlar amb la plataforma, l'extensió no pot funcionar."
+  },
+  "sinToken": {
+    "message": "La plataforma no ha lliurat l'accés. Torna-ho a intentar."
+  },
+  "reconectar": {
+    "message": "La connexió ha caducat o s'ha revocat. Torna a connectar."
+  },
+  "fallo": {
+    "message": "No s'ha pogut completar."
+  },
+  "ninguno": {
+    "message": "La teua organització no t'ofereix cap agent encara."
+  },
+  "agente": {
+    "message": "Agent"
+  },
+  "conAdjunto": {
+    "message": "Demana un document"
+  },
+  "revisionVencida": {
+    "message": "Revisió vençuda"
+  },
+  "indiceSinActualizar": {
+    "message": "Índex sense actualitzar"
+  },
+  "pregunta": {
+    "message": "La teua pregunta"
+  },
+  "describeElAdjunto": {
+    "message": "Aquest agent treballa sobre un document teu: l'adjuntaràs en l'assistent, no ací."
+  },
+  "preparar": {
+    "message": "Preparar i copiar"
+  },
+  "copiado": {
+    "message": "Copiat. Enganxa'l en l'assistent."
+  },
+  "copiadoConAdjunto": {
+    "message": "Copiat. Enganxa'l en l'assistent i adjunta-hi el teu document."
+  },
+  "insertar": {
+    "message": "Inserir en $ASISTENTE$",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "sinPermisoAsistente": {
+    "message": "Sense permís sobre la pàgina de $ASISTENTE$ no es pot inserir. Usa «Preparar i copiar».",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "abreElAsistente": {
+    "message": "Copiat. Per a inserir-lo directament, tingues $ASISTENTE$ obert en la pestanya activa.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "insercionFallida": {
+    "message": "No s'ha pogut inserir en $ASISTENTE$: s'ha copiat per a enganxar-lo. Ja s'ha avisat la plataforma.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "insertado": {
+    "message": "Inserit en $ASISTENTE$. Revisa'l i envia'l.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "insertadoConAdjunto": {
+    "message": "Inserit en $ASISTENTE$. Adjunta el teu document i envia'l.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "respuestaLeida": {
+    "message": "Resposta llegida ($CARACTERES$ caràcters).",
+    "placeholders": {
+      "caracteres": {
+        "content": "$1",
+        "example": "420"
+      }
+    }
+  },
+  "respuestaNoLeida": {
+    "message": "No s'ha pogut llegir la resposta."
+  },
+  "preparando": {
+    "message": "Preparant el prompt i triant els documents…"
+  },
+  "sinAsistente": {
+    "message": "No trobe $ASISTENTE$ en la pestanya activa d'aquesta finestra.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "insercionFallidaSinCopia": {
+    "message": "No s'ha pogut inserir en $ASISTENTE$. Ja s'ha avisat la plataforma.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "preparado": {
+    "message": "Preparat."
+  },
+  "pulsaCopiar": {
+    "message": "Chrome no ha deixat copiar-lo automàticament: prem Copiar."
+  },
+  "copiar": {
+    "message": "Copiar"
+  },
+  "copiaConTeclado": {
+    "message": "Seleccionat: copia'l amb Ctrl+C."
+  },
+  "prompt": {
+    "message": "Prompt"
+  },
+  "enValidacion": {
+    "message": "En validació"
+  },
+  "seGuardaLaConversacion": {
+    "message": "Aquest agent està en validació: es guarden la teua pregunta i la resposta de l'assistent per a comprovar que funciona bé."
+  },
+  "teHaServido": {
+    "message": "T'ha servit la resposta?"
+  },
+  "util": {
+    "message": "👍 Sí"
+  },
+  "inutil": {
+    "message": "👎 No"
+  },
+  "motivo": {
+    "message": "Motiu"
+  },
+  "comentario": {
+    "message": "Comentari (opcional)"
+  },
+  "enviarInforme": {
+    "message": "Enviar l'informe"
+  },
+  "gracias": {
+    "message": "Gràcies."
+  },
+  "informeEnviado": {
+    "message": "Informe enviat. Qui manté l'agent el veurà amb la pregunta i la resposta."
+  },
+  "adjuntoOpcional": {
+    "message": "Pots adjuntar un document"
+  },
+  "voyAAdjuntar": {
+    "message": "Adjuntaré un document"
+  },
+  "eligeUna": {
+    "message": "Tria'n una…"
+  }
+}

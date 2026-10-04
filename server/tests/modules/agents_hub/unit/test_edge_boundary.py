@@ -82,6 +82,16 @@ def test_operational_base_contains_only_operational_models() -> None:
         # arrastra al otro lado; lo que se sincroniza cloud→edge es la función, nunca lo que
         # salió de ejecutarla.
         "hub_funcion_artefactos",
+        # #172, #173 y #175 — los agentes de unidad. Mismo criterio que FUN: el prompt y la
+        # declaración son texto de una persona de la organización, las fichas resumen sus
+        # documentos y las consultas dicen qué se le ofreció a quién. Nada de esto se sincroniza.
+        "hub_agentes_unidad",
+        "hub_agente_unidad_versiones",
+        "hub_agente_fichas",
+        "hub_agente_consultas",
+        # #215 — cómo encuentra la extensión la página del asistente. Vive con los agentes que la
+        # usan, y es donde la extensión avisa de que un selector dejó de casar.
+        "hub_asistente_adaptadores",
         # Módulo redacción (edge, 9R) — procesan expedientes del cliente
         "hub_report_templates",
         "hub_report_template_versions",

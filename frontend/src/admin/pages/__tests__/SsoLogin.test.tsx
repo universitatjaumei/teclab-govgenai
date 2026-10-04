@@ -94,6 +94,8 @@ describe('LoginPage SSO', () => {
       screen.getByText('Entrar con SSO institucional').click()
     })
     expect(window.location.href).toContain('/api/v1/auth/saml/login')
+    // Sin `from`, la vuelta apuntada es la raíz.
+    expect(sessionStorage.getItem('govgenai.vuelta')).toBe('/')
     Object.defineProperty(window, 'location', { configurable: true, value: orig })
   })
 })
@@ -114,7 +116,27 @@ describe('AuthCallbackPage', () => {
       )
     })
     expect(loginSpy).toHaveBeenCalledWith('jwt-token-value')
-    expect(navigateSpy).toHaveBeenCalledWith('/hub', { replace: true })
+    // A la raíz, que decide `Aterrizaje`, si no se iba a ningún sitio (#176).
+    expect(navigateSpy).toHaveBeenCalledWith('/', { replace: true })
+    vi.doUnmock('@/shared/auth')
+  })
+
+  it('vuelve adonde se iba antes de salir al proveedor (#176)', async () => {
+    vi.doMock('@/shared/auth', async (orig) => ({
+      ...(await orig<typeof import('@/shared/auth')>()),
+      useAuth: () => ({ login: loginSpy, logout: vi.fn(), user: null, isAuthenticated: false }),
+    }))
+    sessionStorage.setItem('govgenai.vuelta', '/extension/conectar?destino=x')
+    window.location.hash = '#token=jwt-token-value'
+    const { AuthCallbackPage } = await import('../AuthCallbackPage')
+    await act(async () => {
+      render(
+        <MemoryRouter>
+          <AuthCallbackPage />
+        </MemoryRouter>,
+      )
+    })
+    expect(navigateSpy).toHaveBeenCalledWith('/extension/conectar?destino=x', { replace: true })
     vi.doUnmock('@/shared/auth')
   })
 })

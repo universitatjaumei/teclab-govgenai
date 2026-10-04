@@ -61,6 +61,12 @@ const WorkspacePage = lazy(() => import('@/redaccion/pages/WorkspacePage').then(
 const UtilidadesLayout = lazy(() => import('@/utilidades/UtilidadesLayout').then(m => ({ default: m.UtilidadesLayout })))
 const UtilidadesPdfPage = lazy(() => import('@/utilidades/pages/UtilidadesPdfPage').then(m => ({ default: m.UtilidadesPdfPage })))
 const AnonimizarFicheroPage = lazy(() => import('@/utilidades/pages/AnonimizarFicheroPage').then(m => ({ default: m.AnonimizarFicheroPage })))
+const AgentesPage = lazy(() => import('@/agentes/AgentesPage').then(m => ({ default: m.AgentesPage })))
+const ConsultarAgentesPage = lazy(() => import('@/agentes/ConsultarAgentesPage').then(m => ({ default: m.ConsultarAgentesPage })))
+const AgentesLayout = lazy(() => import('@/agentes/AgentesLayout').then(m => ({ default: m.AgentesLayout })))
+const ConectarExtensionPage = lazy(() => import('@/agentes/ConectarExtensionPage').then(m => ({ default: m.ConectarExtensionPage })))
+const IntegracionAsistentePage = lazy(() => import('@/agentes/IntegracionAsistentePage').then(m => ({ default: m.IntegracionAsistentePage })))
+const EntradaDeAgentes = lazy(() => import('@/agentes/EntradaDeAgentes').then(m => ({ default: m.EntradaDeAgentes })))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -74,6 +80,10 @@ const queryClient = new QueryClient({
     },
   },
 })
+
+// #172 — al cambiar de sesión, lo que se consultó con la anterior no vale: módulos, acciones
+// permitidas, listados. Con `staleTime` de cinco minutos se seguía pintando.
+const vaciarCacheDeConsultas = () => queryClient.clear()
 
 const getThemeUrl = (): string | undefined => {
   const params = new URLSearchParams(window.location.search)
@@ -104,12 +114,14 @@ function App() {
           los tests —que montan en la raíz— dejarían de encontrar sus rutas, y el día que el
           prefijo cambiara habría que acordarse de dos sitios. */}
       <BrowserRouter basename={import.meta.env.BASE_URL}>
-        <AuthProvider>
+        <AuthProvider alCambiarDeSesion={vaciarCacheDeConsultas}>
           <Suspense fallback={<CargandoRuta />}>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/auth/callback" element={<AuthCallbackPage />} />
               <Route element={<PrivateRoute />}>
+                {/* #176 — la abre la extensión del navegador en su propia ventana: sin menú. */}
+                <Route path="/extension/conectar" element={<RutaDeModulo modulo="consulta_agentes"><ConectarExtensionPage /></RutaDeModulo>} />
                 <Route element={<AppLayout />}>
                   {/* INF.7 — el aterrizaje ya no es `/hub` fijo: cae en el primer modulo
                       concedido. Un trabajador que solo hace informes entra en informes. */}
@@ -151,6 +163,14 @@ function App() {
                     <Route index element={<Navigate to="/utilidades/pdf" replace />} />
                     <Route path="pdf" element={<UtilidadesPdfPage />} />
                     <Route path="anonimizar" element={<AnonimizarFicheroPage />} />
+                  </Route>
+                  {/* #172, #175 — los agentes de unidad: consultar, para cualquiera, y publicar y
+                      gestionar, con el módulo `agentes`. Cada pestaña con su guarda. */}
+                  <Route path="/agentes" element={<AgentesLayout />}>
+                    <Route index element={<EntradaDeAgentes />} />
+                    <Route path="consultar" element={<RutaDeModulo modulo="consulta_agentes"><ConsultarAgentesPage /></RutaDeModulo>} />
+                    <Route path="gestion" element={<RutaDeModulo modulo="agentes"><AgentesPage /></RutaDeModulo>} />
+                    <Route path="integracion" element={<RutaDeModulo modulo="consulta_agentes"><IntegracionAsistentePage /></RutaDeModulo>} />
                   </Route>
                   <Route path="/plataforma" element={<RutaDeModulo modulo="plataforma"><PlataformaLayout /></RutaDeModulo>}>
                     <Route index element={<Navigate to="/plataforma/modelos" replace />} />

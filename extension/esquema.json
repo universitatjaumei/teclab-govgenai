@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "panel_url": {
+      "title": "Dirección del panel de la plataforma",
+      "description": "Por ejemplo https://normativa.uji.es/panel. La fija la organización al desplegar la extensión por política.",
+      "type": "string"
+    },
+    "api_url": {
+      "title": "Dirección de la API",
+      "description": "Opcional. Si no se da, es el origen de la dirección del panel.",
+      "type": "string"
+    }
+  }
+}

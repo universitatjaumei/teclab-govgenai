@@ -1,0 +1,212 @@
+{
+  "nombre": {
+    "message": "Unit agents"
+  },
+  "descripcion": {
+    "message": "The agents your organisation publishes, ready to paste into the assistant."
+  },
+  "titulo": {
+    "message": "Unit agents"
+  },
+  "direccion": {
+    "message": "Panel address"
+  },
+  "sinDireccion": {
+    "message": "Enter the platform panel address. If your organisation installs the extension, it is already set."
+  },
+  "guardar": {
+    "message": "Save"
+  },
+  "sinConectar": {
+    "message": "Connect the extension to your platform account to see the agents offered to you."
+  },
+  "conectar": {
+    "message": "Connect"
+  },
+  "desconectar": {
+    "message": "Disconnect"
+  },
+  "sinPermiso": {
+    "message": "Without permission to talk to the platform, the extension cannot work."
+  },
+  "sinToken": {
+    "message": "The platform did not hand over access. Try again."
+  },
+  "reconectar": {
+    "message": "The connection has expired or been revoked. Connect again."
+  },
+  "fallo": {
+    "message": "It could not be completed."
+  },
+  "ninguno": {
+    "message": "Your organisation does not offer you any agent yet."
+  },
+  "agente": {
+    "message": "Agent"
+  },
+  "conAdjunto": {
+    "message": "Asks for a document"
+  },
+  "revisionVencida": {
+    "message": "Review overdue"
+  },
+  "indiceSinActualizar": {
+    "message": "Index out of date"
+  },
+  "pregunta": {
+    "message": "Your question"
+  },
+  "describeElAdjunto": {
+    "message": "This agent works on a document of yours: attach it in the assistant, not here."
+  },
+  "preparar": {
+    "message": "Prepare and copy"
+  },
+  "copiado": {
+    "message": "Copied. Paste it into the assistant."
+  },
+  "copiadoConAdjunto": {
+    "message": "Copied. Paste it into the assistant and attach your document there."
+  },
+  "insertar": {
+    "message": "Insert into $ASISTENTE$",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "sinPermisoAsistente": {
+    "message": "Without permission on the $ASISTENTE$ page it cannot insert. Use “Prepare and copy”.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "abreElAsistente": {
+    "message": "Copied. To insert it directly, have $ASISTENTE$ open in the active tab.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "insercionFallida": {
+    "message": "It could not be inserted into $ASISTENTE$: it was copied to paste. The platform has been notified.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "insertado": {
+    "message": "Inserted into $ASISTENTE$. Review it and send it.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "insertadoConAdjunto": {
+    "message": "Inserted into $ASISTENTE$. Attach your document and send it.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "respuestaLeida": {
+    "message": "Answer read ($CARACTERES$ characters).",
+    "placeholders": {
+      "caracteres": {
+        "content": "$1",
+        "example": "420"
+      }
+    }
+  },
+  "respuestaNoLeida": {
+    "message": "The answer could not be read."
+  },
+  "preparando": {
+    "message": "Preparing the prompt and choosing the documents…"
+  },
+  "sinAsistente": {
+    "message": "$ASISTENTE$ is not the active tab in this window.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "insercionFallidaSinCopia": {
+    "message": "It could not be inserted into $ASISTENTE$. The platform has been notified.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "preparado": {
+    "message": "Ready."
+  },
+  "pulsaCopiar": {
+    "message": "Chrome did not allow copying it automatically: press Copy."
+  },
+  "copiar": {
+    "message": "Copy"
+  },
+  "copiaConTeclado": {
+    "message": "Selected: copy it with Ctrl+C."
+  },
+  "prompt": {
+    "message": "Prompt"
+  },
+  "enValidacion": {
+    "message": "In validation"
+  },
+  "seGuardaLaConversacion": {
+    "message": "This agent is in validation: your question and the assistant's answer are kept to check it works well."
+  },
+  "teHaServido": {
+    "message": "Was the answer useful?"
+  },
+  "util": {
+    "message": "👍 Yes"
+  },
+  "inutil": {
+    "message": "👎 No"
+  },
+  "motivo": {
+    "message": "Reason"
+  },
+  "comentario": {
+    "message": "Comment (optional)"
+  },
+  "enviarInforme": {
+    "message": "Send the report"
+  },
+  "gracias": {
+    "message": "Thank you."
+  },
+  "informeEnviado": {
+    "message": "Report sent. Whoever maintains the agent will see it with the question and the answer."
+  },
+  "adjuntoOpcional": {
+    "message": "You may attach a document"
+  },
+  "voyAAdjuntar": {
+    "message": "I will attach a document"
+  },
+  "eligeUna": {
+    "message": "Choose one…"
+  }
+}

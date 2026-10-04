@@ -43,3 +43,18 @@ regexTarget = "match"
 regexes = [
     '''ci-test-secret-key-at-least-32-chars-long''',
 ]
+
+[[allowlists]]
+description = """
+La clave **pública** de la extensión del navegador (#176), en `extension/manifest.json`: fija su ID
+para que el grupo de pruebas no dependa de una instalación gestionada. Una clave pública no es un
+secreto —está en cualquier extensión publicada—, pero su base64 largo parece una credencial.
+
+Se permite por su contenido: el prefijo de una clave pública RSA-2048 (SubjectPublicKeyInfo). Una
+clave **privada** empieza de otra manera (`MIIEv…`) y seguiría saltando, también en ese fichero.
+La privada vive fuera del repositorio.
+"""
+regexTarget = "line"
+regexes = [
+    '''"key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA''',
+]

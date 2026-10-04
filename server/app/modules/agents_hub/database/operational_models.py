@@ -24,6 +24,7 @@ from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
 from sqlalchemy.dialects.postgresql import ARRAY as PG_ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from server.app.core.ambito import Ambito, declarar
 from server.app.modules.agents_hub.database.base import HubOperationalBase
 
 
@@ -1073,3 +1074,339 @@ class HubActividadIA(HubOperationalBase):
     funcion_sha256: Mapped[str | None] = mapped_column(
         String(64), nullable=True, index=True
     )
+
+
+class HubAgenteUnidad(HubOperationalBase):
+    """Un agente que publica una unidad de la organización (#172).
+
+    Un agente es un prompt, una carpeta de documentos, un índice y un colectivo, **y ninguna de
+    las cuatro es código**. Lo ejecuta el asistente general de la organización; la plataforma lo
+    cataloga, lo acota y registra su uso.
+
+    **En el lado operacional, como el catálogo de funciones**: el prompt y la declaración son
+    texto escrito por una persona de la organización, el criterio que mandó aquí a
+    `hub_funcion_versiones` y a `hub_lexicon_pairs`. Sin FK a `hub_organizaciones`, como el resto.
+
+    **La unidad es texto declarado**, no una tabla (decisión del usuario, 2026-10-02): la
+    plataforma no tiene unidades, y crearlas para esto sería una pantalla más que mantener sin
+    que nada la consuma. Publica quien tenga el módulo `agentes`.
+    """
+
+    __tablename__ = "hub_agentes_unidad"
+    __ambito__ = Ambito.ORGANIZACION
+    __table_args__ = (
+        CheckConstraint("modo_registro IN ('validacion', 'incidencias')", name="ck_agente_unidad_modo_registro"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    organizacion_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), nullable=False, index=True
+    )
+    nombre: Mapped[str] = mapped_column(String(200), nullable=False)
+    unidad: Mapped[str] = mapped_column(String(200), nullable=False)
+    #: Quien lo publicó. Es quien lo versiona y lo retira, y quien **no** puede revisarlo.
+    creado_por: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    #: #174 — cuándo llegó el índice por última vez, **también si no traía cambios**: un guion que
+    #: corre y no encuentra nada nuevo está vivo, y uno que no corre está parado.
+    indice_actualizado_en: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    #: `guion` (por API, lo normal) u `hoja` (subida a mano). Sólo el guion promete ir a diario,
+    #: así que sólo él puede quedarse parado.
+    indice_origen: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    #: Cuántos documentos encontró el guion en la carpeta, para contarlos contra las fichas.
+    documentos_en_carpeta: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: #216 — qué se guarda de sus conversaciones: `validacion` (todo: pregunta y respuesta) o
+    #: `incidencias` (sólo lo que quien lo usa informa como inadecuado). Empieza en validación:
+    #: primero se comprueba que funciona (decisión del usuario, 2026-10-03). Es del agente y no de
+    #: la versión: cambiarlo no cambia lo que se ofrece.
+    modo_registro: Mapped[str] = mapped_column(
+        String(12), nullable=False, default="validacion", server_default="validacion"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class HubAgenteUnidadVersion(HubOperationalBase):
+    """Una versión de un agente: su prompt y su declaración. **La que se ofrece es la última.**
+
+    Corregir es versionar: una versión registrada no se edita, como en FUN, porque lo que se
+    revisó tiene que seguir siendo lo que se revisó. Revisar y suspender actúan sobre la última.
+
+    **El colectivo no es un nivel de acceso.** `nivell_acces` dice cuánto se protege un
+    documento; esto dice **quién** usa el agente. Grano grueso: toda la organización, o una
+    lista de grupos del IdP —que sólo llegan por SAML; con Google no hay ninguno—.
+    """
+
+    __tablename__ = "hub_agente_unidad_versiones"
+    __ambito__ = declarar(Ambito.DERIVADA, via="agente_id")
+    __table_args__ = (
+        UniqueConstraint("agente_id", "version", name="uq_agente_unidad_version"),
+        # Estructura, no vocabulario: cada valor tiene código que lo aplica (CLAUDE.md §5).
+        CheckConstraint(
+            "estado IN ('registrada', 'suspendida', 'retirada')",
+            name="ck_agente_unidad_version_estado",
+        ),
+        CheckConstraint(
+            "colectivo IN ('organizacion', 'grupos')",
+            name="ck_agente_unidad_version_colectivo",
+        ),
+        CheckConstraint(
+            "autoria_prompt IN ('persona', 'ia')",
+            name="ck_agente_unidad_version_autoria_prompt",
+        ),
+        CheckConstraint(
+            "adjunto IN ('no', 'opcional', 'obligatorio')",
+            name="ck_agente_unidad_version_adjunto",
+        ),
+        CheckConstraint(
+            "lengua_respuesta IN ('pregunta', 'es', 'ca')",
+            name="ck_agente_unidad_version_lengua_respuesta",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    agente_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("hub_agentes_unidad.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    estado: Mapped[str] = mapped_column(String(20), nullable=False)
+    prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    #: Dónde están los documentos. **La plataforma no guarda ni uno**: los autoriza el almacén.
+    carpeta_url: Mapped[str] = mapped_column(String(2048), nullable=False)
+
+    # ── La declaración: sin ella no se publica ─────────────────────────────────────
+    finalidad: Mapped[str] = mapped_column(Text, nullable=False)
+    responsable: Mapped[str] = mapped_column(String(255), nullable=False)
+    colectivo: Mapped[str] = mapped_column(String(20), nullable=False)
+    grupos: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default="[]"
+    )
+    #: Cuándo dice la unidad que lo volverá a mirar. **Vencida avisa, no oculta.**
+    revision_prevista_en: Mapped[date] = mapped_column(Date, nullable=False)
+    #: #173 — cuántos documentos puede devolver una consulta como mucho. Lo declara el agente
+    #: (decisión del usuario): uno de pocos documentos largos puede quedarse corto a propósito.
+    presupuesto_documentos: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=5, server_default="5"
+    )
+    #: #175, #218 — si quien consulta adjunta un documento propio en el asistente general: `no`,
+    #: `opcional` (lo dice quien pregunta, en cada consulta) u `obligatorio` (un agente de
+    #: revisión). Cambia el prompt —los enlaces son el criterio y el adjunto el objeto— y la
+    #: plataforma no ve el adjunto nunca. Lo declara la unidad, que sabe para qué es su agente.
+    adjunto: Mapped[str] = mapped_column(String(12), nullable=False, default="no", server_default="no")
+    #: #218 — en qué lengua se responde: `pregunta` (la de la pregunta), `es` o `ca` (siempre en
+    #: castellano o en valenciano: pliegos, resoluciones). **Es una declaración y no texto del
+    #: prompt**: la instrucción la añade la plataforma al componer, como la abstención.
+    lengua_respuesta: Mapped[str] = mapped_column(
+        String(10), nullable=False, default="pregunta", server_default="pregunta"
+    )
+    #: #219 — los datos que tiene que dar quien pregunta: `[{clave, etiqueta, tipo, ayuda,
+    #: opciones, obligatorio, columna, prefijo}]`. Sirven para preguntar, para seleccionar —filtro
+    #: suave sobre la columna del índice— y para componer el prompt. Los valida el contrato.
+    datos_consulta: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default="[]"
+    )
+    #: #219 — una línea para quien pregunta: qué indicar para que la selección acierte.
+    indicaciones: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: #213 — si el prompt se redactó con ayuda de IA (el asistente de propuestas), como
+    #: `autoria` en el catálogo de funciones. **Lo declara quien publica**: la plataforma propone,
+    #: pero no puede saber cuánto se editó después.
+    autoria_prompt: Mapped[str] = mapped_column(
+        String(10), nullable=False, default="persona", server_default="persona"
+    )
+    declarada_por: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    declarada_en: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    # ── La revisión posterior ─────────────────────────────────────────────────────
+    revisada_por: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    revisada_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revision_resultado: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    revision_nota: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # ── La suspensión: con motivo, que se conserva al reactivar ──────────────────
+    suspendida_por: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    suspendida_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    motivo_suspension: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class HubAgenteFicha(HubOperationalBase):
+    """Una ficha del índice de un agente: **un documento, no un fragmento** (#173).
+
+    El asistente general lee el documento entero —medido el 2026-09-27: un PDF de 750 páginas,
+    capítulo a partir de la 450—, así que el índice apunta a documentos. Sin troceado, sin
+    anclas, sin contrato de formato: tres órdenes de magnitud menos que el corpus normativo.
+
+    **La plataforma no guarda el documento**: guarda la ficha y la URL. El documento lo autoriza
+    el almacén de la organización, que es la segunda puerta.
+
+    **El vector es del título y el resumen, y de nada más** (regla 5 de AGENTS.md): los
+    metadatos y la vigencia cambian, y cambiarlos no puede obligar a re-embeber. Por eso hay dos
+    huellas: `huella` dice si la ficha cambió y `huella_embebida` si cambió lo que se embebe.
+    """
+
+    __tablename__ = "hub_agente_fichas"
+    __ambito__ = declarar(Ambito.DERIVADA, via="agente_id")
+    __table_args__ = (UniqueConstraint("agente_id", "url", name="uq_agente_ficha_url"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    agente_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("hub_agentes_unidad.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    url: Mapped[str] = mapped_column(String(2048), nullable=False)
+    titulo: Mapped[str] = mapped_column(String(500), nullable=False)
+    resumen: Mapped[str] = mapped_column(Text, nullable=False)
+    #: Declarada por la unidad. **Lo no vigente no se selecciona**, y el filtro va en el `WHERE`.
+    vigente: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    #: Vencida avisa, no oculta: el mismo criterio que la del agente.
+    revision_prevista_en: Mapped[date | None] = mapped_column(Date, nullable=True)
+    metadatos: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, default=dict, server_default="{}"
+    )
+    #: Con qué se hizo el resumen (#174): sin esto, un resumen malo no se puede rastrear.
+    version_prompt_resumen: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    modelo_resumen: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+    huella: Mapped[str] = mapped_column(String(64), nullable=False)
+    huella_embebida: Mapped[str] = mapped_column(String(64), nullable=False)
+    embedding: Mapped[list[float]] = mapped_column(Vector(1024), nullable=False)
+    #: De dónde salió el vector: comparar vectores de dos modelos da un orden sin sentido y no
+    #: da error, así que la selección lo comprueba.
+    embedding_model: Mapped[str] = mapped_column(String(100), nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class HubAgenteConsulta(HubOperationalBase):
+    """Una consulta a un agente de unidad (#175) y, según el modo del agente, su conversación (#216).
+
+    El registro de actividad dice quién usó qué agente, cuándo y para qué; esto añade **qué
+    documentos se ofrecieron y con qué puntuación**, que su contrato no tiene dónde poner.
+
+    **#216 — la conversación**, como las de los chatbots (`hub_interactions`): son conversaciones de
+    trabajo sobre documentos de la organización, quien las tiene sabe que se registran, y prevalece
+    la calidad de las respuestas (decisión del usuario, 2026-10-03). En `validacion` se guarda la
+    pregunta al consultar y la respuesta que la extensión leyó en el asistente; en `incidencias`,
+    sólo lo que quien lo usa informa como inadecuado. `modo` es el del agente **cuando se
+    consultó**: dice por qué hay, o no hay, contenido.
+
+    Lo que sigue sin poder saberse: la respuesta es la que leyó la extensión en la página del
+    asistente. Si la persona la editó, la regeneró o siguió conversando, eso no llega.
+    """
+
+    __tablename__ = "hub_agente_consultas"
+    __ambito__ = declarar(Ambito.DERIVADA, via="agente_id")
+    __table_args__ = (
+        CheckConstraint("modo IN ('validacion', 'incidencias')", name="ck_agente_consulta_modo"),
+        CheckConstraint("puntuacion IS NULL OR puntuacion IN (-1, 1)", name="ck_agente_consulta_puntuacion"),
+        # #217 — los mismos tres valores que `ck_interaction_review_verdict` de los chatbots, a
+        # propósito: un informe que cruce las dos revisiones no tiene que traducir.
+        CheckConstraint(
+            "veredicto IS NULL OR veredicto IN ('good', 'bad', 'mixed')",
+            name="ck_agente_consulta_veredicto",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    agente_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("hub_agentes_unidad.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    #: El mismo identificador opaco que lleva el registro de actividad.
+    actor: Mapped[str] = mapped_column(String(255), nullable=False)
+    ocurrido_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    #: `[{url, score}]`, en el orden en que se ofrecieron.
+    documentos: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default="[]"
+    )
+    #: La fila del registro de actividad que corresponde a esta consulta.
+    actividad_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    #: #216 — el modo del agente al consultar. Las anteriores no guardaron nada: `incidencias`.
+    modo: Mapped[str] = mapped_column(String(12), nullable=False, server_default="incidencias")
+    pregunta: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: #219 — los datos de la consulta, con la pregunta: en validación.
+    datos: Mapped[dict[str, str] | None] = mapped_column(JSONB, nullable=True)
+    respuesta: Mapped[str | None] = mapped_column(Text, nullable=True)
+    respuesta_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: Por qué la extensión no pudo leer la respuesta: cuenta la cobertura de la captura.
+    respuesta_no_capturada: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    #: Las fuentes que citó el asistente, si las mostró.
+    fuentes: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    #: 1 o -1, como `feedback_score` de los chatbots. -1 con su motivo es un informe.
+    puntuacion: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: Un código de `modules/agentes/registro.MOTIVOS`. Sin restricción en la base: es un
+    #: vocabulario que puede crecer, como `fallback_reason` de las conversaciones.
+    motivo: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    comentario: Mapped[str | None] = mapped_column(Text, nullable=True)
+    valorada_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: #217 — lo que dice quien revisa la calidad del agente. NULL = sin revisar: es lo que
+    #: alimenta los informes pendientes, como `review_verdict` en los chatbots.
+    veredicto: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    nota_revision: Mapped[str | None] = mapped_column(Text, nullable=True)
+    revisada_por: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    revisada_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class HubAsistenteAdaptador(HubOperationalBase):
+    """Cómo encuentra la extensión del navegador las piezas de la página de un asistente (#215).
+
+    **Los selectores son datos y no código**: el asistente —Gemini— cambia su página sin avisar, y
+    con los selectores dentro de la extensión cada cambio exigiría publicarla de nuevo y esperar a
+    que llegara a todos los navegadores. Aquí se corrige la fila y cada cambio es una `version`.
+
+    La extensión avisa de **qué selector** dejó de casar; se cuentan los fallos de la versión
+    vigente, de modo que uno que llega tarde de una versión ya corregida no la marca como rota.
+
+    De la instalación entera, sin organización: la página de Gemini es la misma para todas. En el
+    lado operacional, junto a los agentes que la usan y donde la extensión avisa.
+    """
+
+    __tablename__ = "hub_asistente_adaptadores"
+
+    asistente: Mapped[str] = mapped_column(String(40), primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(80), nullable=False)
+    #: El origen donde actúa la extensión, p. ej. `https://gemini.google.com`.
+    origen: Mapped[str] = mapped_column(String(200), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    #: `{cuadro, respuesta, texto, ocupado, fuentes}`: lo que lee `extension/asistente.js`.
+    selectores: Mapped[dict[str, str]] = mapped_column(JSONB, nullable=False)
+    actualizado_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    actualizado_por: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    fallos_de_la_version: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    ultimo_fallo_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ultimo_fallo_selector: Mapped[str | None] = mapped_column(String(40), nullable=True)

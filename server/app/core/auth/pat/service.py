@@ -11,7 +11,7 @@ from sqlalchemy import select
 
 from server.app.core.auth.models import UserInfo
 from server.app.core.auth.pat.scopes import (
-    allowed_scopes_for_role,
+    allowed_scopes_for,
     validate_scopes,
 )
 from server.app.modules.agents_hub.database.config_models import (
@@ -62,11 +62,16 @@ class PatService:
         name: str,
         scopes: list[str],
         expires_at: datetime | None = None,
+        modulos: list[str] | tuple[str, ...] = (),
     ) -> tuple[HubPersonalAccessToken, str]:
-        """Crea un PAT y devuelve (fila, token_plano). El plano se ve UNA vez."""
+        """Crea un PAT y devuelve (fila, token_plano). El plano se ve UNA vez.
+
+        `modulos` son los concedidos al dueño: un módulo puede abrir algún alcance que su rol no
+        tiene (#174, `agentes` → `agentes:indice`).
+        """
         validate_scopes(scopes)
 
-        allowed = allowed_scopes_for_role(owner.role)
+        allowed = allowed_scopes_for(owner.role, modulos)
         if not allowed:
             raise PatForbiddenError(
                 f"Role '{owner.role}' is not allowed to issue access tokens"
