@@ -14,6 +14,10 @@
  * que en un agente de revisión tiene que adjuntar antes su documento. **No es un control de
  * acceso**: cualquiera puede usar el asistente sin la extensión.
  *
+ * **#216 — la conversación**: en un agente en validación, la respuesta leída va a la plataforma —o
+ * por qué no se pudo leer—; en cualquier modo, quien consulta la valora, y un 👎 con motivo es un
+ * informe. Los motivos los sirve la plataforma con su etiqueta: aquí no se conocen.
+ *
  * Se identifica con la cuenta de la persona: «Conectar» abre la página de la plataforma, que pide
  * iniciar sesión si hace falta y, con el consentimiento de la persona, entrega a la extensión un
  * token que sólo sirve para consultar.
@@ -145,6 +149,25 @@ async function enLaPagina(pestana, funcion, args) {
   return resultados[0] && resultados[0].result;
 }
 
+function guardarRespuesta(conf, consultaId, cuerpo) {
+  return llamar(conf, '/api/v1/agentes/consultas/' + consultaId + '/respuesta', { method: 'POST', cuerpo: cuerpo });
+}
+
+function valorar(conf, consultaId, cuerpo) {
+  return llamar(conf, '/api/v1/agentes/consultas/' + consultaId + '/valoracion', { method: 'POST', cuerpo: cuerpo });
+}
+
+function motivosDeInforme(conf) {
+  return llamar(conf, '/api/v1/agentes/motivos-de-informe?lengua=' + lengua());
+}
+
+/** Lo que leyó la extensión, en la forma que guarda la plataforma: la respuesta o por qué no la hay. */
+function loLeido(leida) {
+  if (leida && leida.ok) return { texto: leida.texto, fuentes: leida.fuentes || [] };
+  if (leida && leida.selector) return { no_capturada: 'selector' };
+  return { no_capturada: (leida && leida.motivo) || 'sin_respuesta' };
+}
+
 function consultar(conf, agenteId, pregunta) {
   return llamar(conf, '/api/v1/agentes/' + agenteId + '/consulta', {
     method: 'POST',
@@ -251,6 +274,7 @@ async function construir(raiz) {
     if (a.espera_adjunto) avisos.push(el('span', { class: 'aviso', texto: texto('conAdjunto') }));
     if (a.revision_vencida) avisos.push(el('span', { class: 'aviso', texto: texto('revisionVencida') }));
     if (a.indice_sin_actualizar) avisos.push(el('span', { class: 'aviso', texto: texto('indiceSinActualizar') }));
+    if (a.modo_registro === 'validacion') avisos.push(el('span', { class: 'aviso validacion', texto: texto('enValidacion') }));
     lista.appendChild(
       el('label', { class: 'agente', 'data-agente': a.id }, [
         radio,
@@ -280,6 +304,75 @@ async function construir(raiz) {
   const resultado = el('p', { role: 'status' });
   const lectura = el('p', { class: 'nota', id: 'lectura' });
   const aMano = el('div', { id: 'copia-a-mano' });
+  const valoracion = el('div', { id: 'valoracion' });
+  // La consulta en curso: contra ella van la respuesta y la valoración.
+  let enCurso = null;
+
+  function empezarConsulta(r) {
+    enCurso = { id: r.consulta_id, modo: r.modo_registro, pregunta: pregunta.value.trim(), respuesta: null };
+    ofrecerValoracion(enCurso);
+  }
+
+  /** 👍 o 👎 sobre la respuesta; 👎 pide el motivo y es un informe. */
+  function ofrecerValoracion(consulta) {
+    valoracion.textContent = '';
+    if (consulta.modo === 'validacion') {
+      valoracion.appendChild(el('p', { class: 'nota', texto: texto('seGuardaLaConversacion') }));
+    }
+    const estado = el('p', { class: 'nota', role: 'status', id: 'estado-valoracion' });
+    const util = el('button', { id: 'util', texto: texto('util') });
+    const inutil = el('button', { id: 'inutil', texto: texto('inutil') });
+    const informe = el('div', { id: 'informe' });
+    util.addEventListener('click', async function () {
+      try {
+        await valorar(conf, consulta.id, { puntuacion: 1 });
+        informe.textContent = '';
+        estado.textContent = texto('gracias');
+      } catch (e) {
+        estado.textContent = e.message;
+      }
+    });
+    inutil.addEventListener('click', async function () {
+      informe.textContent = '';
+      let motivos = [];
+      try {
+        motivos = await motivosDeInforme(conf);
+      } catch (e) {
+        estado.textContent = e.message;
+        return;
+      }
+      const lista = el('select', { id: 'motivo', 'aria-label': texto('motivo') }, motivos.map(function (m) {
+        return el('option', { value: m.codigo, texto: m.etiqueta });
+      }));
+      const comentario = el('textarea', { id: 'comentario', rows: '2', maxlength: '4000', 'aria-label': texto('comentario'), placeholder: texto('comentario') });
+      const enviar = el('button', { id: 'enviar-informe', class: 'principal', texto: texto('enviarInforme') });
+      enviar.addEventListener('click', async function () {
+        enviar.disabled = true;
+        try {
+          await valorar(conf, consulta.id, {
+            puntuacion: -1,
+            motivo: lista.value,
+            comentario: comentario.value.trim() || null,
+            // En incidencias es lo único que se guarda: van la pregunta y la respuesta.
+            pregunta: consulta.pregunta,
+            respuesta: consulta.respuesta,
+          });
+          informe.textContent = '';
+          estado.textContent = texto('informeEnviado');
+        } catch (e) {
+          estado.textContent = e.message;
+          enviar.disabled = false;
+        }
+      });
+      informe.appendChild(lista);
+      informe.appendChild(comentario);
+      informe.appendChild(enviar);
+    });
+    valoracion.appendChild(el('p', { texto: texto('teHaServido') }));
+    valoracion.appendChild(el('div', { class: 'fila' }, [util, inutil]));
+    valoracion.appendChild(informe);
+    valoracion.appendChild(estado);
+  }
   pregunta.addEventListener('input', actualizar);
 
   /** Prepararlo tarda unos segundos: se dice, y no se puede pulsar otra vez mientras tanto. */
@@ -288,6 +381,8 @@ async function construir(raiz) {
     resultado.className = 'trabajando';
     lectura.textContent = '';
     aMano.textContent = '';
+    valoracion.textContent = '';
+    enCurso = null;
     if (insertar) insertar.disabled = true;
     boton.disabled = true;
   }
@@ -336,6 +431,7 @@ async function construir(raiz) {
         if (!permiso) throw new Error(texto('sinPermisoAsistente', [ad.nombre]));
         const pestana = await pestanaDelAsistente(ad);
         const r = await consultar(conf, elegido.id, pregunta.value.trim());
+        empezarConsulta(r);
         if (!pestana) {
           const copiado = await copiar(r.prompt);
           decir(texto(copiado ? 'abreElAsistente' : 'sinAsistente', [ad.nombre]));
@@ -351,17 +447,23 @@ async function construir(raiz) {
         }
         decir(texto(r.espera_adjunto ? 'insertadoConAdjunto' : 'insertado', [ad.nombre]));
         // La lectura no bloquea el panel: la persona puede tardar en enviar.
+        const consulta = enCurso;
         enLaPagina(pestana, esperarRespuesta, [ad.selectores, previas, ESPERA_DE_LA_RESPUESTA_MS])
+          .catch(function () {
+            return { ok: false, motivo: 'sin_respuesta' };
+          })
           .then(function (leida) {
             if (leida && leida.ok) {
+              consulta.respuesta = leida.texto;
               lectura.textContent = texto('respuestaLeida', [String(leida.texto.length)]);
-              return;
+            } else {
+              if (leida && leida.selector) avisarDeUnFallo(conf, ad, leida.selector);
+              lectura.textContent = texto('respuestaNoLeida');
             }
-            if (leida && leida.selector) avisarDeUnFallo(conf, ad, leida.selector);
-            lectura.textContent = texto('respuestaNoLeida');
-          })
-          .catch(function () {
-            lectura.textContent = texto('respuestaNoLeida');
+            // En validación, la plataforma guarda lo leído; si no se pudo, por qué: cuenta la cobertura.
+            if (consulta.modo === 'validacion') {
+              guardarRespuesta(conf, consulta.id, loLeido(leida)).catch(function () {});
+            }
           });
       } catch (e) {
         resultado.textContent = e.message;
@@ -376,6 +478,7 @@ async function construir(raiz) {
     preparando();
     try {
       const r = await consultar(conf, elegido.id, pregunta.value.trim());
+      empezarConsulta(r);
       const copiado = await copiar(r.prompt);
       decir(copiado ? texto(r.espera_adjunto ? 'copiadoConAdjunto' : 'copiado') : texto('preparado'));
     } catch (e) {
@@ -395,6 +498,7 @@ async function construir(raiz) {
   raiz.appendChild(resultado);
   raiz.appendChild(aMano);
   raiz.appendChild(lectura);
+  raiz.appendChild(valoracion);
   raiz.appendChild(
     el('button', {
       texto: texto('desconectar'),

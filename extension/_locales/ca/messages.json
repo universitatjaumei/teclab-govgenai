@@ -169,5 +169,35 @@
   },
   "prompt": {
     "message": "Prompt"
+  },
+  "enValidacion": {
+    "message": "En validació"
+  },
+  "seGuardaLaConversacion": {
+    "message": "Aquest agent està en validació: es guarden la teua pregunta i la resposta de l'assistent per a comprovar que funciona bé."
+  },
+  "teHaServido": {
+    "message": "T'ha servit la resposta?"
+  },
+  "util": {
+    "message": "👍 Sí"
+  },
+  "inutil": {
+    "message": "👎 No"
+  },
+  "motivo": {
+    "message": "Motiu"
+  },
+  "comentario": {
+    "message": "Comentari (opcional)"
+  },
+  "enviarInforme": {
+    "message": "Enviar l'informe"
+  },
+  "gracias": {
+    "message": "Gràcies."
+  },
+  "informeEnviado": {
+    "message": "Informe enviat. Qui manté l'agent el veurà amb la pregunta i la resposta."
   }
 }

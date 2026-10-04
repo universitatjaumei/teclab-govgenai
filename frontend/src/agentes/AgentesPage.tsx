@@ -12,6 +12,7 @@ import {
   useSuspenderApiV1AgentesAgenteIdSuspenderPost,
   useReactivarApiV1AgentesAgenteIdReactivarPost,
   useRetirarApiV1AgentesAgenteIdRetirarPost,
+  useCambiarRegistroApiV1AgentesAgenteIdRegistroPost,
   useProponerPromptApiV1AgentesProponerPromptPost,
   useVerIndiceApiV1AgentesAgenteIdIndiceGet,
 } from '@/shared/api/generated/agentes/agentes'
@@ -448,12 +449,18 @@ function FichaDelAgente({ agente, alVersionar }: { agente: AgenteView; alVersion
   const suspender = useSuspenderApiV1AgentesAgenteIdSuspenderPost()
   const reactivar = useReactivarApiV1AgentesAgenteIdReactivarPost()
   const retirar = useRetirarApiV1AgentesAgenteIdRetirarPost()
+  const cambiarRegistro = useCambiarRegistroApiV1AgentesAgenteIdRegistroPost()
 
   function pulsar(accion: string) {
     setFallo(null)
     if (accion === 'versionar') alVersionar()
     else if (accion === 'reactivar') reactivar.mutate({ agenteId: agente.id }, opciones)
     else if (accion === 'retirar') retirar.mutate({ agenteId: agente.id }, opciones)
+    else if (accion === 'cambiar_registro')
+      cambiarRegistro.mutate(
+        { agenteId: agente.id, data: { modo: agente.modo_registro === 'validacion' ? 'incidencias' : 'validacion' } },
+        opciones,
+      )
     else if (accion === 'suspender' || accion === 'revisar' || accion === 'cargar_indice') setPidiendo(accion)
   }
 
@@ -491,6 +498,9 @@ function FichaDelAgente({ agente, alVersionar }: { agente: AgenteView; alVersion
         </dd>
         <dt className="text-muted-foreground">{t('campos.revision_prevista_en')}</dt>
         <dd>{v.revision_prevista_en}</dd>
+        {/* #216 — qué se guarda de sus conversaciones. */}
+        <dt className="text-muted-foreground">{t('campos.registro')}</dt>
+        <dd data-testid="modo-registro">{t(`registro.${agente.modo_registro}`)}</dd>
         <dt className="text-muted-foreground">{t('campos.indice')}</dt>
         <dd>
           <span data-testid="estado-del-indice">{estadoDelIndice(t, agente.indice)}</span>
@@ -552,7 +562,10 @@ function FichaDelAgente({ agente, alVersionar }: { agente: AgenteView; alVersion
               onClick={() => pulsar(accion)}
               className="rounded-md border px-2 py-1 text-xs"
             >
-              {t(`acciones.${accion}`, accion)}
+              {/* El botón del registro dice a qué modo pasa, no el nombre de la acción. */}
+              {accion === 'cambiar_registro'
+                ? t(`acciones.cambiar_registro_desde_${agente.modo_registro}`)
+                : t(`acciones.${accion}`, accion)}
             </button>
           ))}
           {agente.indice.fichas > 0 && (

@@ -9,6 +9,11 @@ registrado— y lo copia para pegarlo en el asistente general.
 envía: lo envía la persona. Sólo actúa en `gemini.google.com`, con un permiso opcional que pide la
 primera vez. **No es un control de acceso**: el asistente se usa igual sin ella.
 
+**Y registra la conversación** (#216). En un agente **en validación** —el modo de partida— manda a
+la plataforma la respuesta que leyó, o por qué no pudo leerla, y lo avisa en el panel. En cualquier
+modo ofrece 👍/👎; un 👎 pide un motivo de los que sirve la plataforma y es un informe, que en un
+agente en **sólo incidencias** es lo único que se guarda.
+
 ## Cuando Gemini cambia su página
 
 Los selectores no están en la extensión: los sirve la plataforma (el *adaptador*), y la extensión

@@ -22,7 +22,8 @@
     "revision_prevista_en": "Data de revisió prevista",
     "presupuesto_documentos": "Documents per consulta",
     "indice": "Índex",
-    "espera_adjunto": "Qui consulta adjuntarà un document"
+    "espera_adjunto": "Qui consulta adjuntarà un document",
+    "registro": "Registre de converses"
   },
   "pistas": {
     "carpeta_url": "L'adreça de la carpeta en el magatzem de l'organització. La plataforma no guarda cap document: els autoritza el magatzem.",
@@ -61,7 +62,9 @@
     "suspender": "Suspendre",
     "reactivar": "Reactivar",
     "retirar": "Retirar",
-    "cargar_indice": "Actualització de l'índex"
+    "cargar_indice": "Actualització de l'índex",
+    "cambiar_registro_desde_validacion": "Passar a només incidències",
+    "cambiar_registro_desde_incidencias": "Tornar a validació"
   },
   "errores": {
     "obligatorio": "Aquest camp és obligatori.",
@@ -108,7 +111,9 @@
     "con_adjunto": "Amb document adjunt",
     "describe_el_adjunto": "Descriu a la teua pregunta el document que adjuntaràs (per exemple, «revisa un plec de contracte menor de serveis»): és el que permet triar la normativa que toca.",
     "adjunta_el_documento": "Quan apegues el prompt a l'assistent, adjunta el teu document en el mateix missatge.",
-    "indice_sin_actualizar": "Índex sense actualitzar"
+    "indice_sin_actualizar": "Índex sense actualitzar",
+    "en_validacion": "En validació",
+    "se_guarda_la_conversacion": "Aquest agent està en validació: es guarden la teua pregunta i la resposta de l'assistent per a comprovar que funciona bé."
   },
   "con_adjunto": "Qui consulta adjunta un document",
   "nav_aria": "Agents",
@@ -179,5 +184,9 @@
     "guardar": "Desar una versió nova",
     "rota_one": "Trencada: un avís, del selector «{{selector}}» el {{fecha}}",
     "rota_other": "Trencada: {{count}} avisos, l'últim del selector «{{selector}}» el {{fecha}}"
+  },
+  "registro": {
+    "validacion": "En validació: es guarda cada pregunta amb la resposta",
+    "incidencias": "Només incidències: es guarda el que s'informa com a inadequat"
   }
 }

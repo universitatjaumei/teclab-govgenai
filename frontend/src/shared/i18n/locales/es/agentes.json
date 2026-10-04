@@ -22,7 +22,8 @@
     "revision_prevista_en": "Fecha de revisión prevista",
     "presupuesto_documentos": "Documentos por consulta",
     "indice": "Índice",
-    "espera_adjunto": "Quien consulta adjuntará un documento"
+    "espera_adjunto": "Quien consulta adjuntará un documento",
+    "registro": "Registro de conversaciones"
   },
   "pistas": {
     "carpeta_url": "La dirección de la carpeta en el almacén de la organización. La plataforma no guarda ningún documento: los autoriza el almacén.",
@@ -61,7 +62,9 @@
     "suspender": "Suspender",
     "reactivar": "Reactivar",
     "retirar": "Retirar",
-    "cargar_indice": "Actualización del índice"
+    "cargar_indice": "Actualización del índice",
+    "cambiar_registro_desde_validacion": "Pasar a sólo incidencias",
+    "cambiar_registro_desde_incidencias": "Volver a validación"
   },
   "errores": {
     "obligatorio": "Este campo es obligatorio.",
@@ -108,7 +111,9 @@
     "con_adjunto": "Con documento adjunto",
     "describe_el_adjunto": "Describe en tu pregunta el documento que vas a adjuntar (por ejemplo, «revisa un pliego de contrato menor de servicios»): es lo que permite elegir la normativa que toca.",
     "adjunta_el_documento": "Al pegar el prompt en el asistente, adjunta tu documento en el mismo mensaje.",
-    "indice_sin_actualizar": "Índice sin actualizar"
+    "indice_sin_actualizar": "Índice sin actualizar",
+    "en_validacion": "En validación",
+    "se_guarda_la_conversacion": "Este agente está en validación: se guardan tu pregunta y la respuesta del asistente para comprobar que funciona bien."
   },
   "con_adjunto": "Quien consulta adjunta un documento",
   "nav_aria": "Agentes",
@@ -179,5 +184,9 @@
     "guardar": "Guardar una versión nueva",
     "rota_one": "Rota: un aviso, del selector «{{selector}}» el {{fecha}}",
     "rota_other": "Rota: {{count}} avisos, el último del selector «{{selector}}» el {{fecha}}"
+  },
+  "registro": {
+    "validacion": "En validación: se guarda cada pregunta con su respuesta",
+    "incidencias": "Sólo incidencias: se guarda lo que se informa como inadecuado"
   }
 }

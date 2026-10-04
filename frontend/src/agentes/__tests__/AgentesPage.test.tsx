@@ -18,6 +18,7 @@ import {
   useEmitirTokenDelGuionApiV1AgentesTokensPost,
   useRevocarTokenDelGuionApiV1AgentesTokensTokenIdDelete,
   useProponerPromptApiV1AgentesProponerPromptPost,
+  useCambiarRegistroApiV1AgentesAgenteIdRegistroPost,
 } from '@/shared/api/generated/agentes/agentes'
 import { AgentesPage } from '../AgentesPage'
 
@@ -50,6 +51,7 @@ vi.mock('@/shared/api/generated/agentes/agentes', () => ({
   useEmitirTokenDelGuionApiV1AgentesTokensPost: vi.fn(),
   useRevocarTokenDelGuionApiV1AgentesTokensTokenIdDelete: vi.fn(),
   useProponerPromptApiV1AgentesProponerPromptPost: vi.fn(),
+  useCambiarRegistroApiV1AgentesAgenteIdRegistroPost: vi.fn(),
 }))
 
 function version(extra: Record<string, unknown> = {}) {
@@ -97,6 +99,7 @@ function agente(extra: Record<string, unknown> = {}, v: Record<string, unknown> 
     unidad: 'Servicio de Contratación',
     es_mio: false,
     indice: indice(),
+    modo_registro: 'validacion',
     version: version(v),
     ...extra,
   }
@@ -113,6 +116,7 @@ const mutaciones = {
   emitirToken: vi.fn(),
   revocarToken: vi.fn(),
   proponer: vi.fn(),
+  cambiarRegistro: vi.fn(),
 }
 
 function montar(agentes = [agente()], gruposDelIdp = true) {
@@ -139,6 +143,7 @@ function montar(agentes = [agente()], gruposDelIdp = true) {
   vi.mocked(useEmitirTokenDelGuionApiV1AgentesTokensPost).mockReturnValue({ mutate: mutaciones.emitirToken, isPending: false } as never)
   vi.mocked(useRevocarTokenDelGuionApiV1AgentesTokensTokenIdDelete).mockReturnValue({ mutate: mutaciones.revocarToken, isPending: false } as never)
   vi.mocked(useProponerPromptApiV1AgentesProponerPromptPost).mockReturnValue({ mutate: mutaciones.proponer, isPending: false } as never)
+  vi.mocked(useCambiarRegistroApiV1AgentesAgenteIdRegistroPost).mockReturnValue({ mutate: mutaciones.cambiarRegistro, isPending: false } as never)
 
   return render(
     <QueryClientProvider client={new QueryClient()}>
@@ -536,5 +541,34 @@ describe('#213 — el asistente que propone el prompt', () => {
   it('la ficha de un agente cuyo prompt se redactó con IA lo dice', () => {
     montar([agente({}, { autoria_prompt: 'ia' })])
     expect(within(screen.getByTestId('agente')).getByTestId('autoria-ia')).toBeInTheDocument()
+  })
+})
+
+describe('#216 — qué se guarda de sus conversaciones', () => {
+  it('la ficha dice el modo, y el botón dice a cuál pasa', () => {
+    montar([agente({}, { acciones_permitidas: ['cambiar_registro'] })])
+    const ficha = screen.getByTestId('agente')
+    expect(within(ficha).getByTestId('modo-registro').textContent).toContain('En validación')
+    fireEvent.click(within(ficha).getByRole('button', { name: 'Pasar a sólo incidencias' }))
+    expect(mutaciones.cambiarRegistro).toHaveBeenCalledWith(
+      { agenteId: 'a1', data: { modo: 'incidencias' } },
+      expect.anything(),
+    )
+  })
+
+  it('en incidencias ofrece volver a validación', () => {
+    montar([agente({ modo_registro: 'incidencias' }, { acciones_permitidas: ['cambiar_registro'] })])
+    const ficha = screen.getByTestId('agente')
+    expect(within(ficha).getByTestId('modo-registro').textContent).toContain('Sólo incidencias')
+    fireEvent.click(within(ficha).getByRole('button', { name: 'Volver a validación' }))
+    expect(mutaciones.cambiarRegistro).toHaveBeenCalledWith(
+      { agenteId: 'a1', data: { modo: 'validacion' } },
+      expect.anything(),
+    )
+  })
+
+  it('sin la acción, no hay botón: lo decide el servidor', () => {
+    montar([agente({}, { acciones_permitidas: ['versionar'] })])
+    expect(within(screen.getByTestId('agente')).queryByRole('button', { name: 'Pasar a sólo incidencias' })).not.toBeInTheDocument()
   })
 })

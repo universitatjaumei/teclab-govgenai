@@ -22,7 +22,8 @@
     "revision_prevista_en": "Planned review date",
     "presupuesto_documentos": "Documents per query",
     "indice": "Index",
-    "espera_adjunto": "The person asking will attach a document"
+    "espera_adjunto": "The person asking will attach a document",
+    "registro": "Conversation log"
   },
   "pistas": {
     "carpeta_url": "The folder's address in the organisation's storage. The platform keeps no documents: the storage authorises them.",
@@ -61,7 +62,9 @@
     "suspender": "Suspend",
     "reactivar": "Reactivate",
     "retirar": "Withdraw",
-    "cargar_indice": "Index updates"
+    "cargar_indice": "Index updates",
+    "cambiar_registro_desde_validacion": "Switch to incidents only",
+    "cambiar_registro_desde_incidencias": "Back to validation"
   },
   "errores": {
     "obligatorio": "This field is required.",
@@ -108,7 +111,9 @@
     "con_adjunto": "With attached document",
     "describe_el_adjunto": "Describe in your question the document you will attach (for example, \"review a tender for a minor services contract\"): it is what lets the right regulations be chosen.",
     "adjunta_el_documento": "When you paste the prompt into the assistant, attach your document in the same message.",
-    "indice_sin_actualizar": "Index not updated"
+    "indice_sin_actualizar": "Index not updated",
+    "en_validacion": "In validation",
+    "se_guarda_la_conversacion": "This agent is in validation: your question and the assistant's answer are kept to check it works well."
   },
   "con_adjunto": "The person asking attaches a document",
   "nav_aria": "Agents",
@@ -179,5 +184,9 @@
     "guardar": "Save a new version",
     "rota_one": "Broken: one report, for selector “{{selector}}” on {{fecha}}",
     "rota_other": "Broken: {{count}} reports, the last for selector “{{selector}}” on {{fecha}}"
+  },
+  "registro": {
+    "validacion": "In validation: every question is kept with its answer",
+    "incidencias": "Incidents only: what is reported as inadequate is kept"
   }
 }

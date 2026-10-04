@@ -169,5 +169,35 @@
   },
   "prompt": {
     "message": "Prompt"
+  },
+  "enValidacion": {
+    "message": "En validación"
+  },
+  "seGuardaLaConversacion": {
+    "message": "Este agente está en validación: se guardan tu pregunta y la respuesta del asistente para comprobar que funciona bien."
+  },
+  "teHaServido": {
+    "message": "¿Te ha servido la respuesta?"
+  },
+  "util": {
+    "message": "👍 Sí"
+  },
+  "inutil": {
+    "message": "👎 No"
+  },
+  "motivo": {
+    "message": "Motivo"
+  },
+  "comentario": {
+    "message": "Comentario (opcional)"
+  },
+  "enviarInforme": {
+    "message": "Enviar el informe"
+  },
+  "gracias": {
+    "message": "Gracias."
+  },
+  "informeEnviado": {
+    "message": "Informe enviado. Quien mantiene el agente lo verá con la pregunta y la respuesta."
   }
 }

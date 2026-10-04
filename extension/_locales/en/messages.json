@@ -169,5 +169,35 @@
   },
   "prompt": {
     "message": "Prompt"
+  },
+  "enValidacion": {
+    "message": "In validation"
+  },
+  "seGuardaLaConversacion": {
+    "message": "This agent is in validation: your question and the assistant's answer are kept to check it works well."
+  },
+  "teHaServido": {
+    "message": "Was the answer useful?"
+  },
+  "util": {
+    "message": "👍 Yes"
+  },
+  "inutil": {
+    "message": "👎 No"
+  },
+  "motivo": {
+    "message": "Reason"
+  },
+  "comentario": {
+    "message": "Comment (optional)"
+  },
+  "enviarInforme": {
+    "message": "Send the report"
+  },
+  "gracias": {
+    "message": "Thank you."
+  },
+  "informeEnviado": {
+    "message": "Report sent. Whoever maintains the agent will see it with the question and the answer."
   }
 }

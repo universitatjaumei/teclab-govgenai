@@ -111,6 +111,11 @@ export function ConsultarAgentesPage() {
                   {a.espera_adjunto && (
                     <span className="rounded bg-muted px-2 py-0.5 text-xs">{t('consulta.con_adjunto')}</span>
                   )}
+                  {a.modo_registro === 'validacion' && (
+                    <span data-testid="en-validacion" className="rounded bg-sky-100 px-2 py-0.5 text-xs text-sky-900">
+                      {t('consulta.en_validacion')}
+                    </span>
+                  )}
                   {a.indice_sin_actualizar && (
                     <span
                       data-testid="indice-sin-actualizar"
@@ -176,6 +181,11 @@ export function ConsultarAgentesPage() {
         <section className="space-y-3 rounded-md border p-4">
           <h2 className="font-medium">{t('consulta.listo', { agente: respuesta.agente })}</h2>
           <p className="text-xs text-muted-foreground">{t('consulta.como_usarlo')}</p>
+          {respuesta.modo_registro === 'validacion' && (
+            <p className="text-xs text-muted-foreground" data-testid="aviso-validacion">
+              {t('consulta.se_guarda_la_conversacion')}
+            </p>
+          )}
           {respuesta.espera_adjunto && (
             <p className="text-sm font-medium" data-testid="recordatorio-adjunto">
               {t('consulta.adjunta_el_documento')}

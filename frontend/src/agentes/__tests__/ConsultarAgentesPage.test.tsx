@@ -35,6 +35,7 @@ const CATALOGO = [
     revision_vencida: false,
     espera_adjunto: false,
     indice_sin_actualizar: false,
+    modo_registro: 'validacion',
   },
   {
     id: 'a2',
@@ -46,10 +47,13 @@ const CATALOGO = [
     revision_vencida: true,
     espera_adjunto: true,
     indice_sin_actualizar: true,
+    modo_registro: 'incidencias',
   },
 ]
 
 const RESPUESTA = {
+  consulta_id: 'c1',
+  modo_registro: 'validacion',
   agente: 'Contratación menor',
   version: 2,
   prompt: 'Eres el asistente.\n\nPregunta: ¿importe?\n\n1. Instrucción — https://drive.google.com/file/d/1',
@@ -240,5 +244,13 @@ describe('#174 — un índice parado se avisa a quien consulta', () => {
     montar()
     expect(within(screen.getByTestId('agente-a2')).getByTestId('indice-sin-actualizar')).toBeInTheDocument()
     expect(within(screen.getByTestId('agente-a1')).queryByTestId('indice-sin-actualizar')).not.toBeInTheDocument()
+  })
+})
+
+describe('#216 — el aviso de validación', () => {
+  it('el agente en validación lo dice antes de consultar, y el de incidencias no', () => {
+    montar()
+    expect(within(screen.getByTestId('agente-a1')).getByTestId('en-validacion')).toBeInTheDocument()
+    expect(within(screen.getByTestId('agente-a2')).queryByTestId('en-validacion')).not.toBeInTheDocument()
   })
 })

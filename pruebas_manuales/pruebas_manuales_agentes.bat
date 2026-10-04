@@ -235,6 +235,32 @@ echo unos dias. Es la prueba que decide si el modulo sigue (issue #215).
 echo.
 pause
 echo.
+echo ----------------------------------------------------------
+echo  PASO 8 - Las conversaciones: validacion e incidencias (#216)
+echo ----------------------------------------------------------
+echo.
+echo   1. En chrome://extensions, recarga la extension (flecha circular)
+echo      y vuelve a abrir el panel lateral.
+echo   2. En el panel: el agente lleva la marca "En validacion".
+echo      Insertalo en Gemini, envialo y espera la respuesta.
+echo   3. Pulsa "Si" o "No" en "Te ha servido la respuesta?". Con "No",
+echo      elige un motivo, escribe un comentario y envia el informe.
+echo   4. En el panel web, Agentes - Publicar y gestionar: la ficha dice
+echo      "Registro de conversaciones: En validacion". Pulsa "Pasar a solo
+echo      incidencias" y repite los pasos 2 y 3.
+echo.
+echo QUE DEBES VER:
+echo   - En validacion, el panel avisa de que se guardan la pregunta y
+echo     la respuesta; en solo incidencias, no.
+echo   - Los motivos salen en tu idioma.
+echo   - Tras enviar: "Gracias" o "Informe enviado".
+echo.
+echo JUZGA: si el aviso es claro para quien usa el agente, y si los
+echo motivos cubren lo que te ha fallado. Lo que se guarda lo veras en
+echo la pantalla de calidad (#217).
+echo.
+pause
+echo.
 echo ==========================================================
 echo   FIN. Anota lo que no cuadre en las issues del hito 5.
 echo ==========================================================

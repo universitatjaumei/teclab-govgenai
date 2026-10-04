@@ -66,6 +66,7 @@ const AGENTES = [
     revision_vencida: false,
     espera_adjunto: false,
     indice_sin_actualizar: false,
+    modo_registro: 'validacion',
   },
   {
     id: 'a2',
@@ -77,6 +78,7 @@ const AGENTES = [
     revision_vencida: true,
     espera_adjunto: true,
     indice_sin_actualizar: false,
+    modo_registro: 'incidencias',
   },
 ]
 
@@ -89,13 +91,23 @@ function mundoBase(): Mundo {
       '/api/v1/agentes/catalogo': { status: 200, cuerpo: AGENTES },
       '/api/v1/agentes/a1/consulta': {
         status: 200,
-        cuerpo: { agente: 'Becas', version: 2, prompt: 'PROMPT COMPUESTO', documentos: [], espera_adjunto: false },
+        cuerpo: { agente: 'Becas', version: 2, prompt: 'PROMPT COMPUESTO', documentos: [], espera_adjunto: false, consulta_id: 'c1', modo_registro: 'validacion' },
       },
       '/api/v1/agentes/asistentes/gemini/adaptador': { status: 200, cuerpo: ADAPTADOR },
       '/api/v1/agentes/asistentes/gemini/fallos': { status: 204, cuerpo: null },
+      '/api/v1/agentes/consultas/c1/respuesta': { status: 204, cuerpo: null },
+      '/api/v1/agentes/consultas/c1/valoracion': { status: 204, cuerpo: null },
+      '/api/v1/agentes/consultas/c2/valoracion': { status: 204, cuerpo: null },
+      '/api/v1/agentes/motivos-de-informe': {
+        status: 200,
+        cuerpo: [
+          { codigo: 'desactualizado', etiqueta: 'Información desactualizada' },
+          { codigo: 'inventa', etiqueta: 'Se inventa cosas' },
+        ],
+      },
       '/api/v1/agentes/a2/consulta': {
         status: 200,
-        cuerpo: { agente: 'Revisión de facturas', version: 1, prompt: 'OTRO', documentos: [], espera_adjunto: true },
+        cuerpo: { agente: 'Revisión de facturas', version: 1, prompt: 'OTRO', documentos: [], espera_adjunto: true, consulta_id: 'c2', modo_registro: 'incidencias' },
       },
     },
     copiado: [],
@@ -428,6 +440,89 @@ describe('#176 — el panel de la extensión', () => {
       await vi.waitFor(() => expect(document.getElementById('preparar')).not.toBeNull())
       expect(document.getElementById('insertar')).toBeNull()
       expect(boton('preparar').className).toBe('principal')
+    })
+  })
+
+  describe('#216 — la conversación', () => {
+    async function preparado216(m: Mundo, agente = 'a1') {
+      m.gestionada = { panel_url: 'https://normativa.uji.es/panel' }
+      m.local = { token: 'ggai_pat_x' }
+      await cargar(m).pintar()
+      await vi.waitFor(() => expect(document.getElementById('insertar')).not.toBeNull())
+      ;(document.querySelector(`[data-agente="${agente}"] input`) as HTMLInputElement).click()
+      const pregunta = document.getElementById('pregunta') as HTMLTextAreaElement
+      pregunta.value = '¿Plazo de la beca?'
+      pregunta.dispatchEvent(new Event('input'))
+    }
+    const enviadas = (m: Mundo, final: string) => m.peticiones.filter((p) => p.url.endsWith(final)).map((p) => p.cuerpo)
+
+    it('la tarjeta del agente en validación lo dice; la del que está en incidencias, no', async () => {
+      mundo.gestionada = { panel_url: 'https://normativa.uji.es/panel' }
+      mundo.local = { token: 'ggai_pat_x' }
+      await cargar(mundo).pintar()
+      await vi.waitFor(() => expect(document.querySelectorAll('[data-agente]')).toHaveLength(2))
+      expect(document.querySelector('[data-agente="a1"]')?.textContent).toContain(MENSAJES.enValidacion.message)
+      expect(document.querySelector('[data-agente="a2"]')?.textContent).not.toContain(MENSAJES.enValidacion.message)
+    })
+
+    it('en validación manda a la plataforma la respuesta que leyó, con sus fuentes', async () => {
+      mundo.lectura = Promise.resolve({ ok: true, texto: 'Hasta el 30 de octubre.', fuentes: ['https://drive.google.com/file/d/1'] } as never)
+      await preparado216(mundo)
+      boton('insertar').click()
+      await vi.waitFor(() =>
+        expect(enviadas(mundo, '/consultas/c1/respuesta')).toEqual([{ texto: 'Hasta el 30 de octubre.', fuentes: ['https://drive.google.com/file/d/1'] }]),
+      )
+      expect(document.body.textContent).toContain(MENSAJES.seGuardaLaConversacion.message)
+    })
+
+    it('si no pudo leerla, manda por qué: cuenta la cobertura', async () => {
+      mundo.lectura = Promise.resolve({ ok: false, selector: 'texto' })
+      await preparado216(mundo)
+      boton('insertar').click()
+      await vi.waitFor(() => expect(enviadas(mundo, '/consultas/c1/respuesta')).toEqual([{ no_capturada: 'selector' }]))
+    })
+
+    it('en incidencias no manda la respuesta de cada consulta', async () => {
+      await preparado216(mundo, 'a2')
+      boton('insertar').click()
+      await vi.waitFor(() => expect(document.getElementById('lectura')?.textContent).toBe(MENSAJES.respuestaLeida.message))
+      expect(enviadas(mundo, '/respuesta')).toEqual([])
+      expect(document.body.textContent).not.toContain(MENSAJES.seGuardaLaConversacion.message)
+    })
+
+    it('👍 manda la valoración buena', async () => {
+      await preparado216(mundo)
+      boton('insertar').click()
+      await vi.waitFor(() => expect(document.getElementById('util')).not.toBeNull())
+      boton('util').click()
+      await vi.waitFor(() => expect(enviadas(mundo, '/consultas/c1/valoracion')).toEqual([{ puntuacion: 1 }]))
+      await vi.waitFor(() => expect(document.getElementById('estado-valoracion')?.textContent).toBe(MENSAJES.gracias.message))
+    })
+
+    it('👎 pide el motivo de los que sirve la plataforma y manda el informe con la pregunta y la respuesta', async () => {
+      mundo.lectura = Promise.resolve({ ok: true, texto: 'Respuesta de Gemini.', fuentes: [] })
+      await preparado216(mundo, 'a2')
+      boton('insertar').click()
+      await vi.waitFor(() => expect(document.getElementById('lectura')?.textContent).toBe(MENSAJES.respuestaLeida.message))
+      boton('inutil').click()
+      await vi.waitFor(() => expect(document.getElementById('motivo')).not.toBeNull())
+      const motivo = document.getElementById('motivo') as HTMLSelectElement
+      expect([...motivo.options].map((o) => o.textContent)).toEqual(['Información desactualizada', 'Se inventa cosas'])
+      motivo.value = 'inventa'
+      ;(document.getElementById('comentario') as HTMLTextAreaElement).value = 'Cita una norma que no existe'
+      boton('enviar-informe').click()
+      await vi.waitFor(() =>
+        expect(enviadas(mundo, '/consultas/c2/valoracion')).toEqual([
+          { puntuacion: -1, motivo: 'inventa', comentario: 'Cita una norma que no existe', pregunta: '¿Plazo de la beca?', respuesta: 'Respuesta de Gemini.' },
+        ]),
+      )
+      await vi.waitFor(() => expect(document.getElementById('estado-valoracion')?.textContent).toBe(MENSAJES.informeEnviado.message))
+    })
+
+    it('con copiar a secas también se puede valorar', async () => {
+      await preparado216(mundo)
+      boton('preparar').click()
+      await vi.waitFor(() => expect(document.getElementById('util')).not.toBeNull())
     })
   })
 })
