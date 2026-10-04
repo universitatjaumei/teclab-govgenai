@@ -57,6 +57,7 @@ def _entrada(
     ppt: int = 1,
     memoria: bool = True,
     objeto: str = "Suministro de un espectrómetro",
+    otros: tuple[tuple[str, str], ...] = (),
 ) -> str:
     padres = ""
     for nombre in reversed(ancestros):
@@ -88,6 +89,14 @@ def _entrada(
             "<cac-place-ext:GeneralDocument><cac-place-ext:GeneralDocumentDocumentReference>"
             "<cbc:DocumentTypeCode>9</cbc:DocumentTypeCode><cac:Attachment><cac:ExternalReference>"
             f"<cbc:URI>https://placsp/doc?memoria={n}</cbc:URI><cbc:FileName>Memoria justificativa</cbc:FileName>"
+            "</cac:ExternalReference></cac:Attachment>"
+            "</cac-place-ext:GeneralDocumentDocumentReference></cac-place-ext:GeneralDocument>"
+        )
+    for i, (codigo, fichero) in enumerate(otros):
+        generales += (
+            "<cac-place-ext:GeneralDocument><cac-place-ext:GeneralDocumentDocumentReference>"
+            f"<cbc:DocumentTypeCode>{codigo}</cbc:DocumentTypeCode><cac:Attachment><cac:ExternalReference>"
+            f"<cbc:URI>https://placsp/doc?otro={n}-{i}</cbc:URI><cbc:FileName>{fichero}</cbc:FileName>"
             "</cac:ExternalReference></cac:Attachment>"
             "</cac-place-ext:GeneralDocumentDocumentReference></cac-place-ext:GeneralDocument>"
         )
@@ -137,10 +146,9 @@ SEL = d.Seleccion(
         d.Capa("CSIC", contiene=("Consejo Superior de Investigaciones Científicas",), alias="CSIC"),
     ),
     periodos=("2025",),
-    cpv=("38",),
-    tipos=frozenset({"1"}),
-    estados=frozenset({"ADJ", "RES"}),
-    clases=("PPT", "Memoria"),
+    familias=(
+        d.Familia("Equipamiento", cpv=("38",), tipos=frozenset({"1"}), estados=frozenset({"ADJ", "RES"})),
+    ),
 )
 
 
@@ -338,3 +346,70 @@ class TestLaExtraccion:
         en_2025 = d.extraer([_feed(_entrada(1, estado="RES", actualizado="2025-02-01T00:00:00+01:00"))], SEL.capas)
         [exp] = d.ultimo_estado(en_2025, en_2024)
         assert exp.estado == "RES"
+
+
+class TestLasFamilias:
+    """Los contratos de grupos: cada familia con sus CPV, sus documentos y su tope."""
+
+    def _sel(self, *familias, tope=None):
+        import dataclasses
+
+        capas = (dataclasses.replace(SEL.capas[1], maximo_por_entidad=tope),)
+        return dataclasses.replace(SEL, capas=capas, familias=familias)
+
+    def test_la_senal_de_grupo_deja_fuera_el_mantenimiento_del_edificio(self):
+        mant = d.Familia("Mantenimiento", cpv=("50",), tipos=frozenset({"2"}), senal_de_grupo=True)
+        feed = _feed(
+            _entrada(1, tipo="2", cpv="50400000", objeto="Mantenimiento del secuenciador del laboratorio de genómica"),
+            _entrada(2, tipo="2", cpv="50750000", objeto="Mantenimiento de los ascensores del rectorado"),
+        )
+        assert _ids(d.elegir(d.extraer([feed], SEL.capas), self._sel(mant))) == ["1"]
+
+    def test_los_fondos_europeos_tambien_son_senal(self):
+        exp = d.extraer([_feed(_entrada(1, objeto="Mantenimiento de equipos"))], SEL.capas)[0]
+        assert not exp.tiene_senal_de_grupo()
+        exp.fondos = "EU-RRF"
+        assert exp.tiene_senal_de_grupo()
+
+    def test_un_negociado_trae_su_justificacion_y_no_su_ppt(self):
+        exclusividad = d.Familia(
+            "Exclusividad", cpv=("38",), procedimientos=frozenset({"3"}), clases=("Justificación", "Memoria")
+        )
+        entrada = _entrada(1, procedimiento="3", otros=(("ZZZ", "Justificación Exclusividad"), ("ZZZ", "Oferta")))
+        [exp] = d.elegir(d.extraer([_feed(entrada)], SEL.capas), self._sel(exclusividad))
+        assert exp.clases == ("Justificación", "Memoria")
+        assert [x.clase for x in exp.documentos] == ["PCAP", "PPT", "Memoria", "Justificación"]
+
+    def test_el_informe_de_insuficiencia_es_el_codigo_10(self):
+        [exp] = d.extraer([_feed(_entrada(1, otros=(("10", "Informe"),)))], SEL.capas)
+        assert "Insuficiencia" in [x.clase for x in exp.documentos]
+
+    def test_el_tope_es_por_familia_y_un_expediente_va_a_la_primera(self):
+        equipos = d.Familia("Equipos", cpv=("38",))
+        id_ = d.Familia("I+D", cpv=("73",))
+        feed = _feed(
+            *(_entrada(n, actualizado=f"2025-0{n}-01T00:00:00+02:00") for n in range(1, 4)),
+            *(_entrada(n, cpv="73100000", actualizado=f"2025-0{n - 3}-01T00:00:00+02:00") for n in range(4, 7)),
+            _entrada(7, cpv="38000000", cpv_lote="73000000"),  # de las dos: va a la primera
+        )
+        elegidos = d.elegir(d.extraer([feed], SEL.capas), self._sel(equipos, id_, tope=2))
+        assert sorted((e.familia, _ids([e])[0]) for e in elegidos) == [
+            ("Equipos", "3"),
+            ("Equipos", "7"),
+            ("I+D", "5"),
+            ("I+D", "6"),
+        ]
+
+    def test_la_descarga_usa_los_documentos_de_la_familia(self, tmp_path):
+        solo_memoria = d.Familia("Equipos", cpv=("38",), clases=("Memoria",))
+        [exp] = d.elegir(d.extraer([_feed(_entrada(1))], SEL.capas), self._sel(solo_memoria))
+        resultados = d.descargar([exp], tmp_path, obtener=lambda url: _pdf(), pausa=0)
+        assert [r.clase for r in resultados] == ["Memoria"]
+
+
+def test_la_seleccion_de_la_uji_se_sostiene():
+    """La del ejemplo: las familias de grupos, y la de exclusividad sólo con negociados."""
+    familias = {f.nombre: f for f in d.SELECCION_UJI.familias}
+    assert familias["Exclusividad"].procedimientos == frozenset({"3"})
+    assert all("3" not in f.procedimientos for n, f in familias.items() if n != "Exclusividad")
+    assert all("PCAP" not in f.clases for f in familias.values())

@@ -76,10 +76,13 @@ PROCEDIMIENTOS = {
     "999": "Otros",
 }
 
-#: Las clases de documento que se saben descargar. La memoria es el código 9 de los
-#: documentos generales (GeneralContractDocuments).
-CLASES = ("PCAP", "PPT", "Memoria")
-_MEMORIA = "9"
+#: Las clases de documento que se saben descargar. Memoria e insuficiencia de medios son los
+#: códigos 9 y 10 de los documentos generales (GeneralContractDocuments). La justificación de un
+#: negociado —la exclusividad, sobre todo— no tiene código: llega como «otros documentos» y se
+#: reconoce por el nombre.
+CLASES = ("PCAP", "PPT", "Memoria", "Insuficiencia", "Justificación")
+_POR_CODIGO = {"9": "Memoria", "10": "Insuficiencia"}
+_JUSTIFICACION = re.compile(r"justificaci[oó]n", re.I)
 
 
 def normalizar(texto: str) -> str:
@@ -138,26 +141,47 @@ class Capa:
         return next((n for n in reversed(jerarquia) if self._por_nombre(n)), jerarquia[0] if jerarquia else "")
 
 
+#: Señales de que un contrato es de un proyecto o de un grupo de investigación: en el objeto, o
+#: que lleve fondos europeos. **Es una señal, no una garantía**: sirve para quedarse con el
+#: mantenimiento de un secuenciador y dejar el de los ascensores.
+SENAL_DE_GRUPO = re.compile(
+    r"investigaci|proyecto|grupo|laborator|i\+d|\bpid20|\bted20|\bpdc20|\bcpp20|prometeo|cidegent|"
+    r"horizon|\berc\b|feder|next ?generation|prtr|\bmrr\b|cient[ií]fic|ensayo|experiment|secuenci|microscop",
+    re.I,
+)
+
+
 @dataclass(frozen=True)
-class Seleccion:
-    capas: tuple[Capa, ...]
-    periodos: tuple[str, ...]
-    fuentes: tuple[str, ...] = ("perfiles", "agregadas")
+class Familia:
+    """Una familia de contratos: qué expedientes y qué documentos de cada uno."""
+
+    nombre: str
     #: Prefijos de CPV; basta con que case uno del expediente o de cualquiera de sus lotes.
     cpv: tuple[str, ...] = ()
     #: Códigos de tipo de contrato (`TIPOS`). Hace falta junto al CPV: un CPV de un lote mete una
     #: obra entre los suministros.
     tipos: frozenset[str] = frozenset()
     #: Por defecto, los procedimientos con pliegos que enseñan a redactar: fuera los negociados
-    #: sin publicidad (a menudo por exclusividad, con pliegos escuetos), los menores y los
+    #: sin publicidad (que van en su propia familia, por su justificación), los menores y los
     #: derivados de un acuerdo marco, cuyos pliegos son los del acuerdo.
     procedimientos: frozenset[str] = frozenset({"1", "2", "4", "5", "9", "10"})
-    #: Fuera lo anulado y los anuncios previos, que aún no tienen pliegos.
-    estados_excluidos: frozenset[str] = frozenset({"ANUL", "PRE"})
     #: Si no está vacío, sólo estos estados. Adjudicado (ADJ) y resuelto (RES) son pliegos que
-    #: llegaron al final.
+    #: llegaron al final. Lo anulado y los anuncios previos no entran nunca.
     estados: frozenset[str] = frozenset()
-    clases: tuple[str, ...] = ("PPT", "PCAP", "Memoria")
+    clases: tuple[str, ...] = ("PPT", "Memoria")
+    #: Exigir `SENAL_DE_GRUPO`: para las familias donde los grupos son una minoría.
+    senal_de_grupo: bool = False
+
+
+_ESTADOS_EXCLUIDOS = frozenset({"ANUL", "PRE"})
+
+
+@dataclass(frozen=True)
+class Seleccion:
+    capas: tuple[Capa, ...]
+    periodos: tuple[str, ...]
+    familias: tuple[Familia, ...]
+    fuentes: tuple[str, ...] = ("perfiles", "agregadas")
 
 
 # =============================================================================
@@ -191,9 +215,14 @@ class Expediente:
     documentos: list[Documento] = field(default_factory=list)
     #: FundingProgramCode: `NO-EU` o el programa europeo. Un contrato de proyecto suele llevarlo.
     fondos: str = ""
-    #: Los pone la selección: dependen de la capa en que cae el expediente.
+    #: Los pone la selección: dependen de la capa y la familia en que cae el expediente.
     capa: str = ""
     entidad: str = ""
+    familia: str = ""
+    clases: tuple[str, ...] = ()
+
+    def tiene_senal_de_grupo(self) -> bool:
+        return bool(SENAL_DE_GRUPO.search(self.objeto)) or self.fondos not in ("", "NO-EU")
 
 
 def _texto(el: ET.Element | None, ruta: str) -> str:
@@ -211,11 +240,13 @@ def _documentos(estado: ET.Element) -> list[Documento]:
             if url:
                 docs.append(Documento(clase, _texto(ref, "cbc:ID"), url))
     for ref in estado.findall("cacx:GeneralDocument/cacx:GeneralDocumentDocumentReference", _NS):
-        if _texto(ref, "cbc:DocumentTypeCode") == _MEMORIA:
-            url = _texto(ref, "cac:Attachment/cac:ExternalReference/cbc:URI")
-            if url:
-                nombre = _texto(ref, "cac:Attachment/cac:ExternalReference/cbc:FileName")
-                docs.append(Documento("Memoria", nombre, url))
+        url = _texto(ref, "cac:Attachment/cac:ExternalReference/cbc:URI")
+        nombre = _texto(ref, "cac:Attachment/cac:ExternalReference/cbc:FileName")
+        clase = _POR_CODIGO.get(_texto(ref, "cbc:DocumentTypeCode"))
+        if clase is None and _JUSTIFICACION.search(nombre):
+            clase = "Justificación"
+        if url and clase:
+            docs.append(Documento(clase, nombre, url))
     return docs
 
 
@@ -274,24 +305,18 @@ def entradas(feed: io.BufferedIOBase | Path | str) -> Iterator[ET.Element]:
             el.clear()
 
 
-def capa_de(expediente: Expediente, seleccion: Seleccion) -> Capa | None:
-    """La capa del expediente si la selección lo quiere; `None` si no."""
-    capa = next((c for c in seleccion.capas if c.casa(expediente.jerarquia)), None)
-    if capa is None:
-        return None
-    if seleccion.tipos and expediente.tipo not in seleccion.tipos:
-        return None
-    if seleccion.estados and expediente.estado not in seleccion.estados:
-        return None
-    if seleccion.cpv and not any(c.startswith(p) for c in expediente.cpv for p in seleccion.cpv):
-        return None
-    if expediente.procedimiento not in seleccion.procedimientos:
-        return None
-    if expediente.estado in seleccion.estados_excluidos:
-        return None
-    if not any(d.clase in seleccion.clases for d in expediente.documentos):
-        return None
-    return capa
+def es_de(expediente: Expediente, familia: Familia) -> bool:
+    """Si el expediente es de la familia y trae alguno de sus documentos."""
+    e = expediente
+    return (
+        (not familia.tipos or e.tipo in familia.tipos)
+        and (not familia.cpv or any(c.startswith(p) for c in e.cpv for p in familia.cpv))
+        and e.procedimiento in familia.procedimientos
+        and e.estado not in _ESTADOS_EXCLUIDOS
+        and (not familia.estados or e.estado in familia.estados)
+        and (not familia.senal_de_grupo or e.tiene_senal_de_grupo())
+        and any(d.clase in familia.clases for d in e.documentos)
+    )
 
 
 def extraer(feeds: Iterable[io.BufferedIOBase | Path | str], capas: Iterable[Capa]) -> list[Expediente]:
@@ -341,21 +366,25 @@ def ultimo_estado(*listas: Iterable[Expediente]) -> list[Expediente]:
 
 
 def elegir(expedientes: Iterable[Expediente], seleccion: Seleccion) -> list[Expediente]:
-    """Lo que pide la selección, con el tope por entidad de cada capa. Es barato: se pueden probar
-    otras familias de CPV sobre la misma extracción sin volver a leer los feeds."""
-    por_entidad: dict[tuple[str, str], list[Expediente]] = {}
-    topes: dict[str, int | None] = {}
+    """Lo que pide la selección, con el tope por entidad de cada capa **en cada familia**. Un
+    expediente que cae en dos familias se queda en la primera.
+
+    Es barato: se pueden probar otras familias sobre la misma extracción sin volver a leer los
+    feeds."""
+    grupos: dict[tuple[Familia, Capa, str], list[Expediente]] = {}
     for exp in expedientes:
-        capa = capa_de(exp, seleccion)
-        if capa is not None:
-            exp.capa, exp.entidad = capa.nombre, capa.entidad(exp.jerarquia)
-            topes[capa.nombre] = capa.maximo_por_entidad
-            por_entidad.setdefault((capa.nombre, exp.entidad), []).append(exp)
+        capa = next((c for c in seleccion.capas if c.casa(exp.jerarquia)), None)
+        familia = next((f for f in seleccion.familias if es_de(exp, f)), None)
+        if capa is None or familia is None:
+            continue
+        exp.capa, exp.entidad = capa.nombre, capa.entidad(exp.jerarquia)
+        exp.familia, exp.clases = familia.nombre, familia.clases
+        grupos.setdefault((familia, capa, exp.entidad), []).append(exp)
     elegidos = []
-    for (capa, _), lista in por_entidad.items():
+    for (_, capa, _), lista in grupos.items():
         lista.sort(key=lambda e: e.actualizado, reverse=True)
-        elegidos.extend(lista[: topes[capa]] if topes[capa] is not None else lista)
-    return sorted(elegidos, key=lambda e: (e.capa, e.entidad, e.expediente))
+        elegidos.extend(lista[: capa.maximo_por_entidad] if capa.maximo_por_entidad is not None else lista)
+    return sorted(elegidos, key=lambda e: (e.familia, e.capa, e.entidad, e.expediente))
 
 
 def seleccionar(feeds: Iterable[io.BufferedIOBase | Path | str], seleccion: Seleccion) -> list[Expediente]:
@@ -438,20 +467,21 @@ class Resultado:
 def descargar(
     expedientes: Iterable[Expediente],
     carpeta: Path,
-    clases: Iterable[str],
+    clases: Iterable[str] | None = None,
     *,
     obtener: Callable[[str], bytes] = _http,
     pausa: float = 0.5,
 ) -> list[Resultado]:
-    """Guarda en `carpeta` los documentos de cada expediente. **Lo que ya está no se vuelve a pedir**,
-    así que se puede relanzar tras un corte. Un expediente con dos PPT —lotes— guarda los dos."""
+    """Guarda en `carpeta` los documentos de cada expediente: los de `clases` o, sin ellas, los de
+    su familia. **Lo que ya está no se vuelve a pedir**, así que se puede relanzar tras un corte.
+    Un expediente con dos PPT —lotes— guarda los dos."""
     carpeta.mkdir(parents=True, exist_ok=True)
-    clases = tuple(clases)
+    fijas = tuple(clases) if clases is not None else None
     resultados: list[Resultado] = []
     for exp in expedientes:
         vistos: dict[str, int] = {}
         for doc in exp.documentos:
-            if doc.clase not in clases:
+            if doc.clase not in (fijas if fijas is not None else exp.clases):
                 continue
             vistos[doc.clase] = vistos.get(doc.clase, 0) + 1
             clase = doc.clase if vistos[doc.clase] == 1 else f"{doc.clase} {vistos[doc.clase]}"
@@ -482,7 +512,10 @@ def descargar(
 #  La tabla de expedientes
 # =============================================================================
 
+_URL = {c: "url_" + normalizar(c) for c in CLASES}
+
 COLUMNAS = [
+    "familia",
     "capa",
     "entidad",
     "organo",
@@ -496,9 +529,7 @@ COLUMNAS = [
     "recursos",
     "adjudicatarios",
     "ficha_placsp",
-    "url_pcap",
-    "url_ppt",
-    "url_memoria",
+    *_URL.values(),
 ]
 
 
@@ -509,9 +540,10 @@ def escribir_tabla(expedientes: Iterable[Expediente], ruta: Path) -> None:
         w = csv.DictWriter(fh, fieldnames=COLUMNAS)
         w.writeheader()
         for e in expedientes:
-            primera = {c: next((d.url for d in e.documentos if d.clase == c), "") for c in CLASES}
+            urls = {_URL[c]: next((d.url for d in e.documentos if d.clase == c), "") for c in CLASES}
             w.writerow(
                 {
+                    "familia": e.familia,
                     "capa": e.capa,
                     "entidad": e.entidad,
                     "organo": e.organo,
@@ -525,9 +557,7 @@ def escribir_tabla(expedientes: Iterable[Expediente], ruta: Path) -> None:
                     "recursos": e.recursos,
                     "adjudicatarios": "; ".join(e.adjudicatarios),
                     "ficha_placsp": e.ficha,
-                    "url_pcap": primera["PCAP"],
-                    "url_ppt": primera["PPT"],
-                    "url_memoria": primera["Memoria"],
+                    **urls,
                 }
             )
 
@@ -552,16 +582,26 @@ def bajar_zip(fuente: str, periodo: str, cache: Path) -> Path:
     return ruta
 
 
-def extraccion(fuente: str, periodo: str, capas: Iterable[Capa], cache: Path, *, conservar_zip: bool = False) -> list[Expediente]:
+def extraccion(
+    fuente: str,
+    periodo: str,
+    capas: Iterable[Capa],
+    cache: Path,
+    *,
+    zips: Path | None = None,
+    conservar_zip: bool = False,
+) -> list[Expediente]:
     """La extracción de un periodo, **hecha una sola vez**: si ya está en `cache`, se lee.
 
-    Lo que se queda es la extracción, unos megas; el ZIP se borra al terminar salvo que se pida
-    conservarlo. Para extraer con otras capas, se borra la extracción y se vuelve a lanzar.
+    Lo que se queda es la extracción, unos megas; el ZIP se baja a `zips` —por defecto, `cache`—
+    y se borra al terminar salvo que se pida conservarlo. En Colab, `cache` va en Drive, para que
+    la actualización del mes siguiente encuentre los periodos ya extraídos, y `zips` en el disco
+    de la sesión. Para extraer con otras capas, se borran las extracciones y se vuelve a lanzar.
     """
     ruta = cache / f"extraccion_{fuente}_{periodo}.csv"
     if ruta.exists():
         return leer_extraccion(ruta)
-    zip_ = bajar_zip(fuente, periodo, cache)
+    zip_ = bajar_zip(fuente, periodo, zips or cache)
     expedientes = extraer(feeds_de_zip(zip_), capas)
     guardar_extraccion(expedientes, ruta)
     if not conservar_zip:
@@ -569,15 +609,17 @@ def extraccion(fuente: str, periodo: str, capas: Iterable[Capa], cache: Path, *,
     return expedientes
 
 
-def ejecutar(seleccion: Seleccion, carpeta: Path, tabla: Path, cache: Path) -> list[Resultado]:
+def ejecutar(
+    seleccion: Seleccion, carpeta: Path, tabla: Path, cache: Path, *, zips: Path | None = None
+) -> list[Resultado]:
     extracciones = []
     for fuente in seleccion.fuentes:
         for periodo in seleccion.periodos:
-            extracciones.append(extraccion(fuente, periodo, seleccion.capas, cache))
+            extracciones.append(extraccion(fuente, periodo, seleccion.capas, cache, zips=zips))
             print(f"extraído {fuente} {periodo}: {len(extracciones[-1])} expedientes")
     expedientes = elegir(ultimo_estado(*extracciones), seleccion)
     escribir_tabla(expedientes, tabla)
-    resultados = descargar(expedientes, carpeta, seleccion.clases)
+    resultados = descargar(expedientes, carpeta)
     print(f"{len(expedientes)} expedientes; documentos:")
     for estado in sorted({r.estado.split(":")[0] for r in resultados}):
         print(f"  {estado}: {sum(r.estado.split(':')[0] == estado for r in resultados)}")
@@ -588,17 +630,61 @@ def ejecutar(seleccion: Seleccion, carpeta: Path, tabla: Path, cache: Path) -> l
 #  La selección de la UJI, como ejemplo
 # =============================================================================
 
-#: Piloto de equipamiento científico: suministros con CPV 38 (equipos de laboratorio, ópticos y
-#: de precisión), adjudicados o resueltos, desde 2022 —años cerrados como `AAAA`, el año en curso
-#: por meses—. Tres capas, en este orden:
+_ADJUDICADOS = frozenset({"ADJ", "RES"})
+_SUMINISTRO, _SERVICIO = frozenset({"1"}), frozenset({"2"})
+
+#: Los contratos que hacen los **grupos de investigación**, que son los que más ayuda necesitan:
+#: obras y TI los llevan los servicios, que tienen la experiencia (decisión del usuario,
+#: 2026-10-04). Las familias salen de medir 2024: de los 4.057 expedientes de universidades sin
+#: obras, menores ni derivados, 901 llevan señal de grupo, y se concentran en el equipamiento
+#: científico (75 % de su familia), la I+D (84 %), los equipos técnicos (55 %), el mantenimiento
+#: de equipos y la auditoría de proyectos europeos. Donde los grupos son minoría se exige la señal.
+#:
+#: Los **negociados sin publicidad** van en su propia familia y sólo con su justificación y su
+#: memoria: el PPT de un negociado por exclusividad es escueto, pero justificar la exclusividad
+#: (art. 168.a.2 LCSP) es donde más se atasca un grupo. Las de servicios traen además el informe
+#: de insuficiencia de medios, que la propuesta de contratación de la UJI pide.
+FAMILIAS_DE_GRUPOS = (
+    Familia("Equipamiento científico", cpv=("38",), tipos=_SUMINISTRO, estados=_ADJUDICADOS),
+    Familia("Equipos técnicos", cpv=("31", "32", "42"), tipos=_SUMINISTRO, estados=_ADJUDICADOS, senal_de_grupo=True),
+    Familia(
+        "Servicios de I+D", cpv=("73",), tipos=_SERVICIO, estados=_ADJUDICADOS, clases=("PPT", "Memoria", "Insuficiencia")
+    ),
+    Familia(
+        "Mantenimiento de equipos",
+        cpv=("50",),
+        tipos=_SERVICIO,
+        estados=_ADJUDICADOS,
+        clases=("PPT", "Memoria", "Insuficiencia"),
+        senal_de_grupo=True,
+    ),
+    Familia(
+        "Auditoría de proyectos",
+        cpv=("792", "794"),
+        tipos=_SERVICIO,
+        estados=_ADJUDICADOS,
+        clases=("PPT", "Memoria", "Insuficiencia"),
+        senal_de_grupo=True,
+    ),
+    Familia(
+        "Exclusividad",
+        cpv=("38", "31", "32", "42", "73", "50"),
+        procedimientos=frozenset({"3"}),
+        estados=_ADJUDICADOS,
+        clases=("Justificación", "Memoria"),
+        senal_de_grupo=True,
+    ),
+)
+
+#: Desde 2022: años cerrados como `AAAA`, el año en curso por meses. Tres capas, en este orden:
 #:
 #: * **UJI**, todo: es el estilo de la casa. Va primero porque también es una universidad.
-#: * **Universidad**, las públicas por el nodo de la jerarquía, **dos por universidad**: variedad
-#:   sin que las que más licitan llenen la carpeta.
-#: * **CSIC**, que compra el mismo equipamiento, **los diez más recientes**.
+#: * **Universidad**, **dos por universidad y familia**: variedad sin que las que más licitan
+#:   llenen la carpeta.
+#: * **CSIC**, que compra lo mismo, **los cinco más recientes de cada familia**.
 #:
-#: PPT y memoria justificativa, no el PCAP: el de cada universidad varía poco entre expedientes, y
-#: el modelo de PCAP entra aparte, como ficha prioritaria (#223).
+#: El PCAP no se descarga: el de cada universidad varía poco entre expedientes, y en la UJI lo
+#: redacta el Servicio de Contratación. Lo que el grupo redacta es la propuesta y el PPT.
 SELECCION_UJI = Seleccion(
     capas=(
         Capa("UJI", contiene=("Universidad Jaume I", "Universitat Jaume I")),
@@ -610,13 +696,10 @@ SELECCION_UJI = Seleccion(
             empieza=("Universidad", "Universitat", "Universidade", "Unibertsitatea", "UPV/EHU"),
             maximo_por_entidad=2,
         ),
-        Capa("CSIC", contiene=("Consejo Superior de Investigaciones Científicas",), maximo_por_entidad=10, alias="CSIC"),
+        Capa("CSIC", contiene=("Consejo Superior de Investigaciones Científicas",), maximo_por_entidad=5, alias="CSIC"),
     ),
     periodos=("2022", "2023", "2024", "2025") + tuple(f"2026{m:02d}" for m in range(1, 10)),
-    cpv=("38",),
-    tipos=frozenset({"1"}),
-    estados=frozenset({"ADJ", "RES"}),
-    clases=("PPT", "Memoria"),
+    familias=FAMILIAS_DE_GRUPOS,
 )
 
 
@@ -631,7 +714,8 @@ def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(description="Pliegos de PLACSP para la carpeta de un agente de pliegos.")
     p.add_argument("--carpeta", type=Path, required=True, help="la carpeta del agente (la que lee el guion)")
     p.add_argument("--tabla", type=Path, required=True, help="el CSV de expedientes, FUERA de la carpeta")
-    p.add_argument("--cache", type=Path, default=Path("placsp_zips"), help="dónde se guardan los ZIP")
+    p.add_argument("--cache", type=Path, default=Path("placsp_cache"), help="dónde se guardan las extracciones")
+    p.add_argument("--zips", type=Path, help="dónde se bajan los ZIP, que se borran; por defecto, la caché")
     p.add_argument("--periodos", nargs="*", help="AAAA o AAAAMM; por defecto, los de la selección")
     a = p.parse_args(argv)
     seleccion = SELECCION_UJI
@@ -641,7 +725,7 @@ def main(argv: list[str] | None = None) -> None:
         seleccion = replace(seleccion, periodos=tuple(a.periodos))
     if a.carpeta.resolve() in a.tabla.resolve().parents:
         p.error("la tabla no puede ir dentro de la carpeta: el guion la contaría como un documento")
-    ejecutar(seleccion, a.carpeta, a.tabla, a.cache)
+    ejecutar(seleccion, a.carpeta, a.tabla, a.cache, zips=a.zips)
 
 
 if __name__ == "__main__":
