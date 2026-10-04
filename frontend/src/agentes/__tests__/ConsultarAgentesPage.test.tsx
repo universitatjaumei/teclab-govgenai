@@ -33,7 +33,7 @@ const CATALOGO = [
     responsable: 'Jefatura de Contratación',
     version: 2,
     revision_vencida: false,
-    espera_adjunto: false,
+    adjunto: 'no',
     indice_sin_actualizar: false,
     modo_registro: 'validacion',
   },
@@ -45,7 +45,7 @@ const CATALOGO = [
     responsable: 'Jefatura de Gestión Económica',
     version: 1,
     revision_vencida: true,
-    espera_adjunto: true,
+    adjunto: 'obligatorio',
     indice_sin_actualizar: true,
     modo_registro: 'incidencias',
   },
@@ -129,7 +129,7 @@ describe('#175 — preparar el prompt', () => {
     preguntar('¿importe máximo?')
     fireEvent.click(screen.getByRole('button', { name: 'Preparar el prompt' }))
     expect(consultar).toHaveBeenCalledWith(
-      { agenteId: 'a1', data: { consulta: '¿importe máximo?', lengua: 'es' } },
+      { agenteId: 'a1', data: { consulta: '¿importe máximo?', lengua: 'es', adjunta: false } },
       expect.anything(),
     )
   })
@@ -252,5 +252,35 @@ describe('#216 — el aviso de validación', () => {
     montar()
     expect(within(screen.getByTestId('agente-a1')).getByTestId('en-validacion')).toBeInTheDocument()
     expect(within(screen.getByTestId('agente-a2')).queryByTestId('en-validacion')).not.toBeInTheDocument()
+  })
+})
+
+describe('#218 — el adjunto opcional', () => {
+  const OPCIONAL = { ...CATALOGO[0], id: 'a3', nombre: 'Contratación y revisión de pliegos', adjunto: 'opcional' }
+
+  it('ofrece decir que se adjunta, y lo manda', () => {
+    montar([OPCIONAL])
+    expect(within(screen.getByTestId('agente-a3')).getByText('Puedes adjuntar un documento')).toBeInTheDocument()
+    fireEvent.click(screen.getByLabelText(/Contratación y revisión de pliegos/))
+    expect(screen.queryByText(/Describe en tu pregunta el documento que vas a adjuntar/)).not.toBeInTheDocument()
+    fireEvent.click(screen.getByLabelText('Voy a adjuntar un documento'))
+    expect(screen.getByText(/Describe en tu pregunta el documento que vas a adjuntar/)).toBeInTheDocument()
+    preguntar('Revisa este pliego')
+    fireEvent.click(screen.getByRole('button', { name: 'Preparar el prompt' }))
+    expect(consultar.mock.calls[0][0].data).toMatchObject({ adjunta: true })
+  })
+
+  it('si no lo marca, no se adjunta', () => {
+    montar([OPCIONAL])
+    fireEvent.click(screen.getByLabelText(/Contratación y revisión de pliegos/))
+    preguntar('¿Qué plazo tiene un contrato menor?')
+    fireEvent.click(screen.getByRole('button', { name: 'Preparar el prompt' }))
+    expect(consultar.mock.calls[0][0].data).toMatchObject({ adjunta: false })
+  })
+
+  it('en un agente sin opción, la casilla no aparece', () => {
+    montar()
+    fireEvent.click(screen.getByLabelText(/Contratación menor/))
+    expect(screen.queryByLabelText('Voy a adjuntar un documento')).not.toBeInTheDocument()
   })
 })

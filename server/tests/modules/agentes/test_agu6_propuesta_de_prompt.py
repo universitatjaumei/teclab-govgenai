@@ -59,7 +59,7 @@ def _cuerpo(**extra) -> dict:
         "finalidad": "Orientar sobre el contrato menor",
         "colectivo": "organizacion",
         "grupos": [],
-        "espera_adjunto": False,
+        "adjunto": "no",
         "lengua": "es",
         **extra,
     }
@@ -75,7 +75,7 @@ class TestLaPropuesta:
         assert r.json() == {
             "prompt": "Eres el asistente de contratación de la universidad.",
             "modelo_usado": "modelo-falso-1",
-            "version": "propuesta-prompt-v1",
+            "version": "propuesta-prompt-v2",
         }
 
     @pytest.mark.asyncio
@@ -105,7 +105,7 @@ class TestLaPropuesta:
     @pytest.mark.asyncio
     async def test_con_adjunto_se_lo_dice_al_modelo(self, http, modelo):
         c, _ = http
-        await c.post("/api/v1/agentes/proponer-prompt", json=_cuerpo(espera_adjunto=True))
+        await c.post("/api/v1/agentes/proponer-prompt", json=_cuerpo(adjunto="obligatorio"))
         texto = "\n".join(m["content"] for m in modelo.mensajes[0]).lower()
         assert "adjunt" in texto
 

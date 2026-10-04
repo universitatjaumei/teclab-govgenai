@@ -199,5 +199,11 @@
   },
   "informeEnviado": {
     "message": "Informe enviado. Quien mantiene el agente lo verá con la pregunta y la respuesta."
+  },
+  "adjuntoOpcional": {
+    "message": "Puedes adjuntar un documento"
+  },
+  "voyAAdjuntar": {
+    "message": "Voy a adjuntar un documento"
   }
 }

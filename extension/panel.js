@@ -168,10 +168,11 @@ function loLeido(leida) {
   return { no_capturada: (leida && leida.motivo) || 'sin_respuesta' };
 }
 
-function consultar(conf, agenteId, pregunta) {
+/** `adjunta` sólo cuenta en un agente con el adjunto opcional (#218); en los demás lo decidió la unidad. */
+function consultar(conf, agenteId, pregunta, adjunta) {
   return llamar(conf, '/api/v1/agentes/' + agenteId + '/consulta', {
     method: 'POST',
-    cuerpo: { consulta: pregunta, lengua: lengua() },
+    cuerpo: { consulta: pregunta, lengua: lengua(), adjunta: Boolean(adjunta) },
   });
 }
 
@@ -271,7 +272,8 @@ async function construir(raiz) {
       actualizar();
     });
     const avisos = [];
-    if (a.espera_adjunto) avisos.push(el('span', { class: 'aviso', texto: texto('conAdjunto') }));
+    if (a.adjunto === 'obligatorio') avisos.push(el('span', { class: 'aviso', texto: texto('conAdjunto') }));
+    if (a.adjunto === 'opcional') avisos.push(el('span', { class: 'aviso', texto: texto('adjuntoOpcional') }));
     if (a.revision_vencida) avisos.push(el('span', { class: 'aviso', texto: texto('revisionVencida') }));
     if (a.indice_sin_actualizar) avisos.push(el('span', { class: 'aviso', texto: texto('indiceSinActualizar') }));
     if (a.modo_registro === 'validacion') avisos.push(el('span', { class: 'aviso validacion', texto: texto('enValidacion') }));
@@ -299,6 +301,14 @@ async function construir(raiz) {
 
   const pregunta = el('textarea', { id: 'pregunta', rows: '3', maxlength: '2000', 'aria-label': texto('pregunta') });
   const pista = el('p', { class: 'nota' });
+  // #218 — en un agente con el adjunto opcional, quien pregunta dice si adjunta.
+  const casillaAdjunta = el('input', { type: 'checkbox', id: 'adjunta' });
+  const adjuntaOpcional = el('label', { class: 'fila', hidden: '' }, [casillaAdjunta, el('span', { texto: texto('voyAAdjuntar') })]);
+  casillaAdjunta.addEventListener('change', actualizar);
+  function conAdjunto() {
+    if (!elegido) return false;
+    return elegido.adjunto === 'obligatorio' || (elegido.adjunto === 'opcional' && casillaAdjunta.checked);
+  }
   const insertar = ad ? el('button', { class: 'principal', id: 'insertar', texto: texto('insertar', [ad.nombre]) }) : null;
   const boton = el('button', { class: ad ? '' : 'principal', id: 'preparar', texto: texto('preparar') });
   const resultado = el('p', { role: 'status' });
@@ -430,7 +440,7 @@ async function construir(raiz) {
         const permiso = await chrome.permissions.request({ origins: [ad.origen + '/*'] });
         if (!permiso) throw new Error(texto('sinPermisoAsistente', [ad.nombre]));
         const pestana = await pestanaDelAsistente(ad);
-        const r = await consultar(conf, elegido.id, pregunta.value.trim());
+        const r = await consultar(conf, elegido.id, pregunta.value.trim(), conAdjunto());
         empezarConsulta(r);
         if (!pestana) {
           const copiado = await copiar(r.prompt);
@@ -477,7 +487,7 @@ async function construir(raiz) {
   boton.addEventListener('click', async function () {
     preparando();
     try {
-      const r = await consultar(conf, elegido.id, pregunta.value.trim());
+      const r = await consultar(conf, elegido.id, pregunta.value.trim(), conAdjunto());
       empezarConsulta(r);
       const copiado = await copiar(r.prompt);
       decir(copiado ? texto(r.espera_adjunto ? 'copiadoConAdjunto' : 'copiado') : texto('preparado'));
@@ -492,6 +502,7 @@ async function construir(raiz) {
   });
   raiz.appendChild(el('label', { for: 'pregunta', texto: texto('pregunta') }));
   raiz.appendChild(pregunta);
+  raiz.appendChild(adjuntaOpcional);
   raiz.appendChild(pista);
   if (insertar) raiz.appendChild(insertar);
   raiz.appendChild(boton);
@@ -512,7 +523,8 @@ async function construir(raiz) {
   function actualizar() {
     boton.disabled = !elegido || !pregunta.value.trim();
     if (insertar) insertar.disabled = boton.disabled;
-    pista.textContent = elegido && elegido.espera_adjunto ? texto('describeElAdjunto') : '';
+    adjuntaOpcional.hidden = !(elegido && elegido.adjunto === 'opcional');
+    pista.textContent = conAdjunto() ? texto('describeElAdjunto') : '';
   }
   actualizar();
 }

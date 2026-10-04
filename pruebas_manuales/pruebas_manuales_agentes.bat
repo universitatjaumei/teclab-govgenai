@@ -261,6 +261,29 @@ echo la pantalla de calidad (#217).
 echo.
 pause
 echo.
+echo ----------------------------------------------------------
+echo  PASO 9 - La lengua de la respuesta y el adjunto (#218)
+echo ----------------------------------------------------------
+echo.
+echo   1. En Publicar y gestionar, publica o versiona un agente con
+echo      "Lengua de la respuesta: Siempre en castellano" y
+echo      "Documento adjunto: Puede adjuntar un documento".
+echo   2. Recarga la extension. Elige ese agente y pregunta en
+echo      valenciano. Inserta en Gemini sin marcar "Adjuntare un
+echo      document" y envialo.
+echo   3. Repite marcando la casilla y adjuntando un documento.
+echo.
+echo QUE DEBES VER:
+echo   - La respuesta en castellano aunque preguntes en valenciano.
+echo   - Sin marcar, el prompt no habla de adjunto; marcada, pide
+echo     analizar tu documento con los de la carpeta.
+echo   - La ficha del agente dice la lengua y el adjunto.
+echo.
+echo JUZGA: si el asistente de prompts propone algo coherente con lo
+echo declarado, sin repetir la instruccion de lengua.
+echo.
+pause
+echo.
 echo ==========================================================
 echo   FIN. Anota lo que no cuadre en las issues del hito 5.
 echo ==========================================================

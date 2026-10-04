@@ -64,7 +64,7 @@ const AGENTES = [
     responsable: 'Jefatura',
     version: 2,
     revision_vencida: false,
-    espera_adjunto: false,
+    adjunto: 'no',
     indice_sin_actualizar: false,
     modo_registro: 'validacion',
   },
@@ -76,7 +76,7 @@ const AGENTES = [
     responsable: 'Jefatura',
     version: 1,
     revision_vencida: true,
-    espera_adjunto: true,
+    adjunto: 'obligatorio',
     indice_sin_actualizar: false,
     modo_registro: 'incidencias',
   },
@@ -272,7 +272,7 @@ describe('#176 — el panel de la extensión', () => {
     expect(consulta).toMatchObject({
       metodo: 'POST',
       autorizacion: 'Bearer ggai_pat_x',
-      cuerpo: { consulta: '¿Plazo de la beca?', lengua: 'es' },
+      cuerpo: { consulta: '¿Plazo de la beca?', lengua: 'es', adjunta: false },
     })
     expect(document.querySelector('[role="status"]')?.textContent).toBe(MENSAJES.copiado.message)
   })
@@ -523,6 +523,55 @@ describe('#176 — el panel de la extensión', () => {
       await preparado216(mundo)
       boton('preparar').click()
       await vi.waitFor(() => expect(document.getElementById('util')).not.toBeNull())
+    })
+  })
+
+  describe('#218 — el adjunto opcional', () => {
+    function conOpcional(m: Mundo) {
+      const opcional = { ...AGENTES[0], id: 'a3', nombre: 'Pliegos', adjunto: 'opcional' }
+      m.respuestas['/api/v1/agentes/catalogo'] = { status: 200, cuerpo: [opcional] }
+      m.respuestas['/api/v1/agentes/a3/consulta'] = m.respuestas['/api/v1/agentes/a1/consulta']
+      m.gestionada = { panel_url: 'https://normativa.uji.es/panel' }
+      m.local = { token: 'ggai_pat_x' }
+    }
+    async function elegir() {
+      await vi.waitFor(() => expect(document.querySelectorAll('[data-agente]')).toHaveLength(1))
+      ;(document.querySelector('[data-agente="a3"] input') as HTMLInputElement).click()
+      const pregunta = document.getElementById('pregunta') as HTMLTextAreaElement
+      pregunta.value = 'Revisa este pliego'
+      pregunta.dispatchEvent(new Event('input'))
+    }
+    const casilla = () => document.getElementById('adjunta') as HTMLInputElement
+
+    it('la tarjeta lo dice y la casilla aparece sólo al elegirlo', async () => {
+      conOpcional(mundo)
+      await cargar(mundo).pintar()
+      await vi.waitFor(() => expect(document.querySelector('[data-agente="a3"]')?.textContent).toContain(MENSAJES.adjuntoOpcional.message))
+      expect((casilla().parentElement as HTMLElement).hidden).toBe(true)
+      await elegir()
+      expect((casilla().parentElement as HTMLElement).hidden).toBe(false)
+    })
+
+    it('marcada, manda que adjunta y pide describir el documento', async () => {
+      conOpcional(mundo)
+      await cargar(mundo).pintar()
+      await elegir()
+      casilla().click()
+      expect(document.body.textContent).toContain(MENSAJES.describeElAdjunto.message)
+      boton('preparar').click()
+      await vi.waitFor(() =>
+        expect(mundo.peticiones.find((p) => p.url.endsWith('/a3/consulta'))?.cuerpo).toMatchObject({ adjunta: true }),
+      )
+    })
+
+    it('sin marcar, no adjunta', async () => {
+      conOpcional(mundo)
+      await cargar(mundo).pintar()
+      await elegir()
+      boton('preparar').click()
+      await vi.waitFor(() =>
+        expect(mundo.peticiones.find((p) => p.url.endsWith('/a3/consulta'))?.cuerpo).toMatchObject({ adjunta: false }),
+      )
     })
   })
 })

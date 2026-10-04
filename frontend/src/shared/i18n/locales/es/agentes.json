@@ -22,8 +22,9 @@
     "revision_prevista_en": "Fecha de revisión prevista",
     "presupuesto_documentos": "Documentos por consulta",
     "indice": "Índice",
-    "espera_adjunto": "Quien consulta adjuntará un documento",
-    "registro": "Registro de conversaciones"
+    "registro": "Registro de conversaciones",
+    "adjunto": "Documento adjunto",
+    "lengua_respuesta": "Lengua de la respuesta"
   },
   "pistas": {
     "carpeta_url": "La dirección de la carpeta en el almacén de la organización. La plataforma no guarda ningún documento: los autoriza el almacén.",
@@ -31,7 +32,8 @@
     "revision_prevista_en": "Cuándo volverá a mirarlo la unidad. Si pasa, el agente se sigue ofreciendo, pero marcado.",
     "presupuesto_documentos": "Cuántos documentos puede devolver una consulta como mucho, entre 1 y 10. Son las URL que el asistente general abrirá de una vez.",
     "hoja_del_indice": "CSV o Excel con una fila por documento y las columnas url, título y resumen; vigente y revisión prevista son opcionales, y cualquier otra columna se guarda como metadato. La hoja es el índice entero: lo que no venga se retira.",
-    "espera_adjunto": "Para agentes de revisión: los documentos del índice son el criterio y quien consulta adjunta en el asistente el documento que hay que analizar. La plataforma no ve ese documento."
+    "adjunto": "Si quien consulta adjunta un documento propio en el asistente, los documentos de la carpeta son el criterio para analizarlo. «Puede adjuntar» deja que lo diga en cada consulta.",
+    "lengua_respuesta": "La plataforma añade la instrucción al prompt: no hace falta escribirla. Los pliegos, siempre en castellano; las resoluciones, siempre en valenciano."
   },
   "colectivos": {
     "organizacion": "Toda la organización",
@@ -113,9 +115,10 @@
     "adjunta_el_documento": "Al pegar el prompt en el asistente, adjunta tu documento en el mismo mensaje.",
     "indice_sin_actualizar": "Índice sin actualizar",
     "en_validacion": "En validación",
-    "se_guarda_la_conversacion": "Este agente está en validación: se guardan tu pregunta y la respuesta del asistente para comprobar que funciona bien."
+    "se_guarda_la_conversacion": "Este agente está en validación: se guardan tu pregunta y la respuesta del asistente para comprobar que funciona bien.",
+    "adjunto_opcional": "Puedes adjuntar un documento",
+    "voy_a_adjuntar": "Voy a adjuntar un documento"
   },
-  "con_adjunto": "Quien consulta adjunta un documento",
   "nav_aria": "Agentes",
   "nav_consultar": "Consultar",
   "nav_gestion": "Publicar y gestionar",
@@ -188,5 +191,15 @@
   "registro": {
     "validacion": "En validación: se guarda cada pregunta con su respuesta",
     "incidencias": "Sólo incidencias: se guarda lo que se informa como inadecuado"
+  },
+  "adjuntos": {
+    "no": "Sin documento adjunto",
+    "opcional": "Puede adjuntar un documento",
+    "obligatorio": "Siempre adjunta un documento"
+  },
+  "lenguas_respuesta": {
+    "pregunta": "La de la pregunta",
+    "es": "Siempre en castellano",
+    "ca": "Siempre en valenciano"
   }
 }

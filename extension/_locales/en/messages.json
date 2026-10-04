@@ -199,5 +199,11 @@
   },
   "informeEnviado": {
     "message": "Report sent. Whoever maintains the agent will see it with the question and the answer."
+  },
+  "adjuntoOpcional": {
+    "message": "You may attach a document"
+  },
+  "voyAAdjuntar": {
+    "message": "I will attach a document"
   }
 }

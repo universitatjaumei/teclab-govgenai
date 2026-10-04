@@ -728,11 +728,17 @@ del navegador (#176).
   `consulta_agentes`, de oficio); publicar y gestionar es la otra pestaña, con el módulo
   `agentes`. Ve el catálogo de su colectivo, prepara el prompt y lo copia para pegarlo en el
   asistente general. Retirar el módulo del catálogo apaga la consulta para todos.
-- **Un agente de revisión espera un adjunto** si lo declara la unidad: quien consulta adjunta su
-  documento al pegar el prompt en el asistente, los enlaces pasan a ser **el criterio** con el que
-  se analiza, y la abstención cubre también el adjunto que no llega. **La plataforma no ve el
+- **El adjunto, en tres niveles que declara la unidad** (#218): `no`, `opcional` —quien pregunta
+  dice en cada consulta si adjunta— u `obligatorio`, un agente de revisión. Con adjunto, quien
+  consulta lo pega con el prompt en el asistente, los enlaces pasan a ser **el criterio** con el
+  que se analiza, y la abstención cubre también el adjunto que no llega. **La plataforma no ve el
   adjunto nunca**, así que tampoco puede registrarlo; lo gobierna el asistente general. Como la
   selección sólo ve la pregunta, la pantalla pide describir en ella el documento.
+- **La lengua de la respuesta es una declaración del agente** (#218): la de la pregunta, o siempre
+  castellano o siempre valenciano —los pliegos, las resoluciones—. **La instrucción la añade la
+  plataforma al componer**, como la abstención, para que se cumpla aunque la unidad no la escriba;
+  «la de la pregunta» es la lengua en que está escrita, no la de la pantalla. El asistente de
+  prompts recibe las dos declaraciones para no repetirlas ni contradecirlas.
 - **El uso va al registro de actividad (§5.9) sin la pregunta**, con el hash del prompt
   entregado; qué documentos se ofrecieron y con qué puntuación, a `hub_agente_consultas`.
 - **Las conversaciones se guardan como las de los chatbots** (#216; decisión del usuario,

@@ -98,8 +98,10 @@ class DeclaracionDelAgente(BaseModel):
     revision_prevista_en: date
     #: #173 — cuántos documentos devuelve una consulta como mucho. Lo declara el agente.
     presupuesto_documentos: int = Field(default=5, ge=1, le=10)
-    #: #175 — quien consulta adjuntará un documento en el asistente general.
-    espera_adjunto: bool = False
+    #: #175, #218 — si quien consulta adjunta un documento en el asistente general.
+    adjunto: Literal["no", "opcional", "obligatorio"] = "no"
+    #: #218 — en qué lengua se responde; la instrucción la añade la plataforma.
+    lengua_respuesta: Literal["pregunta", "es", "ca"] = "pregunta"
     #: #213 — `ia` si el prompt se redactó con el asistente de propuestas. Lo declara quien publica.
     autoria_prompt: Literal["persona", "ia"] = "persona"
 
@@ -175,7 +177,8 @@ class VersionDelAgente(BaseModel):
     revision_prevista_en: date
     revision_vencida: bool
     presupuesto_documentos: int
-    espera_adjunto: bool
+    adjunto: str
+    lengua_respuesta: str
     autoria_prompt: str
     declarada_en: datetime
     revisada_en: datetime | None
@@ -229,8 +232,9 @@ class AgenteDelCatalogo(BaseModel):
     responsable: str
     version: int
     revision_vencida: bool
-    #: Para que la pantalla recuerde adjuntar el documento, y pida describirlo en la pregunta.
-    espera_adjunto: bool
+    #: Para que la pantalla recuerde adjuntar el documento —u ofrezca hacerlo, si es opcional— y
+    #: pida describirlo en la pregunta.
+    adjunto: str
     #: #174 — el guion lleva días sin mandar el índice: se ofrece, pero marcado.
     indice_sin_actualizar: bool
     #: #216 — para avisar, antes de consultar, de que en validación se guarda la conversación.
@@ -304,7 +308,8 @@ def _vista(
             revision_prevista_en=version.revision_prevista_en,
             revision_vencida=acciones.revision_vencida(version),
             presupuesto_documentos=version.presupuesto_documentos,
-            espera_adjunto=version.espera_adjunto,
+            adjunto=version.adjunto,
+            lengua_respuesta=version.lengua_respuesta,
             autoria_prompt=version.autoria_prompt,
             declarada_en=version.declarada_en,
             revisada_en=version.revisada_en,
@@ -332,7 +337,8 @@ def _nueva_version(
         grupos=declaracion.grupos,
         revision_prevista_en=declaracion.revision_prevista_en,
         presupuesto_documentos=declaracion.presupuesto_documentos,
-        espera_adjunto=declaracion.espera_adjunto,
+        adjunto=declaracion.adjunto,
+        lengua_respuesta=declaracion.lengua_respuesta,
         autoria_prompt=declaracion.autoria_prompt,
         declarada_por=user_to_uuid(user.user_id),
         declarada_en=datetime.now(timezone.utc),
@@ -750,7 +756,8 @@ class PeticionDePropuesta(BaseModel):
     finalidad: str | None = Field(default=None, max_length=2000)
     colectivo: Literal["organizacion", "grupos"] | None = None
     grupos: list[str] = Field(default_factory=list)
-    espera_adjunto: bool = False
+    adjunto: Literal["no", "opcional", "obligatorio"] = "no"
+    lengua_respuesta: Literal["pregunta", "es", "ca"] = "pregunta"
     lengua: Literal["es", "ca", "en"] = "es"
 
     model_config = {"extra": "forbid"}
@@ -818,7 +825,8 @@ async def proponer_prompt(
                 finalidad=body.finalidad,
                 colectivo=body.colectivo,
                 grupos=body.grupos,
-                espera_adjunto=body.espera_adjunto,
+                adjunto=body.adjunto,
+                lengua_respuesta=body.lengua_respuesta,
                 lengua=body.lengua,
             )
         )
@@ -1010,7 +1018,7 @@ async def catalogo(
             responsable=v.responsable,
             version=v.version,
             revision_vencida=acciones.revision_vencida(v),
-            espera_adjunto=v.espera_adjunto,
+            adjunto=v.adjunto,
             indice_sin_actualizar=_sin_actualizar(a),
             modo_registro=a.modo_registro,
         )
@@ -1028,6 +1036,9 @@ class Consulta(BaseModel):
     consulta: str = Field(min_length=1, max_length=2000)
     #: La lengua de las instrucciones fijas; el prompt del agente va como lo escribió su unidad.
     lengua: Literal["es", "ca", "en"] = "es"
+    #: #218 — si quien pregunta va a adjuntar un documento. Sólo cuenta en un agente con el adjunto
+    #: `opcional`; en los demás lo decidió la unidad.
+    adjunta: bool = False
 
     model_config = {"extra": "forbid"}
 
@@ -1054,6 +1065,7 @@ class RespuestaDeConsulta(BaseModel):
     version: int
     prompt: str
     documentos: list[DocumentoOfrecido]
+    #: Si **esta consulta** lleva adjunto (#218: según el agente y, si es opcional, quien pregunta).
     #: El adjunto va directo al asistente: la plataforma no lo ve, y por eso tampoco lo registra.
     espera_adjunto: bool
     #: #216 — contra qué se mandan la respuesta y la valoración.
@@ -1099,12 +1111,15 @@ async def consultar(
     except indice.IndiceDeOtroModelo as fallo:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(fallo)) from fallo
 
+    # #218 — en `opcional` lo dice quien pregunta; en los otros dos, lo decidió la unidad.
+    con_adjunto = version.adjunto == "obligatorio" or (version.adjunto == "opcional" and body.adjunta)
     prompt = consulta.componer(
         version.prompt,
         body.consulta,
         elegidas,
         body.lengua,
-        espera_adjunto=version.espera_adjunto,
+        con_adjunto=con_adjunto,
+        lengua_respuesta=version.lengua_respuesta,
     )
     consulta_id = uuid.uuid4()
     respuesta = RespuestaDeConsulta(
@@ -1113,7 +1128,7 @@ async def consultar(
         agente=agente.nombre,
         version=version.version,
         prompt=prompt,
-        espera_adjunto=version.espera_adjunto,
+        espera_adjunto=con_adjunto,
         documentos=[
             DocumentoOfrecido(
                 url=e.url, titulo=e.titulo, score=e.score, revision_vencida=e.revision_vencida

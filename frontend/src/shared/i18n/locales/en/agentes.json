@@ -22,8 +22,9 @@
     "revision_prevista_en": "Planned review date",
     "presupuesto_documentos": "Documents per query",
     "indice": "Index",
-    "espera_adjunto": "The person asking will attach a document",
-    "registro": "Conversation log"
+    "registro": "Conversation log",
+    "adjunto": "Attached document",
+    "lengua_respuesta": "Language of the answer"
   },
   "pistas": {
     "carpeta_url": "The folder's address in the organisation's storage. The platform keeps no documents: the storage authorises them.",
@@ -31,7 +32,8 @@
     "revision_prevista_en": "When the unit will look at it again. If it passes, the agent is still offered, but flagged.",
     "presupuesto_documentos": "How many documents a query may return at most, between 1 and 10. They are the URLs the general assistant will open at once.",
     "hoja_del_indice": "CSV or Excel with one row per document and the columns url, title and summary; in force and planned review are optional, and any other column is kept as metadata. The sheet is the whole index: whatever is missing is withdrawn.",
-    "espera_adjunto": "For review agents: the index documents are the criteria, and the person asking attaches in the assistant the document to be analysed. The platform never sees that document."
+    "adjunto": "If the person consulting attaches their own document in the assistant, the folder's documents are the criteria to analyse it. “May attach” lets them say so in each consultation.",
+    "lengua_respuesta": "The platform adds the instruction to the prompt: no need to write it. Tender specifications always in Spanish; resolutions always in Valencian."
   },
   "colectivos": {
     "organizacion": "The whole organisation",
@@ -113,9 +115,10 @@
     "adjunta_el_documento": "When you paste the prompt into the assistant, attach your document in the same message.",
     "indice_sin_actualizar": "Index not updated",
     "en_validacion": "In validation",
-    "se_guarda_la_conversacion": "This agent is in validation: your question and the assistant's answer are kept to check it works well."
+    "se_guarda_la_conversacion": "This agent is in validation: your question and the assistant's answer are kept to check it works well.",
+    "adjunto_opcional": "You may attach a document",
+    "voy_a_adjuntar": "I will attach a document"
   },
-  "con_adjunto": "The person asking attaches a document",
   "nav_aria": "Agents",
   "nav_consultar": "Ask",
   "nav_gestion": "Publish and manage",
@@ -188,5 +191,15 @@
   "registro": {
     "validacion": "In validation: every question is kept with its answer",
     "incidencias": "Incidents only: what is reported as inadequate is kept"
+  },
+  "adjuntos": {
+    "no": "No attached document",
+    "opcional": "May attach a document",
+    "obligatorio": "Always attaches a document"
+  },
+  "lenguas_respuesta": {
+    "pregunta": "The language of the question",
+    "es": "Always in Spanish",
+    "ca": "Always in Valencian"
   }
 }

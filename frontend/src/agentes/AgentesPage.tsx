@@ -47,7 +47,9 @@ const declaracionSchema = z
       .int('presupuesto')
       .min(1, 'presupuesto')
       .max(10, 'presupuesto'),
-    espera_adjunto: z.boolean(),
+    // #218 — declaraciones del agente: la plataforma las convierte en instrucciones del prompt.
+    adjunto: z.enum(['no', 'opcional', 'obligatorio']),
+    lengua_respuesta: z.enum(['pregunta', 'es', 'ca']),
   })
   .refine((v) => v.colectivo === 'organizacion' || separarGrupos(v.grupos).length > 0, {
     path: ['grupos'],
@@ -73,7 +75,8 @@ const VACIA: Declaracion = {
   grupos: '',
   revision_prevista_en: '',
   presupuesto_documentos: 5,
-  espera_adjunto: false,
+  adjunto: 'no',
+  lengua_respuesta: 'pregunta',
 }
 
 /** Abierta para publicar uno nuevo, o para versionar uno que ya existe. */
@@ -184,7 +187,8 @@ function FormularioDeDeclaracion({
           // La fecha se vuelve a declarar: versionar es volver a mirarlo.
           revision_prevista_en: '',
           presupuesto_documentos: edicion.agente.version.presupuesto_documentos,
-          espera_adjunto: edicion.agente.version.espera_adjunto,
+          adjunto: edicion.agente.version.adjunto as Declaracion['adjunto'],
+          lengua_respuesta: edicion.agente.version.lengua_respuesta as Declaracion['lengua_respuesta'],
         }
       : VACIA
 
@@ -209,7 +213,8 @@ function FormularioDeDeclaracion({
           finalidad: v.finalidad.trim() || null,
           colectivo: v.colectivo,
           grupos: v.colectivo === 'grupos' ? separarGrupos(v.grupos) : [],
-          espera_adjunto: v.espera_adjunto,
+          adjunto: v.adjunto,
+          lengua_respuesta: v.lengua_respuesta,
           lengua: lenguaDe(i18n.language),
         },
         params: elegida ? { organizacion_id: elegida } : undefined,
@@ -237,7 +242,8 @@ function FormularioDeDeclaracion({
       grupos: v.colectivo === 'grupos' ? separarGrupos(v.grupos) : [],
       revision_prevista_en: v.revision_prevista_en,
       presupuesto_documentos: v.presupuesto_documentos,
-      espera_adjunto: v.espera_adjunto,
+      adjunto: v.adjunto,
+      lengua_respuesta: v.lengua_respuesta,
       autoria_prompt: autoria,
     }
     const alFallar = { onError: (e: unknown) => setFallo(mensajeDelFallo(e, t('fallo'))) }
@@ -400,11 +406,23 @@ function FormularioDeDeclaracion({
       </div>
 
       <div className="space-y-1">
-        <label className="flex items-center gap-2 text-sm font-medium">
-          <input type="checkbox" {...register('espera_adjunto')} />
-          {t('campos.espera_adjunto')}
-        </label>
-        <p className="text-xs text-muted-foreground">{t('pistas.espera_adjunto')}</p>
+        <label htmlFor="agente_adjunto" className="text-sm font-medium">{t('campos.adjunto')}</label>
+        <select id="agente_adjunto" className="block rounded-md border px-2 py-1 text-sm" {...register('adjunto')}>
+          {(['no', 'opcional', 'obligatorio'] as const).map((valor) => (
+            <option key={valor} value={valor}>{t(`adjuntos.${valor}`)}</option>
+          ))}
+        </select>
+        <p className="text-xs text-muted-foreground">{t('pistas.adjunto')}</p>
+      </div>
+
+      <div className="space-y-1">
+        <label htmlFor="agente_lengua_respuesta" className="text-sm font-medium">{t('campos.lengua_respuesta')}</label>
+        <select id="agente_lengua_respuesta" className="block rounded-md border px-2 py-1 text-sm" {...register('lengua_respuesta')}>
+          {(['pregunta', 'es', 'ca'] as const).map((valor) => (
+            <option key={valor} value={valor}>{t(`lenguas_respuesta.${valor}`)}</option>
+          ))}
+        </select>
+        <p className="text-xs text-muted-foreground">{t('pistas.lengua_respuesta')}</p>
       </div>
 
       {fallo && <p className="text-sm text-destructive" role="alert">{fallo}</p>}
@@ -498,6 +516,8 @@ function FichaDelAgente({ agente, alVersionar }: { agente: AgenteView; alVersion
         </dd>
         <dt className="text-muted-foreground">{t('campos.revision_prevista_en')}</dt>
         <dd>{v.revision_prevista_en}</dd>
+        <dt className="text-muted-foreground">{t('campos.lengua_respuesta')}</dt>
+        <dd data-testid="lengua-respuesta">{t(`lenguas_respuesta.${v.lengua_respuesta}`)}</dd>
         {/* #216 — qué se guarda de sus conversaciones. */}
         <dt className="text-muted-foreground">{t('campos.registro')}</dt>
         <dd data-testid="modo-registro">{t(`registro.${agente.modo_registro}`)}</dd>
@@ -506,10 +526,10 @@ function FichaDelAgente({ agente, alVersionar }: { agente: AgenteView; alVersion
           <span data-testid="estado-del-indice">{estadoDelIndice(t, agente.indice)}</span>
           {' · '}
           {t('presupuesto_de', { count: v.presupuesto_documentos })}
-          {v.espera_adjunto && (
+          {v.adjunto !== 'no' && (
             <>
               {' · '}
-              <span>{t('con_adjunto')}</span>
+              <span>{t(`adjuntos.${v.adjunto}`)}</span>
             </>
           )}
         </dd>

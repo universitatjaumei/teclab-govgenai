@@ -199,5 +199,11 @@
   },
   "informeEnviado": {
     "message": "Informe enviat. Qui manté l'agent el veurà amb la pregunta i la resposta."
+  },
+  "adjuntoOpcional": {
+    "message": "Pots adjuntar un document"
+  },
+  "voyAAdjuntar": {
+    "message": "Adjuntaré un document"
   }
 }

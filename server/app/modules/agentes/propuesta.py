@@ -6,8 +6,8 @@ Escribir un buen prompt es lo que más cuesta a quien publica. Aquí se compone 
 modelo: **propone, no publica**. La propuesta va al formulario, la unidad la edita y decide.
 
 **El meta-prompt sabe lo que la plataforma añade siempre** al entregar el prompt —la pregunta, los
-enlaces y la instrucción de abstención, y la frase del adjunto si el agente lo espera—, para que
-la propuesta no lo repita ni lo contradiga. Y le prohíbe inventar normas, plazos o importes: lo
+enlaces, la instrucción de abstención, la de la lengua de la respuesta (#218) y la frase del
+adjunto si lo hay—, para que la propuesta no lo repita ni lo contradiga. Y le prohíbe inventar normas, plazos o importes: lo
 que el agente sepa tiene que salir de los documentos.
 
 **La descripción no se anonimiza**, como no se anonimiza lo que se escribe en el copiloto ni la
@@ -23,30 +23,56 @@ Lengua = Literal["es", "ca", "en"]
 
 #: Versionado, como el prompt de resumen: la respuesta lo dice, y con él se sabe con qué
 #: instrucciones se hizo una propuesta.
-VERSION_META_PROMPT = "propuesta-prompt-v1"
+VERSION_META_PROMPT = "propuesta-prompt-v2"
 
 _NOMBRE_DE_LA_LENGUA = {"es": "castellano", "ca": "valenciano", "en": "inglés"}
 
+Adjunto = Literal["no", "opcional", "obligatorio"]
+LenguaDeLaRespuesta = Literal["pregunta", "es", "ca"]
 
-def meta_prompt(lengua: Lengua, *, espera_adjunto: bool) -> str:
-    """Las instrucciones para quien redacta. Fijas y en castellano; el prompt sale en `lengua`."""
-    adjunto = (
+_ADJUNTO_EN_EL_SISTEMA = {
+    "no": "",
+    "obligatorio": (
         " Además, quien consulta adjuntará un documento propio, y la plataforma ya indica que se "
         "analice usando como criterio los documentos enlazados: el prompt tiene que decir qué "
         "buscar en ese documento y cómo presentar el análisis."
-        if espera_adjunto
-        else ""
-    )
+    ),
+    "opcional": (
+        " Además, quien consulta puede adjuntar un documento propio o no, y la plataforma indica "
+        "en cada caso si lo ha hecho: el prompt tiene que servir para los dos casos, y decir qué "
+        "buscar en el documento cuando lo haya."
+    ),
+}
+_ADJUNTO_EN_LA_PETICION = {
+    "no": "Quien consulta adjunta un documento propio: no",
+    "obligatorio": "Quien consulta adjunta un documento propio: sí, siempre",
+    "opcional": "Quien consulta puede adjuntar un documento propio, o no",
+}
+_LENGUA_DE_LA_RESPUESTA = {
+    "pregunta": "La respuesta se redacta en la lengua de la pregunta",
+    "es": "La respuesta se redacta siempre en castellano",
+    "ca": "La respuesta se redacta siempre en valenciano",
+}
+
+
+def meta_prompt(lengua: Lengua, *, adjunto: Adjunto) -> str:
+    """Las instrucciones para quien redacta. Fijas y en castellano; el prompt sale en `lengua`.
+
+    La lengua de la respuesta no las cambia: la añade la plataforma, y aquí sólo se dice que no hay
+    que repetirla. La declarada va en la petición (`mensajes`), para que el prompt sea coherente."""
+    adjunto_texto = _ADJUNTO_EN_EL_SISTEMA[adjunto]
     return (
         "Redactas el prompt de sistema de un «agente de unidad» de una administración pública. El "
         "personal lo usa a través del asistente general de la organización: la plataforma entrega "
         "a ese asistente el prompt que tú redactes y, por su cuenta, añade siempre la pregunta de "
         "quien consulta, los enlaces a los documentos pertinentes de la unidad y una instrucción de "
         "abstención (si no puede abrir los documentos, que lo diga y no responda a partir de otra "
-        f"cosa).{adjunto}\n\n"
+        "cosa) y la instrucción de en qué lengua responder, que declara la unidad."
+        f"{adjunto_texto}\n\n"
         "Redacta sólo el prompt: el papel del agente, para quién trabaja, qué debe hacer y qué no, "
         "el tono y la forma de la respuesta. No incluyas la pregunta, no listes documentos ni "
-        "enlaces, no repitas la instrucción de abstención y no inventes normas, plazos ni importes: "
+        "enlaces, no repitas la instrucción de abstención ni la de la lengua de la respuesta, y no "
+        "inventes normas, plazos ni importes: "
         "lo que el agente sepa saldrá de los documentos. Entre 120 y 350 palabras, en segunda "
         f"persona («Eres…»). Escribe el prompt en {_NOMBRE_DE_LA_LENGUA[lengua]}. Responde "
         "únicamente con el prompt, sin explicaciones, títulos ni comillas."
@@ -61,7 +87,8 @@ def mensajes(
     finalidad: str | None,
     colectivo: str | None,
     grupos: list[str],
-    espera_adjunto: bool,
+    adjunto: Adjunto,
+    lengua_respuesta: LenguaDeLaRespuesta,
     lengua: Lengua,
 ) -> list[dict[str, str]]:
     """El sistema con las instrucciones y el usuario con lo que la unidad ha dicho y declarado."""
@@ -76,9 +103,10 @@ def mensajes(
         lineas.append(f"Quién lo usa: los grupos {', '.join(grupos)}")
     elif colectivo:
         lineas.append("Quién lo usa: toda la organización")
-    lineas.append(f"Quien consulta adjunta un documento propio: {'sí' if espera_adjunto else 'no'}")
+    lineas.append(_ADJUNTO_EN_LA_PETICION[adjunto])
+    lineas.append(_LENGUA_DE_LA_RESPUESTA[lengua_respuesta])
     return [
-        {"role": "system", "content": meta_prompt(lengua, espera_adjunto=espera_adjunto)},
+        {"role": "system", "content": meta_prompt(lengua, adjunto=adjunto)},
         {"role": "user", "content": "\n\n".join(lineas)},
     ]
 

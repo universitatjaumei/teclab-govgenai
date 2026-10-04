@@ -41,7 +41,10 @@ export function ConsultarAgentesPage() {
   const cajaDelPrompt = useRef<HTMLTextAreaElement>(null)
 
   const agentes = catalogo ?? []
-  const elegidoEsperaAdjunto = agentes.find((a) => a.id === elegido)?.espera_adjunto ?? false
+  const [adjunta, setAdjunta] = useState(false)
+  const adjuntoDelElegido = agentes.find((a) => a.id === elegido)?.adjunto ?? 'no'
+  // #218 — en `opcional` lo dice quien pregunta; en los otros dos, lo decidió la unidad.
+  const conAdjunto = adjuntoDelElegido === 'obligatorio' || (adjuntoDelElegido === 'opcional' && adjunta)
 
   function preparar() {
     if (!elegido || !pregunta.trim()) return
@@ -49,7 +52,7 @@ export function ConsultarAgentesPage() {
     setRespuesta(null)
     setCopiado(null)
     consultar.mutate(
-      { agenteId: elegido, data: { consulta: pregunta.trim(), lengua: lenguaDe(i18n.language) } },
+      { agenteId: elegido, data: { consulta: pregunta.trim(), lengua: lenguaDe(i18n.language), adjunta: conAdjunto } },
       {
         onSuccess: (r: RespuestaDeConsulta) => setRespuesta(r),
         onError: (e: unknown) => setFallo(mensajeDelFallo(e, t('consulta.fallo'))),
@@ -108,8 +111,11 @@ export function ConsultarAgentesPage() {
                 <span className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{a.nombre}</span>
                   <span className="text-xs text-muted-foreground">{a.unidad}</span>
-                  {a.espera_adjunto && (
+                  {a.adjunto === 'obligatorio' && (
                     <span className="rounded bg-muted px-2 py-0.5 text-xs">{t('consulta.con_adjunto')}</span>
+                  )}
+                  {a.adjunto === 'opcional' && (
+                    <span className="rounded bg-muted px-2 py-0.5 text-xs">{t('consulta.adjunto_opcional')}</span>
                   )}
                   {a.modo_registro === 'validacion' && (
                     <span data-testid="en-validacion" className="rounded bg-sky-100 px-2 py-0.5 text-xs text-sky-900">
@@ -156,8 +162,14 @@ export function ConsultarAgentesPage() {
             onChange={(e) => setPregunta(e.target.value)}
             className="w-full rounded-md border px-2 py-1 text-sm"
           />
+          {adjuntoDelElegido === 'opcional' && (
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={adjunta} onChange={(e) => setAdjunta(e.target.checked)} />
+              {t('consulta.voy_a_adjuntar')}
+            </label>
+          )}
           {/* La selección sólo ve la pregunta: sin saber de qué trata el adjunto, no acierta. */}
-          {elegidoEsperaAdjunto && (
+          {conAdjunto && (
             <p className="text-xs text-muted-foreground">{t('consulta.describe_el_adjunto')}</p>
           )}
           <button

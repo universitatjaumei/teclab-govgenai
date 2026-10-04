@@ -67,7 +67,8 @@ function version(extra: Record<string, unknown> = {}) {
     revision_prevista_en: '2027-04-01',
     revision_vencida: false,
     presupuesto_documentos: 5,
-    espera_adjunto: false,
+    adjunto: 'no',
+    lengua_respuesta: 'pregunta',
     autoria_prompt: 'persona',
     declarada_en: '2026-10-02T10:00:00Z',
     revisada_en: null,
@@ -239,20 +240,22 @@ describe('#172 — publicar exige la declaración', () => {
       grupos: [],
       revision_prevista_en: '2027-06-30',
       presupuesto_documentos: 5,
-      espera_adjunto: false,
+      adjunto: 'no',
+      lengua_respuesta: 'pregunta',
       autoria_prompt: 'persona',
     })
   })
 
-  it('un agente de revisión declara que quien consulta adjuntará un documento', async () => {
+  it('#218 — declara el adjunto en tres niveles y la lengua de la respuesta', async () => {
     montar([])
     fireEvent.click(screen.getByRole('button', { name: 'Publicar un agente' }))
     rellenar(DECLARACION)
-    fireEvent.click(screen.getByLabelText('Quien consulta adjuntará un documento'))
+    fireEvent.change(screen.getByLabelText('Documento adjunto'), { target: { value: 'opcional' } })
+    fireEvent.change(screen.getByLabelText('Lengua de la respuesta'), { target: { value: 'es' } })
     fireEvent.click(screen.getByRole('button', { name: 'Publicar' }))
 
     await waitFor(() => expect(mutaciones.publicar).toHaveBeenCalledTimes(1))
-    expect(mutaciones.publicar.mock.calls[0][0].data.espera_adjunto).toBe(true)
+    expect(mutaciones.publicar.mock.calls[0][0].data).toMatchObject({ adjunto: 'opcional', lengua_respuesta: 'es' })
   })
 
   it('el presupuesto de documentos se declara, y fuera de 1 a 10 no se manda', async () => {
@@ -393,10 +396,15 @@ describe('#173 — el índice', () => {
   })
 })
 
-describe('#175 — el agente que espera un adjunto', () => {
-  it('su ficha lo dice', () => {
-    montar([agente({}, { espera_adjunto: true })])
-    expect(within(screen.getByTestId('agente')).getByText('Quien consulta adjunta un documento')).toBeInTheDocument()
+describe('#175, #218 — el adjunto y la lengua, en la ficha', () => {
+  it('dice si se adjunta un documento', () => {
+    montar([agente({}, { adjunto: 'obligatorio' })])
+    expect(within(screen.getByTestId('agente')).getByText('Siempre adjunta un documento')).toBeInTheDocument()
+  })
+
+  it('dice en qué lengua se responde', () => {
+    montar([agente({}, { lengua_respuesta: 'ca' })])
+    expect(within(screen.getByTestId('agente')).getByTestId('lengua-respuesta')).toHaveTextContent('Siempre en valenciano')
   })
 })
 
@@ -496,7 +504,8 @@ describe('#213 — el asistente que propone el prompt', () => {
       unidad: 'Servicio de Control Interno',
       finalidad: 'Responder sobre el plan de control',
       colectivo: 'organizacion',
-      espera_adjunto: false,
+      adjunto: 'no',
+      lengua_respuesta: 'pregunta',
       lengua: 'es',
     })
     expect(screen.getByLabelText('Prompt')).toHaveValue('Eres el asistente de control interno.')

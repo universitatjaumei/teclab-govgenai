@@ -20,7 +20,6 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy import false
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
 from sqlalchemy.dialects.postgresql import ARRAY as PG_ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -1162,6 +1161,14 @@ class HubAgenteUnidadVersion(HubOperationalBase):
             "autoria_prompt IN ('persona', 'ia')",
             name="ck_agente_unidad_version_autoria_prompt",
         ),
+        CheckConstraint(
+            "adjunto IN ('no', 'opcional', 'obligatorio')",
+            name="ck_agente_unidad_version_adjunto",
+        ),
+        CheckConstraint(
+            "lengua_respuesta IN ('pregunta', 'es', 'ca')",
+            name="ck_agente_unidad_version_lengua_respuesta",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -1193,11 +1200,16 @@ class HubAgenteUnidadVersion(HubOperationalBase):
     presupuesto_documentos: Mapped[int] = mapped_column(
         Integer, nullable=False, default=5, server_default="5"
     )
-    #: #175 — un agente de revisión: quien consulta adjuntará su documento en el asistente general.
-    #: Cambia el prompt —los enlaces son el criterio y el adjunto el objeto— y la plataforma no ve
-    #: el adjunto nunca. Lo declara la unidad, que sabe para qué es su agente.
-    espera_adjunto: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False, server_default=false()
+    #: #175, #218 — si quien consulta adjunta un documento propio en el asistente general: `no`,
+    #: `opcional` (lo dice quien pregunta, en cada consulta) u `obligatorio` (un agente de
+    #: revisión). Cambia el prompt —los enlaces son el criterio y el adjunto el objeto— y la
+    #: plataforma no ve el adjunto nunca. Lo declara la unidad, que sabe para qué es su agente.
+    adjunto: Mapped[str] = mapped_column(String(12), nullable=False, default="no", server_default="no")
+    #: #218 — en qué lengua se responde: `pregunta` (la de la pregunta), `es` o `ca` (siempre en
+    #: castellano o en valenciano: pliegos, resoluciones). **Es una declaración y no texto del
+    #: prompt**: la instrucción la añade la plataforma al componer, como la abstención.
+    lengua_respuesta: Mapped[str] = mapped_column(
+        String(10), nullable=False, default="pregunta", server_default="pregunta"
     )
     #: #213 — si el prompt se redactó con ayuda de IA (el asistente de propuestas), como
     #: `autoria` en el catálogo de funciones. **Lo declara quien publica**: la plataforma propone,

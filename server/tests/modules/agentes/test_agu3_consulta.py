@@ -335,15 +335,15 @@ class TestConDocumentoAdjunto:
     """
 
     @pytest.mark.asyncio
-    async def test_por_defecto_no_espera_adjunto(self, http):
+    async def test_por_defecto_sin_adjunto(self, http):
         c, _ = http
         agente = await _publicar(c)
-        assert agente["version"]["espera_adjunto"] is False
+        assert agente["version"]["adjunto"] == "no"
 
     @pytest.mark.asyncio
     async def test_el_prompt_distingue_el_criterio_del_objeto(self, http):
         c, quien = http
-        agente = await _con_indice(c, espera_adjunto=True)
+        agente = await _con_indice(c, adjunto="obligatorio")
         quien.actual = _persona()
         prompt = (await _consultar(c, agente["id"])).json()["prompt"]
 
@@ -353,7 +353,7 @@ class TestConDocumentoAdjunto:
     @pytest.mark.asyncio
     async def test_la_abstencion_cubre_el_adjunto_que_no_llega(self, http):
         c, quien = http
-        agente = await _con_indice(c, espera_adjunto=True)
+        agente = await _con_indice(c, adjunto="obligatorio")
         quien.actual = _persona()
         prompt = (await _consultar(c, agente["id"])).json()["prompt"]
         assert (
@@ -364,7 +364,7 @@ class TestConDocumentoAdjunto:
     @pytest.mark.asyncio
     async def test_en_valenciano_tambien(self, http):
         c, quien = http
-        agente = await _con_indice(c, espera_adjunto=True)
+        agente = await _con_indice(c, adjunto="obligatorio")
         quien.actual = _persona()
         prompt = (await _consultar(c, agente["id"], lengua="ca")).json()["prompt"]
         assert "t'adjuntarà un document" in prompt
@@ -372,8 +372,8 @@ class TestConDocumentoAdjunto:
     @pytest.mark.asyncio
     async def test_el_catalogo_y_la_respuesta_lo_dicen_para_que_la_pantalla_lo_recuerde(self, http):
         c, quien = http
-        agente = await _con_indice(c, espera_adjunto=True)
+        agente = await _con_indice(c, adjunto="obligatorio")
         quien.actual = _persona()
         catalogo = (await c.get("/api/v1/agentes/catalogo")).json()
-        assert catalogo[0]["espera_adjunto"] is True
+        assert catalogo[0]["adjunto"] == "obligatorio"
         assert (await _consultar(c, agente["id"])).json()["espera_adjunto"] is True
