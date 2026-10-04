@@ -28,12 +28,21 @@
  *   El guion escribe los resúmenes. **La unidad puede escribir a mano** la columna `vigente`
  *   («no» para lo superado) y `revision_prevista_en`, y el guion lo respeta y lo manda.
  *
+ *   **Los datos de la consulta** (#220): si el agente declara datos ligados a una columna del
+ *   índice —tipo de contrato, CPV—, el guion añade esas columnas y los extrae del documento al
+ *   resumirlo. Lo que la unidad escriba en ellas **se respeta**: el guion sólo rellena las vacías,
+ *   así que para que vuelva a extraer un valor basta con vaciar la celda. Cualquier otra columna que
+ *   la unidad añada se conserva y va a la plataforma como dato del documento.
+ *
  * QUÉ NO HACE
  *   No regenera los resúmenes cuando cambia el prompt de resumen: sería cientos de llamadas contra
  *   la cuota de la unidad sin que nadie lo pidiera. Para eso está `regenerarResumenes`, a mano.
  */
 
-const VERSION_DEL_GUION = 'indice-v1';
+const VERSION_DEL_GUION = 'indice-v2';
+
+/** La línea que separa el resumen de los datos extraídos: el resumen se embebe, los datos no. */
+const SEPARADOR_DE_DATOS = '---DATOS---';
 
 /** Por debajo de los 6 minutos que Apps Script deja por ejecución, con margen para escribir. */
 const MAXIMO_MS = 4.5 * 60 * 1000;
@@ -69,6 +78,7 @@ function actualizarIndice() {
   const inicio = Date.now();
   const conf = configuracion_();
   const prompt = promptDeResumen_(conf);
+  const extraer = prompt.datos || [];
   const ficheros = ficherosDeLaCarpeta_(conf.carpetaId);
   const hoja = SpreadsheetApp.openById(conf.hojaId).getSheets()[0];
   const filas = leerFilas_(hoja);
@@ -87,18 +97,24 @@ function actualizarIndice() {
     }
     const fichero = plan.porResumir[i];
     try {
-      const resumen = resumir_(conf, prompt, fichero);
-      porId[fichero.id] = {
+      const leido = separar(resumir_(conf, prompt, fichero), extraer);
+      // Se parte de la fila que había: sus columnas de más y lo escrito a mano se conservan.
+      const anterior = porId[fichero.id] || {};
+      const fila = Object.assign({}, anterior, {
         url: fichero.url,
         titulo: fichero.nombre,
-        resumen: resumen,
-        vigente: (porId[fichero.id] && porId[fichero.id].vigente) || 'sí',
-        revision_prevista_en: (porId[fichero.id] && porId[fichero.id].revision_prevista_en) || '',
+        resumen: leido.resumen,
+        vigente: anterior.vigente || 'sí',
+        revision_prevista_en: anterior.revision_prevista_en || '',
         id_fichero: fichero.id,
         modificado: fichero.modificado,
         version_prompt_resumen: prompt.version,
         modelo_resumen: conf.modelo,
-      };
+      });
+      extraer.forEach(function (d) {
+        if (!String(anterior[d.columna] || '').trim()) fila[d.columna] = leido.valores[d.columna] || '';
+      });
+      porId[fichero.id] = fila;
     } catch (fallo) {
       // Un documento que falla no para la pasada: se queda sin ficha, y la plataforma lo cuenta.
       Logger.log('No se ha podido resumir «' + fichero.nombre + '»: ' + fallo);
@@ -108,7 +124,7 @@ function actualizarIndice() {
   const finales = plan.orden.map(function (id) {
     return porId[id];
   }).filter(Boolean);
-  escribirFilas_(hoja, finales);
+  escribirFilas_(hoja, finales, columnasDeMas(extraer, filas));
   mandarIndice_(conf, componerIndice(finales, ficheros.length));
 }
 
@@ -126,7 +142,7 @@ function regenerarResumenes() {
     }
     return f;
   });
-  escribirFilas_(hoja, filas);
+  escribirFilas_(hoja, filas, columnasDeMas(prompt.datos || [], filas));
   actualizarIndice();
 }
 
@@ -174,6 +190,62 @@ function planificar(ficheros, filas) {
   return { porResumir: porResumir, filas: siguen, orden: orden };
 }
 
+/**
+ * Separa el resumen de los datos que el modelo puso detrás de `SEPARADOR_DE_DATOS` (#220).
+ * **El resumen nunca lleva los datos**: es lo que se embebe. En una lista sólo vale una de sus
+ * opciones —escrita como sea—; lo que no lo es, o lo que el modelo deja vacío, queda vacío.
+ */
+function separar(texto, extraer) {
+  const lineas = String(texto || '').split('\n');
+  const corte = lineas.findIndex(function (l) {
+    return l.trim() === SEPARADOR_DE_DATOS;
+  });
+  const valores = {};
+  if (corte < 0) return { resumen: String(texto || '').trim(), valores: valores };
+  const porNombre = {};
+  extraer.forEach(function (d) {
+    porNombre[normalizar_(d.columna)] = d;
+  });
+  lineas.slice(corte + 1).forEach(function (linea) {
+    const m = linea.match(/^\s*[-*]?\s*([^:]+):\s*(.*)$/);
+    if (!m) return;
+    const dato = porNombre[normalizar_(m[1])];
+    if (!dato) return;
+    let valor = m[2].trim().replace(/^[«"']+|[»"'.]+$/g, '').trim();
+    if (/^(n\/a|no consta|desconocido|-+)$/i.test(valor)) valor = '';
+    if (dato.tipo === 'opciones') {
+      const opcion = (dato.opciones || []).find(function (o) {
+        return normalizar_(o) === normalizar_(valor);
+      });
+      valor = opcion || '';
+    }
+    valores[dato.columna] = valor;
+  });
+  return { resumen: lineas.slice(0, corte).join('\n').trim(), valores: valores };
+}
+
+/** Las columnas que no son del guion: las de los datos y las que haya añadido la unidad. */
+function columnasDeMas(extraer, filas) {
+  const de_mas = extraer.map(function (d) {
+    return d.columna;
+  });
+  filas.forEach(function (f) {
+    Object.keys(f).forEach(function (c) {
+      if (c && COLUMNAS.indexOf(c) < 0 && de_mas.indexOf(c) < 0) de_mas.push(c);
+    });
+  });
+  return de_mas;
+}
+
+function normalizar_(texto) {
+  return String(texto || '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
 /** El cuerpo que espera la plataforma: el estado completo y cuántos documentos hay en la carpeta. */
 function componerIndice(filas, documentosEnCarpeta) {
   const fichas = filas
@@ -191,6 +263,15 @@ function componerIndice(filas, documentosEnCarpeta) {
       };
       const revision = fecha_(f.revision_prevista_en);
       if (revision) ficha.revision_prevista_en = revision;
+      // #220 — las columnas de más, los datos de la consulta entre ellas, van como datos del
+      // documento: son lo que filtra la consulta, y no se embeben.
+      const metadatos = {};
+      Object.keys(f).forEach(function (c) {
+        if (COLUMNAS.indexOf(c) < 0 && String(f[c] === undefined || f[c] === null ? '' : f[c]).trim()) {
+          metadatos[c] = String(f[c]).trim();
+        }
+      });
+      if (Object.keys(metadatos).length) ficha.metadatos = metadatos;
       return ficha;
     });
   return { fichas: fichas, documentos_en_carpeta: documentosEnCarpeta };
@@ -241,7 +322,8 @@ function configuracion_() {
 
 /** El prompt vigente; si la plataforma no responde, el último guardado, **con su versión**. */
 function promptDeResumen_(conf) {
-  const respuesta = UrlFetchApp.fetch(conf.plataforma + '/api/v1/agentes/prompt-de-resumen', {
+  // El del agente (#220): si declara datos que extraer, el prompt los pide.
+  const respuesta = UrlFetchApp.fetch(conf.plataforma + '/api/v1/agentes/prompt-de-resumen?agente_id=' + encodeURIComponent(conf.agenteId), {
     method: 'get',
     headers: { Authorization: 'Bearer ' + conf.token },
     muteHttpExceptions: true,
@@ -325,16 +407,17 @@ function leerFilas_(hoja) {
   });
 }
 
-function escribirFilas_(hoja, filas) {
-  const valores = [COLUMNAS].concat(
+function escribirFilas_(hoja, filas, deMas) {
+  const columnas = COLUMNAS.concat(deMas || []);
+  const valores = [columnas].concat(
     filas.map(function (f) {
-      return COLUMNAS.map(function (c) {
+      return columnas.map(function (c) {
         return f[c] === undefined || f[c] === null ? '' : f[c];
       });
     }),
   );
   hoja.clearContents();
-  hoja.getRange(1, 1, valores.length, COLUMNAS.length).setValues(valores);
+  hoja.getRange(1, 1, valores.length, columnas.length).setValues(valores);
 }
 
 function mandarIndice_(conf, cuerpo) {

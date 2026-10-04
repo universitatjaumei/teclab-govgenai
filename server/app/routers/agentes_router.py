@@ -461,34 +461,34 @@ def _exigir(accion: str, agente, version, user: UserInfo) -> None:
 
 
 async def _fichas_por_agente(
-    session: AsyncSession, ids: list[uuid.UUID]
+    session: AsyncSession, vigentes: dict[uuid.UUID, HubAgenteUnidadVersion]
 ) -> dict[uuid.UUID, tuple[int, int]]:
     """Por agente: cuántas fichas y cuántas resumidas con otra versión del prompt.
 
-    Una ficha sin versión no está desfasada: la escribió una persona, no un prompt.
+    Una ficha sin versión no está desfasada: la escribió una persona, no un prompt. **La versión
+    con que se compara es la del agente** (#220): con datos que extraer, su prompt no es el común.
     """
-    if not ids:
+    if not vigentes:
         return {}
-    desfasada = (HubAgenteFicha.version_prompt_resumen.is_not(None)) & (
-        HubAgenteFicha.version_prompt_resumen != indice.VERSION_PROMPT_RESUMEN
-    )
+    suya = {aid: indice.prompt_de_resumen(v.datos_consulta)[0] for aid, v in vigentes.items()}
     filas = await session.execute(
-        select(
-            HubAgenteFicha.agente_id,
-            func.count(),
-            func.count().filter(desfasada),
-        )
-        .where(HubAgenteFicha.agente_id.in_(ids))
-        .group_by(HubAgenteFicha.agente_id)
+        select(HubAgenteFicha.agente_id, HubAgenteFicha.version_prompt_resumen, func.count())
+        .where(HubAgenteFicha.agente_id.in_(list(vigentes)))
+        .group_by(HubAgenteFicha.agente_id, HubAgenteFicha.version_prompt_resumen)
     )
-    return {agente_id: (n, viejas) for agente_id, n, viejas in filas.all()}
+    cuentas: dict[uuid.UUID, tuple[int, int]] = {}
+    for agente_id, version_resumen, n in filas.all():
+        total, viejas = cuentas.get(agente_id, (0, 0))
+        desfasada = version_resumen is not None and version_resumen != suya[agente_id]
+        cuentas[agente_id] = (total + n, viejas + (n if desfasada else 0))
+    return cuentas
 
 
 async def _responder(session: AsyncSession, agente, version, user: UserInfo) -> AgenteView:
     # La vista se construye antes del commit: la sesión de los routers expira los atributos al
     # commitear, y leerlos después costaría un 500.
     await session.flush()
-    cuentas = (await _fichas_por_agente(session, [agente.id])).get(agente.id, (0, 0))
+    cuentas = (await _fichas_por_agente(session, {agente.id: version})).get(agente.id, (0, 0))
     vista = _vista(agente, version, user, cuentas)
     await session.commit()
     return vista
@@ -538,7 +538,7 @@ async def listar(
 ) -> GestionDeAgentes:
     """Los agentes de su organización, con lo que quien pregunta puede hacer con cada uno."""
     filas = await _vigentes(session, _de_sus_organizaciones(user))
-    fichas = await _fichas_por_agente(session, [a.id for a, _ in filas])
+    fichas = await _fichas_por_agente(session, {a.id: v for a, v in filas})
     return GestionDeAgentes(
         agentes=[_vista(a, v, user, fichas.get(a.id, (0, 0))) for a, v in filas],
         grupos_del_idp=get_settings().saml_enabled,
@@ -657,9 +657,18 @@ class IndiceCompleto(BaseModel):
     documentos_en_carpeta: int | None = Field(default=None, ge=0)
 
 
+class DatoAExtraer(BaseModel):
+    columna: str
+    etiqueta: str
+    tipo: str
+    opciones: list[str]
+
+
 class PromptDeResumen(BaseModel):
     version: str
     texto: str
+    #: #220 — los datos que el guion extrae a su columna del índice. Vacío sin agente o sin datos.
+    datos: list[DatoAExtraer] = Field(default_factory=list)
 
 
 class InformeDeCarga(BaseModel):
@@ -761,7 +770,9 @@ async def subir_hoja(
 
 @router.get("/prompt-de-resumen", response_model=PromptDeResumen)
 async def prompt_de_resumen(
-    _: UserInfo = Depends(require_scopes(AGENTES_INDICE_WRITE)),
+    agente_id: uuid.UUID | None = None,
+    user: UserInfo = Depends(require_scopes(AGENTES_INDICE_WRITE)),
+    session: AsyncSession = Depends(get_session),
 ) -> PromptDeResumen:
     """El prompt con el que el guion resume cada documento, y su versión (#174).
 
@@ -769,7 +780,12 @@ async def prompt_de_resumen(
     la plataforma no responde usa la última que guardó **y escribe esa**: el índice sigue diciendo
     con qué se hizo cada resumen.
     """
-    return PromptDeResumen(version=indice.VERSION_PROMPT_RESUMEN, texto=indice.PROMPT_DE_RESUMEN)
+    if agente_id is None:
+        return PromptDeResumen(version=indice.VERSION_PROMPT_RESUMEN, texto=indice.PROMPT_DE_RESUMEN)
+    # #220 — el del agente: pide extraer los datos de la consulta ligados a una columna.
+    _, version = await _el_agente(session, agente_id, user)
+    numero, texto, extraer = indice.prompt_de_resumen(version.datos_consulta)
+    return PromptDeResumen(version=numero, texto=texto, datos=[DatoAExtraer(**e) for e in extraer])
 
 
 @router.get("/{agente_id}/indice", response_model=list[FichaView])

@@ -34,6 +34,10 @@ interface Mundo {
   /** Cuánto avanza el reloj con cada resumen, para probar el límite de tiempo. */
   msPorResumen: number
   promptCaido?: boolean
+  /** #220 — los datos que el prompt del agente pide extraer. */
+  datos?: { columna: string; etiqueta: string; tipo: string; opciones: string[] }[]
+  /** #220 — lo que contesta el modelo para cada documento; por defecto, sólo un resumen. */
+  contesta?: (documento: string) => string
 }
 
 function cargar(mundo: Mundo) {
@@ -94,7 +98,12 @@ function cargar(mundo: Mundo) {
           if (mundo.promptCaido) return { getResponseCode: () => 503, getContentText: () => 'caído' }
           return {
             getResponseCode: () => 200,
-            getContentText: () => JSON.stringify({ version: 'resumen-v2', texto: 'Resume esto.' }),
+            getContentText: () =>
+              JSON.stringify(
+                mundo.datos
+                  ? { version: 'resumen-v2+datos-abc', texto: 'Resume esto y extrae.', datos: mundo.datos }
+                  : { version: 'resumen-v2', texto: 'Resume esto.' },
+              ),
           }
         }
         if (url.includes(':generateContent')) {
@@ -104,7 +113,9 @@ function cargar(mundo: Mundo) {
           return {
             getResponseCode: () => 200,
             getContentText: () =>
-              JSON.stringify({ candidates: [{ content: { parts: [{ text: `Resumen de ${id}` }] } }] }),
+              JSON.stringify({
+                candidates: [{ content: { parts: [{ text: mundo.contesta ? mundo.contesta(id) : `Resumen de ${id}` }] } }],
+              }),
           }
         }
         if (url.includes('/export?')) {
@@ -140,7 +151,7 @@ function cargar(mundo: Mundo) {
   const nombres = Object.keys(globales)
   const fabrica = new Function(
     ...nombres,
-    `${CODIGO}\nreturn { actualizarIndice, planificar, componerIndice, regenerarResumenes, VERSION_DEL_GUION };`,
+    `${CODIGO}\nreturn { actualizarIndice, planificar, componerIndice, regenerarResumenes, separar, VERSION_DEL_GUION };`,
   )
   return fabrica(...nombres.map((n) => (globales as Record<string, unknown>)[n]))
 }
@@ -307,3 +318,82 @@ describe('guion del índice — el límite de tiempo', () => {
     expect(mundo.resumidos).toHaveLength(1)
   })
 })
+
+describe('guion del índice — los datos de la consulta (#220)', () => {
+  const DATOS = [
+    { columna: 'Tipo de contrato', etiqueta: 'Tipo de contrato', tipo: 'opciones', opciones: ['Obras', 'Servicios', 'Suministros'] },
+    { columna: 'CPV', etiqueta: 'Código CPV', tipo: 'texto', opciones: [] },
+  ]
+  const contesta = (documento: string) =>
+    documento.includes('Instrucción')
+      ? 'Pliego de servicios de consultoría.\n---DATOS---\n- Tipo de contrato: servicios\n- CPV: 79341000'
+      : 'Guía general de contratación.\n---DATOS---\nTipo de contrato:\nCPV: no consta'
+  const fichas = () => (laCarga()!.cuerpo as { fichas: Record<string, unknown>[] }).fichas
+  const ficha = (titulo: string) => fichas().find((f) => f.titulo === titulo)!
+
+  beforeEach(() => {
+    mundo.datos = DATOS
+    mundo.contesta = contesta
+  })
+
+  it('pide el prompt de su agente', () => {
+    cargar(mundo).actualizarIndice()
+    const pedido = mundo.peticiones.find((p) => p.url.includes('/prompt-de-resumen'))!
+    expect(pedido.url).toBe('https://plataforma.example/panel/api/v1/agentes/prompt-de-resumen?agente_id=agente-1')
+  })
+
+  it('el resumen va sin los datos, y los datos van como datos del documento', () => {
+    cargar(mundo).actualizarIndice()
+    const instruccion = ficha('Instrucción.pdf')
+    expect(instruccion.resumen).toBe('Pliego de servicios de consultoría.')
+    // La opción, escrita como la declara la unidad, aunque el modelo la escriba en minúsculas.
+    expect(instruccion.metadatos).toEqual({ 'Tipo de contrato': 'Servicios', CPV: '79341000' })
+    // Lo que el documento no dice queda vacío, y una ficha sin datos no lleva metadatos.
+    expect(ficha('Guía').metadatos).toBeUndefined()
+  })
+
+  it('la hoja gana las columnas de los datos', () => {
+    cargar(mundo).actualizarIndice()
+    const cabecera = mundo.hoja[0] as string[]
+    expect(cabecera).toContain('Tipo de contrato')
+    expect(cabecera).toContain('CPV')
+    const fila = mundo.hoja.find((f) => f[cabecera.indexOf('id_fichero')] === 'a')!
+    expect(fila[cabecera.indexOf('CPV')]).toBe('79341000')
+  })
+
+  it('respeta lo que la unidad escribe a mano: sólo rellena las celdas vacías', () => {
+    cargar(mundo).actualizarIndice()
+    const cabecera = mundo.hoja[0] as string[]
+    const fila = mundo.hoja.findIndex((f) => f[cabecera.indexOf('id_fichero')] === 'a')
+    mundo.hoja[fila][cabecera.indexOf('CPV')] = '79342000' // corregido a mano
+    mundo.ficheros[0].modificado = '2026-10-01T10:00:00Z' // y el documento cambia: se vuelve a resumir
+    mundo.peticiones = []
+    mundo.resumidos = []
+    cargar(mundo).actualizarIndice()
+    expect(mundo.resumidos).toEqual(['Documento: Instrucción.pdf'])
+    expect(ficha('Instrucción.pdf').metadatos).toEqual({ 'Tipo de contrato': 'Servicios', CPV: '79342000' })
+  })
+
+  it('una opción que no está en la lista no se apunta', () => {
+    mundo.contesta = () => 'Un contrato.\n---DATOS---\n- Tipo de contrato: Concesión de servicios\n- CPV: 45000000'
+    cargar(mundo).actualizarIndice()
+    expect(ficha('Instrucción.pdf').metadatos).toEqual({ CPV: '45000000' })
+  })
+
+  it('una columna que añade la unidad se conserva y va como dato del documento', () => {
+    cargar(mundo).actualizarIndice()
+    const cabecera = mundo.hoja[0] as string[]
+    mundo.hoja[0] = [...cabecera, 'Unidad gestora']
+    mundo.hoja = mundo.hoja.map((f, i) => (i === 0 ? f : [...f, f[cabecera.indexOf('id_fichero')] === 'b' ? 'Gerencia' : '']))
+    mundo.peticiones = []
+    cargar(mundo).actualizarIndice()
+    expect((mundo.hoja[0] as string[]).includes('Unidad gestora')).toBe(true)
+    expect(ficha('Guía').metadatos).toEqual({ 'Unidad gestora': 'Gerencia' })
+  })
+
+  it('sin línea de datos, todo es resumen', () => {
+    const { separar } = cargar(mundo)
+    expect(separar('Sólo un resumen.', DATOS)).toEqual({ resumen: 'Sólo un resumen.', valores: {} })
+  })
+})
+

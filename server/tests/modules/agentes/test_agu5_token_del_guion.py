@@ -196,7 +196,7 @@ class TestElGuionLoSirveLaPlataforma:
         )
         assert cuerpo["codigo"] == fuente.read_text(encoding="utf-8")
         assert cuerpo["sha256"] == hashlib.sha256(fuente.read_bytes()).hexdigest()
-        assert cuerpo["version"] == "indice-v1"
+        assert cuerpo["version"] == "indice-v2"
         manifiesto = json.loads(cuerpo["manifiesto"])
         assert "https://www.googleapis.com/auth/drive.readonly" in manifiesto["oauthScopes"]
 

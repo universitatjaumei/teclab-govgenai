@@ -53,6 +53,53 @@ PROMPT_DE_RESUMEN = (
     "incluyas datos personales. Responde sólo con el resumen, en la lengua del documento."
 )
 
+#: #220 — la línea que separa el resumen de los datos extraídos. **El resumen es lo que se embebe**
+#: y los datos no pueden entrar en él (regla 5 de AGENTS.md): van a los metadatos de la ficha, que
+#: se reclasifican con un `UPDATE` y no exigen re-embeber.
+SEPARADOR_DE_DATOS = "---DATOS---"
+
+
+def prompt_de_resumen(datos_consulta: list[dict[str, Any]] | None) -> tuple[str, str, list[dict[str, Any]]]:
+    """El prompt de resumen **de un agente**: el de siempre y, si declara datos ligados a una
+    columna del índice, la petición de extraerlos detrás de `SEPARADOR_DE_DATOS` (#220).
+
+    Devuelve la versión, el texto y los datos que se piden. **La versión sigue a lo que se
+    extrae** —columna, tipo y opciones, no la etiqueta ni la ayuda—: si cambia, lo resumido antes
+    sale desfasado y la unidad decide si regenera, como con el prompt.
+    """
+    extraer = [
+        {
+            "columna": d["columna"],
+            "etiqueta": d["etiqueta"],
+            "tipo": d["tipo"],
+            "opciones": list(d.get("opciones") or []),
+        }
+        for d in (datos_consulta or [])
+        if d.get("columna")
+    ]
+    if not extraer:
+        return VERSION_PROMPT_RESUMEN, PROMPT_DE_RESUMEN, []
+    huella = hashlib.sha256(
+        json.dumps([[e["columna"], e["tipo"], e["opciones"]] for e in extraer], ensure_ascii=False).encode("utf-8")
+    ).hexdigest()[:8]
+    lineas = [
+        f"- {e['columna']}: una de estas opciones: {', '.join(e['opciones'])}"
+        if e["tipo"] == "opciones"
+        else f"- {e['columna']}: tal como aparezca en el documento"
+        for e in extraer
+    ]
+    texto = (
+        PROMPT_DE_RESUMEN
+        + "\n\nAdemás, después del resumen escribe una línea que diga exactamente "
+        + SEPARADOR_DE_DATOS
+        + " y, debajo, una línea por cada uno de estos datos, con el formato «nombre: valor»:\n"
+        + "\n".join(lineas)
+        + "\nSi el documento no lo dice, deja el valor vacío: no lo deduzcas. El resumen no lleva "
+        "estos datos."
+    )
+    return f"{VERSION_PROMPT_RESUMEN}+datos-{huella}", texto, extraer
+
+
 #: Cuántas fichas como mucho en una carga. Un agente de unidad con más documentos que esto ya no
 #: es un agente de unidad, y sin tope una hoja equivocada embebe miles de filas.
 MAXIMO_FICHAS = 2000

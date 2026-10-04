@@ -763,6 +763,14 @@ del navegador (#176).
   con su cuenta, resume con Gemini sólo lo nuevo o cambiado y manda el índice. **Los documentos no
   salen de Google.** El prompt de resumen lo sirve la plataforma, versionado; cada ficha anota con
   qué versión se hizo y se cuentan las desfasadas, pero **regenerar es decisión de la unidad**.
+- **El guion extrae los datos de la consulta al resumir** (#220): si el agente declara datos
+  ligados a una columna del índice, su prompt de resumen —el del agente, que sirve la plataforma—
+  los pide detrás de una línea fija, y el guion los guarda en esas columnas de la hoja y los manda
+  como datos del documento. **El resumen no los lleva**: es lo que se embebe. En una lista sólo vale
+  una de sus opciones; lo que la unidad escribe a mano se respeta —sólo se rellenan las celdas
+  vacías— y cualquier columna que añada se conserva. La versión del prompt sigue a lo que se
+  extrae, así que cambiar los datos deja desfasado lo resumido antes, y se cuenta contra la versión
+  **de ese agente**.
 - **Un índice parado, o incompleto, se ve**: se apunta cuándo llegó por última vez —también sin
   cambios— y, si el guion lleva más de `INDICE_SIN_ACTUALIZAR_DIAS` sin mandarlo, el agente se
   sigue ofreciendo marcado. El guion manda cuántos documentos hay en la carpeta, y se ve cuántos

@@ -309,6 +309,26 @@ echo JUZGA: si los documentos elegidos son mejores que sin los datos.
 echo.
 pause
 echo.
+echo ----------------------------------------------------------
+echo  PASO 11 - El guion extrae los datos del documento (#220)
+echo ----------------------------------------------------------
+echo.
+echo   1. El agente del PASO 10, con sus datos ligados a columnas.
+echo      En Publicar y gestionar - Actualizacion del indice, copia el
+echo      guion nuevo (version indice-v2) y pegalo en tu Apps Script.
+echo   2. Ejecuta regenerarResumenes (los resumenes de antes salen
+echo      desfasados: el prompt de resumen ahora pide los datos).
+echo   3. Mira la hoja y luego consulta como en el PASO 10.
+echo.
+echo QUE DEBES VER:
+echo   - La hoja con columnas "Tipo de contrato" y "CPV" rellenas.
+echo   - Los resumenes sin esos datos dentro.
+echo   - Si corriges a mano una celda, la siguiente pasada la respeta.
+echo.
+echo JUZGA: si los valores extraidos son los correctos en tus pliegos.
+echo.
+pause
+echo.
 echo ==========================================================
 echo   FIN. Anota lo que no cuadre en las issues del hito 5.
 echo ==========================================================
