@@ -562,6 +562,46 @@ def escribir_tabla(expedientes: Iterable[Expediente], ruta: Path) -> None:
             )
 
 
+COLUMNAS_DOCUMENTOS = [
+    "fichero",
+    "estado",
+    "clase",
+    "capa",
+    "familia",
+    "entidad",
+    "expediente",
+    "tipo_de_contrato",
+    "cpv",
+    "ficha_placsp",
+]
+
+
+def escribir_documentos(resultados: Iterable[Resultado], ruta: Path) -> None:
+    """Una fila por documento: de qué expediente viene cada fichero de la carpeta. Es lo que
+    permite rellenar el tipo de contrato y el CPV de la hoja del índice con el dato de PLACSP, sin
+    que el modelo tenga que deducirlo del texto."""
+    ruta.parent.mkdir(parents=True, exist_ok=True)
+    with ruta.open("w", encoding="utf-8-sig", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=COLUMNAS_DOCUMENTOS)
+        w.writeheader()
+        for r in resultados:
+            e = r.expediente
+            w.writerow(
+                {
+                    "fichero": r.fichero,
+                    "estado": r.estado,
+                    "clase": r.clase,
+                    "capa": e.capa,
+                    "familia": e.familia,
+                    "entidad": e.entidad,
+                    "expediente": e.expediente,
+                    "tipo_de_contrato": TIPOS.get(e.tipo, "Otros"),
+                    "cpv": e.cpv[0] if e.cpv else "",
+                    "ficha_placsp": e.ficha,
+                }
+            )
+
+
 # =============================================================================
 #  Todo junto
 # =============================================================================
@@ -610,16 +650,25 @@ def extraccion(
 
 
 def ejecutar(
-    seleccion: Seleccion, carpeta: Path, tabla: Path, cache: Path, *, zips: Path | None = None
+    seleccion: Seleccion,
+    carpeta: Path,
+    tabla: Path,
+    cache: Path,
+    *,
+    zips: Path | None = None,
+    conservar_zips: bool = False,
 ) -> list[Resultado]:
     extracciones = []
     for fuente in seleccion.fuentes:
         for periodo in seleccion.periodos:
-            extracciones.append(extraccion(fuente, periodo, seleccion.capas, cache, zips=zips))
+            extracciones.append(
+                extraccion(fuente, periodo, seleccion.capas, cache, zips=zips, conservar_zip=conservar_zips)
+            )
             print(f"extraído {fuente} {periodo}: {len(extracciones[-1])} expedientes")
     expedientes = elegir(ultimo_estado(*extracciones), seleccion)
     escribir_tabla(expedientes, tabla)
     resultados = descargar(expedientes, carpeta)
+    escribir_documentos(resultados, tabla.with_name(tabla.stem + "_documentos.csv"))
     print(f"{len(expedientes)} expedientes; documentos:")
     for estado in sorted({r.estado.split(":")[0] for r in resultados}):
         print(f"  {estado}: {sum(r.estado.split(':')[0] == estado for r in resultados)}")
@@ -716,7 +765,13 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--tabla", type=Path, required=True, help="el CSV de expedientes, FUERA de la carpeta")
     p.add_argument("--cache", type=Path, default=Path("placsp_cache"), help="dónde se guardan las extracciones")
     p.add_argument("--zips", type=Path, help="dónde se bajan los ZIP, que se borran; por defecto, la caché")
-    p.add_argument("--periodos", nargs="*", help="AAAA o AAAAMM; por defecto, los de la selección")
+    p.add_argument("--conservar-zips", action="store_true", help="no borrar los ZIP tras extraerlos")
+    p.add_argument(
+        "--periodos",
+        nargs="*",
+        help="AAAA o AAAAMM; por defecto, los de la selección. Sin el mes en curso: se extrae una "
+        "sola vez, y a medias no se volvería a leer",
+    )
     a = p.parse_args(argv)
     seleccion = SELECCION_UJI
     if a.periodos:
@@ -725,7 +780,7 @@ def main(argv: list[str] | None = None) -> None:
         seleccion = replace(seleccion, periodos=tuple(a.periodos))
     if a.carpeta.resolve() in a.tabla.resolve().parents:
         p.error("la tabla no puede ir dentro de la carpeta: el guion la contaría como un documento")
-    ejecutar(seleccion, a.carpeta, a.tabla, a.cache, zips=a.zips)
+    ejecutar(seleccion, a.carpeta, a.tabla, a.cache, zips=a.zips, conservar_zips=a.conservar_zips)
 
 
 if __name__ == "__main__":

@@ -413,3 +413,19 @@ def test_la_seleccion_de_la_uji_se_sostiene():
     assert familias["Exclusividad"].procedimientos == frozenset({"3"})
     assert all("3" not in f.procedimientos for n, f in familias.items() if n != "Exclusividad")
     assert all("PCAP" not in f.clases for f in familias.values())
+
+
+def test_la_tabla_de_documentos_dice_de_donde_viene_cada_fichero(tmp_path):
+    """Para rellenar el tipo de contrato y el CPV de la hoja del índice con el dato de PLACSP."""
+    [exp] = d.seleccionar([_feed(_entrada(1, ppt=2))], SEL)
+    resultados = d.descargar([exp], tmp_path / "carpeta", obtener=lambda url: _pdf(), pausa=0)
+    ruta = tmp_path / "expedientes_documentos.csv"
+    d.escribir_documentos(resultados, ruta)
+    with ruta.open(encoding="utf-8-sig") as fh:
+        filas = list(csv.DictReader(fh))
+    assert [(f["clase"], f["tipo_de_contrato"], f["cpv"]) for f in filas] == [
+        ("PPT", "Suministros", "38432000"),
+        ("PPT 2", "Suministros", "38432000"),
+        ("Memoria", "Suministros", "38432000"),
+    ]
+    assert filas[0]["fichero"] == resultados[0].fichero
