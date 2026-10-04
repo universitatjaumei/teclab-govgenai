@@ -34,7 +34,7 @@
     "grupos": "Separats per comes, tal com els declara el proveïdor d'identitat.",
     "revision_prevista_en": "Quan el tornarà a mirar la unitat. Si passa, l'agent se segueix oferint, però marcat.",
     "presupuesto_documentos": "Quants documents pot tornar una consulta com a màxim, entre 1 i 10. Són les URL que l'assistent general obrirà d'una vegada.",
-    "hoja_del_indice": "CSV o Excel amb una fila per document i les columnes url, títol i resum; vigent i revisió prevista són opcionals, i qualsevol altra columna es guarda com a metadada. El full és l'índex sencer: el que no hi vinga es retira.",
+    "hoja_del_indice": "CSV o Excel amb una fila per document i les columnes url, títol i resum; vigent, revisió prevista i prioritari són opcionals, i qualsevol altra columna es guarda com a metadada. El full és l'índex sencer: el que no hi vinga es retira.",
     "adjunto": "Si qui consulta adjunta un document propi en l'assistent, els documents de la carpeta són el criteri per a analitzar-lo. «Pot adjuntar» deixa que ho diga en cada consulta.",
     "lengua_respuesta": "La plataforma afig la instrucció al prompt: no cal escriure-la. Els plecs, sempre en castellà; les resolucions, sempre en valencià.",
     "datos_consulta": "L'essencial perquè es trien bé els documents: en un agent de plecs, el tipus de contracte i el CPV. Si l'índex té una columna amb eixa dada, escriu-la i filtrarà: es descarten els documents que la contradiuen i es conserven els que no la diuen.",

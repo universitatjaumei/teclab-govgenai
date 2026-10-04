@@ -12,8 +12,8 @@ Tres reglas que vienen del corpus normativo, y por las mismas razones:
   deja de venir se retira. El incremento se calcula en destino, por huella.
 * **El vector es del título y el resumen.** Los metadatos y la vigencia no entran en el texto
   embebido: cambiarlos cuesta un `UPDATE`, no re-embeber (regla 5 de AGENTS.md).
-* **La vigencia va en el `WHERE`**, y el presupuesto es el `LIMIT`: una ficha descartada después
-  del top-k ya habría gastado una plaza.
+* **La vigencia va en el `WHERE`**, y el presupuesto se aplica lo último: una ficha descartada
+  después de repartir las plazas ya habría gastado una.
 """
 from __future__ import annotations
 
@@ -318,6 +318,10 @@ async def seleccionar(
     Con `filtros` (#219, los datos de la consulta ligados a una columna), el filtro suave se aplica
     **antes de gastar el presupuesto**, como la vigencia: lo excluido no ocupa plaza. Se hace aquí y
     no en el `WHERE` porque las cabeceras de la hoja se comparan normalizadas.
+
+    **Las prioritarias** (#223) que pasan el filtro entran primero, por similitud entre ellas, y
+    **como mucho la mitad del presupuesto**: la otra mitad es de los ejemplos, que traen el
+    contenido concreto. Las que no caben en su tope compiten como las demás.
     """
     if not lo_puede_usar(agente, version, principal=principal):
         raise AgenteNoDisponible("este agente no se te ofrece")
@@ -339,35 +343,56 @@ async def seleccionar(
             f"{embedder.model_name}: hay que volver a cargarlo"
         )
 
+    from server.app.modules.agentes.datos import pasa
+
     vector = await embedder.embed(consulta)
     distancia = HubAgenteFicha.embedding.cosine_distance(vector).label("distancia")
-    consulta_sql = (
-        select(HubAgenteFicha, distancia)
-        .where(HubAgenteFicha.agente_id == agente.id, HubAgenteFicha.vigente.is_(True))
-        .order_by(distancia)
-    )
-    if not filtros:
-        consulta_sql = consulta_sql.limit(version.presupuesto_documentos)
-    filas = (await session.execute(consulta_sql)).all()
-    if filtros:
-        from server.app.modules.agentes.datos import pasa
-
-        filas = [(f, d) for f, d in filas if pasa(f.metadatos, list(filtros))][: version.presupuesto_documentos]
+    filas = (
+        await session.execute(
+            select(
+                HubAgenteFicha.url,
+                HubAgenteFicha.titulo,
+                HubAgenteFicha.revision_prevista_en,
+                HubAgenteFicha.metadatos,
+                distancia,
+            )
+            .where(HubAgenteFicha.agente_id == agente.id, HubAgenteFicha.vigente.is_(True))
+            .order_by(distancia)
+        )
+    ).all()
+    candidatas = [f for f in filas if pasa(f.metadatos, list(filtros))]
+    presupuesto = version.presupuesto_documentos
+    primero = [f for f in candidatas if es_prioritaria(f.metadatos)][: presupuesto // 2]
+    filas = primero + [f for f in candidatas if f not in primero][: presupuesto - len(primero)]
     hoy = date.today()
     return [
         FichaSeleccionada(
             url=f.url,
             titulo=f.titulo,
-            score=round(1.0 - float(d), 4),
+            score=round(1.0 - float(f.distancia), 4),
             revision_vencida=f.revision_prevista_en is not None and hoy > f.revision_prevista_en,
         )
-        for f, d in filas
+        for f in filas
     ]
 
 
 # =============================================================================
 #  La hoja
 # =============================================================================
+
+
+#: #223 — la columna que marca una ficha como prioritaria. Es una columna de la hoja como otra
+#: cualquiera, así que llega en los metadatos por los dos caminos (guion y subida) sin tocarlos.
+COLUMNA_PRIORITARIO = "prioritario"
+_MARCAS_DE_PRIORIDAD = {"si", "s", "true", "1", "x", "yes"}
+
+
+def es_prioritaria(metadatos: dict[str, Any] | None) -> bool:
+    """Si la ficha lleva la marca. **Vacía es no**, al revés que la vigencia."""
+    return any(
+        normalizar_columna(k) == COLUMNA_PRIORITARIO and normalizar_columna(v) in _MARCAS_DE_PRIORIDAD
+        for k, v in (metadatos or {}).items()
+    )
 
 
 def normalizar_columna(cabecera: Any) -> str:
