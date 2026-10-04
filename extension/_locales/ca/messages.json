@@ -133,5 +133,41 @@
   },
   "respuestaNoLeida": {
     "message": "No s'ha pogut llegir la resposta."
+  },
+  "preparando": {
+    "message": "Preparant el prompt i triant els documents…"
+  },
+  "sinAsistente": {
+    "message": "No trobe $ASISTENTE$ en la pestanya activa d'aquesta finestra.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "insercionFallidaSinCopia": {
+    "message": "No s'ha pogut inserir en $ASISTENTE$. Ja s'ha avisat la plataforma.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "preparado": {
+    "message": "Preparat."
+  },
+  "pulsaCopiar": {
+    "message": "Chrome no ha deixat copiar-lo automàticament: prem Copiar."
+  },
+  "copiar": {
+    "message": "Copiar"
+  },
+  "copiaConTeclado": {
+    "message": "Seleccionat: copia'l amb Ctrl+C."
+  },
+  "prompt": {
+    "message": "Prompt"
   }
 }

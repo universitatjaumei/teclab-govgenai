@@ -133,5 +133,41 @@
   },
   "respuestaNoLeida": {
     "message": "No se ha podido leer la respuesta."
+  },
+  "preparando": {
+    "message": "Preparando el prompt y eligiendo los documentos…"
+  },
+  "sinAsistente": {
+    "message": "No encuentro $ASISTENTE$ en la pestaña activa de esta ventana.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "insercionFallidaSinCopia": {
+    "message": "No se ha podido insertar en $ASISTENTE$. Ya se ha avisado a la plataforma.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "preparado": {
+    "message": "Preparado."
+  },
+  "pulsaCopiar": {
+    "message": "Chrome no ha dejado copiarlo automáticamente: pulsa Copiar."
+  },
+  "copiar": {
+    "message": "Copiar"
+  },
+  "copiaConTeclado": {
+    "message": "Seleccionado: cópialo con Ctrl+C."
+  },
+  "prompt": {
+    "message": "Prompt"
   }
 }

@@ -46,6 +46,10 @@ interface Mundo {
   permiso: boolean
   /** La pestaña activa de Gemini, si la hay. */
   pestanaGemini: boolean
+  /** Chrome no deja escribir en el portapapeles sin el panel enfocado: las veces que falla. */
+  portapapelesSinFoco: number
+  /** Para retener la respuesta de la consulta y ver el panel mientras espera. */
+  consultaRetenida: Promise<void> | null
   inyectadas: { func: string; args: unknown[] }[]
   insercion: { ok: boolean; selector?: string }
   lectura: Promise<{ ok: boolean; texto?: string; selector?: string; motivo?: string }>
@@ -99,6 +103,8 @@ function mundoBase(): Mundo {
     vuelta: 'https://abc.chromiumapp.org/#token=ggai_pat_nuevo',
     permiso: true,
     pestanaGemini: true,
+    portapapelesSinFoco: 0,
+    consultaRetenida: null,
     inyectadas: [],
     insercion: { ok: true },
     lectura: Promise.resolve({ ok: true, texto: 'Respuesta de Gemini.', fuentes: [] }),
@@ -125,8 +131,10 @@ function cargar(mundo: Mundo) {
     },
     permissions: { request: async () => mundo.permiso },
     tabs: {
-      query: async ({ url }: { url: string }) =>
-        mundo.pestanaGemini && url === 'https://gemini.google.com/*' ? [{ id: 7 }] : [],
+      // La pestaña activa de la ventana del panel; la de la última ventana con foco puede ser la
+      // de la conexión (visto en la prueba de verdad, 2026-10-04).
+      query: async ({ url, currentWindow }: { url: string; currentWindow?: boolean }) =>
+        mundo.pestanaGemini && currentWindow === true && url === 'https://gemini.google.com/*' ? [{ id: 7 }] : [],
     },
     scripting: {
       executeScript: async ({ target, func, args }: { target: { tabId: number }; func: { name: string }; args: unknown[] }) => {
@@ -153,12 +161,17 @@ function cargar(mundo: Mundo) {
       cuerpo: opciones.body ? JSON.parse(opciones.body) : null,
       autorizacion: opciones.headers.Authorization,
     })
+    if (ruta.endsWith('/consulta') && mundo.consultaRetenida) await mundo.consultaRetenida
     const r = mundo.respuestas[ruta] ?? { status: 404, cuerpo: { detail: 'no' } }
     return { status: r.status, ok: r.status < 400, json: async () => r.cuerpo }
   }
   const navigator = {
     clipboard: {
       writeText: async (t: string) => {
+        if (mundo.portapapelesSinFoco > 0) {
+          mundo.portapapelesSinFoco--
+          throw new Error("Failed to execute 'writeText' on 'Clipboard': Document is not focused.")
+        }
         mundo.copiado.push(t)
       },
     },
@@ -369,6 +382,42 @@ describe('#176 — el panel de la extensión', () => {
       await preparado(mundo, 'a2')
       boton('insertar').click()
       await vi.waitFor(() => expect(estado()).toBe(MENSAJES.insertadoConAdjunto.message))
+    })
+
+    it('mientras prepara el prompt lo dice, y no se puede pulsar otra vez', async () => {
+      let soltar: () => void = () => {}
+      mundo.consultaRetenida = new Promise((r) => (soltar = r))
+      await preparado(mundo)
+      boton('insertar').click()
+      await vi.waitFor(() => expect(estado()).toBe(MENSAJES.preparando.message))
+      expect(document.querySelector('[role="status"]')?.className).toBe('trabajando')
+      expect(boton('insertar').disabled).toBe(true)
+      expect(boton('preparar').disabled).toBe(true)
+      soltar()
+      await vi.waitFor(() => expect(estado()).toBe(MENSAJES.insertado.message))
+    })
+
+    it('si Chrome no deja copiar sin foco, enseña el prompt con su botón de copiar', async () => {
+      // La prueba de verdad: «Document is not focused» tras esperar a la plataforma.
+      mundo.pestanaGemini = false
+      mundo.portapapelesSinFoco = 1
+      await preparado(mundo)
+      boton('insertar').click()
+      await vi.waitFor(() => expect(estado()).toBe(MENSAJES.sinAsistente.message))
+      expect((document.getElementById('prompt-a-mano') as HTMLTextAreaElement).value).toBe('PROMPT COMPUESTO')
+      expect(document.body.textContent).not.toContain('Document is not focused')
+      boton('copiar-a-mano').click()
+      await vi.waitFor(() => expect(mundo.copiado).toEqual(['PROMPT COMPUESTO']))
+      expect(estado()).toBe(MENSAJES.copiado.message)
+      expect(document.getElementById('prompt-a-mano')).toBeNull()
+    })
+
+    it('copiar a secas también se recupera si Chrome no deja', async () => {
+      mundo.portapapelesSinFoco = 1
+      await preparado(mundo)
+      boton('preparar').click()
+      await vi.waitFor(() => expect(estado()).toBe(MENSAJES.preparado.message))
+      expect(document.getElementById('copiar-a-mano')).not.toBeNull()
     })
 
     it('sin adaptador no hay botón de insertar, y copiar sigue siendo lo principal', async () => {

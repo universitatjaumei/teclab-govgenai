@@ -133,5 +133,41 @@
   },
   "respuestaNoLeida": {
     "message": "The answer could not be read."
+  },
+  "preparando": {
+    "message": "Preparing the prompt and choosing the documents…"
+  },
+  "sinAsistente": {
+    "message": "$ASISTENTE$ is not the active tab in this window.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "insercionFallidaSinCopia": {
+    "message": "It could not be inserted into $ASISTENTE$. The platform has been notified.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "preparado": {
+    "message": "Ready."
+  },
+  "pulsaCopiar": {
+    "message": "Chrome did not allow copying it automatically: press Copy."
+  },
+  "copiar": {
+    "message": "Copy"
+  },
+  "copiaConTeclado": {
+    "message": "Selected: copy it with Ctrl+C."
+  },
+  "prompt": {
+    "message": "Prompt"
   }
 }

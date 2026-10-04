@@ -131,9 +131,12 @@ function avisarDeUnFallo(conf, ad, selector) {
   }).catch(function () {});
 }
 
-/** La pestaña del asistente, si es la que la persona tiene delante. */
+/**
+ * La pestaña del asistente, si es la activa **en la ventana del panel**. No la de la última ventana
+ * con foco: tras conectar, ésa puede ser la ventana de la conexión y no la de la persona.
+ */
 async function pestanaDelAsistente(ad) {
-  const pestanas = await chrome.tabs.query({ active: true, lastFocusedWindow: true, url: ad.origen + '/*' });
+  const pestanas = await chrome.tabs.query({ active: true, currentWindow: true, url: ad.origen + '/*' });
   return pestanas[0] || null;
 }
 
@@ -276,33 +279,77 @@ async function construir(raiz) {
   const boton = el('button', { class: ad ? '' : 'principal', id: 'preparar', texto: texto('preparar') });
   const resultado = el('p', { role: 'status' });
   const lectura = el('p', { class: 'nota', id: 'lectura' });
+  const aMano = el('div', { id: 'copia-a-mano' });
   pregunta.addEventListener('input', actualizar);
+
+  /** Prepararlo tarda unos segundos: se dice, y no se puede pulsar otra vez mientras tanto. */
+  function preparando() {
+    resultado.textContent = texto('preparando');
+    resultado.className = 'trabajando';
+    lectura.textContent = '';
+    aMano.textContent = '';
+    if (insertar) insertar.disabled = true;
+    boton.disabled = true;
+  }
+
+  function decir(mensaje) {
+    resultado.textContent = mensaje;
+    resultado.className = '';
+  }
+
+  /**
+   * Copia el prompt. **Chrome sólo deja escribir en el portapapeles con el panel enfocado**, y tras
+   * esperar a la plataforma la persona puede estar ya en la página del asistente. Si no deja, se
+   * enseña el prompt con su propio botón: un clic nuevo enfoca el panel y entonces sí copia.
+   */
+  async function copiar(prompt) {
+    try {
+      await navigator.clipboard.writeText(prompt);
+      return true;
+    } catch (e) {
+      aMano.textContent = '';
+      const caja = el('textarea', { id: 'prompt-a-mano', rows: '6', readonly: '', 'aria-label': texto('prompt') });
+      caja.value = prompt;
+      const copiarAMano = el('button', { id: 'copiar-a-mano', class: 'principal', texto: texto('copiar') });
+      copiarAMano.addEventListener('click', async function () {
+        try {
+          await navigator.clipboard.writeText(prompt);
+          aMano.textContent = '';
+          decir(texto('copiado'));
+        } catch (otro) {
+          caja.focus();
+          caja.select();
+          decir(texto('copiaConTeclado'));
+        }
+      });
+      aMano.appendChild(el('p', { class: 'nota', texto: texto('pulsaCopiar') }));
+      aMano.appendChild(caja);
+      aMano.appendChild(copiarAMano);
+      return false;
+    }
+  }
   if (insertar) {
     insertar.addEventListener('click', async function () {
-      resultado.textContent = '';
-      resultado.className = '';
-      lectura.textContent = '';
-      insertar.disabled = true;
-      boton.disabled = true;
+      preparando();
       try {
         const permiso = await chrome.permissions.request({ origins: [ad.origen + '/*'] });
         if (!permiso) throw new Error(texto('sinPermisoAsistente', [ad.nombre]));
         const pestana = await pestanaDelAsistente(ad);
         const r = await consultar(conf, elegido.id, pregunta.value.trim());
         if (!pestana) {
-          await navigator.clipboard.writeText(r.prompt);
-          resultado.textContent = texto('abreElAsistente', [ad.nombre]);
+          const copiado = await copiar(r.prompt);
+          decir(texto(copiado ? 'abreElAsistente' : 'sinAsistente', [ad.nombre]));
           return;
         }
         const previas = await enLaPagina(pestana, contarRespuestas, [ad.selectores]);
         const insercion = await enLaPagina(pestana, insertarEnElAsistente, [ad.selectores, r.prompt]);
         if (!insercion || !insercion.ok) {
           avisarDeUnFallo(conf, ad, (insercion && insercion.selector) || 'insercion');
-          await navigator.clipboard.writeText(r.prompt);
-          resultado.textContent = texto('insercionFallida', [ad.nombre]);
+          const copiado = await copiar(r.prompt);
+          decir(texto(copiado ? 'insercionFallida' : 'insercionFallidaSinCopia', [ad.nombre]));
           return;
         }
-        resultado.textContent = texto(r.espera_adjunto ? 'insertadoConAdjunto' : 'insertado', [ad.nombre]);
+        decir(texto(r.espera_adjunto ? 'insertadoConAdjunto' : 'insertado', [ad.nombre]));
         // La lectura no bloquea el panel: la persona puede tardar en enviar.
         enLaPagina(pestana, esperarRespuesta, [ad.selectores, previas, ESPERA_DE_LA_RESPUESTA_MS])
           .then(function (leida) {
@@ -326,13 +373,11 @@ async function construir(raiz) {
     });
   }
   boton.addEventListener('click', async function () {
-    resultado.textContent = '';
-    resultado.className = '';
-    boton.disabled = true;
+    preparando();
     try {
       const r = await consultar(conf, elegido.id, pregunta.value.trim());
-      await navigator.clipboard.writeText(r.prompt);
-      resultado.textContent = r.espera_adjunto ? texto('copiadoConAdjunto') : texto('copiado');
+      const copiado = await copiar(r.prompt);
+      decir(copiado ? texto(r.espera_adjunto ? 'copiadoConAdjunto' : 'copiado') : texto('preparado'));
     } catch (e) {
       resultado.textContent = e.message;
       resultado.className = 'error';
@@ -348,6 +393,7 @@ async function construir(raiz) {
   if (insertar) raiz.appendChild(insertar);
   raiz.appendChild(boton);
   raiz.appendChild(resultado);
+  raiz.appendChild(aMano);
   raiz.appendChild(lectura);
   raiz.appendChild(
     el('button', {

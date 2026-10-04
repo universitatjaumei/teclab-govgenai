@@ -5,6 +5,9 @@ p { margin: 0; }
 .nota { font-size: 12px; color: #6b7280; }
 .aviso { font-size: 12px; background: #fef3c7; color: #78350f; padding: 2px 6px; border-radius: 4px; }
 .error { color: #b91c1c; }
+.trabajando { display: flex; align-items: center; gap: 8px; color: #6b7280; }
+.trabajando::before { content: ''; width: 14px; height: 14px; border-radius: 50%; border: 2px solid #d1d5db; border-top-color: #1d4ed8; animation: girar .8s linear infinite; }
+@keyframes girar { to { transform: rotate(360deg); } }
 label.agente { display: grid; grid-template-columns: auto 1fr; gap: 8px; border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px; cursor: pointer; }
 textarea, input[type="url"] { width: 100%; box-sizing: border-box; font: inherit; border: 1px solid #d1d5db; border-radius: 6px; padding: 6px; }
 button { font: inherit; border-radius: 6px; padding: 6px 10px; border: 1px solid #d1d5db; background: #f9fafb; cursor: pointer; }
