@@ -38,6 +38,9 @@ interface Mundo {
   datos?: { columna: string; etiqueta: string; tipo: string; opciones: string[] }[]
   /** #220 — lo que contesta el modelo para cada documento; por defecto, sólo un resumen. */
   contesta?: (documento: string) => string
+  /** Revisión de la PR #221: Drive no exporta, o Vertex falla, para estos documentos. */
+  exportaFalla?: boolean
+  vertexFallaPara?: string
 }
 
 function cargar(mundo: Mundo) {
@@ -107,6 +110,9 @@ function cargar(mundo: Mundo) {
           }
         }
         if (url.includes(':generateContent')) {
+          if (mundo.vertexFallaPara && JSON.stringify(cuerpo).includes(mundo.vertexFallaPara)) {
+            return { getResponseCode: () => 500, getContentText: () => 'fallo' }
+          }
           mundo.reloj += mundo.msPorResumen
           const id = String(cuerpo.contents[0].parts.find((p: { text?: string }) => p.text?.startsWith('Documento:'))?.text ?? '')
           mundo.resumidos.push(id)
@@ -119,6 +125,7 @@ function cargar(mundo: Mundo) {
           }
         }
         if (url.includes('/export?')) {
+          if (mundo.exportaFalla) return { getResponseCode: () => 403, getContentText: () => 'Forbidden' }
           return { getResponseCode: () => 200, getContentText: () => 'texto del documento' }
         }
         if (url.includes('/indice')) {
@@ -210,7 +217,7 @@ describe('guion del índice — la primera pasada', () => {
 
   it('a la plataforma va con el token del guion, y a Vertex con la cuenta de la unidad', () => {
     cargar(mundo).actualizarIndice()
-    const plataforma = mundo.peticiones.filter((p) => p.url.startsWith('https://plataforma.example'))
+    const plataforma = mundo.peticiones.filter((p) => new URL(p.url).host === 'plataforma.example')
     expect(plataforma.length).toBeGreaterThan(0)
     expect(plataforma.every((p) => p.autorizacion === 'Bearer pat_x_y')).toBe(true)
     const vertex = mundo.peticiones.filter((p) => p.url.includes(':generateContent'))
@@ -394,6 +401,42 @@ describe('guion del índice — los datos de la consulta (#220)', () => {
   it('sin línea de datos, todo es resumen', () => {
     const { separar } = cargar(mundo)
     expect(separar('Sólo un resumen.', DATOS)).toEqual({ resumen: 'Sólo un resumen.', valores: {} })
+  })
+})
+
+describe('guion del índice — revisión de la PR #221', () => {
+  const DATOS = [{ columna: 'CPV', etiqueta: 'Código CPV', tipo: 'texto', opciones: [] }]
+  const fichas = () => (laCarga()!.cuerpo as { fichas: Record<string, unknown>[] }).fichas
+
+  it('lo extraído y no tocado se refresca cuando el documento cambia', () => {
+    mundo.datos = DATOS
+    mundo.contesta = () => 'Un pliego.\n---DATOS---\nCPV: 79341000'
+    cargar(mundo).actualizarIndice()
+    mundo.contesta = () => 'Un pliego nuevo.\n---DATOS---\nCPV: 45000000'
+    mundo.ficheros[0].modificado = '2026-10-01T10:00:00Z'
+    mundo.peticiones = []
+    cargar(mundo).actualizarIndice()
+    expect(fichas().find((f) => f.titulo === 'Instrucción.pdf')!.metadatos).toEqual({ CPV: '45000000' })
+    // Y lo último extraído no va a la plataforma como dato del documento.
+    expect(JSON.stringify(fichas())).not.toContain('datos_extraidos')
+  })
+
+  it('un documento que cambió y no se pudo resumir sale del índice: no parece al día', () => {
+    cargar(mundo).actualizarIndice()
+    expect(fichas().map((f) => f.titulo)).toContain('Instrucción.pdf')
+    mundo.ficheros[0].modificado = '2026-10-01T10:00:00Z'
+    mundo.vertexFallaPara = 'Instrucción.pdf'
+    mundo.peticiones = []
+    cargar(mundo).actualizarIndice()
+    expect(fichas().map((f) => f.titulo)).not.toContain('Instrucción.pdf')
+    expect((laCarga()!.cuerpo as { documentos_en_carpeta: number }).documentos_en_carpeta).toBe(3)
+  })
+
+  it('si Drive no exporta el documento, no se resume su página de error', () => {
+    mundo.exportaFalla = true
+    cargar(mundo).actualizarIndice()
+    // «Guía» es un documento de Google, que se exporta; el PDF va por otro camino.
+    expect(fichas().map((f) => f.titulo)).toEqual(['Instrucción.pdf'])
   })
 })
 

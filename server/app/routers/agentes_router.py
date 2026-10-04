@@ -31,7 +31,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 from pydantic import BaseModel, Field, field_validator, model_validator
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.app.api.deps import (
@@ -595,6 +595,13 @@ async def versionar(
     _exigir("versionar", agente, vigente, user)
     version = _nueva_version(agente.id, vigente.version + 1, body, user)
     session.add(version)
+    if body.carpeta_url != vigente.carpeta_url:
+        # Otra carpeta, otro índice: el de la anterior no puede seguir sirviéndose hasta que el
+        # guion corra sobre la nueva (revisión de la PR #221). El índice es derivado: se rehace.
+        await session.execute(delete(HubAgenteFicha).where(HubAgenteFicha.agente_id == agente.id))
+        agente.indice_actualizado_en = None
+        agente.indice_origen = None
+        agente.documentos_en_carpeta = None
     agente.updated_at = datetime.now(timezone.utc)
     return await _responder(session, agente, version, user)
 
@@ -1356,6 +1363,8 @@ class ConexionDeLaExtension(BaseModel):
 class ConexionEmitida(BaseModel):
     id: uuid.UUID
     token: str
+    #: El destino que validó el servidor: la página redirige a éste y no al de su dirección.
+    destino: str
 
 
 @router_catalogo.post(
@@ -1391,7 +1400,7 @@ async def conectar_la_extension(
         )
     except PatForbiddenError as fallo:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(fallo)) from fallo
-    return ConexionEmitida(id=pat.id, token=token)
+    return ConexionEmitida(id=pat.id, token=token, destino=body.destino)
 
 
 @router_catalogo.get("/extension/conexiones", response_model=list[ConexionDeLaExtension])
@@ -1602,7 +1611,7 @@ class RespuestaLeida(BaseModel):
 
     texto: str | None = Field(default=None, min_length=1, max_length=100_000)
     fuentes: list[str] = Field(default_factory=list, max_length=50)
-    no_capturada: Literal["sin_respuesta", "sin_terminar", "selector"] | None = None
+    no_capturada: Literal["sin_respuesta", "sin_terminar", "selector", "copiado"] | None = None
 
     model_config = {"extra": "forbid"}
 
@@ -1694,9 +1703,10 @@ async def valorar(
     fila.motivo = body.motivo
     fila.comentario = (body.comentario or "").strip() or None
     fila.valorada_en = datetime.now(timezone.utc)
-    if fila.modo == "incidencias" and body.puntuacion == -1:
-        fila.pregunta = body.pregunta
-        fila.respuesta = body.respuesta
+    if fila.modo == "incidencias":
+        # En incidencias sólo se guarda lo informado como inadecuado: si deja de serlo, se borra.
+        fila.pregunta = body.pregunta if body.puntuacion == -1 else None
+        fila.respuesta = body.respuesta if body.puntuacion == -1 else None
     await session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

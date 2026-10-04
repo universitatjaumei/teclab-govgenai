@@ -14,8 +14,9 @@ from __future__ import annotations
 
 MODOS = ("validacion", "incidencias")
 
-#: Por qué no hay respuesta capturada: no se envió, no terminó en el plazo, o un selector falló.
-SIN_CAPTURA = ("sin_respuesta", "sin_terminar", "selector")
+#: Por qué no hay respuesta capturada: no se envió, no terminó en el plazo, un selector falló, o se
+#: copió para pegarlo a mano y la extensión no puede leer dónde se pegó.
+SIN_CAPTURA = ("sin_respuesta", "sin_terminar", "selector", "copiado")
 
 #: Los motivos de un informe, en el orden en que se ofrecen. Cada uno apunta a un sitio distinto:
 #: `no_abre` y `desactualizado` al índice o al almacén, `inventa` y `no_responde` al prompt o al

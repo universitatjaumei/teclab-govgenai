@@ -70,7 +70,10 @@ def acciones_permitidas(agente: Any, version: Any, *, principal: Any) -> list[st
     superadmin = bool(getattr(principal, "is_superadmin", False))
     de_la_casa = _es_de_su_organizacion(agente, principal)
     admin_de_la_casa = de_la_casa and bool(getattr(principal, "is_admin", False))
-    autora = _es_la_autora(agente, principal) and de_la_casa
+    # Quien lo publicó, para no revisarse a sí mismo, **aunque no sea de la organización**: un
+    # superadministrador publica en la elegida sin pertenecer a ninguna (revisión de la PR #221).
+    lo_publico = _es_la_autora(agente, principal)
+    autora = lo_publico and de_la_casa
     manda = superadmin or admin_de_la_casa
 
     acciones: set[str] = set()
@@ -79,7 +82,7 @@ def acciones_permitidas(agente: Any, version: Any, *, principal: Any) -> list[st
         # qué se guarda de sus conversaciones (#216), que también decide quien lo revisa; y ver su
         # calidad (#217): sus conversaciones e informes, que no ve nadie más.
         acciones.update({"versionar", "cargar_indice", "cambiar_registro", "ver_calidad", "retirar"})
-    if manda and not autora:
+    if manda and not lo_publico:
         if version.estado == "registrada":
             acciones.update({"revisar", "suspender"})
         if version.estado == "suspendida":

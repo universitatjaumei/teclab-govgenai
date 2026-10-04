@@ -113,7 +113,7 @@ def test_no_queda_ninguna_navegacion_absoluta_en_el_frontend() -> None:
             assert len(re.findall(r"location\.(href\s*=|replace\(|assign\()", texto)) == 1, (
                 f"{vuelta_a_la_extension} sólo puede navegar a la extensión, una vez"
             )
-            assert "location.assign(`${destino}#token=" in texto
+            assert "location.assign(`${r.destino}#token=" in texto
             continue
         for numero, linea in enumerate(fichero.read_text(encoding="utf-8").splitlines(), 1):
             if not re.search(r"(window\.)?location\.(href\s*=|replace\(|assign\()", linea):

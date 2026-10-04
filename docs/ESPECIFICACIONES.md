@@ -712,8 +712,10 @@ del navegador (#176).
   organización va siempre primero**, y los grupos se comparan sin mayúsculas. Con el login de
   Google no llegan grupos, así que un agente por grupos no se le ofrece a nadie; la pantalla lo
   dice.
-- **Suspender es de quien revisa, retirar de quien publica**. Revisa el administrador de la
-  organización o el superadministrador, **nunca quien lo publicó**. Suspender exige motivo y deja
+- **Suspender es de quien revisa, retirar de quien publica** —y del administrador de su
+  organización, por si quien lo publicó ya no está—. Revisa el administrador de la organización o
+  el superadministrador, **nunca quien lo publicó**, aunque sea un superadministrador que publicó
+  en la organización elegida sin pertenecer a ella. Suspender exige motivo y deja
   de ofrecerlo; revisar no cambia nada de lo que se ofrece. Corregir es versionar: se ofrece la
   última versión.
 - **Una revisión vencida avisa, no oculta**: el agente sigue ofreciéndose marcado. Dejar de

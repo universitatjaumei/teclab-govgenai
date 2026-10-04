@@ -237,6 +237,14 @@ describe('#176 — el panel de la extensión', () => {
     expect(conf.api).toBe('https://normativa.uji.es')
   })
 
+  it('con la dirección de la organización, un api_url guardado antes no cuenta', async () => {
+    // Revisión de la PR #221: el token iría al origen guardado y no al de la organización.
+    mundo.gestionada = { panel_url: 'https://normativa.uji.es/panel' }
+    mundo.local = { api_url: 'https://otro.example' }
+    const conf = await cargar(mundo).configuracion()
+    expect(conf.api).toBe('https://normativa.uji.es')
+  })
+
   it('sin dirección, pide escribirla', async () => {
     await cargar(mundo).pintar()
     expect(document.getElementById('panel-url')).not.toBeNull()
@@ -646,6 +654,47 @@ describe('#176 — el panel de la extensión', () => {
           tipo_de_contrato: 'Obras',
         }),
       )
+    })
+  })
+
+  describe('revisión de la PR #221 — copiar no deja la consulta pendiente', () => {
+    async function preparadoCopia(m: Mundo, agente: string) {
+      m.gestionada = { panel_url: 'https://normativa.uji.es/panel' }
+      m.local = { token: 'ggai_pat_x' }
+      await cargar(m).pintar()
+      await vi.waitFor(() => expect(document.querySelectorAll('[data-agente]')).toHaveLength(2))
+      ;(document.querySelector(`[data-agente="${agente}"] input`) as HTMLInputElement).click()
+      const pregunta = document.getElementById('pregunta') as HTMLTextAreaElement
+      pregunta.value = '¿Plazo?'
+      pregunta.dispatchEvent(new Event('input'))
+    }
+
+    it('en validación, copiar a secas dice que no habrá respuesta que leer', async () => {
+      await preparadoCopia(mundo, 'a1')
+      boton('preparar').click()
+      await vi.waitFor(() =>
+        expect(mundo.peticiones.filter((p) => p.url.endsWith('/consultas/c1/respuesta')).map((p) => p.cuerpo)).toEqual([
+          { no_capturada: 'copiado' },
+        ]),
+      )
+    })
+
+    it('sin Gemini delante, también', async () => {
+      mundo.pestanaGemini = false
+      await preparadoCopia(mundo, 'a1')
+      boton('insertar').click()
+      await vi.waitFor(() =>
+        expect(mundo.peticiones.filter((p) => p.url.endsWith('/consultas/c1/respuesta')).map((p) => p.cuerpo)).toEqual([
+          { no_capturada: 'copiado' },
+        ]),
+      )
+    })
+
+    it('en incidencias no se manda nada', async () => {
+      await preparadoCopia(mundo, 'a2')
+      boton('preparar').click()
+      await vi.waitFor(() => expect(mundo.copiado).toEqual(['OTRO']))
+      expect(mundo.peticiones.filter((p) => p.url.endsWith('/respuesta'))).toEqual([])
     })
   })
 })

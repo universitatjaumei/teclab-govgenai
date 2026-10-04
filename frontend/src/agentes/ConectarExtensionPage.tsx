@@ -16,6 +16,9 @@ import { mensajeDelFallo } from '@/utilidades/mensajeDelFallo'
  * El botón es explícito a propósito: sin él, cualquier página que abriera esta dirección se
  * llevaría un token sin que la persona hubiera decidido nada.
  */
+/** Sólo la dirección de vuelta de una extensión de Chrome: `https://<id>.chromiumapp.org/`. */
+const DESTINO_DE_EXTENSION = /^https:\/\/[a-p]{32}\.chromiumapp\.org\/$/
+
 export function ConectarExtensionPage() {
   const { t } = useTranslation('agentes')
   const conectar = useConectarLaExtensionApiV1AgentesExtensionConectarPost()
@@ -27,7 +30,15 @@ export function ConectarExtensionPage() {
     conectar.mutate(
       { data: { destino } },
       {
-        onSuccess: (r: ConexionEmitida) => window.location.assign(`${destino}#token=${encodeURIComponent(r.token)}`),
+        // Se vuelve al destino **que devuelve el servidor**, que es el que validó contra las
+        // extensiones declaradas; y aun así se comprueba que tiene la forma de una extensión.
+        onSuccess: (r: ConexionEmitida) => {
+          if (!DESTINO_DE_EXTENSION.test(r.destino)) {
+            setFallo(t('extension.fallo'))
+            return
+          }
+          window.location.assign(`${r.destino}#token=${encodeURIComponent(r.token)}`)
+        },
         onError: (e: unknown) => setFallo(mensajeDelFallo(e, t('extension.fallo'))),
       },
     )

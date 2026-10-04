@@ -264,7 +264,8 @@
     "sin_captura": {
       "sin_respuesta": "No es va enviar, o no va arribar la resposta.",
       "sin_terminar": "La resposta no va acabar en el termini.",
-      "selector": "No es va poder llegir: la integració amb l'assistent va fallar."
+      "selector": "No es va poder llegir: la integració amb l'assistent va fallar.",
+      "copiado": "Es va copiar per a enganxar-lo a mà: l'extensió no pot llegir la resposta."
     }
   }
 }

@@ -47,8 +47,11 @@ async function configuracion() {
     gestionada = {};
   }
   const local = await chrome.storage.local.get(['panel_url', 'api_url', 'token']);
-  const panel = String(gestionada.panel_url || local.panel_url || '').replace(/\/+$/, '');
-  let api = String(gestionada.api_url || local.api_url || '').replace(/\/+$/, '');
+  // Con la dirección fijada por la organización, **nada local la complementa**: un `api_url`
+  // guardado antes llevaría el token a otro origen (revisión de la PR #221).
+  const origen = gestionada.panel_url ? gestionada : local;
+  const panel = String(origen.panel_url || '').replace(/\/+$/, '');
+  let api = String(origen.api_url || '').replace(/\/+$/, '');
   if (!api && panel) {
     try {
       api = new URL(panel).origin;
@@ -361,6 +364,13 @@ async function construir(raiz) {
   // La consulta en curso: contra ella van la respuesta y la valoración.
   let enCurso = null;
 
+  /** Copiar para pegar a mano: la extensión no lee dónde se pega, y en validación se dice. */
+  function marcarCopiado() {
+    if (enCurso && enCurso.modo === 'validacion') {
+      guardarRespuesta(conf, enCurso.id, { no_capturada: 'copiado' }).catch(function () {});
+    }
+  }
+
   function empezarConsulta(r) {
     enCurso = { id: r.consulta_id, modo: r.modo_registro, pregunta: pregunta.value.trim(), respuesta: null };
     ofrecerValoracion(enCurso);
@@ -486,6 +496,7 @@ async function construir(raiz) {
         const r = await consultar(conf, elegido.id, pregunta.value.trim(), conAdjunto(), valoresDeLosDatos());
         empezarConsulta(r);
         if (!pestana) {
+          marcarCopiado();
           const copiado = await copiar(r.prompt);
           decir(texto(copiado ? 'abreElAsistente' : 'sinAsistente', [ad.nombre]));
           return;
@@ -494,6 +505,7 @@ async function construir(raiz) {
         const insercion = await enLaPagina(pestana, insertarEnElAsistente, [ad.selectores, r.prompt]);
         if (!insercion || !insercion.ok) {
           avisarDeUnFallo(conf, ad, (insercion && insercion.selector) || 'insercion');
+          marcarCopiado();
           const copiado = await copiar(r.prompt);
           decir(texto(copiado ? 'insercionFallida' : 'insercionFallidaSinCopia', [ad.nombre]));
           return;
@@ -532,6 +544,7 @@ async function construir(raiz) {
     try {
       const r = await consultar(conf, elegido.id, pregunta.value.trim(), conAdjunto(), valoresDeLosDatos());
       empezarConsulta(r);
+      marcarCopiado();
       const copiado = await copiar(r.prompt);
       decir(copiado ? texto(r.espera_adjunto ? 'copiadoConAdjunto' : 'copiado') : texto('preparado'));
     } catch (e) {

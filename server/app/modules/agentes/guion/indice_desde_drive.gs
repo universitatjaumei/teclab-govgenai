@@ -30,9 +30,11 @@
  *
  *   **Los datos de la consulta** (#220): si el agente declara datos ligados a una columna del
  *   índice —tipo de contrato, CPV—, el guion añade esas columnas y los extrae del documento al
- *   resumirlo. Lo que la unidad escriba en ellas **se respeta**: el guion sólo rellena las vacías,
- *   así que para que vuelva a extraer un valor basta con vaciar la celda. Cualquier otra columna que
- *   la unidad añada se conserva y va a la plataforma como dato del documento.
+ *   resumirlo. Lo que la unidad escriba en ellas **se respeta**: el guion apunta en
+ *   `datos_extraidos` lo último que extrajo, y sólo vuelve a escribir una celda que sigue teniendo
+ *   eso (o está vacía); si la unidad la cambió, la deja. Para que vuelva a extraer un valor
+ *   corregido a mano, basta con vaciar la celda. Cualquier otra columna que la unidad añada se
+ *   conserva y va a la plataforma como dato del documento.
  *
  * QUÉ NO HACE
  *   No regenera los resúmenes cuando cambia el prompt de resumen: sería cientos de llamadas contra
@@ -60,6 +62,8 @@ const COLUMNAS = [
   'modificado',
   'version_prompt_resumen',
   'modelo_resumen',
+  // #220 — lo último que extrajo el guion de cada documento: distingue lo extraído de lo corregido.
+  'datos_extraidos',
 ];
 
 const LEGIBLES = {
@@ -111,12 +115,22 @@ function actualizarIndice() {
         version_prompt_resumen: prompt.version,
         modelo_resumen: conf.modelo,
       });
+      // Se reescribe lo que extrajo el guion la vez anterior, y se respeta lo que cambió la unidad.
+      const previos = leerJson_(anterior.datos_extraidos);
+      const extraidos = {};
       extraer.forEach(function (d) {
-        if (!String(anterior[d.columna] || '').trim()) fila[d.columna] = leido.valores[d.columna] || '';
+        const nuevo = leido.valores[d.columna] || '';
+        const actual = texto_(anterior[d.columna]);
+        if (!actual || actual === texto_(previos[d.columna])) fila[d.columna] = nuevo;
+        extraidos[d.columna] = nuevo;
       });
+      if (extraer.length) fila.datos_extraidos = JSON.stringify(extraidos);
       porId[fichero.id] = fila;
     } catch (fallo) {
-      // Un documento que falla no para la pasada: se queda sin ficha, y la plataforma lo cuenta.
+      // Un documento que falla no para la pasada, pero **sale del índice**: si se quedara la ficha
+      // de antes, un documento que cambió y no se pudo resumir parecería al día. Así la plataforma lo
+      // cuenta como que falta, y la pasada siguiente lo vuelve a intentar.
+      delete porId[fichero.id];
       Logger.log('No se ha podido resumir «' + fichero.nombre + '»: ' + fallo);
     }
   }
@@ -235,6 +249,18 @@ function columnasDeMas(extraer, filas) {
     });
   });
   return de_mas;
+}
+
+function texto_(valor) {
+  return String(valor === undefined || valor === null ? '' : valor).trim();
+}
+
+function leerJson_(valor) {
+  try {
+    return valor ? JSON.parse(valor) : {};
+  } catch (e) {
+    return {};
+  }
 }
 
 function normalizar_(texto) {
@@ -364,11 +390,15 @@ function ficherosDeLaCarpeta_(carpetaId) {
 function resumir_(conf, prompt, fichero) {
   const partes = [{ text: prompt.texto }, { text: 'Documento: ' + fichero.nombre }];
   if (LEGIBLES[fichero.mime] === 'documento') {
-    const texto = UrlFetchApp.fetch(
+    const exportado = UrlFetchApp.fetch(
       'https://www.googleapis.com/drive/v3/files/' + fichero.id + '/export?mimeType=text/plain',
       { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true },
-    ).getContentText();
-    partes.push({ text: texto });
+    );
+    // Un 403, 429 o 5xx trae un cuerpo de error: resumirlo daría una ficha con buena cara.
+    if (exportado.getResponseCode() !== 200) {
+      throw new Error('Drive no ha exportado el documento (' + exportado.getResponseCode() + ')');
+    }
+    partes.push({ text: exportado.getContentText() });
   } else {
     const bytes = DriveApp.getFileById ? DriveApp.getFileById(fichero.id).getBlob().getBytes() : [];
     partes.push({ inlineData: { mimeType: fichero.mime, data: Utilities.base64Encode(bytes) } });

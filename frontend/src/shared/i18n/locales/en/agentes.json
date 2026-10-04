@@ -264,7 +264,8 @@
     "sin_captura": {
       "sin_respuesta": "It was not sent, or no answer came.",
       "sin_terminar": "The answer did not finish in time.",
-      "selector": "It could not be read: the assistant integration failed."
+      "selector": "It could not be read: the assistant integration failed.",
+      "copiado": "It was copied to paste by hand: the extension cannot read the answer."
     }
   }
 }

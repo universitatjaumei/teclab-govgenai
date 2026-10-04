@@ -264,7 +264,8 @@
     "sin_captura": {
       "sin_respuesta": "No se envió, o no llegó la respuesta.",
       "sin_terminar": "La respuesta no terminó en el plazo.",
-      "selector": "No se pudo leer: la integración con el asistente falló."
+      "selector": "No se pudo leer: la integración con el asistente falló.",
+      "copiado": "Se copió para pegarlo a mano: la extensión no puede leer la respuesta."
     }
   }
 }

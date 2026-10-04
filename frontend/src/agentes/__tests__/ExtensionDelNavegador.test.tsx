@@ -70,8 +70,16 @@ describe('#176 — la página de conexión', () => {
     render(envolver(<ConectarExtensionPage />))
     fireEvent.click(screen.getByRole('button', { name: i18n.t('agentes:extension.conectar') }))
     expect(conectar).toHaveBeenCalledWith({ data: { destino: DESTINO } }, expect.anything())
-    conectar.mock.calls[0][1].onSuccess({ id: 'c1', token: 'pat_abc_def' })
+    conectar.mock.calls[0][1].onSuccess({ id: 'c1', token: 'pat_abc_def', destino: DESTINO })
     expect(asignar).toHaveBeenCalledWith(`${DESTINO}#token=pat_abc_def`)
+  })
+
+  it('vuelve al destino que devuelve el servidor, y nunca a uno que no sea de una extensión', () => {
+    render(envolver(<ConectarExtensionPage />))
+    fireEvent.click(screen.getByRole('button', { name: i18n.t('agentes:extension.conectar') }))
+    act(() => conectar.mock.calls[0][1].onSuccess({ id: 'c1', token: 'pat_abc_def', destino: 'https://evil.example/' }))
+    expect(asignar).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert')).toBeInTheDocument()
   })
 
   it('si el servidor no reconoce la extensión, lo dice y no redirige', () => {
