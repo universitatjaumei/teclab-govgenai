@@ -201,8 +201,10 @@ echo.
 echo   1. En Chrome, abre chrome://extensions, activa "Modo de
 echo      desarrollador" y pulsa "Cargar descomprimida". Elige la
 echo      carpeta extension\ del repositorio.
-echo   2. Copia el ID que Chrome le pone. En server\.env anade
-echo      AGENTES_EXTENSION_IDS=ese-id y reinicia el backend.
+echo   2. Comprueba que Chrome le pone el ID fijo
+echo      pgcofokabefjfmadgmeiddhfkbkebnhk y que server\.env lleva
+echo      AGENTES_EXTENSION_IDS con ese ID (si lo cambias, reinicia el
+echo      backend).
 echo   3. Pulsa el icono de la extension: se abre un panel lateral.
 echo      Escribe la direccion del panel (http://localhost:5173) y
 echo      pulsa Guardar y luego Conectar. Chrome te pedira permiso para

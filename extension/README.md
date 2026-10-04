@@ -29,18 +29,27 @@ Es JavaScript sin empaquetar, sin dependencias ni compilación: Chrome carga est
 Las pruebas viven en `frontend/src/__tests__/extensionPanel.test.ts`, que la carga con un `chrome`
 de mentira.
 
-## Instalarla para probar
+## El ID es fijo
 
-1. `chrome://extensions` → activar **Modo de desarrollador** → **Cargar descomprimida** → esta
+El manifiesto lleva la clave pública de la extensión (`key`), así que **su ID es siempre
+`pgcofokabefjfmadgmeiddhfkbkebnhk`**, en cualquier carpeta y en cualquier equipo. Es el que va en `AGENTES_EXTENSION_IDS`
+del servidor (y en la variable del repositorio para producción). La clave privada no está en el
+repositorio: sólo hace falta para empaquetar la extensión, y la guarda quien la mantiene. **No
+cambies `key`**: cambiaría el ID y ninguna extensión instalada podría conectarse.
+
+## Instalarla y actualizarla (beta)
+
+1. Descarga el ZIP de la versión vigente (por ejemplo, de la carpeta compartida de las pruebas) y
+   descomprímelo en una carpeta propia.
+2. `chrome://extensions` → activar **Modo de desarrollador** → **Cargar descomprimida** → esa
    carpeta.
-2. Copiar el **ID** que Chrome le asigna y ponerlo en `AGENTES_EXTENSION_IDS` del servidor
-   (separados por comas si hay varios). Reiniciar el servidor. Sin esto, la plataforma no le
-   entrega el token: si lo diera a cualquier destino, una página ajena podría pedirlo.
-3. Abrir el panel con el icono de la extensión, escribir la dirección del panel de la plataforma
-   (p. ej. `http://localhost:5173` o `https://normativa.uji.es/panel`) y **Conectar**.
+3. Abre el panel con el icono de la extensión, escribe la dirección del panel de la plataforma
+   (p. ej. `https://normativa.uji.es/panel`, o `http://localhost:5173` en desarrollo) y
+   **Conectar**.
 
-El ID de una extensión cargada sin empaquetar depende de la carpeta: en otro equipo, o moviéndola,
-cambia.
+**Para actualizar**: descarga el ZIP nuevo, sustituye los ficheros de la carpeta y pulsa la
+flecha de recargar en la tarjeta de la extensión. El número de versión de la tarjeta dice cuál
+tiene cada uno; se sube en cada entrega.
 
 ## Desplegarla en una organización
 

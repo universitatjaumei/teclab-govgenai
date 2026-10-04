@@ -211,6 +211,17 @@ describe('#176 — el panel de la extensión', () => {
     expect(MANIFIESTO.optional_host_permissions).toContain('https://gemini.google.com/*')
   })
 
+  it('el ID es fijo: el que sale de la clave del manifiesto es el que se documenta', async () => {
+    // Chrome deriva el ID del sha256 de la clave pública: los 32 primeros dígitos, de la «a» a la «p».
+    const { createHash } = await import('node:crypto')
+    const der = Buffer.from(MANIFIESTO.key, 'base64')
+    const id = [...createHash('sha256').update(der).digest('hex').slice(0, 32)]
+      .map((c) => 'abcdefghijklmnop'[parseInt(c, 16)])
+      .join('')
+    expect(id).toBe('pgcofokabefjfmadgmeiddhfkbkebnhk')
+    expect(readFileSync(resolve(__dirname, '../../../extension/README.md'), 'utf-8')).toContain(id)
+  })
+
   it('las tres lenguas tienen las mismas claves', () => {
     for (const lengua of ['ca', 'en']) {
       const otras = JSON.parse(readFileSync(resolve(__dirname, `../../../extension/_locales/${lengua}/messages.json`), 'utf-8'))
