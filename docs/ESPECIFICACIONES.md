@@ -795,6 +795,15 @@ del navegador (#176).
   **Lo que no puede garantizar**: que Gemini no cambie su página. Las instantáneas de su página en
   `extension/instantaneas/` hacen que una corrección no rompa lo que ya funcionaba; el aviso de
   campo dice cuándo ha cambiado, no lo evita.
+- **Los datos de la consulta** (#219): la unidad declara los datos esenciales que tiene que dar
+  quien pregunta —en un agente de pliegos, el tipo de contrato y el CPV—, de dos tipos, lista de
+  opciones o texto, y una línea de indicaciones. La pantalla pinta el formulario a partir de lo
+  declarado; la consulta valida los obligatorios y las opciones; la plataforma los añade al prompt
+  y los suma al texto con que se busca. **Si un dato está ligado a una columna del índice, filtra
+  en suave**: se excluye la ficha cuyo valor lo contradice y se conserva la que no tiene el dato
+  —la ley vale para todos—, con coincidencia por prefijo en los dos sentidos para códigos
+  jerárquicos; y se filtra antes de gastar el presupuesto. Por qué: los embeddings van bien con
+  conceptos y mal con códigos.
 - **La selección nunca pasa del presupuesto** que declara el agente —de 1 a 10 documentos, 5 por
   defecto— y **lo no vigente no ocupa plaza**: el filtro va en el `WHERE`. Un índice embebido con
   otro modelo no se compara: se dice que hay que volver a cargarlo.

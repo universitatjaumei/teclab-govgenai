@@ -42,7 +42,12 @@ export function ConsultarAgentesPage() {
 
   const agentes = catalogo ?? []
   const [adjunta, setAdjunta] = useState(false)
-  const adjuntoDelElegido = agentes.find((a) => a.id === elegido)?.adjunto ?? 'no'
+  // #219 — los datos que pide el agente elegido, por su clave. Los campos los manda el servidor.
+  const [valores, setValores] = useState<Record<string, string>>({})
+  const agenteElegido = agentes.find((a) => a.id === elegido)
+  const adjuntoDelElegido = agenteElegido?.adjunto ?? 'no'
+  const datosDelElegido = agenteElegido?.datos_consulta ?? []
+  const faltaUnObligatorio = datosDelElegido.some((d) => d.obligatorio && !(valores[d.clave] ?? '').trim())
   // #218 — en `opcional` lo dice quien pregunta; en los otros dos, lo decidió la unidad.
   const conAdjunto = adjuntoDelElegido === 'obligatorio' || (adjuntoDelElegido === 'opcional' && adjunta)
 
@@ -52,7 +57,13 @@ export function ConsultarAgentesPage() {
     setRespuesta(null)
     setCopiado(null)
     consultar.mutate(
-      { agenteId: elegido, data: { consulta: pregunta.trim(), lengua: lenguaDe(i18n.language), adjunta: conAdjunto } },
+      { agenteId: elegido, data: {
+          consulta: pregunta.trim(),
+          lengua: lenguaDe(i18n.language),
+          adjunta: conAdjunto,
+          datos: Object.fromEntries(Object.entries(valores).filter(([, v]) => v.trim())),
+        },
+      },
       {
         onSuccess: (r: RespuestaDeConsulta) => setRespuesta(r),
         onError: (e: unknown) => setFallo(mensajeDelFallo(e, t('consulta.fallo'))),
@@ -104,7 +115,11 @@ export function ConsultarAgentesPage() {
                 name="agente"
                 value={a.id}
                 checked={elegido === a.id}
-                onChange={() => setElegido(a.id)}
+                onChange={() => {
+                  setElegido(a.id)
+                  setValores({})
+                  setAdjunta(false)
+                }}
                 aria-label={`${a.nombre} — ${a.unidad}`}
               />
               <span className="space-y-1 text-sm">
@@ -151,6 +166,38 @@ export function ConsultarAgentesPage() {
 
       {agentes.length > 0 && (
         <div className="space-y-2">
+          {agenteElegido?.indicaciones && (
+            <p className="text-sm" data-testid="indicaciones">{agenteElegido.indicaciones}</p>
+          )}
+          {datosDelElegido.map((d) => (
+            <div key={d.clave} className="space-y-1">
+              <label htmlFor={`dato_${d.clave}`} className="text-sm font-medium">
+                {d.obligatorio ? t('consulta.dato_obligatorio', { etiqueta: d.etiqueta }) : d.etiqueta}
+              </label>
+              {d.tipo === 'opciones' ? (
+                <select
+                  id={`dato_${d.clave}`}
+                  value={valores[d.clave] ?? ''}
+                  onChange={(e) => setValores({ ...valores, [d.clave]: e.target.value })}
+                  className="block rounded-md border px-2 py-1 text-sm"
+                >
+                  <option value="">{t('consulta.elige_una')}</option>
+                  {(d.opciones ?? []).map((o) => (
+                    <option key={o} value={o}>{o}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  id={`dato_${d.clave}`}
+                  value={valores[d.clave] ?? ''}
+                  maxLength={200}
+                  onChange={(e) => setValores({ ...valores, [d.clave]: e.target.value })}
+                  className="w-full rounded-md border px-2 py-1 text-sm"
+                />
+              )}
+              {d.ayuda && <p className="text-xs text-muted-foreground">{d.ayuda}</p>}
+            </div>
+          ))}
           <label htmlFor="consulta_pregunta" className="text-sm font-medium">
             {t('consulta.pregunta')}
           </label>
@@ -175,7 +222,7 @@ export function ConsultarAgentesPage() {
           <button
             type="button"
             onClick={preparar}
-            disabled={!elegido || !pregunta.trim() || consultar.isPending}
+            disabled={!elegido || !pregunta.trim() || faltaUnObligatorio || consultar.isPending}
             className="rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground disabled:opacity-50"
           >
             {t('consulta.preparar')}

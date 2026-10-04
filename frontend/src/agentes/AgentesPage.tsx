@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { useForm, useWatch } from 'react-hook-form'
+import { useFieldArray, useForm, useWatch, type Control, type FieldErrors, type UseFormRegister } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
@@ -16,7 +16,7 @@ import {
   useProponerPromptApiV1AgentesProponerPromptPost,
   useVerIndiceApiV1AgentesAgenteIdIndiceGet,
 } from '@/shared/api/generated/agentes/agentes'
-import type { AgenteView, EstadoDelIndice, PropuestaDePrompt } from '@/shared/api/generated/model'
+import type { AgenteView, DatoDeLaConsulta, DatoDeLaConsultaView, EstadoDelIndice, PropuestaDePrompt } from '@/shared/api/generated/model'
 import { ActualizacionDelIndice } from './ActualizacionDelIndice'
 import { mensajeDelFallo } from '@/utilidades/mensajeDelFallo'
 import { useOrganizacionElegida } from '@/shared/organizacion/useOrganizacionElegida'
@@ -50,12 +50,78 @@ const declaracionSchema = z
     // #218 — declaraciones del agente: la plataforma las convierte en instrucciones del prompt.
     adjunto: z.enum(['no', 'opcional', 'obligatorio']),
     lengua_respuesta: z.enum(['pregunta', 'es', 'ca']),
+    // #219 — los datos que tiene que dar quien pregunta. Las opciones, separadas por comas.
+    datos_consulta: z
+      .array(
+        z.object({
+          etiqueta: z.string().trim().min(1, 'obligatorio'),
+          tipo: z.enum(['opciones', 'texto']),
+          opciones: z.string(),
+          ayuda: z.string(),
+          columna: z.string(),
+          obligatorio: z.boolean(),
+          prefijo: z.boolean(),
+        }),
+      )
+      .max(8),
+    indicaciones: z.string(),
+  })
+  .superRefine((v, ctx) => {
+    v.datos_consulta.forEach((d, i) => {
+      if (d.tipo === 'opciones' && separarOpciones(d.opciones).length < 2) {
+        ctx.addIssue({ code: 'custom', path: ['datos_consulta', i, 'opciones'], message: 'opciones_minimas' })
+      }
+    })
   })
   .refine((v) => v.colectivo === 'organizacion' || separarGrupos(v.grupos).length > 0, {
     path: ['grupos'],
     message: 'grupos_obligatorios',
   })
 type Declaracion = z.infer<typeof declaracionSchema>
+
+function separarOpciones(texto: string): string[] {
+  return texto
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean)
+}
+
+type DatoEditable = Declaracion['datos_consulta'][number]
+
+const DATO_NUEVO: DatoEditable = {
+  etiqueta: '',
+  tipo: 'texto',
+  opciones: '',
+  ayuda: '',
+  columna: '',
+  obligatorio: false,
+  prefijo: false,
+}
+
+/** Del formulario al contrato: las opciones en lista, y lo vacío como nulo. */
+function aContrato(d: DatoEditable): DatoDeLaConsulta {
+  return {
+    etiqueta: d.etiqueta.trim(),
+    tipo: d.tipo,
+    ayuda: d.ayuda.trim() || null,
+    opciones: d.tipo === 'opciones' ? separarOpciones(d.opciones) : [],
+    obligatorio: d.obligatorio,
+    columna: d.columna.trim() || null,
+    prefijo: d.tipo === 'texto' && d.prefijo,
+  }
+}
+
+function deContrato(d: DatoDeLaConsultaView): DatoEditable {
+  return {
+    etiqueta: d.etiqueta,
+    tipo: d.tipo,
+    opciones: (d.opciones ?? []).join(', '),
+    ayuda: d.ayuda ?? '',
+    columna: d.columna ?? '',
+    obligatorio: d.obligatorio ?? false,
+    prefijo: d.prefijo ?? false,
+  }
+}
 
 function separarGrupos(texto: string): string[] {
   return texto
@@ -77,6 +143,8 @@ const VACIA: Declaracion = {
   presupuesto_documentos: 5,
   adjunto: 'no',
   lengua_respuesta: 'pregunta',
+  datos_consulta: [],
+  indicaciones: '',
 }
 
 /** Abierta para publicar uno nuevo, o para versionar uno que ya existe. */
@@ -189,6 +257,8 @@ function FormularioDeDeclaracion({
           presupuesto_documentos: edicion.agente.version.presupuesto_documentos,
           adjunto: edicion.agente.version.adjunto as Declaracion['adjunto'],
           lengua_respuesta: edicion.agente.version.lengua_respuesta as Declaracion['lengua_respuesta'],
+          datos_consulta: (edicion.agente.version.datos_consulta ?? []).map(deContrato),
+          indicaciones: edicion.agente.version.indicaciones ?? '',
         }
       : VACIA
 
@@ -244,6 +314,8 @@ function FormularioDeDeclaracion({
       presupuesto_documentos: v.presupuesto_documentos,
       adjunto: v.adjunto,
       lengua_respuesta: v.lengua_respuesta,
+      datos_consulta: v.datos_consulta.map(aContrato),
+      indicaciones: v.indicaciones.trim() || null,
       autoria_prompt: autoria,
     }
     const alFallar = { onError: (e: unknown) => setFallo(mensajeDelFallo(e, t('fallo'))) }
@@ -425,6 +497,14 @@ function FormularioDeDeclaracion({
         <p className="text-xs text-muted-foreground">{t('pistas.lengua_respuesta')}</p>
       </div>
 
+      <EditorDeDatos control={control} register={register} errores={errors.datos_consulta} />
+
+      <div className="space-y-1">
+        <label htmlFor="agente_indicaciones" className="text-sm font-medium">{t('campos.indicaciones')}</label>
+        <textarea id="agente_indicaciones" rows={2} maxLength={500} className={campo} {...register('indicaciones')} />
+        <p className="text-xs text-muted-foreground">{t('pistas.indicaciones')}</p>
+      </div>
+
       {fallo && <p className="text-sm text-destructive" role="alert">{fallo}</p>}
 
       <div className="flex gap-2">
@@ -518,6 +598,16 @@ function FichaDelAgente({ agente, alVersionar }: { agente: AgenteView; alVersion
         <dd>{v.revision_prevista_en}</dd>
         <dt className="text-muted-foreground">{t('campos.lengua_respuesta')}</dt>
         <dd data-testid="lengua-respuesta">{t(`lenguas_respuesta.${v.lengua_respuesta}`)}</dd>
+        {(v.datos_consulta ?? []).length > 0 && (
+          <>
+            <dt className="text-muted-foreground">{t('campos.datos_consulta')}</dt>
+            <dd data-testid="datos-consulta">
+              {(v.datos_consulta ?? [])
+                .map((d) => (d.obligatorio ? t('dato_obligatorio', { etiqueta: d.etiqueta }) : d.etiqueta))
+                .join(' · ')}
+            </dd>
+          </>
+        )}
         {/* #216 — qué se guarda de sus conversaciones. */}
         <dt className="text-muted-foreground">{t('campos.registro')}</dt>
         <dd data-testid="modo-registro">{t(`registro.${agente.modo_registro}`)}</dd>
@@ -707,4 +797,85 @@ function lenguaDe(idioma: string | undefined): 'es' | 'ca' | 'en' {
   if (idioma?.startsWith('ca') || idioma?.startsWith('va')) return 'ca'
   if (idioma?.startsWith('en')) return 'en'
   return 'es'
+}
+
+/**
+ * Los datos de la consulta (#219): qué tiene que indicar quien pregunta. Dos tipos —lista de
+ * opciones y texto—; ligados a una columna del índice, filtran en suave. Lo valida el servidor;
+ * aquí sólo se pide lo que hace falta antes de mandar.
+ */
+function EditorDeDatos({
+  control,
+  register,
+  errores,
+}: {
+  control: Control<Declaracion>
+  register: UseFormRegister<Declaracion>
+  errores?: FieldErrors<Declaracion>['datos_consulta']
+}) {
+  const { t } = useTranslation('agentes')
+  const { fields, append, remove } = useFieldArray({ control, name: 'datos_consulta' })
+  const datos = useWatch({ control, name: 'datos_consulta' })
+  const campo = 'rounded-md border px-2 py-1 text-sm w-full'
+
+  return (
+    <fieldset className="space-y-2 rounded-md border p-3" data-testid="editor-de-datos">
+      <legend className="px-1 text-sm font-medium">{t('campos.datos_consulta')}</legend>
+      <p className="text-xs text-muted-foreground">{t('pistas.datos_consulta')}</p>
+      {fields.map((f, i) => {
+        const tipo = datos?.[i]?.tipo ?? f.tipo
+        const fallo = errores?.[i]?.opciones?.message ?? errores?.[i]?.etiqueta?.message
+        return (
+          <div key={f.id} className="grid gap-2 rounded-md bg-muted/40 p-2 sm:grid-cols-2" data-testid={`dato-${i}`}>
+            <label className="space-y-1 text-xs">
+              <span>{t('dato.etiqueta')}</span>
+              <input className={campo} {...register(`datos_consulta.${i}.etiqueta`)} />
+            </label>
+            <label className="space-y-1 text-xs">
+              <span>{t('dato.tipo')}</span>
+              <select className={campo} {...register(`datos_consulta.${i}.tipo`)}>
+                <option value="texto">{t('dato.tipos.texto')}</option>
+                <option value="opciones">{t('dato.tipos.opciones')}</option>
+              </select>
+            </label>
+            {tipo === 'opciones' && (
+              <label className="space-y-1 text-xs sm:col-span-2">
+                <span>{t('dato.opciones')}</span>
+                <input className={campo} {...register(`datos_consulta.${i}.opciones`)} />
+              </label>
+            )}
+            <label className="space-y-1 text-xs">
+              <span>{t('dato.ayuda')}</span>
+              <input className={campo} {...register(`datos_consulta.${i}.ayuda`)} />
+            </label>
+            <label className="space-y-1 text-xs">
+              <span>{t('dato.columna')}</span>
+              <input className={campo} {...register(`datos_consulta.${i}.columna`)} />
+            </label>
+            <div className="flex flex-wrap items-center gap-3 text-xs sm:col-span-2">
+              <label className="flex items-center gap-1">
+                <input type="checkbox" {...register(`datos_consulta.${i}.obligatorio`)} />
+                {t('dato.obligatorio')}
+              </label>
+              {tipo === 'texto' && (
+                <label className="flex items-center gap-1">
+                  <input type="checkbox" {...register(`datos_consulta.${i}.prefijo`)} />
+                  {t('dato.prefijo')}
+                </label>
+              )}
+              <button type="button" onClick={() => remove(i)} className="ml-auto rounded-md border px-2 py-0.5">
+                {t('dato.quitar')}
+              </button>
+            </div>
+            {fallo && <p className="text-xs text-destructive sm:col-span-2">{t(`errores.${fallo}`)}</p>}
+          </div>
+        )
+      })}
+      {fields.length < 8 && (
+        <button type="button" onClick={() => append({ ...DATO_NUEVO })} className="rounded-md border px-2 py-1 text-xs">
+          {t('dato.anadir')}
+        </button>
+      )}
+    </fieldset>
+  )
 }

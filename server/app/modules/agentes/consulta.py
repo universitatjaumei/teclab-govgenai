@@ -17,7 +17,7 @@ aunque la unidad no la escriba.
 """
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, Sequence
 
 from server.app.modules.agentes.indice import FichaSeleccionada
 
@@ -27,6 +27,7 @@ LenguaDeLaRespuesta = Literal["pregunta", "es", "ca"]
 _TEXTOS: dict[str, dict[str, str]] = {
     "es": {
         "pregunta": "Pregunta",
+        "datos": "Datos de la consulta:",
         "documentos": "Responde sólo a partir de estos documentos:",
         "documentos_con_adjunto": (
             "Quien pregunta te adjuntará un documento: analízalo usando como criterio estos "
@@ -56,6 +57,7 @@ _TEXTOS: dict[str, dict[str, str]] = {
     },
     "ca": {
         "pregunta": "Pregunta",
+        "datos": "Dades de la consulta:",
         "documentos": "Respon només a partir d'aquests documents:",
         "documentos_con_adjunto": (
             "Qui pregunta t'adjuntarà un document: analitza'l fent servir com a criteri aquests "
@@ -86,6 +88,7 @@ _TEXTOS: dict[str, dict[str, str]] = {
     },
     "en": {
         "pregunta": "Question",
+        "datos": "Query details:",
         "documentos": "Answer only from these documents:",
         "documentos_con_adjunto": (
             "The person asking will attach a document: analyse it using these documents as the "
@@ -124,6 +127,7 @@ def componer(
     *,
     con_adjunto: bool = False,
     lengua_respuesta: LenguaDeLaRespuesta = "pregunta",
+    datos: Sequence[tuple[str, str]] = (),
 ) -> str:
     """El texto que se pega en el asistente general. Kilobytes, también a mano.
 
@@ -133,6 +137,9 @@ def componer(
     """
     t = _TEXTOS[lengua]
     partes = [prompt_del_agente.strip(), f"{t['pregunta']}: {consulta.strip()}"]
+    if datos:
+        # #219 — lo que la unidad pidió indicar, con su etiqueta: el asistente lo lee tal cual.
+        partes.append("\n".join([t["datos"], *(f"- {etiqueta}: {valor}" for etiqueta, valor in datos)]))
     if documentos:
         lineas = [t["documentos_con_adjunto" if con_adjunto else "documentos"]]
         for n, d in enumerate(documentos, start=1):

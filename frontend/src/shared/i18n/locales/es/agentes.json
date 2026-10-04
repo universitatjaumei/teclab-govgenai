@@ -24,7 +24,9 @@
     "indice": "Índice",
     "registro": "Registro de conversaciones",
     "adjunto": "Documento adjunto",
-    "lengua_respuesta": "Lengua de la respuesta"
+    "lengua_respuesta": "Lengua de la respuesta",
+    "datos_consulta": "Datos de la consulta",
+    "indicaciones": "Indicaciones para quien pregunta"
   },
   "pistas": {
     "carpeta_url": "La dirección de la carpeta en el almacén de la organización. La plataforma no guarda ningún documento: los autoriza el almacén.",
@@ -33,7 +35,9 @@
     "presupuesto_documentos": "Cuántos documentos puede devolver una consulta como mucho, entre 1 y 10. Son las URL que el asistente general abrirá de una vez.",
     "hoja_del_indice": "CSV o Excel con una fila por documento y las columnas url, título y resumen; vigente y revisión prevista son opcionales, y cualquier otra columna se guarda como metadato. La hoja es el índice entero: lo que no venga se retira.",
     "adjunto": "Si quien consulta adjunta un documento propio en el asistente, los documentos de la carpeta son el criterio para analizarlo. «Puede adjuntar» deja que lo diga en cada consulta.",
-    "lengua_respuesta": "La plataforma añade la instrucción al prompt: no hace falta escribirla. Los pliegos, siempre en castellano; las resoluciones, siempre en valenciano."
+    "lengua_respuesta": "La plataforma añade la instrucción al prompt: no hace falta escribirla. Los pliegos, siempre en castellano; las resoluciones, siempre en valenciano.",
+    "datos_consulta": "Lo esencial para que se elijan bien los documentos: en un agente de pliegos, el tipo de contrato y el CPV. Si el índice tiene una columna con ese dato, escríbela y filtrará: se descartan los documentos que lo contradicen y se conservan los que no lo dicen.",
+    "indicaciones": "Una línea que verá quien pregunta, en la extensión y en «Consultar». Por ejemplo: «Indica el tipo de contrato y el CPV; si adjuntas un borrador, di de qué trata»."
   },
   "colectivos": {
     "organizacion": "Toda la organización",
@@ -73,7 +77,8 @@
     "carpeta_https": "Tiene que ser una dirección https del almacén de la organización.",
     "fecha_obligatoria": "Indica cuándo se volverá a revisar.",
     "grupos_obligatorios": "Indica al menos un grupo.",
-    "presupuesto": "Entre 1 y 10 documentos."
+    "presupuesto": "Entre 1 y 10 documentos.",
+    "opciones_minimas": "Una lista lleva al menos dos opciones."
   },
   "fichas_en_el_indice_one": "{{count}} ficha",
   "fichas_en_el_indice_other": "{{count}} fichas",
@@ -117,7 +122,9 @@
     "en_validacion": "En validación",
     "se_guarda_la_conversacion": "Este agente está en validación: se guardan tu pregunta y la respuesta del asistente para comprobar que funciona bien.",
     "adjunto_opcional": "Puedes adjuntar un documento",
-    "voy_a_adjuntar": "Voy a adjuntar un documento"
+    "voy_a_adjuntar": "Voy a adjuntar un documento",
+    "dato_obligatorio": "{{etiqueta}} *",
+    "elige_una": "Elige una…"
   },
   "nav_aria": "Agentes",
   "nav_consultar": "Consultar",
@@ -201,5 +208,21 @@
     "pregunta": "La de la pregunta",
     "es": "Siempre en castellano",
     "ca": "Siempre en valenciano"
-  }
+  },
+  "dato": {
+    "etiqueta": "Etiqueta",
+    "tipo": "Tipo",
+    "opciones": "Opciones, separadas por comas",
+    "ayuda": "Ayuda (opcional)",
+    "columna": "Columna del índice (opcional)",
+    "obligatorio": "Obligatorio",
+    "prefijo": "Casa por el principio (códigos como el CPV)",
+    "quitar": "Quitar",
+    "anadir": "Añadir un dato",
+    "tipos": {
+      "texto": "Texto",
+      "opciones": "Lista de opciones"
+    }
+  },
+  "dato_obligatorio": "{{etiqueta}} (obligatorio)"
 }

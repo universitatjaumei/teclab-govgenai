@@ -129,7 +129,7 @@ describe('#175 — preparar el prompt', () => {
     preguntar('¿importe máximo?')
     fireEvent.click(screen.getByRole('button', { name: 'Preparar el prompt' }))
     expect(consultar).toHaveBeenCalledWith(
-      { agenteId: 'a1', data: { consulta: '¿importe máximo?', lengua: 'es', adjunta: false } },
+      { agenteId: 'a1', data: { consulta: '¿importe máximo?', lengua: 'es', adjunta: false, datos: {} } },
       expect.anything(),
     )
   })
@@ -282,5 +282,50 @@ describe('#218 — el adjunto opcional', () => {
     montar()
     fireEvent.click(screen.getByLabelText(/Contratación menor/))
     expect(screen.queryByLabelText('Voy a adjuntar un documento')).not.toBeInTheDocument()
+  })
+})
+
+describe('#219 — los datos de la consulta', () => {
+  const PLIEGOS = {
+    ...CATALOGO[0],
+    id: 'a4',
+    nombre: 'Pliegos',
+    indicaciones: 'Indica el tipo de contrato y el CPV.',
+    datos_consulta: [
+      { clave: 'tipo_de_contrato', etiqueta: 'Tipo de contrato', tipo: 'opciones', opciones: ['Obras', 'Servicios'], obligatorio: true, ayuda: null, columna: 'Tipo de contrato', prefijo: false },
+      { clave: 'codigo_cpv', etiqueta: 'Código CPV', tipo: 'texto', opciones: [], obligatorio: false, ayuda: 'Ocho cifras', columna: 'CPV', prefijo: true },
+    ],
+  }
+
+  it('pinta los datos que declara el agente, con sus indicaciones y su ayuda', () => {
+    montar([PLIEGOS])
+    fireEvent.click(screen.getByLabelText(/Pliegos/))
+    expect(screen.getByTestId('indicaciones')).toHaveTextContent('Indica el tipo de contrato y el CPV.')
+    expect(screen.getByLabelText('Tipo de contrato *')).toBeInTheDocument()
+    expect(screen.getByLabelText('Código CPV')).toBeInTheDocument()
+    expect(screen.getByText('Ocho cifras')).toBeInTheDocument()
+  })
+
+  it('sin el obligatorio no se prepara; con él, manda los datos por su clave', () => {
+    montar([PLIEGOS])
+    fireEvent.click(screen.getByLabelText(/Pliegos/))
+    preguntar('¿Qué solvencia pido?')
+    const preparar = screen.getByRole('button', { name: 'Preparar el prompt' })
+    expect(preparar).toBeDisabled()
+    fireEvent.change(screen.getByLabelText('Tipo de contrato *'), { target: { value: 'Servicios' } })
+    fireEvent.change(screen.getByLabelText('Código CPV'), { target: { value: '79341000' } })
+    fireEvent.click(preparar)
+    expect(consultar.mock.calls[0][0].data.datos).toEqual({ tipo_de_contrato: 'Servicios', codigo_cpv: '79341000' })
+  })
+
+  it('al cambiar de agente se vacían', () => {
+    montar([PLIEGOS, CATALOGO[0]])
+    fireEvent.click(screen.getByLabelText(/Pliegos/))
+    fireEvent.change(screen.getByLabelText('Tipo de contrato *'), { target: { value: 'Obras' } })
+    fireEvent.click(screen.getByLabelText(/Contratación menor/))
+    expect(screen.queryByLabelText('Tipo de contrato *')).not.toBeInTheDocument()
+    preguntar('¿importe?')
+    fireEvent.click(screen.getByRole('button', { name: 'Preparar el prompt' }))
+    expect(consultar.mock.calls[0][0].data.datos).toEqual({})
   })
 })

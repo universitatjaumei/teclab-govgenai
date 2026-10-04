@@ -284,6 +284,31 @@ echo declarado, sin repetir la instruccion de lengua.
 echo.
 pause
 echo.
+echo ----------------------------------------------------------
+echo  PASO 10 - Los datos de la consulta (#219)
+echo ----------------------------------------------------------
+echo.
+echo   1. Versiona un agente de pliegos. En "Datos de la consulta":
+echo      - "Tipo de contrato", lista con "Obras, Servicios, Suministros",
+echo        obligatorio, columna del indice "Tipo de contrato".
+echo      - "Codigo CPV", texto, "Casa por el principio", columna "CPV".
+echo      Escribe unas indicaciones.
+echo   2. Sube una hoja del indice con columnas "Tipo de contrato" y
+echo      "CPV" en algunos documentos (y otros sin rellenar).
+echo   3. En la extension (recargala) y en Consultar: elige el agente,
+echo      rellena los datos y pregunta.
+echo.
+echo QUE DEBES VER:
+echo   - Las indicaciones y el formulario, sin poder preparar el prompt
+echo     hasta elegir el tipo de contrato.
+echo   - El prompt con "Datos de la consulta".
+echo   - Ningun documento de otro tipo de contrato o de otro CPV; si
+echo     los que no tienen el dato rellenado.
+echo.
+echo JUZGA: si los documentos elegidos son mejores que sin los datos.
+echo.
+pause
+echo.
 echo ==========================================================
 echo   FIN. Anota lo que no cuadre en las issues del hito 5.
 echo ==========================================================

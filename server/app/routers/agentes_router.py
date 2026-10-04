@@ -50,7 +50,7 @@ from server.app.core.auth.pat.scopes import AGENTES_CONSULTA, AGENTES_INDICE_WRI
 from server.app.core.identidad import user_to_uuid
 from server.app.core.uploads import read_within_limit, sanitizar_nombre
 from server.app.core.llm_text import texto_de
-from server.app.modules.agentes import acciones, consulta, indice, propuesta, registro
+from server.app.modules.agentes import acciones, consulta, datos, indice, propuesta, registro
 from server.app.modules.agents_hub.services.config_provider import LocalConfigProvider
 from server.app.modules.agents_hub.services.model_factory import get_model_for_tier
 from server.app.routers.redaccion._actor import nombre_del_modelo
@@ -86,6 +86,43 @@ router_catalogo = APIRouter(
 # =============================================================================
 
 
+class DatoDeLaConsulta(BaseModel):
+    """Un dato que tiene que dar quien pregunta (#219). Dos tipos: lista de opciones y texto."""
+
+    etiqueta: str = Field(min_length=1, max_length=80)
+    tipo: Literal["opciones", "texto"]
+    ayuda: str | None = Field(default=None, max_length=200)
+    #: Sólo en `opciones`: al menos dos, sin repetir.
+    opciones: list[str] = Field(default_factory=list, max_length=30)
+    obligatorio: bool = False
+    #: La columna del índice con la que casa: si la tiene, filtra (en suave).
+    columna: str | None = Field(default=None, max_length=80)
+    #: Sólo en `texto`: para códigos jerárquicos como el CPV, casa por prefijo.
+    prefijo: bool = False
+
+    model_config = {"extra": "forbid"}
+
+    @model_validator(mode="after")
+    def _coherente(self) -> "DatoDeLaConsulta":
+        self.etiqueta = self.etiqueta.strip()
+        self.ayuda = (self.ayuda or "").strip() or None
+        self.columna = (self.columna or "").strip() or None
+        self.opciones = [o.strip() for o in self.opciones if o.strip()]
+        if self.tipo == "opciones":
+            if len(self.opciones) < 2 or len(set(self.opciones)) != len(self.opciones):
+                raise ValueError(f"«{self.etiqueta}»: una lista lleva al menos dos opciones distintas")
+            if self.prefijo:
+                raise ValueError(f"«{self.etiqueta}»: el prefijo es para códigos escritos, no para una lista")
+        elif self.opciones:
+            raise ValueError(f"«{self.etiqueta}»: un texto no lleva opciones")
+        return self
+
+
+class DatoDeLaConsultaView(DatoDeLaConsulta):
+    #: Contra qué clave se manda el valor en la consulta. La deriva la plataforma de la etiqueta.
+    clave: str
+
+
 class DeclaracionDelAgente(BaseModel):
     """Lo que se declara al publicar y en cada versión. **Sin esto no se publica.**"""
 
@@ -102,6 +139,18 @@ class DeclaracionDelAgente(BaseModel):
     adjunto: Literal["no", "opcional", "obligatorio"] = "no"
     #: #218 — en qué lengua se responde; la instrucción la añade la plataforma.
     lengua_respuesta: Literal["pregunta", "es", "ca"] = "pregunta"
+    #: #219 — los datos que tiene que dar quien pregunta, y una línea de indicaciones.
+    datos_consulta: list[DatoDeLaConsulta] = Field(default_factory=list, max_length=8)
+    indicaciones: str | None = Field(default=None, max_length=500)
+
+    @field_validator("datos_consulta")
+    @classmethod
+    def _claves_distintas(cls, valor: list[DatoDeLaConsulta]) -> list[DatoDeLaConsulta]:
+        claves = [datos.clave(d.etiqueta) for d in valor]
+        repetidas = sorted({c for c in claves if claves.count(c) > 1})
+        if repetidas:
+            raise ValueError(f"dos datos con la misma etiqueta: {', '.join(repetidas)}")
+        return valor
     #: #213 — `ia` si el prompt se redactó con el asistente de propuestas. Lo declara quien publica.
     autoria_prompt: Literal["persona", "ia"] = "persona"
 
@@ -179,6 +228,8 @@ class VersionDelAgente(BaseModel):
     presupuesto_documentos: int
     adjunto: str
     lengua_respuesta: str
+    datos_consulta: list[DatoDeLaConsultaView]
+    indicaciones: str | None
     autoria_prompt: str
     declarada_en: datetime
     revisada_en: datetime | None
@@ -235,6 +286,9 @@ class AgenteDelCatalogo(BaseModel):
     #: Para que la pantalla recuerde adjuntar el documento —u ofrezca hacerlo, si es opcional— y
     #: pida describirlo en la pregunta.
     adjunto: str
+    #: #219 — el formulario de la consulta lo pinta la pantalla a partir de esto.
+    datos_consulta: list[DatoDeLaConsultaView]
+    indicaciones: str | None
     #: #174 — el guion lleva días sin mandar el índice: se ofrece, pero marcado.
     indice_sin_actualizar: bool
     #: #216 — para avisar, antes de consultar, de que en validación se guarda la conversación.
@@ -310,6 +364,8 @@ def _vista(
             presupuesto_documentos=version.presupuesto_documentos,
             adjunto=version.adjunto,
             lengua_respuesta=version.lengua_respuesta,
+            datos_consulta=version.datos_consulta or [],
+            indicaciones=version.indicaciones,
             autoria_prompt=version.autoria_prompt,
             declarada_en=version.declarada_en,
             revisada_en=version.revisada_en,
@@ -339,6 +395,10 @@ def _nueva_version(
         presupuesto_documentos=declaracion.presupuesto_documentos,
         adjunto=declaracion.adjunto,
         lengua_respuesta=declaracion.lengua_respuesta,
+        datos_consulta=[
+            {"clave": datos.clave(d.etiqueta), **d.model_dump()} for d in declaracion.datos_consulta
+        ],
+        indicaciones=(declaracion.indicaciones or "").strip() or None,
         autoria_prompt=declaracion.autoria_prompt,
         declarada_por=user_to_uuid(user.user_id),
         declarada_en=datetime.now(timezone.utc),
@@ -1019,6 +1079,8 @@ async def catalogo(
             version=v.version,
             revision_vencida=acciones.revision_vencida(v),
             adjunto=v.adjunto,
+            datos_consulta=v.datos_consulta or [],
+            indicaciones=v.indicaciones,
             indice_sin_actualizar=_sin_actualizar(a),
             modo_registro=a.modo_registro,
         )
@@ -1039,6 +1101,8 @@ class Consulta(BaseModel):
     #: #218 — si quien pregunta va a adjuntar un documento. Sólo cuenta en un agente con el adjunto
     #: `opcional`; en los demás lo decidió la unidad.
     adjunta: bool = False
+    #: #219 — los datos que declara el agente, por su clave.
+    datos: dict[str, Annotated[str, Field(max_length=200)]] = Field(default_factory=dict)
 
     model_config = {"extra": "forbid"}
 
@@ -1094,8 +1158,18 @@ async def consultar(
     """
     agente, version = await _el_agente(session, agente_id, user)
     try:
+        pares = datos.validar(version.datos_consulta or [], body.datos)
+    except datos.DatosNoValidos as fallo:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(fallo)) from fallo
+    try:
         elegidas = await indice.seleccionar(
-            session, agente, version, body.consulta, embedder, principal=user
+            session,
+            agente,
+            version,
+            datos.para_buscar(body.consulta, pares),
+            embedder,
+            principal=user,
+            filtros=datos.filtros(pares),
         )
     except indice.AgenteNoDisponible as fallo:
         raise HTTPException(
@@ -1120,6 +1194,7 @@ async def consultar(
         body.lengua,
         con_adjunto=con_adjunto,
         lengua_respuesta=version.lengua_respuesta,
+        datos=[(d["etiqueta"], v) for d, v in pares],
     )
     consulta_id = uuid.uuid4()
     respuesta = RespuestaDeConsulta(
@@ -1170,6 +1245,7 @@ async def consultar(
             modo=agente.modo_registro,
             # #216 — en validación se guarda la pregunta; el registro de actividad, nunca.
             pregunta=body.consulta if agente.modo_registro == "validacion" else None,
+            datos={d["clave"]: v for d, v in pares} if agente.modo_registro == "validacion" and pares else None,
         )
     )
     await session.commit()

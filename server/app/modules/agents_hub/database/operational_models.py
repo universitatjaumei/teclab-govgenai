@@ -1211,6 +1211,14 @@ class HubAgenteUnidadVersion(HubOperationalBase):
     lengua_respuesta: Mapped[str] = mapped_column(
         String(10), nullable=False, default="pregunta", server_default="pregunta"
     )
+    #: #219 — los datos que tiene que dar quien pregunta: `[{clave, etiqueta, tipo, ayuda,
+    #: opciones, obligatorio, columna, prefijo}]`. Sirven para preguntar, para seleccionar —filtro
+    #: suave sobre la columna del índice— y para componer el prompt. Los valida el contrato.
+    datos_consulta: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default="[]"
+    )
+    #: #219 — una línea para quien pregunta: qué indicar para que la selección acierte.
+    indicaciones: Mapped[str | None] = mapped_column(Text, nullable=True)
     #: #213 — si el prompt se redactó con ayuda de IA (el asistente de propuestas), como
     #: `autoria` en el catálogo de funciones. **Lo declara quien publica**: la plataforma propone,
     #: pero no puede saber cuánto se editó después.
@@ -1341,6 +1349,8 @@ class HubAgenteConsulta(HubOperationalBase):
     #: #216 — el modo del agente al consultar. Las anteriores no guardaron nada: `incidencias`.
     modo: Mapped[str] = mapped_column(String(12), nullable=False, server_default="incidencias")
     pregunta: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: #219 — los datos de la consulta, con la pregunta: en validación.
+    datos: Mapped[dict[str, str] | None] = mapped_column(JSONB, nullable=True)
     respuesta: Mapped[str | None] = mapped_column(Text, nullable=True)
     respuesta_en: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     #: Por qué la extensión no pudo leer la respuesta: cuenta la cobertura de la captura.

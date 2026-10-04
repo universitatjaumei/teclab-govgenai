@@ -69,6 +69,8 @@ function version(extra: Record<string, unknown> = {}) {
     presupuesto_documentos: 5,
     adjunto: 'no',
     lengua_respuesta: 'pregunta',
+    datos_consulta: [],
+    indicaciones: null,
     autoria_prompt: 'persona',
     declarada_en: '2026-10-02T10:00:00Z',
     revisada_en: null,
@@ -242,6 +244,8 @@ describe('#172 — publicar exige la declaración', () => {
       presupuesto_documentos: 5,
       adjunto: 'no',
       lengua_respuesta: 'pregunta',
+      datos_consulta: [],
+      indicaciones: null,
       autoria_prompt: 'persona',
     })
   })
@@ -579,5 +583,73 @@ describe('#216 — qué se guarda de sus conversaciones', () => {
   it('sin la acción, no hay botón: lo decide el servidor', () => {
     montar([agente({}, { acciones_permitidas: ['versionar'] })])
     expect(within(screen.getByTestId('agente')).queryByRole('button', { name: 'Pasar a sólo incidencias' })).not.toBeInTheDocument()
+  })
+})
+
+describe('#219 — los datos de la consulta, al publicar', () => {
+  it('se declaran: una lista y un código por prefijo ligado a una columna del índice', async () => {
+    montar([])
+    fireEvent.click(screen.getByRole('button', { name: 'Publicar un agente' }))
+    rellenar(DECLARACION)
+    fireEvent.click(screen.getByRole('button', { name: 'Añadir un dato' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Añadir un dato' }))
+    const [primero, segundo] = [screen.getByTestId('dato-0'), screen.getByTestId('dato-1')]
+    fireEvent.change(within(primero).getByLabelText('Etiqueta'), { target: { value: 'Tipo de contrato' } })
+    fireEvent.change(within(primero).getByLabelText('Tipo'), { target: { value: 'opciones' } })
+    fireEvent.change(within(primero).getByLabelText('Opciones, separadas por comas'), { target: { value: 'Obras, Servicios ,Suministros' } })
+    fireEvent.click(within(primero).getByLabelText('Obligatorio'))
+    fireEvent.change(within(primero).getByLabelText('Columna del índice (opcional)'), { target: { value: 'Tipo de contrato' } })
+    fireEvent.change(within(segundo).getByLabelText('Etiqueta'), { target: { value: 'Código CPV' } })
+    fireEvent.click(within(segundo).getByLabelText('Casa por el principio (códigos como el CPV)'))
+    fireEvent.change(screen.getByLabelText('Indicaciones para quien pregunta'), { target: { value: 'Indica el tipo y el CPV.' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Publicar' }))
+
+    await waitFor(() => expect(mutaciones.publicar).toHaveBeenCalledTimes(1))
+    const datos = mutaciones.publicar.mock.calls[0][0].data
+    expect(datos.datos_consulta).toEqual([
+      { etiqueta: 'Tipo de contrato', tipo: 'opciones', ayuda: null, opciones: ['Obras', 'Servicios', 'Suministros'], obligatorio: true, columna: 'Tipo de contrato', prefijo: false },
+      { etiqueta: 'Código CPV', tipo: 'texto', ayuda: null, opciones: [], obligatorio: false, columna: null, prefijo: true },
+    ])
+    expect(datos.indicaciones).toBe('Indica el tipo y el CPV.')
+  })
+
+  it('una lista con una sola opción no se manda', async () => {
+    montar([])
+    fireEvent.click(screen.getByRole('button', { name: 'Publicar un agente' }))
+    rellenar(DECLARACION)
+    fireEvent.click(screen.getByRole('button', { name: 'Añadir un dato' }))
+    const dato = screen.getByTestId('dato-0')
+    fireEvent.change(within(dato).getByLabelText('Etiqueta'), { target: { value: 'Tipo de contrato' } })
+    fireEvent.change(within(dato).getByLabelText('Tipo'), { target: { value: 'opciones' } })
+    fireEvent.change(within(dato).getByLabelText('Opciones, separadas por comas'), { target: { value: 'Obras' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Publicar' }))
+    expect(await within(dato).findByText('Una lista lleva al menos dos opciones.')).toBeInTheDocument()
+    expect(mutaciones.publicar).not.toHaveBeenCalled()
+  })
+
+  it('la ficha dice qué datos pide', () => {
+    montar([
+      agente({}, {
+        datos_consulta: [
+          { clave: 'tipo_de_contrato', etiqueta: 'Tipo de contrato', tipo: 'opciones', opciones: ['Obras', 'Servicios'], obligatorio: true, ayuda: null, columna: null, prefijo: false },
+          { clave: 'codigo_cpv', etiqueta: 'Código CPV', tipo: 'texto', opciones: [], obligatorio: false, ayuda: null, columna: null, prefijo: true },
+        ],
+      }),
+    ])
+    expect(screen.getByTestId('datos-consulta')).toHaveTextContent('Tipo de contrato (obligatorio) · Código CPV')
+  })
+
+  it('al versionar se conservan los datos declarados', async () => {
+    montar([
+      agente({}, {
+        acciones_permitidas: ['versionar'],
+        datos_consulta: [
+          { clave: 'codigo_cpv', etiqueta: 'Código CPV', tipo: 'texto', opciones: [], obligatorio: true, ayuda: 'Ocho cifras', columna: 'CPV', prefijo: true },
+        ],
+      }),
+    ])
+    fireEvent.click(screen.getByRole('button', { name: 'Nueva versión' }))
+    expect(within(screen.getByTestId('dato-0')).getByLabelText('Etiqueta')).toHaveValue('Código CPV')
+    expect(within(screen.getByTestId('dato-0')).getByLabelText('Columna del índice (opcional)')).toHaveValue('CPV')
   })
 })

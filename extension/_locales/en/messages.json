@@ -205,5 +205,8 @@
   },
   "voyAAdjuntar": {
     "message": "I will attach a document"
+  },
+  "eligeUna": {
+    "message": "Choose one…"
   }
 }

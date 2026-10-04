@@ -169,10 +169,11 @@ function loLeido(leida) {
 }
 
 /** `adjunta` sólo cuenta en un agente con el adjunto opcional (#218); en los demás lo decidió la unidad. */
-function consultar(conf, agenteId, pregunta, adjunta) {
+/** `datos` (#219): los que declara el agente, por su clave; los vacíos no se mandan. */
+function consultar(conf, agenteId, pregunta, adjunta, datos) {
   return llamar(conf, '/api/v1/agentes/' + agenteId + '/consulta', {
     method: 'POST',
-    cuerpo: { consulta: pregunta, lengua: lengua(), adjunta: Boolean(adjunta) },
+    cuerpo: { consulta: pregunta, lengua: lengua(), adjunta: Boolean(adjunta), datos: datos || {} },
   });
 }
 
@@ -269,6 +270,8 @@ async function construir(raiz) {
     const radio = el('input', { type: 'radio', name: 'agente', value: a.id, 'aria-label': a.nombre + ' — ' + a.unidad });
     radio.addEventListener('change', function () {
       elegido = a;
+      casillaAdjunta.checked = false;
+      pintarDatos();
       actualizar();
     });
     const avisos = [];
@@ -301,6 +304,46 @@ async function construir(raiz) {
 
   const pregunta = el('textarea', { id: 'pregunta', rows: '3', maxlength: '2000', 'aria-label': texto('pregunta') });
   const pista = el('p', { class: 'nota' });
+  // #219 — los datos que pide el agente elegido: el formulario sale de lo que declara, no de aquí.
+  const datosCont = el('div', { id: 'datos-consulta' });
+  function pintarDatos() {
+    datosCont.textContent = '';
+    if (!elegido) return;
+    if (elegido.indicaciones) datosCont.appendChild(el('p', { class: 'nota', id: 'indicaciones', texto: elegido.indicaciones }));
+    (elegido.datos_consulta || []).forEach(function (d) {
+      const id = 'dato_' + d.clave;
+      const etiqueta = d.obligatorio ? d.etiqueta + ' *' : d.etiqueta;
+      let campo;
+      if (d.tipo === 'opciones') {
+        campo = el('select', { id: id, 'data-clave': d.clave }, [el('option', { value: '', texto: texto('eligeUna') })].concat(
+          (d.opciones || []).map(function (o) {
+            return el('option', { value: o, texto: o });
+          }),
+        ));
+        campo.addEventListener('change', actualizar);
+      } else {
+        campo = el('input', { id: id, 'data-clave': d.clave, maxlength: '200' });
+        campo.addEventListener('input', actualizar);
+      }
+      datosCont.appendChild(el('label', { for: id, texto: etiqueta }));
+      datosCont.appendChild(campo);
+      if (d.ayuda) datosCont.appendChild(el('p', { class: 'nota', texto: d.ayuda }));
+    });
+  }
+  function valoresDeLosDatos() {
+    const valores = {};
+    datosCont.querySelectorAll('[data-clave]').forEach(function (c) {
+      if (c.value.trim()) valores[c.getAttribute('data-clave')] = c.value.trim();
+    });
+    return valores;
+  }
+  function faltaUnObligatorio() {
+    if (!elegido) return false;
+    const valores = valoresDeLosDatos();
+    return (elegido.datos_consulta || []).some(function (d) {
+      return d.obligatorio && !valores[d.clave];
+    });
+  }
   // #218 — en un agente con el adjunto opcional, quien pregunta dice si adjunta.
   const casillaAdjunta = el('input', { type: 'checkbox', id: 'adjunta' });
   const adjuntaOpcional = el('label', { class: 'fila', hidden: '' }, [casillaAdjunta, el('span', { texto: texto('voyAAdjuntar') })]);
@@ -440,7 +483,7 @@ async function construir(raiz) {
         const permiso = await chrome.permissions.request({ origins: [ad.origen + '/*'] });
         if (!permiso) throw new Error(texto('sinPermisoAsistente', [ad.nombre]));
         const pestana = await pestanaDelAsistente(ad);
-        const r = await consultar(conf, elegido.id, pregunta.value.trim(), conAdjunto());
+        const r = await consultar(conf, elegido.id, pregunta.value.trim(), conAdjunto(), valoresDeLosDatos());
         empezarConsulta(r);
         if (!pestana) {
           const copiado = await copiar(r.prompt);
@@ -487,7 +530,7 @@ async function construir(raiz) {
   boton.addEventListener('click', async function () {
     preparando();
     try {
-      const r = await consultar(conf, elegido.id, pregunta.value.trim(), conAdjunto());
+      const r = await consultar(conf, elegido.id, pregunta.value.trim(), conAdjunto(), valoresDeLosDatos());
       empezarConsulta(r);
       const copiado = await copiar(r.prompt);
       decir(copiado ? texto(r.espera_adjunto ? 'copiadoConAdjunto' : 'copiado') : texto('preparado'));
@@ -501,6 +544,7 @@ async function construir(raiz) {
     }
   });
   raiz.appendChild(el('label', { for: 'pregunta', texto: texto('pregunta') }));
+  raiz.appendChild(datosCont);
   raiz.appendChild(pregunta);
   raiz.appendChild(adjuntaOpcional);
   raiz.appendChild(pista);
@@ -521,7 +565,7 @@ async function construir(raiz) {
   );
 
   function actualizar() {
-    boton.disabled = !elegido || !pregunta.value.trim();
+    boton.disabled = !elegido || !pregunta.value.trim() || faltaUnObligatorio();
     if (insertar) insertar.disabled = boton.disabled;
     adjuntaOpcional.hidden = !(elegido && elegido.adjunto === 'opcional');
     pista.textContent = conAdjunto() ? texto('describeElAdjunto') : '';

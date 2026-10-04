@@ -24,7 +24,9 @@
     "indice": "Index",
     "registro": "Conversation log",
     "adjunto": "Attached document",
-    "lengua_respuesta": "Language of the answer"
+    "lengua_respuesta": "Language of the answer",
+    "datos_consulta": "Query details",
+    "indicaciones": "Guidance for the person asking"
   },
   "pistas": {
     "carpeta_url": "The folder's address in the organisation's storage. The platform keeps no documents: the storage authorises them.",
@@ -33,7 +35,9 @@
     "presupuesto_documentos": "How many documents a query may return at most, between 1 and 10. They are the URLs the general assistant will open at once.",
     "hoja_del_indice": "CSV or Excel with one row per document and the columns url, title and summary; in force and planned review are optional, and any other column is kept as metadata. The sheet is the whole index: whatever is missing is withdrawn.",
     "adjunto": "If the person consulting attaches their own document in the assistant, the folder's documents are the criteria to analyse it. “May attach” lets them say so in each consultation.",
-    "lengua_respuesta": "The platform adds the instruction to the prompt: no need to write it. Tender specifications always in Spanish; resolutions always in Valencian."
+    "lengua_respuesta": "The platform adds the instruction to the prompt: no need to write it. Tender specifications always in Spanish; resolutions always in Valencian.",
+    "datos_consulta": "What is essential for the documents to be chosen well: in a tender agent, the contract type and the CPV. If the index has a column with that detail, write it and it will filter: documents contradicting it are dropped, those not stating it are kept.",
+    "indicaciones": "A line the person asking will see, in the extension and in “Consult”. For example: “Give the contract type and the CPV; if you attach a draft, say what it is about”."
   },
   "colectivos": {
     "organizacion": "The whole organisation",
@@ -73,7 +77,8 @@
     "carpeta_https": "It has to be an https address in the organisation's storage.",
     "fecha_obligatoria": "Say when it will be reviewed again.",
     "grupos_obligatorios": "Give at least one group.",
-    "presupuesto": "Between 1 and 10 documents."
+    "presupuesto": "Between 1 and 10 documents.",
+    "opciones_minimas": "A list needs at least two options."
   },
   "fichas_en_el_indice_one": "{{count}} entry",
   "fichas_en_el_indice_other": "{{count}} entries",
@@ -117,7 +122,9 @@
     "en_validacion": "In validation",
     "se_guarda_la_conversacion": "This agent is in validation: your question and the assistant's answer are kept to check it works well.",
     "adjunto_opcional": "You may attach a document",
-    "voy_a_adjuntar": "I will attach a document"
+    "voy_a_adjuntar": "I will attach a document",
+    "dato_obligatorio": "{{etiqueta}} *",
+    "elige_una": "Choose one…"
   },
   "nav_aria": "Agents",
   "nav_consultar": "Ask",
@@ -201,5 +208,21 @@
     "pregunta": "The language of the question",
     "es": "Always in Spanish",
     "ca": "Always in Valencian"
-  }
+  },
+  "dato": {
+    "etiqueta": "Label",
+    "tipo": "Type",
+    "opciones": "Options, separated by commas",
+    "ayuda": "Help (optional)",
+    "columna": "Index column (optional)",
+    "obligatorio": "Required",
+    "prefijo": "Matches by the start (codes like the CPV)",
+    "quitar": "Remove",
+    "anadir": "Add a detail",
+    "tipos": {
+      "texto": "Text",
+      "opciones": "List of options"
+    }
+  },
+  "dato_obligatorio": "{{etiqueta}} (required)"
 }

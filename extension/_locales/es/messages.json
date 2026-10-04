@@ -205,5 +205,8 @@
   },
   "voyAAdjuntar": {
     "message": "Voy a adjuntar un documento"
+  },
+  "eligeUna": {
+    "message": "Elige una…"
   }
 }

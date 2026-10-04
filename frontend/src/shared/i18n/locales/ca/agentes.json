@@ -24,7 +24,9 @@
     "indice": "Índex",
     "registro": "Registre de converses",
     "adjunto": "Document adjunt",
-    "lengua_respuesta": "Llengua de la resposta"
+    "lengua_respuesta": "Llengua de la resposta",
+    "datos_consulta": "Dades de la consulta",
+    "indicaciones": "Indicacions per a qui pregunta"
   },
   "pistas": {
     "carpeta_url": "L'adreça de la carpeta en el magatzem de l'organització. La plataforma no guarda cap document: els autoritza el magatzem.",
@@ -33,7 +35,9 @@
     "presupuesto_documentos": "Quants documents pot tornar una consulta com a màxim, entre 1 i 10. Són les URL que l'assistent general obrirà d'una vegada.",
     "hoja_del_indice": "CSV o Excel amb una fila per document i les columnes url, títol i resum; vigent i revisió prevista són opcionals, i qualsevol altra columna es guarda com a metadada. El full és l'índex sencer: el que no hi vinga es retira.",
     "adjunto": "Si qui consulta adjunta un document propi en l'assistent, els documents de la carpeta són el criteri per a analitzar-lo. «Pot adjuntar» deixa que ho diga en cada consulta.",
-    "lengua_respuesta": "La plataforma afig la instrucció al prompt: no cal escriure-la. Els plecs, sempre en castellà; les resolucions, sempre en valencià."
+    "lengua_respuesta": "La plataforma afig la instrucció al prompt: no cal escriure-la. Els plecs, sempre en castellà; les resolucions, sempre en valencià.",
+    "datos_consulta": "L'essencial perquè es trien bé els documents: en un agent de plecs, el tipus de contracte i el CPV. Si l'índex té una columna amb eixa dada, escriu-la i filtrarà: es descarten els documents que la contradiuen i es conserven els que no la diuen.",
+    "indicaciones": "Una línia que veurà qui pregunta, en l'extensió i en «Consultar». Per exemple: «Indica el tipus de contracte i el CPV; si adjuntes un esborrany, digues de què tracta»."
   },
   "colectivos": {
     "organizacion": "Tota l'organització",
@@ -73,7 +77,8 @@
     "carpeta_https": "Ha de ser una adreça https del magatzem de l'organització.",
     "fecha_obligatoria": "Indica quan es tornarà a revisar.",
     "grupos_obligatorios": "Indica almenys un grup.",
-    "presupuesto": "Entre 1 i 10 documents."
+    "presupuesto": "Entre 1 i 10 documents.",
+    "opciones_minimas": "Una llista porta almenys dues opcions."
   },
   "fichas_en_el_indice_one": "{{count}} fitxa",
   "fichas_en_el_indice_other": "{{count}} fitxes",
@@ -117,7 +122,9 @@
     "en_validacion": "En validació",
     "se_guarda_la_conversacion": "Aquest agent està en validació: es guarden la teua pregunta i la resposta de l'assistent per a comprovar que funciona bé.",
     "adjunto_opcional": "Pots adjuntar un document",
-    "voy_a_adjuntar": "Adjuntaré un document"
+    "voy_a_adjuntar": "Adjuntaré un document",
+    "dato_obligatorio": "{{etiqueta}} *",
+    "elige_una": "Tria'n una…"
   },
   "nav_aria": "Agents",
   "nav_consultar": "Consultar",
@@ -201,5 +208,21 @@
     "pregunta": "La de la pregunta",
     "es": "Sempre en castellà",
     "ca": "Sempre en valencià"
-  }
+  },
+  "dato": {
+    "etiqueta": "Etiqueta",
+    "tipo": "Tipus",
+    "opciones": "Opcions, separades per comes",
+    "ayuda": "Ajuda (opcional)",
+    "columna": "Columna de l'índex (opcional)",
+    "obligatorio": "Obligatori",
+    "prefijo": "Casa pel principi (codis com el CPV)",
+    "quitar": "Llevar",
+    "anadir": "Afegir una dada",
+    "tipos": {
+      "texto": "Text",
+      "opciones": "Llista d'opcions"
+    }
+  },
+  "dato_obligatorio": "{{etiqueta}} (obligatori)"
 }

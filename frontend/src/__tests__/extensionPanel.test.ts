@@ -574,4 +574,68 @@ describe('#176 — el panel de la extensión', () => {
       )
     })
   })
+
+  describe('#219 — los datos de la consulta', () => {
+    const PLIEGOS = {
+      ...AGENTES[0],
+      id: 'a4',
+      nombre: 'Pliegos',
+      indicaciones: 'Indica el tipo de contrato y el CPV.',
+      datos_consulta: [
+        { clave: 'tipo_de_contrato', etiqueta: 'Tipo de contrato', tipo: 'opciones', opciones: ['Obras', 'Servicios'], obligatorio: true, ayuda: null, columna: null, prefijo: false },
+        { clave: 'codigo_cpv', etiqueta: 'Código CPV', tipo: 'texto', opciones: [], obligatorio: false, ayuda: 'Ocho cifras', columna: null, prefijo: true },
+      ],
+    }
+    async function conPliegos(m: Mundo) {
+      m.respuestas['/api/v1/agentes/catalogo'] = { status: 200, cuerpo: [PLIEGOS] }
+      m.respuestas['/api/v1/agentes/a4/consulta'] = m.respuestas['/api/v1/agentes/a1/consulta']
+      m.gestionada = { panel_url: 'https://normativa.uji.es/panel' }
+      m.local = { token: 'ggai_pat_x' }
+      await cargar(m).pintar()
+      await vi.waitFor(() => expect(document.querySelectorAll('[data-agente]')).toHaveLength(1))
+      ;(document.querySelector('[data-agente="a4"] input') as HTMLInputElement).click()
+      const pregunta = document.getElementById('pregunta') as HTMLTextAreaElement
+      pregunta.value = '¿Qué solvencia pido?'
+      pregunta.dispatchEvent(new Event('input'))
+    }
+    const tipo = () => document.getElementById('dato_tipo_de_contrato') as HTMLSelectElement
+    const cpv = () => document.getElementById('dato_codigo_cpv') as HTMLInputElement
+
+    it('pinta lo que declara el agente, con indicaciones y ayuda', async () => {
+      await conPliegos(mundo)
+      expect(document.getElementById('indicaciones')?.textContent).toBe('Indica el tipo de contrato y el CPV.')
+      expect([...tipo().options].map((o) => o.value)).toEqual(['', 'Obras', 'Servicios'])
+      expect(document.querySelector('label[for="dato_tipo_de_contrato"]')?.textContent).toBe('Tipo de contrato *')
+      expect(document.body.textContent).toContain('Ocho cifras')
+    })
+
+    it('sin el obligatorio no se prepara; con él, manda los datos por su clave', async () => {
+      await conPliegos(mundo)
+      expect(boton('preparar').disabled).toBe(true)
+      tipo().value = 'Servicios'
+      tipo().dispatchEvent(new Event('change'))
+      cpv().value = '79341000'
+      cpv().dispatchEvent(new Event('input'))
+      expect(boton('preparar').disabled).toBe(false)
+      boton('preparar').click()
+      await vi.waitFor(() =>
+        expect(mundo.peticiones.find((p) => p.url.endsWith('/a4/consulta'))?.cuerpo).toMatchObject({
+          datos: { tipo_de_contrato: 'Servicios', codigo_cpv: '79341000' },
+        }),
+      )
+    })
+
+    it('un dato vacío no se manda', async () => {
+      await conPliegos(mundo)
+      tipo().value = 'Obras'
+      tipo().dispatchEvent(new Event('change'))
+      boton('preparar').click()
+      await vi.waitFor(() =>
+        expect((mundo.peticiones.find((p) => p.url.endsWith('/a4/consulta'))?.cuerpo as { datos: unknown }).datos).toEqual({
+          tipo_de_contrato: 'Obras',
+        }),
+      )
+    })
+  })
 })
+

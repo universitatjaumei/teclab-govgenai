@@ -24,7 +24,7 @@ import unicodedata
 import uuid
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
-from typing import Any
+from typing import Any, Sequence
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -261,11 +261,16 @@ async def seleccionar(
     embedder: Any,
     *,
     principal: Any,
+    filtros: Sequence[Any] = (),
 ) -> list[FichaSeleccionada]:
     """Los documentos pertinentes para la consulta, **nunca más que el presupuesto del agente**.
 
     El acotado por colectivo es del agente —la consulta nombra uno—, así que se comprueba antes;
     la vigencia es de cada ficha y va en el `WHERE`.
+
+    Con `filtros` (#219, los datos de la consulta ligados a una columna), el filtro suave se aplica
+    **antes de gastar el presupuesto**, como la vigencia: lo excluido no ocupa plaza. Se hace aquí y
+    no en el `WHERE` porque las cabeceras de la hoja se comparan normalizadas.
     """
     if not lo_puede_usar(agente, version, principal=principal):
         raise AgenteNoDisponible("este agente no se te ofrece")
@@ -289,14 +294,18 @@ async def seleccionar(
 
     vector = await embedder.embed(consulta)
     distancia = HubAgenteFicha.embedding.cosine_distance(vector).label("distancia")
-    filas = (
-        await session.execute(
-            select(HubAgenteFicha, distancia)
-            .where(HubAgenteFicha.agente_id == agente.id, HubAgenteFicha.vigente.is_(True))
-            .order_by(distancia)
-            .limit(version.presupuesto_documentos)
-        )
-    ).all()
+    consulta_sql = (
+        select(HubAgenteFicha, distancia)
+        .where(HubAgenteFicha.agente_id == agente.id, HubAgenteFicha.vigente.is_(True))
+        .order_by(distancia)
+    )
+    if not filtros:
+        consulta_sql = consulta_sql.limit(version.presupuesto_documentos)
+    filas = (await session.execute(consulta_sql)).all()
+    if filtros:
+        from server.app.modules.agentes.datos import pasa
+
+        filas = [(f, d) for f, d in filas if pasa(f.metadatos, list(filtros))][: version.presupuesto_documentos]
     hoy = date.today()
     return [
         FichaSeleccionada(
@@ -314,7 +323,10 @@ async def seleccionar(
 # =============================================================================
 
 
-def _clave(cabecera: Any) -> str:
+def normalizar_columna(cabecera: Any) -> str:
+    """Una cabecera sin mayúsculas, acentos ni signos: «Tipo de contrato» → `tipo_de_contrato`.
+
+    La comparten la hoja del índice y los datos de la consulta (#219), que casan por ella."""
     sin_acentos = unicodedata.normalize("NFKD", str(cabecera)).encode("ascii", "ignore").decode()
     return re.sub(r"[^a-z0-9]+", "_", sin_acentos.lower()).strip("_")
 
@@ -353,7 +365,7 @@ def _vacio(valor: Any) -> bool:
 def _vigente(valor: Any, fila: int) -> bool:
     if isinstance(valor, bool):
         return valor
-    clave = "" if _vacio(valor) else _clave(valor)
+    clave = "" if _vacio(valor) else normalizar_columna(valor)
     if clave in _SI:
         return True
     if clave in _NO:
@@ -379,7 +391,7 @@ def _fecha(valor: Any, fila: int) -> date | None:
 
 def desde_tabla(df: Any) -> list[FichaEntrada]:
     """La hoja del guion de curación, o la que prepara la unidad a mano, como fichas."""
-    columnas = {c: _COLUMNAS.get(_clave(c)) for c in df.columns}
+    columnas = {c: _COLUMNAS.get(normalizar_columna(c)) for c in df.columns}
     if "url" not in columnas.values():
         raise IndiceNoValido("la hoja no tiene columna «url»: es lo que identifica cada documento")
     fichas: list[FichaEntrada] = []
