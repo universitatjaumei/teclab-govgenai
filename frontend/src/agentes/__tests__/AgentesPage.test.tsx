@@ -712,6 +712,34 @@ describe('#228 — las plazas reservadas por capa', () => {
     expect(mutaciones.publicar).not.toHaveBeenCalled()
   })
 
+  // Revisión de la PR #229: el servidor compara las capas sin acentos ni signos.
+  it.each([
+    ['Normativa pròpia', 'Normativa propia'],
+    ['Pliego tipo GVA', 'pliego_tipo_gva'],
+  ])('«%s» y «%s» son la misma capa', async (una, otra) => {
+    montar([])
+    fireEvent.click(screen.getByRole('button', { name: 'Publicar un agente' }))
+    rellenar(DECLARACION)
+    fireEvent.click(screen.getByRole('button', { name: 'Reservar plazas para una capa' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Reservar plazas para una capa' }))
+    fireEvent.change(within(screen.getByTestId('reserva-0')).getByLabelText('Capa'), { target: { value: una } })
+    fireEvent.change(within(screen.getByTestId('reserva-1')).getByLabelText('Capa'), { target: { value: otra } })
+    fireEvent.click(screen.getByRole('button', { name: 'Publicar' }))
+    expect(await screen.findByText('Cada capa se reserva una sola vez.')).toBeInTheDocument()
+    expect(mutaciones.publicar).not.toHaveBeenCalled()
+  })
+
+  it('una capa sólo de signos no vale', async () => {
+    montar([])
+    fireEvent.click(screen.getByRole('button', { name: 'Publicar un agente' }))
+    rellenar(DECLARACION)
+    fireEvent.click(screen.getByRole('button', { name: 'Reservar plazas para una capa' }))
+    fireEvent.change(within(screen.getByTestId('reserva-0')).getByLabelText('Capa'), { target: { value: '---' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Publicar' }))
+    expect(await screen.findByText('La capa tiene que tener letras o números.')).toBeInTheDocument()
+    expect(mutaciones.publicar).not.toHaveBeenCalled()
+  })
+
   it('la ficha dice qué plazas reserva', () => {
     montar([agente({}, { reservas: [{ capa: 'LCSP', plazas: 2 }, { capa: 'TACRC', plazas: 1 }] })])
     expect(screen.getByTestId('reservas')).toHaveTextContent('LCSP: 2 · TACRC: 1')

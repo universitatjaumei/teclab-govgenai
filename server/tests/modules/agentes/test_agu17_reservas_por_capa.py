@@ -103,6 +103,26 @@ class TestConLoDemas:
         assert sorted(elegidas) == ["e1", "e2", "lcsp1", "lcsp9"]
 
     @pytest.mark.asyncio
+    async def test_las_prioritarias_de_otra_capa_no_se_comen_las_reservas(self, http):
+        """Revisión de la PR #229: dos prioritarias UJI y reservas LCSP 2 + TACRC 2 con presupuesto
+        4. Admitir antes las prioritarias dejaba TACRC a cero: el mínimo declarado manda."""
+        fichas = (
+            EJEMPLOS
+            + LEY
+            + [_de_capa("TACRC", n) for n in range(1, 4)]
+            + [_de_capa("UJI", n, prioritario=True) for n in range(1, 3)]
+        )
+        reservas = [{"capa": "LCSP", "plazas": 2}, {"capa": "TACRC", "plazas": 2}]
+        elegidas = await _documentos(http, fichas, 4, reservas)
+        assert sorted(elegidas) == ["lcsp1", "lcsp2", "tacr1", "tacr2"]
+
+    @pytest.mark.asyncio
+    async def test_las_prioritarias_ocupan_lo_que_las_reservas_dejan(self, http):
+        fichas = EJEMPLOS + LEY + [_de_capa("UJI", n, prioritario=True) for n in range(1, 3)]
+        elegidas = await _documentos(http, fichas, 4, [{"capa": "LCSP", "plazas": 2}])
+        assert sorted(elegidas) == ["lcsp1", "lcsp2", "uji1", "uji2"]
+
+    @pytest.mark.asyncio
     async def test_una_capa_sin_fichas_devuelve_sus_plazas(self, http):
         elegidas = await _documentos(http, EJEMPLOS + LEY, 4, [{"capa": "TACRC", "plazas": 2}])
         assert elegidas == ["e1", "e2", "e3", "e4"]
@@ -137,6 +157,9 @@ class TestLaDeclaracion:
             ([{"capa": "LCSP", "plazas": 1}, {"capa": "lcsp", "plazas": 1}], 10),  # la misma capa dos veces
             ([{"capa": "LCSP", "plazas": 0}], 10),  # una reserva vacía
             ([{"capa": " ", "plazas": 1}], 10),  # sin capa
+            # Revisión de la PR #229: sólo signos se normaliza a vacío, que es la «capa» de las
+            # fichas sin columna `capa`; la reserva preferiría documentos sin clasificar.
+            ([{"capa": "---", "plazas": 1}], 10),
         ],
     )
     @pytest.mark.asyncio

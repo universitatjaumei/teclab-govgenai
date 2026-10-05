@@ -85,7 +85,8 @@
     "opciones_minimas": "Una llista porta almenys dues opcions.",
     "reservas_suman": "Les places reservades no poden sumar més que els documents per consulta.",
     "reservas_repetidas": "Cada capa es reserva una sola vegada.",
-    "plazas": "Entre 1 i 10 places."
+    "plazas": "Entre 1 i 10 places.",
+    "capa_sin_letras": "La capa ha de tindre lletres o números."
   },
   "fichas_en_el_indice_one": "{{count}} fitxa",
   "fichas_en_el_indice_other": "{{count}} fitxes",

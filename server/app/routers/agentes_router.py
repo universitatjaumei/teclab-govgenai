@@ -130,8 +130,10 @@ class ReservaDeCapa(BaseModel):
     @classmethod
     def _con_texto(cls, valor: str) -> str:
         limpio = valor.strip()
-        if not limpio:
-            raise ValueError("la capa no puede estar vacía")
+        # Sólo signos se normaliza a vacío, que es la «capa» de las fichas sin columna `capa`
+        # (revisión de la PR #229): la reserva preferiría documentos sin clasificar.
+        if not indice.normalizar_columna(limpio):
+            raise ValueError("la capa tiene que tener letras o números")
         return limpio
 
 

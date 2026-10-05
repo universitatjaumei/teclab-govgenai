@@ -834,7 +834,7 @@ del navegador (#176).
   capa —el valor de la columna `capa` del índice, sin distinguir mayúsculas ni acentos—, y dentro
   de la capa se elige por similitud. Por qué: cientos de ejemplos ganan en similitud a la ley y a
   la doctrina, y la redacción necesita las tres cosas. Las prioritarias cuentan para la cuota de su
-  capa; la plaza que una capa no llena vuelve al reparto general; las reservas no suman más que el
+  capa y **no ocupan plazas reservadas a otra**: el mínimo declarado manda sobre la prioridad; la plaza que una capa no llena vuelve al reparto general; las reservas no suman más que el
   presupuesto ni repiten capa, y se aplican después del filtro de los datos de la consulta.
 - **Se pueden pedir más documentos en la misma conversación** (#225; decisión del usuario,
   2026-10-05: con esto, el primer lote sólo tiene que ser un buen punto de partida). Quien consultó

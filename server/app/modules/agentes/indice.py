@@ -371,10 +371,27 @@ async def seleccionar(
     ).all()
     candidatas = [f for f in filas if f.url not in excluir and pasa(f.metadatos, list(filtros))]
     presupuesto = version.presupuesto_documentos
-    elegidas = [f for f in candidatas if es_prioritaria(f.metadatos)][: presupuesto // 2]
-    for reserva in getattr(version, "reservas", None) or []:
-        capa = normalizar_columna(reserva["capa"])
-        faltan = reserva["plazas"] - sum(1 for f in elegidas if capa_de(f.metadatos) == capa)
+    reservas = [(normalizar_columna(r["capa"]), r["plazas"]) for r in getattr(version, "reservas", None) or []]
+
+    def pendientes(elegidas: list) -> int:
+        """Las plazas reservadas que aún faltan y que su capa puede llenar."""
+        total = 0
+        for capa, plazas in reservas:
+            ya = sum(1 for f in elegidas if capa_de(f.metadatos) == capa)
+            quedan = sum(1 for f in candidatas if f not in elegidas and capa_de(f.metadatos) == capa)
+            total += min(max(0, plazas - ya), quedan)
+        return total
+
+    # Una prioritaria entra sólo si después siguen cabiendo las reservas pendientes: el mínimo
+    # declarado por capa manda sobre la prioridad (revisión de la PR #229).
+    elegidas: list = []
+    for f in candidatas:
+        if len(elegidas) >= presupuesto // 2:
+            break
+        if es_prioritaria(f.metadatos) and len(elegidas) + 1 + pendientes(elegidas + [f]) <= presupuesto:
+            elegidas.append(f)
+    for capa, plazas in reservas:
+        faltan = plazas - sum(1 for f in elegidas if capa_de(f.metadatos) == capa)
         de_la_capa = [f for f in candidatas if f not in elegidas and capa_de(f.metadatos) == capa]
         elegidas += de_la_capa[: max(0, min(faltan, presupuesto - len(elegidas)))]
     filas = elegidas + [f for f in candidatas if f not in elegidas][: presupuesto - len(elegidas)]

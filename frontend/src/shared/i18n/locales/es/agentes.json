@@ -85,7 +85,8 @@
     "opciones_minimas": "Una lista lleva al menos dos opciones.",
     "reservas_suman": "Las plazas reservadas no pueden sumar más que los documentos por consulta.",
     "reservas_repetidas": "Cada capa se reserva una sola vez.",
-    "plazas": "Entre 1 y 10 plazas."
+    "plazas": "Entre 1 y 10 plazas.",
+    "capa_sin_letras": "La capa tiene que tener letras o números."
   },
   "fichas_en_el_indice_one": "{{count}} ficha",
   "fichas_en_el_indice_other": "{{count}} fichas",

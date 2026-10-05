@@ -85,7 +85,8 @@
     "opciones_minimas": "A list needs at least two options.",
     "reservas_suman": "Reserved places cannot add up to more than the documents per query.",
     "reservas_repetidas": "Each layer is reserved only once.",
-    "plazas": "Between 1 and 10 places."
+    "plazas": "Between 1 and 10 places.",
+    "capa_sin_letras": "The layer must contain letters or numbers."
   },
   "fichas_en_el_indice_one": "{{count}} entry",
   "fichas_en_el_indice_other": "{{count}} entries",

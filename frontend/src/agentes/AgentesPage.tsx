@@ -31,6 +31,20 @@ import { useOrganizacionElegida } from '@/shared/organizacion/useOrganizacionEle
  * ayuda a nadie.
  */
 
+/**
+ * #228 — la capa como la compara el servidor (`indice.normalizar_columna`): sin acentos,
+ * mayúsculas ni signos. Si no, «Normativa pròpia» y «Normativa propia» pasaban aquí y el servidor
+ * las rechazaba como repetidas (revisión de la PR #229).
+ */
+function claveDeCapa(capa: string): string {
+  return capa
+    .normalize('NFKD')
+    .replace(/[^ -~]/g, '') // lo que no es ASCII imprimible, como el «ignore» de Python
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+}
+
 const declaracionSchema = z
   .object({
     nombre: z.string().trim().min(1, 'obligatorio'),
@@ -70,7 +84,7 @@ const declaracionSchema = z
     reservas: z
       .array(
         z.object({
-          capa: z.string().trim().min(1, 'obligatorio'),
+          capa: z.string().trim().min(1, 'obligatorio').refine((c) => claveDeCapa(c) !== '', 'capa_sin_letras'),
           plazas: z.number({ message: 'plazas' }).int('plazas').min(1, 'plazas').max(10, 'plazas'),
         }),
       )
@@ -82,7 +96,7 @@ const declaracionSchema = z
         ctx.addIssue({ code: 'custom', path: ['datos_consulta', i, 'opciones'], message: 'opciones_minimas' })
       }
     })
-    const capas = v.reservas.map((r) => r.capa.trim().toLowerCase())
+    const capas = v.reservas.map((r) => claveDeCapa(r.capa))
     if (new Set(capas).size < capas.length) {
       ctx.addIssue({ code: 'custom', path: ['reservas'], message: 'reservas_repetidas' })
     }
