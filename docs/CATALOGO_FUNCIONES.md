@@ -10,6 +10,12 @@ cada plantilla. Dos plantillas que necesitaran la misma extracción eran dos pro
 aprobaciones y dos copias; y un error en un script usado por N plantillas se arreglaba N veces. El
 catálogo existe para que eso no vuelva a pasar: la plantilla **referencia** `función@versión`.
 
+**Dónde está.** Desde el 2026-10-05 el catálogo tiene módulo y menú propios, **Automatización**
+(módulo `automatizacion`, `/automatizacion/funciones`), y ya no cuelga de Informes: una función
+externa no produce ningún informe. Lo que sigue en Informes son los scripts que quien redacta
+propone para su plantilla (§6), porque son parte de redactar. El código del servidor sigue en
+`modules/redaccion/`.
+
 Este documento está escrito para tres lectores distintos, y cada sección dice para quién es.
 
 ---
@@ -191,8 +197,8 @@ sustituye al circuito que la Instrucció prevé para lo que excede un servicio.
 * **Regla 3, traza en la compartición**: no hay forma de compartir una función sin registrarla.
 * **Regla 1, ecosistema autorizado**: los 17 módulos permitidos y las 63 capacidades denegadas de
   §5, servidos por API además de documentados. **Ratificados por la institución el 2026-09-29**
-  (issue #122), junto con la ampliación prevista de librerías —`python-docx`, `pymupdf`— que
-  AUT.9 aplicará.
+  (issue #122), junto con la ampliación de librerías —`python-docx`, `pymupdf`— que AUT.9 ya
+  aplicó (§5).
 
   ~~**La red saliente hacia orígenes declarados NO entra.**~~ **Decidido el 2026-09-30 (issue
   #118): entra, con dos cerrojos.** Escribir hacia fuera no tiene sentido para una función de
@@ -532,7 +538,8 @@ Nadie tiene que aprobártelo. El auditor ya leyó tu código sin ejecutarlo y el
 ejecutó con tus datos; con eso y tu declaración, la función entra en el catálogo como **v1
 registrada** y cualquier plantilla de tu organización puede referenciarla desde ese momento.
 
-Después aparecerá en **Revisión posterior**, y ahí otra persona puede pedirte correcciones,
+Después aparecerá en **Automatización → Revisión posterior** (`/automatizacion/funciones/revision`),
+y ahí otra persona puede pedirte correcciones,
 reclasificar su alcance o suspenderla si encuentra un problema. Mientras eso no pase, funciona —
 y si te la suspenden, el informe que la usaba falla diciendo el motivo, no en silencio.
 
