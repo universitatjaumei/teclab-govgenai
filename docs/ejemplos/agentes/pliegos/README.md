@@ -48,8 +48,21 @@ así que la carpeta no crece con los años. Con 2024 salen 224 expedientes de 39
 documentos. **Los PDF pesan 0,42 MB de media** (medido sobre 30), así que la carpeta entera ocupa
 unos cientos de megas.
 
-Las capas 1 y 2 son pocas y estables. Van marcadas como **fichas prioritarias** en la hoja del
-índice (#223): entran antes que los ejemplos si encajan con la consulta.
+Las capas 1 y 2 son pocas y estables, y cientos de ejemplos les ganarían en similitud. Dos
+mecanismos de la selección lo evitan, y los dos se declaran en el agente o en la hoja, no en este
+script:
+
+- **Plazas reservadas por capa** (#228). El agente declara cuántas plazas de cada consulta van como
+  mínimo a cada valor de la columna `capa` del índice. El piloto de pliegos reserva, de 10: **UJI 2,
+  LCSP 2, Pliego tipo GVA 1 y TACRC 1**; las otras cuatro se reparten por similitud. Dentro de cada
+  capa también se elige por similitud, y la plaza que una capa no llena vuelve al reparto general.
+- **Fichas prioritarias** (#223), marcadas en la columna `prioritario` de la hoja: entran antes
+  que los ejemplos si encajan con la consulta. Cuentan para la cuota de su capa y **nunca ocupan
+  plazas reservadas a otra**. En el piloto sólo son prioritarios los dos documentos de la UJI; los
+  pliegos tipo y la DA 54ª ya no lo son.
+
+Si el primer lote no basta, **«Buscar más documentos»** (#225) pide enlaces nuevos en la misma
+conversación, sin repetir los ya ofrecidos.
 
 ## Dos pasos: extraer una vez y elegir muchas
 
