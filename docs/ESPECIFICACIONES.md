@@ -625,12 +625,16 @@ veces.
 **Dónde vive.** `modules/redaccion/funciones_service.py`, `funciones_acciones.py`,
 `funciones_resolver.py`, `funciones_paquete.py`, `contracts/funciones.py`; routers
 `/api/v1/funciones` y `/api/v1/funciones/{id}/run`; catálogo y cola de revisión en
-`/redaccion/funciones`.
+`/automatizacion/funciones`. **Módulo de acceso `automatizacion`** desde el 2026-10-05: antes era
+`informes`, y una función —sobre todo una externa— no produce ningún informe. Las plantillas usan
+las funciones por dentro, al ejecutar el workspace, así que redactar no exige este módulo.
 
-**Madurez**: `construido` — ciclo completo recorrido contra la base de desarrollo (registrar sin
-aprobación, dos plantillas ancladas a v1, publicar v2 sin tocarlas, adoptar v2 en una, suspender
-con motivo y ver fallar sólo esa, reactivar), más el paquete demo instalado y desinstalado de
-verdad. Sin desplegar. El contrato completo está en `docs/CATALOGO_FUNCIONES.md`.
+**Madurez**: `producción` — desplegado por partes entre el 2026-09-29 (orígenes externos y
+decisiones de la institución, PR #189 y #192) y el 2026-10-02 (funciones de tarea, PR #210 y
+#212). Antes, ciclo completo recorrido contra la base de desarrollo (registrar sin aprobación, dos
+plantillas ancladas a v1, publicar v2 sin tocarlas, adoptar v2 en una, suspender con motivo y ver
+fallar sólo esa, reactivar), más el paquete demo instalado y desinstalado de verdad. El contrato
+completo está en `docs/CATALOGO_FUNCIONES.md`.
 
 **Decidido el 2026-09-29** (issues #121, #122 y #123), que era el punto abierto de este bloque.
 La **regla de ejecución local del nivel 2 es un suelo y no un techo**: no obliga a ejecutar en la
@@ -686,9 +690,9 @@ anonimización de `redaccion`; router `/api/v1/utilidades`; pantallas en `/utili
 acceso `utilidades`, **de oficio**: lo tiene cualquier persona de la plataforma sin concesión
 (§5.6), porque lo que sustituye son webs que cualquiera usa.
 
-**Madurez**: `construido` — verificado en el navegador contra el backend de desarrollo, con
-ficheros sintéticos: las tres operaciones de PDF y la anonimización de punta a punta. Sin
-desplegar. El PDF se procesa con MuPDF **en el proceso de la API**; el sandbox sería más seguro
+**Madurez**: `producción` — desplegado el 2026-10-02 (PR #212), tras verificarlo en el navegador
+contra el backend de desarrollo con ficheros sintéticos: las tres operaciones de PDF y la
+anonimización de punta a punta. El PDF se procesa con MuPDF **en el proceso de la API**; el sandbox sería más seguro
 frente a un PDF malicioso, y es una decisión abierta.
 
 ### 5.14 Agentes de unidad
@@ -732,7 +736,8 @@ del navegador (#176).
 - **Cualquiera consulta desde el panel**: entrada «Agentes», pestaña «Consultar» (módulo
   `consulta_agentes`, de oficio); publicar y gestionar es la otra pestaña, con el módulo
   `agentes`. Ve el catálogo de su colectivo, prepara el prompt y lo copia para pegarlo en el
-  asistente general. Retirar el módulo del catálogo apaga la consulta para todos.
+  asistente general; desde la extensión, además, se inserta directamente en Gemini (#215, más
+  abajo). Retirar el módulo del catálogo apaga la consulta para todos.
 - **El adjunto, en tres niveles que declara la unidad** (#218): `no`, `opcional` —quien pregunta
   dice en cada consulta si adjunta— u `obligatorio`, un agente de revisión. Con adjunto, quien
   consulta lo pega con el prompt en el asistente, los enlaces pasan a ser **el criterio** con el
@@ -857,7 +862,10 @@ quien usa; `modules/agentes/indice.py` (cargar y seleccionar) y `/api/v1/agentes
 `extension/`, fuera del panel, y se carga tal cual en Chrome. Tablas operacionales
 `hub_agentes_unidad`, `hub_agente_unidad_versiones`, `hub_agente_fichas` y `hub_agente_consultas`.
 
-**Madurez**: `construido`, sin desplegar.
+**Madurez**: `producción` — desplegado el 2026-10-04 (PR #221), con las fichas prioritarias el
+2026-10-05 (PR #227) y las reservas por capa y la ampliación ese mismo día (PR #229). Primer agente
+real: el piloto del asistente de pliegos para grupos de investigación, en modo validación. La
+extensión se distribuye como versión de pruebas, sin publicar en la tienda de Chrome.
 
 ---
 
@@ -870,25 +878,29 @@ NiceGUI, y la de servicios está hecha bajo otros nombres —el catálogo de fun
 sandbox, el `RunManifest`, el registro de actividad y las verificaciones por API y MCP (§5.9,
 §5.10)—. Lo único que quedaba era el agente de ejecución local, y **se descarta** (§10).
 
-**Lo que falta, y que es el tema 4 de [`ROADMAP.md`](../ROADMAP.md)**:
+**Lo que hay, y que es el tema 4 de [`ROADMAP.md`](../ROADMAP.md)**:
 
 - **Funciones de origen externo**: un cuaderno o un script que corre fuera se registra por su
   hash, con declaración responsable y sin ejecutarlo. Registrar es el canal de compartición; la
-  plataforma no puede impedir que se ejecute fuera, y lo dice.
-- **Gobernanza para agentes de código**: configuración MCP y *skill* publicadas, para que usar
+  plataforma no puede impedir que se ejecute fuera, y lo dice (§5.12). Cuando corre, la última
+  celda lo anota en el registro de actividad con su `funcion_sha256`.
+- **Gobernanza para agentes de código**: configuración MCP publicada, para que usar
   `auditar_codigo`, `anonimizar_texto` y `registrar_actividad` sea el camino fácil. Por MCP el
-  cumplimiento es **voluntario**, y eso no se disimula.
+  cumplimiento es **voluntario**, y eso no se disimula: Claude sólo registra si alguien se lo
+  pide. Hacerlo automático con un *hook* es la #230.
 - **Funciones de tarea**: artefactos de salida, red saliente sólo hacia **orígenes declarados** y
   el ecosistema de módulos ampliado. Abrir la red debilita el argumento de §5.12 («una función no
   puede hablar con nada»), así que es una **clase distinta**, visible y con revisión en plazo.
-- **Agentes de unidad sobre el asistente general**: el catálogo, el índice, la consulta y el guion
-  que mantiene el índice y la extensión del navegador están construidos (§5.14). **Abierto**: registrar el guion en el catálogo de funciones como función de
-  origen externo, que es donde lo situaba la #174; hoy lo sirve la plataforma con su huella.
+- **Agentes de unidad sobre el asistente general** (§5.14): el catálogo, el índice, la consulta,
+  el guion que mantiene el índice y la extensión del navegador.
+- **Las decisiones de la institución** (régimen de ejecución, ecosistema autorizado, quién
+  revisa): **tomadas el 2026-09-29**, y escritas en §5.12.
 
-**Madurez**: `previsto`, sobre una base `construido`: lo que ejecuta ya existe.
+**Madurez**: `producción` — todo lo anterior está desplegado (fechas en §5.12, §5.13 y §5.14).
 
-**Abierto.** El régimen de ejecución, la lista del ecosistema autorizado y quién asume la
-revisión posterior son decisiones de la institución, no del código.
+**Abierto.** Registrar el guion del índice de los agentes en el catálogo de funciones como función
+de origen externo, que es donde lo situaba la #174; hoy lo sirve la plataforma con su huella. Y
+que el registro de los agentes de código deje de depender de que alguien lo pida (#230).
 
 ---
 
