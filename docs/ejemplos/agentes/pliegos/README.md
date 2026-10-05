@@ -139,8 +139,14 @@ No compensa:
   ningún nodo, así que también casan por el nombre: «Universidad», «Universitat», «Universidade»,
   siempre al principio y como palabra entera, para que no entre una «Consejería de … y
   Universidades».
-- **Fuera los negociados sin publicidad, los menores y los derivados de acuerdo marco.** Sus
-  pliegos son escuetos o son los del acuerdo, y no enseñan a redactar.
+- **Fuera los menores y los derivados de acuerdo marco**: sus pliegos son escuetos o son los del
+  acuerdo, y no enseñan a redactar. **Los negociados sin publicidad sólo entran en la familia
+  «Exclusividad», y sólo con su justificación y su memoria**, no con el PPT: lo que enseñan es a
+  justificar la exclusividad.
+- **Las fechas se comparan como instantes, no como texto**, porque en el cambio de hora el feed
+  mezcla `+01:00` y `+02:00`. **Y las lápidas se guardan con su extracción**
+  (`<extracción>_lapidas.json`): la baja de un expediente de 2024 puede llegar en 2025, y al juntar
+  los periodos tiene que retirarlo.
 - **Relanzar no vuelve a pedir lo que ya está**, así que se puede retomar tras un corte.
 
 ## Cómo se prueba

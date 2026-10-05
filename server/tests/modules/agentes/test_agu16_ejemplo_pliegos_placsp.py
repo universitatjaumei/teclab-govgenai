@@ -429,3 +429,36 @@ def test_la_tabla_de_documentos_dice_de_donde_viene_cada_fichero(tmp_path):
         ("Memoria", "Suministros", "38432000"),
     ]
     assert filas[0]["fichero"] == resultados[0].fichero
+
+
+class TestLaRevisionDeLaPR227:
+    """Lo que encontró la revisión de la PR #227."""
+
+    def test_las_fechas_se_comparan_como_instantes_y_no_como_texto(self):
+        """En el cambio de hora conviven +01:00 y +02:00: «02:45+02:00» es anterior a «02:30+01:00»
+        aunque como texto parezca posterior."""
+        posterior = _entrada(1, estado="RES", actualizado="2025-10-26T02:30:00+01:00")  # 01:30 UTC
+        anterior = _entrada(1, estado="ADJ", actualizado="2025-10-26T02:45:00+02:00")  # 00:45 UTC
+        [exp] = d.extraer([_feed(anterior, posterior)], SEL.capas)
+        assert exp.estado == "RES"
+        [exp] = d.ultimo_estado(
+            d.extraer([_feed(posterior)], SEL.capas), d.extraer([_feed(anterior)], SEL.capas)
+        )
+        assert exp.estado == "RES"
+
+    def test_una_lapida_de_otro_periodo_no_deja_resucitar_el_expediente(self, tmp_path):
+        """El expediente está en 2024 y su baja llega en 2025: guardadas por separado, la baja tiene
+        que viajar con la extracción de 2025 y aplicarse al juntar los periodos."""
+        lapida = '<at:deleted-entry ref="https://placsp/licitacion/1" when="2025-02-01T00:00:00+01:00"/>'
+        retirados_2024, retirados_2025 = {}, {}
+        en_2024 = d.extraer([_feed(_entrada(1, actualizado="2024-11-01T00:00:00+01:00"))], SEL.capas, retirados_2024)
+        en_2025 = d.extraer([_feed(lapida)], SEL.capas, retirados_2025)
+        assert en_2025 == [] and retirados_2025
+        d.guardar_extraccion(en_2025, tmp_path / "e2025.csv", retirados_2025)
+        assert d.leer_lapidas(tmp_path / "e2025.csv") == retirados_2025
+        assert d.ultimo_estado(en_2024, en_2025, retirados=retirados_2025) == []
+
+    def test_una_lapida_anterior_no_retira_una_version_posterior(self):
+        retirados = {"https://placsp/licitacion/1": "2024-01-01T00:00:00+01:00"}
+        en_2025 = d.extraer([_feed(_entrada(1, actualizado="2025-03-01T00:00:00+01:00"))], SEL.capas)
+        assert len(d.ultimo_estado(en_2025, retirados=retirados)) == 1

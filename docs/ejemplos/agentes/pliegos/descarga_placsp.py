@@ -31,6 +31,7 @@ import unicodedata
 import urllib.request
 import zipfile
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Iterable, Iterator
 from xml.etree import ElementTree as ET
@@ -319,22 +320,55 @@ def es_de(expediente: Expediente, familia: Familia) -> bool:
     )
 
 
-def extraer(feeds: Iterable[io.BufferedIOBase | Path | str], capas: Iterable[Capa]) -> list[Expediente]:
+_NUNCA = datetime.min.replace(tzinfo=timezone.utc)
+
+
+def instante(texto: str) -> datetime:
+    """Una fecha del feed como instante. **No se comparan como texto**: en el cambio de hora conviven
+    `+01:00` y `+02:00`, y «02:45+02:00» es anterior a «02:30+01:00» aunque como texto parezca
+    posterior."""
+    try:
+        valor = datetime.fromisoformat(texto.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return _NUNCA
+    return valor if valor.tzinfo else valor.replace(tzinfo=timezone.utc)
+
+
+def _registrar_lapida(retirados: dict[str, str], ref: str, cuando: str) -> None:
+    if ref not in retirados or instante(cuando) > instante(retirados[ref]):
+        retirados[ref] = cuando
+
+
+def _aplicar_lapidas(ultimos: dict[str, Expediente], retirados: dict[str, str]) -> None:
+    """Una lápida retira el expediente si es posterior a su último estado, o del mismo instante."""
+    for ref, cuando in retirados.items():
+        if ref in ultimos and instante(cuando) >= instante(ultimos[ref].actualizado):
+            del ultimos[ref]
+
+
+def extraer(
+    feeds: Iterable[io.BufferedIOBase | Path | str],
+    capas: Iterable[Capa],
+    retirados: dict[str, str] | None = None,
+) -> list[Expediente]:
     """Todos los expedientes de los órganos de las capas, **uno por expediente y en su último
     estado**, con cualquier CPV, tipo o procedimiento: es la pasada pesada, y se hace una vez.
 
     Un expediente aparece en el feed cada vez que cambia —se publica, se adjudica, se formaliza—,
     así que el mismo identificador viene varias veces, y gana la entrada más reciente. Una lápida
     posterior lo retira.
+
+    Si se pasa `retirados`, se rellena con **todas** las lápidas del periodo, también las de
+    expedientes que no están en él: la baja de un expediente de 2024 puede llegar en 2025, y hay que
+    guardarla con la extracción de 2025 para aplicarla al juntar los periodos (`ultimo_estado`).
     """
     capas = tuple(capas)
     ultimos: dict[str, Expediente] = {}
-    retirados: dict[str, str] = {}
+    retirados = {} if retirados is None else retirados
     for feed in feeds:
         for entrada in entradas(feed):
             if entrada.tag == _LAPIDA:
-                ref, cuando = entrada.get("ref", ""), entrada.get("when", "")
-                retirados[ref] = max(retirados.get(ref, ""), cuando)
+                _registrar_lapida(retirados, entrada.get("ref", ""), entrada.get("when", ""))
                 continue
             # El órgano no cambia entre versiones de un expediente: filtrar por él antes de leer
             # la entrada entera ahorra casi todo el trabajo.
@@ -345,23 +379,24 @@ def extraer(feeds: Iterable[io.BufferedIOBase | Path | str], capas: Iterable[Cap
             if exp is None:
                 continue
             previo = ultimos.get(exp.id)
-            if previo is None or exp.actualizado > previo.actualizado:
+            if previo is None or instante(exp.actualizado) > instante(previo.actualizado):
                 ultimos[exp.id] = exp
-    for ref, cuando in retirados.items():
-        if ref in ultimos and cuando >= ultimos[ref].actualizado:
-            del ultimos[ref]
+    _aplicar_lapidas(ultimos, retirados)
     return list(ultimos.values())
 
 
-def ultimo_estado(*listas: Iterable[Expediente]) -> list[Expediente]:
+def ultimo_estado(*listas: Iterable[Expediente], retirados: dict[str, str] | None = None) -> list[Expediente]:
     """Junta las extracciones de varios periodos: un expediente de 2024 adjudicado en 2025 viene en
-    los dos, y gana el estado más reciente."""
+    los dos, y gana el estado más reciente. Las lápidas de todos los periodos (`retirados`) se
+    aplican después: si no, la baja que llegó en un periodo posterior dejaría resucitar el
+    expediente de uno anterior."""
     ultimos: dict[str, Expediente] = {}
     for lista in listas:
         for exp in lista:
             previo = ultimos.get(exp.id)
-            if previo is None or exp.actualizado > previo.actualizado:
+            if previo is None or instante(exp.actualizado) > instante(previo.actualizado):
                 ultimos[exp.id] = exp
+    _aplicar_lapidas(ultimos, retirados or {})
     return list(ultimos.values())
 
 
@@ -382,7 +417,7 @@ def elegir(expedientes: Iterable[Expediente], seleccion: Seleccion) -> list[Expe
         grupos.setdefault((familia, capa, exp.entidad), []).append(exp)
     elegidos = []
     for (_, capa, _), lista in grupos.items():
-        lista.sort(key=lambda e: e.actualizado, reverse=True)
+        lista.sort(key=lambda e: instante(e.actualizado), reverse=True)
         elegidos.extend(lista[: capa.maximo_por_entidad] if capa.maximo_por_entidad is not None else lista)
     return sorted(elegidos, key=lambda e: (e.familia, e.capa, e.entidad, e.expediente))
 
@@ -398,9 +433,24 @@ _CAMPOS_EXTRACCION = [
 _LISTAS = ("jerarquia", "cpv", "adjudicatarios")
 
 
-def guardar_extraccion(expedientes: Iterable[Expediente], ruta: Path) -> None:
-    """La extracción de un periodo: unos megas frente a los gigas del feed. Las listas van en JSON."""
+def _ruta_lapidas(ruta: Path) -> Path:
+    return ruta.with_name(ruta.stem + "_lapidas.json")
+
+
+def leer_lapidas(ruta: Path) -> dict[str, str]:
+    """Las lápidas guardadas con una extracción. Una extracción de antes de guardarlas no tiene."""
+    lapidas = _ruta_lapidas(ruta)
+    return json.loads(lapidas.read_text(encoding="utf-8")) if lapidas.exists() else {}
+
+
+def guardar_extraccion(
+    expedientes: Iterable[Expediente], ruta: Path, retirados: dict[str, str] | None = None
+) -> None:
+    """La extracción de un periodo: unos megas frente a los gigas del feed. Las listas van en JSON.
+    Las lápidas del periodo, al lado, en `<nombre>_lapidas.json`."""
     ruta.parent.mkdir(parents=True, exist_ok=True)
+    if retirados is not None:
+        _ruta_lapidas(ruta).write_text(json.dumps(retirados, ensure_ascii=False), encoding="utf-8")
     with ruta.open("w", encoding="utf-8", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=_CAMPOS_EXTRACCION)
         w.writeheader()
@@ -630,6 +680,7 @@ def extraccion(
     *,
     zips: Path | None = None,
     conservar_zip: bool = False,
+    retirados: dict[str, str] | None = None,
 ) -> list[Expediente]:
     """La extracción de un periodo, **hecha una sola vez**: si ya está en `cache`, se lee.
 
@@ -637,13 +688,25 @@ def extraccion(
     y se borra al terminar salvo que se pida conservarlo. En Colab, `cache` va en Drive, para que
     la actualización del mes siguiente encuentre los periodos ya extraídos, y `zips` en el disco
     de la sesión. Para extraer con otras capas, se borran las extracciones y se vuelve a lanzar.
+
+    Si se pasa `retirados`, se le añaden las lápidas del periodo, para aplicarlas al juntarlo con
+    los demás.
     """
     ruta = cache / f"extraccion_{fuente}_{periodo}.csv"
+    del_periodo: dict[str, str] = {}
     if ruta.exists():
-        return leer_extraccion(ruta)
+        expedientes = leer_extraccion(ruta)
+        del_periodo = leer_lapidas(ruta)
+        for ref, cuando in del_periodo.items():
+            if retirados is not None:
+                _registrar_lapida(retirados, ref, cuando)
+        return expedientes
     zip_ = bajar_zip(fuente, periodo, zips or cache)
-    expedientes = extraer(feeds_de_zip(zip_), capas)
-    guardar_extraccion(expedientes, ruta)
+    expedientes = extraer(feeds_de_zip(zip_), capas, del_periodo)
+    guardar_extraccion(expedientes, ruta, del_periodo)
+    if retirados is not None:
+        for ref, cuando in del_periodo.items():
+            _registrar_lapida(retirados, ref, cuando)
     if not conservar_zip:
         zip_.unlink()
     return expedientes
@@ -659,13 +722,17 @@ def ejecutar(
     conservar_zips: bool = False,
 ) -> list[Resultado]:
     extracciones = []
+    retirados: dict[str, str] = {}
     for fuente in seleccion.fuentes:
         for periodo in seleccion.periodos:
             extracciones.append(
-                extraccion(fuente, periodo, seleccion.capas, cache, zips=zips, conservar_zip=conservar_zips)
+                extraccion(
+                    fuente, periodo, seleccion.capas, cache,
+                    zips=zips, conservar_zip=conservar_zips, retirados=retirados,
+                )
             )
             print(f"extraído {fuente} {periodo}: {len(extracciones[-1])} expedientes")
-    expedientes = elegir(ultimo_estado(*extracciones), seleccion)
+    expedientes = elegir(ultimo_estado(*extracciones, retirados=retirados), seleccion)
     escribir_tabla(expedientes, tabla)
     resultados = descargar(expedientes, carpeta)
     escribir_documentos(resultados, tabla.with_name(tabla.stem + "_documentos.csv"))
