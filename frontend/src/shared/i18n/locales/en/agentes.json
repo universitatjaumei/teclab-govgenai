@@ -102,7 +102,7 @@
   "revision_de_la_ficha": "planned review: {{fecha}}",
   "consulta": {
     "titulo": "Ask an agent",
-    "intro": "Choose an agent, write your question and copy the prompt that is prepared: it carries the links to the relevant documents. Paste it into the organisation's general assistant, which will open them with your account. The platform does not keep your question; only that you asked and which documents were offered.",
+    "intro": "Choose an agent, write your question and copy the prompt that is prepared: it carries the links to the relevant documents. Paste it into the organisation's general assistant, which will open them with your account. The platform records that you asked and which documents were offered; if the agent is in validation, it also keeps your question and the answer, to check that it works well.",
     "ninguno": "There is no agent for you yet.",
     "elige": "Agent",
     "responsable": "Responsible: {{responsable}}",

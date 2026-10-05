@@ -102,7 +102,7 @@
   "revision_de_la_ficha": "revisió prevista: {{fecha}}",
   "consulta": {
     "titulo": "Consultar un agent",
-    "intro": "Tria un agent, escriu la teua pregunta i copia el prompt que es prepara: porta els enllaços als documents que toquen. Apega'l a l'assistent general de l'organització, que els obrirà amb el teu compte. La plataforma no guarda la teua pregunta; només que vas consultar i quins documents se't van oferir.",
+    "intro": "Tria un agent, escriu la teua pregunta i copia el prompt que es prepara: porta els enllaços als documents que toquen. Apega'l a l'assistent general de l'organització, que els obrirà amb el teu compte. La plataforma registra que vas consultar i quins documents se't van oferir; si l'agent està en validació, guarda també la teua pregunta i la resposta, per a comprovar que funciona bé.",
     "ninguno": "Encara no hi ha cap agent per a tu.",
     "elige": "Agent",
     "responsable": "Responsable: {{responsable}}",

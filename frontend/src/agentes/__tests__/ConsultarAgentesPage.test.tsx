@@ -329,3 +329,16 @@ describe('#219 — los datos de la consulta', () => {
     expect(consultar.mock.calls[0][0].data.datos).toEqual({})
   })
 })
+
+describe('#216 — lo que se guarda de la consulta, dicho sin contradecirse', () => {
+  it('la entrada no afirma que la pregunta nunca se guarde: en validación sí se guarda', async () => {
+    for (const lengua of ['es', 'ca', 'en']) {
+      await i18n.changeLanguage(lengua)
+      const { unmount } = montar()
+      const intro = screen.getByTestId('consulta-intro').textContent ?? ''
+      expect(intro).not.toMatch(/no guarda tu pregunta|no guarda la teua pregunta|does not keep your question/)
+      expect(intro).toMatch(/validación|validació|validation/)
+      unmount()
+    }
+  })
+})
