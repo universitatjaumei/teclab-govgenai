@@ -20,7 +20,7 @@ const IDIOMAS: Record<string, string> = {
  *
  * «Automatización» y «Plataforma» eran `PlaceholderPage`: entradas de menú que llevaban a
  * una pantalla vacía. Un menú que promete lo que no hay es peor que un menú corto, así que
- * las dos se retiraron. «Automatización» sigue fuera —el módulo no existe—, pero
+ * las dos se retiraron. «Automatización» volvió el 2026-10-05 con el catálogo de funciones, y
  * «Plataforma» vuelve en PLAT.2, esta vez con contenido: las pantallas que nunca fueron del
  * módulo Chatbots y estaban dentro de él.
  *
@@ -30,6 +30,9 @@ const IDIOMAS: Record<string, string> = {
 const NAV_SECTIONS = [
   { key: 'chatbots', path: '/hub', modulo: 'chatbots' },
   { key: 'reports', path: '/redaccion', modulo: 'informes' },
+  // 2026-10-05 — el catálogo de funciones, que vivía en Informes. Una función externa no
+  // produce ningún informe: es automatización gobernada, y se concede por separado.
+  { key: 'automatizacion', path: '/automatizacion', modulo: 'automatizacion' },
   { key: 'curation', path: '/curation', modulo: 'curacion' },
   // USR.9 — sale del módulo `plataforma`: quien administra una organización necesita
   // llegar a sus personas sin recibir los modelos de LLM ni los tokens de paso.

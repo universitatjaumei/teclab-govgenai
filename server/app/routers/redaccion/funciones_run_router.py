@@ -1,7 +1,7 @@
 """Ejecutar una función del catálogo por API (FUN.6).
 
 Deploy: edge — se ejecuta código sobre datos del cliente.
-Módulo: informes.
+Módulo: automatizacion (desde el 2026-10-05; antes, `informes`).
 
 La superficie para una aplicación externa. Lo que esta capa añade sobre `ejecutar_funcion` no es
 la ejecución: es **no relajar nada** de lo que el catálogo hace cumplir por dentro.
@@ -73,7 +73,7 @@ from server.app.routers.verificaciones_router import MAXIMO_BYTES
 router = APIRouter(
     prefix="/funciones",
     tags=["funciones"],
-    dependencies=[Depends(require_module("informes"))],
+    dependencies=[Depends(require_module("automatizacion"))],
 )
 
 #: Tope de la ejecución. Un script pesado no puede tener el proceso ocupado indefinidamente, y

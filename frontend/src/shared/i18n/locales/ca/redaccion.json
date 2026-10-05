@@ -242,5 +242,6 @@
     "usada_por_plantillas_other": "La fan servir {{count}} plantilles",
     "valorada_como": "Valoració de la promoció",
     "origen_externa": "S'executa fora, registrada ací"
-  }
+  },
+  "automatizacion_nav_aria": "Navegació d'automatització"
 }

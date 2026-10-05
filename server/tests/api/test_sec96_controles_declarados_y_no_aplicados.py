@@ -103,6 +103,8 @@ class TestGuardasAMedias:
         )
 
     def test_should_require_the_reports_module_on_every_redaccion_router(self):
+        """Todo router de `redaccion/` exige un módulo: `informes` o, desde el 2026-10-05, el
+        catálogo de funciones, que pasó a `automatizacion` (ver `test_aut14_modulo_automatizacion`)."""
         base = Path("app/routers/redaccion")
         faltan = [
             ruta.name
@@ -110,10 +112,11 @@ class TestGuardasAMedias:
             if ruta.name != "__init__.py"
             and "APIRouter(" in ruta.read_text(encoding="utf-8")
             and 'require_module("informes")' not in ruta.read_text(encoding="utf-8")
+            and 'require_module("automatizacion")' not in ruta.read_text(encoding="utf-8")
         ]
         assert faltan == [], (
-            f"routers de Informes sin require_module('informes'): {faltan}. Saltarse la "
-            "frontera de módulos de INF.7 deja la pantalla accesible a quien no tiene el módulo"
+            f"routers de redaccion/ sin require_module('informes') ni ('automatizacion'): {faltan}. "
+            "Saltarse la frontera de módulos de INF.7 deja la pantalla accesible a quien no tiene el módulo"
         )
 
     def test_should_not_take_the_partner_from_the_body(self):

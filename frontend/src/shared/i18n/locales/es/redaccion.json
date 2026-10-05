@@ -242,5 +242,6 @@
     "usada_por_plantillas_other": "La usan {{count}} plantillas",
     "valorada_como": "Valoración de la promoción",
     "origen_externa": "Se ejecuta fuera, registrada aquí"
-  }
+  },
+  "automatizacion_nav_aria": "Navegación de automatización"
 }

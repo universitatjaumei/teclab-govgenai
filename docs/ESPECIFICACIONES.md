@@ -349,7 +349,10 @@ por `funcion_id@versión`.
   pueden administrar la misma organización. `AdminAccount` se queda con el partner y la
   facturación. Decisión escrita en [`DECISION_IDENTIDAD_DE_ADMINISTRACION.md`](DECISION_IDENTIDAD_DE_ADMINISTRACION.md).
 - **Acceso por módulos concedidos, no por roles nuevos**: `chatbots`, `curacion`, `informes`,
-  `personas`, `registro`, `utilidades`, `agentes`, `consulta_agentes`, `plataforma`. El catálogo es tabla (I4). El superadmin no
+  `automatizacion`, `personas`, `registro`, `utilidades`, `agentes`, `consulta_agentes`, `plataforma`.
+  `automatizacion` es el catálogo de funciones, que salió de `informes` el 2026-10-05: una función
+  externa no produce ningún informe; los scripts que quien redacta propone para su plantilla siguen
+  en `informes`. El catálogo es tabla (I4). El superadmin no
   necesita concesión, y **un módulo marcado `de_oficio` en el catálogo tampoco**: lo tiene
   cualquier persona de la plataforma, también quien se dé de alta mañana, y concederlo se rechaza
   porque no cambiaría nada. Hoy lo son `utilidades` y `consulta_agentes`.

@@ -31,6 +31,11 @@ MODULOS_INICIALES: tuple[tuple[str, str], ...] = (
     ("chatbots", "Chatbots y asistentes"),
     ("curacion", "Curación de contenido"),
     ("informes", "Informes"),
+    # 2026-10-05 — el catálogo de funciones sale de `informes`: las funciones, las de origen
+    # externo (cuadernos que corren fuera), su revisión y la ejecución por API. Una función externa
+    # no produce ningún informe; es automatización gobernada. Los scripts que quien redacta
+    # propone para su plantilla siguen en `informes`, porque son parte de redactar.
+    ("automatizacion", "Automatización"),
     # USR.9 — separado de `plataforma` a propósito: administrar a las personas de tu
     # organización no es administrar la plataforma (modelos de LLM, organizaciones, tokens,
     # módulos), y meterlo ahí obligaba a dar todo eso para poder dar lo primero.

@@ -1,7 +1,8 @@
 """El catálogo de funciones y su revisión posterior (FUN.4).
 
 Deploy: edge — el código y la declaración de una función son de la organización.
-Módulo: informes — hoy lo consumen los informes; en Fase 3, las fases de expediente.
+Módulo: automatizacion — desde el 2026-10-05; antes, `informes`. Las plantillas de informe
+usan las funciones por dentro, al ejecutar el workspace, así que no necesitan este módulo.
 
 **Lo que esta superficie hace cumplir**, y que no se puede deducir leyendo los endpoints uno a
 uno:
@@ -56,7 +57,7 @@ from server.app.routers.redaccion._actor import user_to_uuid
 router = APIRouter(
     prefix="/funciones",
     tags=["funciones"],
-    dependencies=[Depends(require_module("informes"))],
+    dependencies=[Depends(require_module("automatizacion"))],
 )
 
 

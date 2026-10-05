@@ -17,7 +17,8 @@
         "chatbots": "Chatbots and assistants",
         "curacion": "Content curation",
         "informes": "Reports",
-        "plataforma": "Platform administration"
+        "plataforma": "Platform administration",
+        "automatizacion": "Automation"
       },
       "detected_vars": "Detected variables",
       "available_vars": "Available variables",
@@ -371,7 +372,8 @@
     "main": "Main navigation",
     "language": "Language",
     "organizacion": "Organisation",
-    "plataforma": "Platform"
+    "plataforma": "Platform",
+    "automatizacion": "Automation"
   },
   "no_encontrado": {
     "texto": "The address you reached does not match any screen. Check the link in case it is incomplete.",
