@@ -1356,6 +1356,15 @@ class HubAgenteConsulta(HubOperationalBase):
     documentos: Mapped[list[dict[str, Any]]] = mapped_column(
         JSONB, nullable=False, default=list, server_default="[]"
     )
+    #: #225 — si es una ampliación («Buscar más documentos»), la consulta con que empezó la
+    #: conversación. Siempre la primera, aunque se amplíe desde otra ampliación: la conversación es
+    #: una, y lo ya ofrecido se busca en ella y en sus hijas.
+    consulta_madre_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("hub_agente_consultas.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
     #: La fila del registro de actividad que corresponde a esta consulta.
     actividad_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     #: #216 — el modo del agente al consultar. Las anteriores no guardaron nada: `incidencias`.

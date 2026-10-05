@@ -6,6 +6,7 @@ import i18n from '@/shared/i18n'
 import {
   useCatalogoApiV1AgentesCatalogoGet,
   useConsultarApiV1AgentesAgenteIdConsultaPost,
+  useAmpliarApiV1AgentesConsultasConsultaIdAmpliacionPost,
 } from '@/shared/api/generated/agentes/agentes'
 import { ConsultarAgentesPage } from '../ConsultarAgentesPage'
 
@@ -19,6 +20,7 @@ import { ConsultarAgentesPage } from '../ConsultarAgentesPage'
 vi.mock('@/shared/api/generated/agentes/agentes', () => ({
   useCatalogoApiV1AgentesCatalogoGet: vi.fn(),
   useConsultarApiV1AgentesAgenteIdConsultaPost: vi.fn(),
+  useAmpliarApiV1AgentesConsultasConsultaIdAmpliacionPost: vi.fn(),
   // #176 — la sección de la extensión, que aquí no es lo que se prueba.
   useConexionesDeLaExtensionApiV1AgentesExtensionConexionesGet: () => ({ data: [] }),
   useRevocarConexionDeLaExtensionApiV1AgentesExtensionConexionesConexionIdDelete: () => ({ mutate: vi.fn() }),
@@ -64,11 +66,16 @@ const RESPUESTA = {
 }
 
 const consultar = vi.fn()
+const ampliar = vi.fn()
 
 function montar(catalogo = CATALOGO) {
   vi.mocked(useCatalogoApiV1AgentesCatalogoGet).mockReturnValue({ data: catalogo, isLoading: false } as never)
   vi.mocked(useConsultarApiV1AgentesAgenteIdConsultaPost).mockReturnValue({
     mutate: consultar,
+    isPending: false,
+  } as never)
+  vi.mocked(useAmpliarApiV1AgentesConsultasConsultaIdAmpliacionPost).mockReturnValue({
+    mutate: ampliar,
     isPending: false,
   } as never)
   return render(
@@ -90,6 +97,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   consultar.mockReset()
+  ampliar.mockReset()
 })
 
 afterEach(async () => {
@@ -340,5 +348,62 @@ describe('#216 — lo que se guarda de la consulta, dicho sin contradecirse', ()
       expect(intro).toMatch(/validación|validació|validation/)
       unmount()
     }
+  })
+})
+
+describe('#225 — buscar más documentos en la misma conversación', () => {
+  function consultado() {
+    consultar.mockImplementation((_v, o) => o.onSuccess(RESPUESTA))
+    montar()
+    fireEvent.click(screen.getByLabelText(/Contratación menor/))
+    preguntar('¿importe máximo?')
+    fireEvent.click(screen.getByRole('button', { name: 'Preparar el prompt' }))
+  }
+
+  it('antes de consultar no se ofrece', () => {
+    montar()
+    expect(screen.queryByRole('button', { name: 'Buscar más documentos' })).not.toBeInTheDocument()
+  })
+
+  it('sin texto no se puede pedir', () => {
+    consultado()
+    expect(screen.getByRole('button', { name: 'Buscar más documentos' })).toBeDisabled()
+  })
+
+  it('manda su texto y amplía la última consulta', () => {
+    consultado()
+    fireEvent.change(screen.getByLabelText('¿Qué te falta o qué quieres precisar?'), {
+      target: { value: 'la justificación de la exclusividad' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Buscar más documentos' }))
+    expect(ampliar).toHaveBeenCalledWith(
+      { consultaId: 'c1', data: { texto: 'la justificación de la exclusividad', lengua: 'es', datos: {} } },
+      expect.anything(),
+    )
+  })
+
+  it('pinta lo que devuelve y dice que va a la misma conversación', () => {
+    consultado()
+    ampliar.mockImplementation((_v, o) =>
+      o.onSuccess({
+        ...RESPUESTA,
+        consulta_id: 'c2',
+        prompt: 'Documentos adicionales para la consulta anterior, sobre: exclusividad',
+        documentos: [{ url: 'https://drive.google.com/file/d/9', titulo: 'Negociado', score: 0.7, revision_vencida: false }],
+      }),
+    )
+    fireEvent.change(screen.getByLabelText('¿Qué te falta o qué quieres precisar?'), { target: { value: 'exclusividad' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Buscar más documentos' }))
+    expect(screen.getByTestId('prompt')).toHaveValue('Documentos adicionales para la consulta anterior, sobre: exclusividad')
+    expect(screen.getByTestId('misma-conversacion')).toBeInTheDocument()
+    expect(screen.getByText('Negociado')).toBeInTheDocument()
+  })
+
+  it('si no quedan documentos, lo dice', () => {
+    consultado()
+    ampliar.mockImplementation((_v, o) => o.onSuccess({ ...RESPUESTA, consulta_id: 'c2', prompt: 'x', documentos: [] }))
+    fireEvent.change(screen.getByLabelText('¿Qué te falta o qué quieres precisar?'), { target: { value: 'otra cosa' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Buscar más documentos' }))
+    expect(screen.getByTestId('no-quedan')).toBeInTheDocument()
   })
 })

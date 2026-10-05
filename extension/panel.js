@@ -14,6 +14,10 @@
  * que en un agente de revisión tiene que adjuntar antes su documento. **No es un control de
  * acceso**: cualquiera puede usar el asistente sin la extensión.
  *
+ * **#225 — buscar más documentos**: tras una consulta, quien pregunta escribe qué le falta y la
+ * plataforma da enlaces nuevos, sin repetir los ya ofrecidos; se insertan **en la misma
+ * conversación**, sin volver a pegar el prompt del agente. Amplía la última consulta del panel.
+ *
  * **#216 — la conversación**: en un agente en validación, la respuesta leída va a la plataforma —o
  * por qué no se pudo leer—; en cualquier modo, quien consulta la valora, y un 👎 con motivo es un
  * informe. Los motivos los sirve la plataforma con su etiqueta: aquí no se conocen.
@@ -177,6 +181,14 @@ function consultar(conf, agenteId, pregunta, adjunta, datos) {
   return llamar(conf, '/api/v1/agentes/' + agenteId + '/consulta', {
     method: 'POST',
     cuerpo: { consulta: pregunta, lengua: lengua(), adjunta: Boolean(adjunta), datos: datos || {} },
+  });
+}
+
+/** #225 — más documentos para la misma conversación: con su texto y los datos, sin repetir. */
+function ampliar(conf, consultaId, textoPedido, datos) {
+  return llamar(conf, '/api/v1/agentes/consultas/' + consultaId + '/ampliacion', {
+    method: 'POST',
+    cuerpo: { texto: textoPedido, lengua: lengua(), datos: datos || {} },
   });
 }
 
@@ -371,9 +383,52 @@ async function construir(raiz) {
     }
   }
 
-  function empezarConsulta(r) {
-    enCurso = { id: r.consulta_id, modo: r.modo_registro, pregunta: pregunta.value.trim(), respuesta: null };
+  function empezarConsulta(r, preguntado) {
+    enCurso = { id: r.consulta_id, modo: r.modo_registro, pregunta: preguntado, respuesta: null };
     ofrecerValoracion(enCurso);
+  }
+
+  /**
+   * Lleva un prompt ya pedido a la pestaña del asistente y lee la respuesta sin bloquear el panel.
+   * Si no hay pestaña o insertar falla, lo copia. Lo comparten la consulta y la ampliación (#225).
+   */
+  async function entregar(r, mensajeDeInsertado) {
+    const pestana = await pestanaDelAsistente(ad);
+    if (!pestana) {
+      marcarCopiado();
+      const copiado = await copiar(r.prompt);
+      decir(texto(copiado ? 'abreElAsistente' : 'sinAsistente', [ad.nombre]));
+      return;
+    }
+    const previas = await enLaPagina(pestana, contarRespuestas, [ad.selectores]);
+    const insercion = await enLaPagina(pestana, insertarEnElAsistente, [ad.selectores, r.prompt]);
+    if (!insercion || !insercion.ok) {
+      avisarDeUnFallo(conf, ad, (insercion && insercion.selector) || 'insercion');
+      marcarCopiado();
+      const copiado = await copiar(r.prompt);
+      decir(texto(copiado ? 'insercionFallida' : 'insercionFallidaSinCopia', [ad.nombre]));
+      return;
+    }
+    decir(texto(mensajeDeInsertado, [ad.nombre]));
+    // La lectura no bloquea el panel: la persona puede tardar en enviar.
+    const consulta = enCurso;
+    enLaPagina(pestana, esperarRespuesta, [ad.selectores, previas, ESPERA_DE_LA_RESPUESTA_MS])
+      .catch(function () {
+        return { ok: false, motivo: 'sin_respuesta' };
+      })
+      .then(function (leida) {
+        if (leida && leida.ok) {
+          consulta.respuesta = leida.texto;
+          lectura.textContent = texto('respuestaLeida', [String(leida.texto.length)]);
+        } else {
+          if (leida && leida.selector) avisarDeUnFallo(conf, ad, leida.selector);
+          lectura.textContent = texto('respuestaNoLeida');
+        }
+        // En validación, la plataforma guarda lo leído; si no se pudo, por qué: cuenta la cobertura.
+        if (consulta.modo === 'validacion') {
+          guardarRespuesta(conf, consulta.id, loLeido(leida)).catch(function () {});
+        }
+      });
   }
 
   /** 👍 o 👎 sobre la respuesta; 👎 pide el motivo y es un informe. */
@@ -492,44 +547,9 @@ async function construir(raiz) {
       try {
         const permiso = await chrome.permissions.request({ origins: [ad.origen + '/*'] });
         if (!permiso) throw new Error(texto('sinPermisoAsistente', [ad.nombre]));
-        const pestana = await pestanaDelAsistente(ad);
         const r = await consultar(conf, elegido.id, pregunta.value.trim(), conAdjunto(), valoresDeLosDatos());
-        empezarConsulta(r);
-        if (!pestana) {
-          marcarCopiado();
-          const copiado = await copiar(r.prompt);
-          decir(texto(copiado ? 'abreElAsistente' : 'sinAsistente', [ad.nombre]));
-          return;
-        }
-        const previas = await enLaPagina(pestana, contarRespuestas, [ad.selectores]);
-        const insercion = await enLaPagina(pestana, insertarEnElAsistente, [ad.selectores, r.prompt]);
-        if (!insercion || !insercion.ok) {
-          avisarDeUnFallo(conf, ad, (insercion && insercion.selector) || 'insercion');
-          marcarCopiado();
-          const copiado = await copiar(r.prompt);
-          decir(texto(copiado ? 'insercionFallida' : 'insercionFallidaSinCopia', [ad.nombre]));
-          return;
-        }
-        decir(texto(r.espera_adjunto ? 'insertadoConAdjunto' : 'insertado', [ad.nombre]));
-        // La lectura no bloquea el panel: la persona puede tardar en enviar.
-        const consulta = enCurso;
-        enLaPagina(pestana, esperarRespuesta, [ad.selectores, previas, ESPERA_DE_LA_RESPUESTA_MS])
-          .catch(function () {
-            return { ok: false, motivo: 'sin_respuesta' };
-          })
-          .then(function (leida) {
-            if (leida && leida.ok) {
-              consulta.respuesta = leida.texto;
-              lectura.textContent = texto('respuestaLeida', [String(leida.texto.length)]);
-            } else {
-              if (leida && leida.selector) avisarDeUnFallo(conf, ad, leida.selector);
-              lectura.textContent = texto('respuestaNoLeida');
-            }
-            // En validación, la plataforma guarda lo leído; si no se pudo, por qué: cuenta la cobertura.
-            if (consulta.modo === 'validacion') {
-              guardarRespuesta(conf, consulta.id, loLeido(leida)).catch(function () {});
-            }
-          });
+        empezarConsulta(r, pregunta.value.trim());
+        await entregar(r, r.espera_adjunto ? 'insertadoConAdjunto' : 'insertado');
       } catch (e) {
         resultado.textContent = e.message;
         resultado.className = 'error';
@@ -543,7 +563,7 @@ async function construir(raiz) {
     preparando();
     try {
       const r = await consultar(conf, elegido.id, pregunta.value.trim(), conAdjunto(), valoresDeLosDatos());
-      empezarConsulta(r);
+      empezarConsulta(r, pregunta.value.trim());
       marcarCopiado();
       const copiado = await copiar(r.prompt);
       decir(copiado ? texto(r.espera_adjunto ? 'copiadoConAdjunto' : 'copiado') : texto('preparado'));
@@ -556,6 +576,52 @@ async function construir(raiz) {
       actualizar();
     }
   });
+  // #225 — buscar más documentos: aparece cuando hay una consulta en curso y amplía la última.
+  const queFalta = el('textarea', { id: 'que-falta', rows: '2', maxlength: '2000' });
+  const buscarMas = el('button', { id: 'buscar-mas', texto: texto('buscarMas') });
+  const seccionMas = el('div', { id: 'buscar-mas-seccion', hidden: '' }, [
+    el('label', { for: 'que-falta', texto: texto('queFalta') }),
+    queFalta,
+    el('p', { class: 'nota', texto: texto('queFaltaAyuda') }),
+    buscarMas,
+  ]);
+  queFalta.addEventListener('input', actualizar);
+  buscarMas.addEventListener('click', async function () {
+    const pedido = queFalta.value.trim();
+    const madre = enCurso;
+    buscarMas.disabled = true;
+    resultado.textContent = texto('preparando');
+    resultado.className = 'trabajando';
+    lectura.textContent = '';
+    aMano.textContent = '';
+    try {
+      // El permiso, mientras el clic aún cuenta como gesto de la persona.
+      if (ad && !(await chrome.permissions.request({ origins: [ad.origen + '/*'] }))) {
+        throw new Error(texto('sinPermisoAsistente', [ad.nombre]));
+      }
+      const r = await ampliar(conf, madre.id, pedido, valoresDeLosDatos());
+      if (!r.documentos.length) {
+        decir(texto('noQuedan'));
+        return;
+      }
+      empezarConsulta(r, pedido);
+      queFalta.value = '';
+      if (ad) {
+        await entregar(r, 'insertadoAmpliacion');
+      } else {
+        marcarCopiado();
+        const copiado = await copiar(r.prompt);
+        decir(texto(copiado ? 'copiadoAmpliacion' : 'preparado'));
+      }
+    } catch (e) {
+      resultado.textContent = e.message;
+      resultado.className = 'error';
+      if (e instanceof Desconectado) await pintar();
+    } finally {
+      actualizar();
+    }
+  });
+
   raiz.appendChild(el('label', { for: 'pregunta', texto: texto('pregunta') }));
   raiz.appendChild(datosCont);
   raiz.appendChild(pregunta);
@@ -566,6 +632,7 @@ async function construir(raiz) {
   raiz.appendChild(resultado);
   raiz.appendChild(aMano);
   raiz.appendChild(lectura);
+  raiz.appendChild(seccionMas);
   raiz.appendChild(valoracion);
   raiz.appendChild(
     el('button', {
@@ -582,6 +649,8 @@ async function construir(raiz) {
     if (insertar) insertar.disabled = boton.disabled;
     adjuntaOpcional.hidden = !(elegido && elegido.adjunto === 'opcional');
     pista.textContent = conAdjunto() ? texto('describeElAdjunto') : '';
+    seccionMas.hidden = !enCurso;
+    buscarMas.disabled = !enCurso || !queFalta.value.trim() || faltaUnObligatorio();
   }
   actualizar();
 }

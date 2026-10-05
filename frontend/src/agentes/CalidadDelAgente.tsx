@@ -76,8 +76,8 @@ export function CalidadDelAgente({ agenteId }: { agenteId: string }) {
         <p className="text-sm text-muted-foreground">{t('calidad.ninguna')}</p>
       ) : (
         <ul className="space-y-2">
-          {(conversaciones ?? []).map((c) => (
-            <Conversacion key={c.id} conversacion={c} etiquetaDelMotivo={etiquetaDe(c.motivo)} />
+          {enConversaciones(conversaciones ?? []).map(({ conversacion: c, ampliacion }) => (
+            <Conversacion key={c.id} conversacion={c} ampliacion={ampliacion} etiquetaDelMotivo={etiquetaDe(c.motivo)} />
           ))}
         </ul>
       )}
@@ -85,7 +85,33 @@ export function CalidadDelAgente({ agenteId }: { agenteId: string }) {
   )
 }
 
-function Conversacion({ conversacion: c, etiquetaDelMotivo }: { conversacion: ConversacionDelAgente; etiquetaDelMotivo?: string | null }) {
+/**
+ * #225 — cada ampliación («Buscar más documentos») justo después de su consulta, en el orden en que
+ * se pidieron: es la misma conversación. Si su consulta no está en la página, va suelta.
+ */
+function enConversaciones(lista: ConversacionDelAgente[]) {
+  const ids = new Set(lista.map((c) => c.id))
+  const deLaMadre = (c: ConversacionDelAgente) => (c.consulta_madre_id && ids.has(c.consulta_madre_id) ? c.consulta_madre_id : null)
+  return lista
+    .filter((c) => !deLaMadre(c))
+    .flatMap((madre) => [
+      { conversacion: madre, ampliacion: Boolean(madre.consulta_madre_id) },
+      ...lista
+        .filter((c) => deLaMadre(c) === madre.id)
+        .sort((a, b) => a.ocurrido_en.localeCompare(b.ocurrido_en))
+        .map((c) => ({ conversacion: c, ampliacion: true })),
+    ])
+}
+
+function Conversacion({
+  conversacion: c,
+  ampliacion = false,
+  etiquetaDelMotivo,
+}: {
+  conversacion: ConversacionDelAgente
+  ampliacion?: boolean
+  etiquetaDelMotivo?: string | null
+}) {
   const { t } = useTranslation('agentes')
   const queryClient = useQueryClient()
   const revisar = useRevisarConversacionApiV1AgentesConsultasConsultaIdRevisionPut()
@@ -109,8 +135,13 @@ function Conversacion({ conversacion: c, etiquetaDelMotivo }: { conversacion: Co
   }
 
   return (
-    <li className="space-y-1 rounded-md bg-muted/40 p-2 text-sm" data-testid={`conversacion-${c.id}`}>
+    <li className={`space-y-1 rounded-md bg-muted/40 p-2 text-sm ${ampliacion ? 'ml-6' : ''}`} data-testid={`conversacion-${c.id}`}>
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        {ampliacion && (
+          <span data-testid="ampliacion" className="rounded bg-sky-100 px-1 text-sky-900">
+            {t('calidad.ampliacion')}
+          </span>
+        )}
         <span>{new Date(c.ocurrido_en).toLocaleString()}</span>
         <span>v{c.version}</span>
         <span>{t(`registro_corto.${c.modo}`)}</span>

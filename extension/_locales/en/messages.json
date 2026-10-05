@@ -208,5 +208,29 @@
   },
   "eligeUna": {
     "message": "Choose one…"
+  },
+  "queFalta": {
+    "message": "What is missing or what do you want to narrow down?"
+  },
+  "queFaltaAyuda": {
+    "message": "Other documents are searched with this text and the details above, without repeating the ones you already have, and added to the same conversation."
+  },
+  "buscarMas": {
+    "message": "Search for more documents"
+  },
+  "insertadoAmpliacion": {
+    "message": "Documents added in $ASISTENTE$, in the same conversation. Review it and send it.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "copiadoAmpliacion": {
+    "message": "Copied. Paste it into the same assistant conversation, not a new one."
+  },
+  "noQuedan": {
+    "message": "There are no more relevant documents for this in the agent's index."
   }
 }

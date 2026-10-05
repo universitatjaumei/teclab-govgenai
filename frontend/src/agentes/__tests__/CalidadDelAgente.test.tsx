@@ -108,3 +108,16 @@ describe('#217 — la calidad de un agente', () => {
     expect(screen.getByText('No hay conversaciones con estos filtros.')).toBeInTheDocument()
   })
 })
+
+describe('#225 — las ampliaciones van dentro de su conversación', () => {
+  it('la ampliación se pinta justo después de su consulta, marcada', () => {
+    const otra = { ...SIN_CAPTURA, id: 'c3', consulta_madre_id: null, ocurrido_en: '2026-10-04T12:00:00Z' }
+    const ampliacion = { ...SIN_CAPTURA, id: 'c4', consulta_madre_id: 'c1', pregunta: 'la exclusividad', ocurrido_en: '2026-10-04T10:05:00Z' }
+    // El servidor las da de la más reciente a la más antigua.
+    montar([otra, ampliacion, INFORME])
+    const ids = screen.getAllByTestId(/^conversacion-/).map((e) => e.dataset.testid)
+    expect(ids).toEqual(['conversacion-c3', 'conversacion-c1', 'conversacion-c4'])
+    expect(within(screen.getByTestId('conversacion-c4')).getByTestId('ampliacion')).toHaveTextContent('Buscar más documentos')
+    expect(within(screen.getByTestId('conversacion-c1')).queryByTestId('ampliacion')).not.toBeInTheDocument()
+  })
+})

@@ -309,6 +309,7 @@ async def seleccionar(
     *,
     principal: Any,
     filtros: Sequence[Any] = (),
+    excluir: frozenset[str] = frozenset(),
 ) -> list[FichaSeleccionada]:
     """Los documentos pertinentes para la consulta, **nunca más que el presupuesto del agente**.
 
@@ -327,6 +328,9 @@ async def seleccionar(
     más parecidas a la pregunta hasta su cupo, contando las prioritarias que ya son de la capa. Se
     compara **dentro** de la capa: un artículo de la ley compite con los otros trozos de la ley y no
     con cientos de ejemplos. Lo que una capa no llena vuelve al reparto general.
+
+    Con `excluir` (#225, «Buscar más documentos»), las URL ya ofrecidas en la conversación no
+    compiten: se elige entre lo que queda con las mismas reglas.
     """
     if not lo_puede_usar(agente, version, principal=principal):
         raise AgenteNoDisponible("este agente no se te ofrece")
@@ -365,7 +369,7 @@ async def seleccionar(
             .order_by(distancia)
         )
     ).all()
-    candidatas = [f for f in filas if pasa(f.metadatos, list(filtros))]
+    candidatas = [f for f in filas if f.url not in excluir and pasa(f.metadatos, list(filtros))]
     presupuesto = version.presupuesto_documentos
     elegidas = [f for f in candidatas if es_prioritaria(f.metadatos)][: presupuesto // 2]
     for reserva in getattr(version, "reservas", None) or []:

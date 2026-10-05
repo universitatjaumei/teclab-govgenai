@@ -131,7 +131,12 @@
     "adjunto_opcional": "Pots adjuntar un document",
     "voy_a_adjuntar": "Adjuntaré un document",
     "dato_obligatorio": "{{etiqueta}} *",
-    "elige_una": "Tria'n una…"
+    "elige_una": "Tria'n una…",
+    "que_falta": "Què et falta o què vols precisar?",
+    "que_falta_ayuda": "Se cerquen altres documents amb aquest text i les dades de dalt, sense repetir els que ja tens. Pots canviar les dades.",
+    "buscar_mas": "Cercar més documents",
+    "misma_conversacion": "Apega-ho en la mateixa conversa de l'assistent, no en una de nova.",
+    "no_quedan": "No queden més documents pertinents per a això a l'índex de l'agent."
   },
   "nav_aria": "Agents",
   "nav_consultar": "Consultar",
@@ -271,7 +276,8 @@
       "sin_terminar": "La resposta no va acabar en el termini.",
       "selector": "No es va poder llegir: la integració amb l'assistent va fallar.",
       "copiado": "Es va copiar per a enganxar-lo a mà: l'extensió no pot llegir la resposta."
-    }
+    },
+    "ampliacion": "Cercar més documents"
   },
   "reserva": {
     "capa": "Capa",

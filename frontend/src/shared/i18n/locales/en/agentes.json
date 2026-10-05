@@ -131,7 +131,12 @@
     "adjunto_opcional": "You may attach a document",
     "voy_a_adjuntar": "I will attach a document",
     "dato_obligatorio": "{{etiqueta}} *",
-    "elige_una": "Choose one…"
+    "elige_una": "Choose one…",
+    "que_falta": "What is missing or what do you want to narrow down?",
+    "que_falta_ayuda": "Other documents are searched with this text and the details above, without repeating the ones you already have. You can change the details.",
+    "buscar_mas": "Search for more documents",
+    "misma_conversacion": "Paste it into the same assistant conversation, not a new one.",
+    "no_quedan": "There are no more relevant documents for this in the agent's index."
   },
   "nav_aria": "Agents",
   "nav_consultar": "Ask",
@@ -271,7 +276,8 @@
       "sin_terminar": "The answer did not finish in time.",
       "selector": "It could not be read: the assistant integration failed.",
       "copiado": "It was copied to paste by hand: the extension cannot read the answer."
-    }
+    },
+    "ampliacion": "Search for more documents"
   },
   "reserva": {
     "capa": "Layer",

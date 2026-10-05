@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import {
   useCatalogoApiV1AgentesCatalogoGet,
   useConsultarApiV1AgentesAgenteIdConsultaPost,
+  useAmpliarApiV1AgentesConsultasConsultaIdAmpliacionPost,
 } from '@/shared/api/generated/agentes/agentes'
 import type { ConsultaLengua, RespuestaDeConsulta } from '@/shared/api/generated/model'
 import { mensajeDelFallo } from '@/utilidades/mensajeDelFallo'
@@ -32,12 +33,16 @@ export function ConsultarAgentesPage() {
   const { t, i18n } = useTranslation('agentes')
   const { data: catalogo, isLoading } = useCatalogoApiV1AgentesCatalogoGet()
   const consultar = useConsultarApiV1AgentesAgenteIdConsultaPost()
+  const ampliar = useAmpliarApiV1AgentesConsultasConsultaIdAmpliacionPost()
 
   const [elegido, setElegido] = useState<string | null>(null)
   const [pregunta, setPregunta] = useState('')
   const [respuesta, setRespuesta] = useState<RespuestaDeConsulta | null>(null)
   const [fallo, setFallo] = useState<string | null>(null)
   const [copiado, setCopiado] = useState<'si' | 'no' | null>(null)
+  // #225 — lo que falta o se quiere precisar, y si lo que se pinta es una ampliación.
+  const [queFalta, setQueFalta] = useState('')
+  const [ampliada, setAmpliada] = useState(false)
   const cajaDelPrompt = useRef<HTMLTextAreaElement>(null)
 
   const agentes = catalogo ?? []
@@ -51,21 +56,45 @@ export function ConsultarAgentesPage() {
   // #218 — en `opcional` lo dice quien pregunta; en los otros dos, lo decidió la unidad.
   const conAdjunto = adjuntoDelElegido === 'obligatorio' || (adjuntoDelElegido === 'opcional' && adjunta)
 
+  const datosDados = () => Object.fromEntries(Object.entries(valores).filter(([, v]) => v.trim()))
+
   function preparar() {
     if (!elegido || !pregunta.trim()) return
     setFallo(null)
     setRespuesta(null)
     setCopiado(null)
+    setAmpliada(false)
     consultar.mutate(
       { agenteId: elegido, data: {
           consulta: pregunta.trim(),
           lengua: lenguaDe(i18n.language),
           adjunta: conAdjunto,
-          datos: Object.fromEntries(Object.entries(valores).filter(([, v]) => v.trim())),
+          datos: datosDados(),
         },
       },
       {
         onSuccess: (r: RespuestaDeConsulta) => setRespuesta(r),
+        onError: (e: unknown) => setFallo(mensajeDelFallo(e, t('consulta.fallo'))),
+      },
+    )
+  }
+
+  /** #225 — más documentos para la misma conversación, sin repetir: amplía la última consulta. */
+  function buscarMas() {
+    if (!respuesta || !queFalta.trim()) return
+    setFallo(null)
+    setCopiado(null)
+    ampliar.mutate(
+      {
+        consultaId: respuesta.consulta_id,
+        data: { texto: queFalta.trim(), lengua: lenguaDe(i18n.language), datos: datosDados() },
+      },
+      {
+        onSuccess: (r: RespuestaDeConsulta) => {
+          setRespuesta(r)
+          setAmpliada(true)
+          setQueFalta('')
+        },
         onError: (e: unknown) => setFallo(mensajeDelFallo(e, t('consulta.fallo'))),
       },
     )
@@ -239,7 +268,16 @@ export function ConsultarAgentesPage() {
       {respuesta && (
         <section className="space-y-3 rounded-md border p-4">
           <h2 className="font-medium">{t('consulta.listo', { agente: respuesta.agente })}</h2>
-          <p className="text-xs text-muted-foreground">{t('consulta.como_usarlo')}</p>
+          {ampliada ? (
+            <p className="text-sm font-medium" data-testid="misma-conversacion">
+              {t('consulta.misma_conversacion')}
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">{t('consulta.como_usarlo')}</p>
+          )}
+          {ampliada && respuesta.documentos.length === 0 && (
+            <p className="text-sm" data-testid="no-quedan">{t('consulta.no_quedan')}</p>
+          )}
           {respuesta.modo_registro === 'validacion' && (
             <p className="text-xs text-muted-foreground" data-testid="aviso-validacion">
               {t('consulta.se_guarda_la_conversacion')}
@@ -289,6 +327,28 @@ export function ConsultarAgentesPage() {
               ))}
             </ul>
           )}
+          <div className="space-y-2 border-t pt-3">
+            <label htmlFor="consulta_que_falta" className="text-sm font-medium">
+              {t('consulta.que_falta')}
+            </label>
+            <textarea
+              id="consulta_que_falta"
+              rows={2}
+              maxLength={2000}
+              value={queFalta}
+              onChange={(e) => setQueFalta(e.target.value)}
+              className="w-full rounded-md border px-2 py-1 text-sm"
+            />
+            <p className="text-xs text-muted-foreground">{t('consulta.que_falta_ayuda')}</p>
+            <button
+              type="button"
+              onClick={buscarMas}
+              disabled={!queFalta.trim() || faltaUnObligatorio || ampliar.isPending}
+              className="rounded-md border px-3 py-1.5 text-sm disabled:opacity-50"
+            >
+              {t('consulta.buscar_mas')}
+            </button>
+          </div>
         </section>
       )}
 

@@ -208,5 +208,29 @@
   },
   "eligeUna": {
     "message": "Tria'n una…"
+  },
+  "queFalta": {
+    "message": "Què et falta o què vols precisar?"
+  },
+  "queFaltaAyuda": {
+    "message": "Se cerquen altres documents amb aquest text i les dades de dalt, sense repetir els que ja tens, i s'afegeixen a la mateixa conversa."
+  },
+  "buscarMas": {
+    "message": "Cercar més documents"
+  },
+  "insertadoAmpliacion": {
+    "message": "Documents afegits a $ASISTENTE$, en la mateixa conversa. Revisa-ho i envia-ho.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "copiadoAmpliacion": {
+    "message": "Copiat. Apega-ho en la mateixa conversa de l'assistent, no en una de nova."
+  },
+  "noQuedan": {
+    "message": "No queden més documents pertinents per a això a l'índex de l'agent."
   }
 }

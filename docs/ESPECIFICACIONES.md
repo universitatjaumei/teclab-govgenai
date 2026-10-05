@@ -836,6 +836,13 @@ del navegador (#176).
   la doctrina, y la redacción necesita las tres cosas. Las prioritarias cuentan para la cuota de su
   capa; la plaza que una capa no llena vuelve al reparto general; las reservas no suman más que el
   presupuesto ni repiten capa, y se aplican después del filtro de los datos de la consulta.
+- **Se pueden pedir más documentos en la misma conversación** (#225; decisión del usuario,
+  2026-10-05: con esto, el primer lote sólo tiene que ser un buen punto de partida). Quien consultó
+  escribe qué le falta y puede cambiar los datos; se busca **con ese texto, no con la pregunta**, y
+  **nunca se repite** lo ya ofrecido en la conversación, con las mismas reglas de selección sobre lo
+  que queda. Lo que se pega es corto —el texto y los enlaces nuevos, sin el prompt del agente—, en
+  la misma conversación del asistente. Cada ampliación es una consulta más, ligada a la primera, con
+  su fila en el registro de actividad; sólo la pide quien hizo la consulta.
 - **La selección nunca pasa del presupuesto** que declara el agente —de 1 a 10 documentos, 5 por
   defecto— y **lo no vigente no ocupa plaza**: el filtro va en el `WHERE`. Un índice embebido con
   otro modelo no se compara: se dice que hay que volver a cargarlo.

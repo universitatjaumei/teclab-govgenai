@@ -131,7 +131,12 @@
     "adjunto_opcional": "Puedes adjuntar un documento",
     "voy_a_adjuntar": "Voy a adjuntar un documento",
     "dato_obligatorio": "{{etiqueta}} *",
-    "elige_una": "Elige una…"
+    "elige_una": "Elige una…",
+    "que_falta": "¿Qué te falta o qué quieres precisar?",
+    "que_falta_ayuda": "Se buscan otros documentos con este texto y los datos de arriba, sin repetir los que ya tienes. Puedes cambiar los datos.",
+    "buscar_mas": "Buscar más documentos",
+    "misma_conversacion": "Pégalo en la misma conversación del asistente, no en una nueva.",
+    "no_quedan": "No quedan más documentos pertinentes para esto en el índice del agente."
   },
   "nav_aria": "Agentes",
   "nav_consultar": "Consultar",
@@ -271,7 +276,8 @@
       "sin_terminar": "La respuesta no terminó en el plazo.",
       "selector": "No se pudo leer: la integración con el asistente falló.",
       "copiado": "Se copió para pegarlo a mano: la extensión no puede leer la respuesta."
-    }
+    },
+    "ampliacion": "Buscar más documentos"
   },
   "reserva": {
     "capa": "Capa",
