@@ -118,6 +118,23 @@ class DatoDeLaConsulta(BaseModel):
         return self
 
 
+class ReservaDeCapa(BaseModel):
+    """#228 — cuántas plazas de cada consulta se reservan, como mínimo, a una capa del índice."""
+
+    capa: str = Field(min_length=1, max_length=80)
+    plazas: int = Field(ge=1, le=10)
+
+    model_config = {"extra": "forbid"}
+
+    @field_validator("capa")
+    @classmethod
+    def _con_texto(cls, valor: str) -> str:
+        limpio = valor.strip()
+        if not limpio:
+            raise ValueError("la capa no puede estar vacía")
+        return limpio
+
+
 class DatoDeLaConsultaView(DatoDeLaConsulta):
     #: Contra qué clave se manda el valor en la consulta. La deriva la plataforma de la etiqueta.
     clave: str
@@ -142,6 +159,21 @@ class DeclaracionDelAgente(BaseModel):
     #: #219 — los datos que tiene que dar quien pregunta, y una línea de indicaciones.
     datos_consulta: list[DatoDeLaConsulta] = Field(default_factory=list, max_length=8)
     indicaciones: str | None = Field(default=None, max_length=500)
+    #: #228 — plazas reservadas por capa del índice.
+    reservas: list[ReservaDeCapa] = Field(default_factory=list, max_length=10)
+
+    @model_validator(mode="after")
+    def _reservas_que_caben(self) -> "DeclaracionDelAgente":
+        claves = [indice.normalizar_columna(r.capa) for r in self.reservas]
+        repetidas = sorted({c for c in claves if claves.count(c) > 1})
+        if repetidas:
+            raise ValueError(f"la misma capa reservada dos veces: {', '.join(repetidas)}")
+        total = sum(r.plazas for r in self.reservas)
+        if total > self.presupuesto_documentos:
+            raise ValueError(
+                f"las reservas suman {total} plazas y el agente sólo devuelve {self.presupuesto_documentos} documentos"
+            )
+        return self
 
     @field_validator("datos_consulta")
     @classmethod
@@ -230,6 +262,7 @@ class VersionDelAgente(BaseModel):
     lengua_respuesta: str
     datos_consulta: list[DatoDeLaConsultaView]
     indicaciones: str | None
+    reservas: list[ReservaDeCapa]
     autoria_prompt: str
     declarada_en: datetime
     revisada_en: datetime | None
@@ -383,6 +416,7 @@ def _vista(
             lengua_respuesta=version.lengua_respuesta,
             datos_consulta=version.datos_consulta or [],
             indicaciones=version.indicaciones,
+            reservas=version.reservas or [],
             autoria_prompt=version.autoria_prompt,
             declarada_en=version.declarada_en,
             revisada_en=version.revisada_en,
@@ -416,6 +450,7 @@ def _nueva_version(
             {"clave": datos.clave(d.etiqueta), **d.model_dump()} for d in declaracion.datos_consulta
         ],
         indicaciones=(declaracion.indicaciones or "").strip() or None,
+        reservas=[r.model_dump() for r in declaracion.reservas],
         autoria_prompt=declaracion.autoria_prompt,
         declarada_por=user_to_uuid(user.user_id),
         declarada_en=datetime.now(timezone.utc),

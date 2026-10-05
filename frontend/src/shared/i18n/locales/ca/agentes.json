@@ -27,7 +27,8 @@
     "lengua_respuesta": "Llengua de la resposta",
     "datos_consulta": "Dades de la consulta",
     "indicaciones": "Indicacions per a qui pregunta",
-    "calidad": "Qualitat"
+    "calidad": "Qualitat",
+    "reservas": "Places reservades per capa"
   },
   "pistas": {
     "carpeta_url": "L'adreça de la carpeta en el magatzem de l'organització. La plataforma no guarda cap document: els autoritza el magatzem.",
@@ -38,7 +39,8 @@
     "adjunto": "Si qui consulta adjunta un document propi en l'assistent, els documents de la carpeta són el criteri per a analitzar-lo. «Pot adjuntar» deixa que ho diga en cada consulta.",
     "lengua_respuesta": "La plataforma afig la instrucció al prompt: no cal escriure-la. Els plecs, sempre en castellà; les resolucions, sempre en valencià.",
     "datos_consulta": "L'essencial perquè es trien bé els documents: en un agent de plecs, el tipus de contracte i el CPV. Si l'índex té una columna amb eixa dada, escriu-la i filtrarà: es descarten els documents que la contradiuen i es conserven els que no la diuen.",
-    "indicaciones": "Una línia que veurà qui pregunta, en l'extensió i en «Consultar». Per exemple: «Indica el tipus de contracte i el CPV; si adjuntes un esborrany, digues de què tracta»."
+    "indicaciones": "Una línia que veurà qui pregunta, en l'extensió i en «Consultar». Per exemple: «Indica el tipus de contracte i el CPV; si adjuntes un esborrany, digues de què tracta».",
+    "reservas": "Places de cada consulta que es reserven, com a mínim, a una capa de l'índex (columna «capa»): la norma o la doctrina no competeixen amb centenars d'exemples. Es tria el més semblant a la pregunta dins de cada capa; el que una capa no ompli torna al repartiment general."
   },
   "colectivos": {
     "organizacion": "Tota l'organització",
@@ -80,7 +82,10 @@
     "fecha_obligatoria": "Indica quan es tornarà a revisar.",
     "grupos_obligatorios": "Indica almenys un grup.",
     "presupuesto": "Entre 1 i 10 documents.",
-    "opciones_minimas": "Una llista porta almenys dues opcions."
+    "opciones_minimas": "Una llista porta almenys dues opcions.",
+    "reservas_suman": "Les places reservades no poden sumar més que els documents per consulta.",
+    "reservas_repetidas": "Cada capa es reserva una sola vegada.",
+    "plazas": "Entre 1 i 10 places."
   },
   "fichas_en_el_indice_one": "{{count}} fitxa",
   "fichas_en_el_indice_other": "{{count}} fitxes",
@@ -267,5 +272,11 @@
       "selector": "No es va poder llegir: la integració amb l'assistent va fallar.",
       "copiado": "Es va copiar per a enganxar-lo a mà: l'extensió no pot llegir la resposta."
     }
+  },
+  "reserva": {
+    "capa": "Capa",
+    "plazas": "Places",
+    "anadir": "Reservar places per a una capa",
+    "quitar": "Llevar"
   }
 }

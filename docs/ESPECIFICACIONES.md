@@ -829,6 +829,13 @@ del navegador (#176).
   otra mitad sea de los ejemplos. La marca no dice «siempre»: la del pliego tipo de suministros no
   entra en una consulta de servicios. Es una columna como las demás, así que llega por el guion y
   por la hoja sin cambiarlos.
+- **Cada capa puede tener plazas reservadas** (#228; reparto acordado con el usuario el
+  2026-10-05). La unidad declara, por agente, cuántas plazas de cada consulta van como mínimo a una
+  capa —el valor de la columna `capa` del índice, sin distinguir mayúsculas ni acentos—, y dentro
+  de la capa se elige por similitud. Por qué: cientos de ejemplos ganan en similitud a la ley y a
+  la doctrina, y la redacción necesita las tres cosas. Las prioritarias cuentan para la cuota de su
+  capa; la plaza que una capa no llena vuelve al reparto general; las reservas no suman más que el
+  presupuesto ni repiten capa, y se aplican después del filtro de los datos de la consulta.
 - **La selección nunca pasa del presupuesto** que declara el agente —de 1 a 10 documentos, 5 por
   defecto— y **lo no vigente no ocupa plaza**: el filtro va en el `WHERE`. Un índice embebido con
   otro modelo no se compara: se dice que hay que volver a cargarlo.

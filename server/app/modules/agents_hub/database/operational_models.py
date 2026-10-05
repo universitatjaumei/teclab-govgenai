@@ -1219,6 +1219,12 @@ class HubAgenteUnidadVersion(HubOperationalBase):
     )
     #: #219 — una línea para quien pregunta: qué indicar para que la selección acierte.
     indicaciones: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: #228 — plazas reservadas por capa: `[{capa, plazas}]`, sobre la columna `capa` del índice.
+    #: La selección las cubre comparando **dentro** de cada capa, para que la norma o la doctrina
+    #: no pierdan frente a cientos de ejemplos. Las valida el contrato.
+    reservas: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default="[]"
+    )
     #: #213 — si el prompt se redactó con ayuda de IA (el asistente de propuestas), como
     #: `autoria` en el catálogo de funciones. **Lo declara quien publica**: la plataforma propone,
     #: pero no puede saber cuánto se editó después.

@@ -66,6 +66,15 @@ const declaracionSchema = z
       )
       .max(8),
     indicaciones: z.string(),
+    // #228 — plazas reservadas por capa del índice; el servidor las vuelve a exigir.
+    reservas: z
+      .array(
+        z.object({
+          capa: z.string().trim().min(1, 'obligatorio'),
+          plazas: z.number({ message: 'plazas' }).int('plazas').min(1, 'plazas').max(10, 'plazas'),
+        }),
+      )
+      .max(10),
   })
   .superRefine((v, ctx) => {
     v.datos_consulta.forEach((d, i) => {
@@ -73,6 +82,14 @@ const declaracionSchema = z
         ctx.addIssue({ code: 'custom', path: ['datos_consulta', i, 'opciones'], message: 'opciones_minimas' })
       }
     })
+    const capas = v.reservas.map((r) => r.capa.trim().toLowerCase())
+    if (new Set(capas).size < capas.length) {
+      ctx.addIssue({ code: 'custom', path: ['reservas'], message: 'reservas_repetidas' })
+    }
+    const total = v.reservas.reduce((suma, r) => suma + (Number.isFinite(r.plazas) ? r.plazas : 0), 0)
+    if (total > v.presupuesto_documentos) {
+      ctx.addIssue({ code: 'custom', path: ['reservas'], message: 'reservas_suman' })
+    }
   })
   .refine((v) => v.colectivo === 'organizacion' || separarGrupos(v.grupos).length > 0, {
     path: ['grupos'],
@@ -146,6 +163,7 @@ const VACIA: Declaracion = {
   lengua_respuesta: 'pregunta',
   datos_consulta: [],
   indicaciones: '',
+  reservas: [],
 }
 
 /** Abierta para publicar uno nuevo, o para versionar uno que ya existe. */
@@ -260,6 +278,7 @@ function FormularioDeDeclaracion({
           lengua_respuesta: edicion.agente.version.lengua_respuesta as Declaracion['lengua_respuesta'],
           datos_consulta: (edicion.agente.version.datos_consulta ?? []).map(deContrato),
           indicaciones: edicion.agente.version.indicaciones ?? '',
+          reservas: (edicion.agente.version.reservas ?? []).map((r) => ({ capa: r.capa, plazas: r.plazas })),
         }
       : VACIA
 
@@ -317,6 +336,7 @@ function FormularioDeDeclaracion({
       lengua_respuesta: v.lengua_respuesta,
       datos_consulta: v.datos_consulta.map(aContrato),
       indicaciones: v.indicaciones.trim() || null,
+      reservas: v.reservas.map((r) => ({ capa: r.capa.trim(), plazas: r.plazas })),
       autoria_prompt: autoria,
     }
     const alFallar = { onError: (e: unknown) => setFallo(mensajeDelFallo(e, t('fallo'))) }
@@ -500,6 +520,8 @@ function FormularioDeDeclaracion({
 
       <EditorDeDatos control={control} register={register} errores={errors.datos_consulta} />
 
+      <EditorDeReservas control={control} register={register} errores={errors.reservas} />
+
       <div className="space-y-1">
         <label htmlFor="agente_indicaciones" className="text-sm font-medium">{t('campos.indicaciones')}</label>
         <textarea id="agente_indicaciones" rows={2} maxLength={500} className={campo} {...register('indicaciones')} />
@@ -608,6 +630,14 @@ function FichaDelAgente({ agente, alVersionar }: { agente: AgenteView; alVersion
               {(v.datos_consulta ?? [])
                 .map((d) => (d.obligatorio ? t('dato_obligatorio', { etiqueta: d.etiqueta }) : d.etiqueta))
                 .join(' · ')}
+            </dd>
+          </>
+        )}
+        {(v.reservas ?? []).length > 0 && (
+          <>
+            <dt className="text-muted-foreground">{t('campos.reservas')}</dt>
+            <dd data-testid="reservas">
+              {(v.reservas ?? []).map((r) => `${r.capa}: ${r.plazas}`).join(' · ')}
             </dd>
           </>
         )}
@@ -822,6 +852,54 @@ function lenguaDe(idioma: string | undefined): 'es' | 'ca' | 'en' {
  * opciones y texto—; ligados a una columna del índice, filtran en suave. Lo valida el servidor;
  * aquí sólo se pide lo que hace falta antes de mandar.
  */
+/** #228 — cuántas plazas de cada consulta se reservan a una capa del índice (columna `capa`). */
+function EditorDeReservas({
+  control,
+  register,
+  errores,
+}: {
+  control: Control<Declaracion>
+  register: UseFormRegister<Declaracion>
+  errores?: FieldErrors<Declaracion>['reservas']
+}) {
+  const { t } = useTranslation('agentes')
+  const { fields, append, remove } = useFieldArray({ control, name: 'reservas' })
+  const campo = 'rounded-md border px-2 py-1 text-sm w-full'
+  const delConjunto = errores?.root?.message ?? errores?.message
+
+  return (
+    <fieldset className="space-y-2 rounded-md border p-3" data-testid="editor-de-reservas">
+      <legend className="px-1 text-sm font-medium">{t('campos.reservas')}</legend>
+      <p className="text-xs text-muted-foreground">{t('pistas.reservas')}</p>
+      {fields.map((f, i) => {
+        const fallo = errores?.[i]?.capa?.message ?? errores?.[i]?.plazas?.message
+        return (
+          <div key={f.id} className="grid items-end gap-2 rounded-md bg-muted/40 p-2 sm:grid-cols-[1fr_8rem_auto]" data-testid={`reserva-${i}`}>
+            <label className="space-y-1 text-xs">
+              <span>{t('reserva.capa')}</span>
+              <input className={campo} {...register(`reservas.${i}.capa`)} />
+            </label>
+            <label className="space-y-1 text-xs">
+              <span>{t('reserva.plazas')}</span>
+              <input type="number" min={1} max={10} className={campo} {...register(`reservas.${i}.plazas`, { valueAsNumber: true })} />
+            </label>
+            <button type="button" onClick={() => remove(i)} className="rounded-md border px-2 py-1 text-xs">
+              {t('reserva.quitar')}
+            </button>
+            {fallo && <p className="text-xs text-destructive sm:col-span-3">{t(`errores.${fallo}`)}</p>}
+          </div>
+        )
+      })}
+      {delConjunto && <p className="text-xs text-destructive" role="alert">{t(`errores.${delConjunto}`)}</p>}
+      {fields.length < 10 && (
+        <button type="button" onClick={() => append({ capa: '', plazas: 1 })} className="rounded-md border px-2 py-1 text-xs">
+          {t('reserva.anadir')}
+        </button>
+      )}
+    </fieldset>
+  )
+}
+
 function EditorDeDatos({
   control,
   register,

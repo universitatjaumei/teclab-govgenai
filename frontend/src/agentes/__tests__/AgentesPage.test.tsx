@@ -71,6 +71,7 @@ function version(extra: Record<string, unknown> = {}) {
     lengua_respuesta: 'pregunta',
     datos_consulta: [],
     indicaciones: null,
+    reservas: [],
     autoria_prompt: 'persona',
     declarada_en: '2026-10-02T10:00:00Z',
     revisada_en: null,
@@ -246,6 +247,7 @@ describe('#172 — publicar exige la declaración', () => {
       lengua_respuesta: 'pregunta',
       datos_consulta: [],
       indicaciones: null,
+      reservas: [],
       autoria_prompt: 'persona',
     })
   })
@@ -672,5 +674,53 @@ describe('#217 — la calidad, en la ficha', () => {
     const ficha = screen.getByTestId('agente')
     expect(within(ficha).queryByTestId('contadores-calidad')).not.toBeInTheDocument()
     expect(within(ficha).queryByRole('button', { name: 'Ver la calidad' })).not.toBeInTheDocument()
+  })
+})
+
+describe('#228 — las plazas reservadas por capa', () => {
+  it('se declaran al publicar', async () => {
+    montar([])
+    fireEvent.click(screen.getByRole('button', { name: 'Publicar un agente' }))
+    rellenar(DECLARACION)
+    fireEvent.change(screen.getByLabelText('Documentos por consulta'), { target: { value: '10' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Reservar plazas para una capa' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Reservar plazas para una capa' }))
+    const [primera, segunda] = [screen.getByTestId('reserva-0'), screen.getByTestId('reserva-1')]
+    fireEvent.change(within(primera).getByLabelText('Capa'), { target: { value: ' LCSP ' } })
+    fireEvent.change(within(primera).getByLabelText('Plazas'), { target: { value: '2' } })
+    fireEvent.change(within(segunda).getByLabelText('Capa'), { target: { value: 'TACRC' } })
+    fireEvent.change(within(segunda).getByLabelText('Plazas'), { target: { value: '1' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Publicar' }))
+
+    await waitFor(() => expect(mutaciones.publicar).toHaveBeenCalledTimes(1))
+    expect(mutaciones.publicar.mock.calls[0][0].data.reservas).toEqual([
+      { capa: 'LCSP', plazas: 2 },
+      { capa: 'TACRC', plazas: 1 },
+    ])
+  })
+
+  it('no se mandan si suman más que los documentos por consulta', async () => {
+    montar([])
+    fireEvent.click(screen.getByRole('button', { name: 'Publicar un agente' }))
+    rellenar(DECLARACION)
+    fireEvent.click(screen.getByRole('button', { name: 'Reservar plazas para una capa' }))
+    const reserva = screen.getByTestId('reserva-0')
+    fireEvent.change(within(reserva).getByLabelText('Capa'), { target: { value: 'LCSP' } })
+    fireEvent.change(within(reserva).getByLabelText('Plazas'), { target: { value: '6' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Publicar' }))
+    expect(await screen.findByText('Las plazas reservadas no pueden sumar más que los documentos por consulta.')).toBeInTheDocument()
+    expect(mutaciones.publicar).not.toHaveBeenCalled()
+  })
+
+  it('la ficha dice qué plazas reserva', () => {
+    montar([agente({}, { reservas: [{ capa: 'LCSP', plazas: 2 }, { capa: 'TACRC', plazas: 1 }] })])
+    expect(screen.getByTestId('reservas')).toHaveTextContent('LCSP: 2 · TACRC: 1')
+  })
+
+  it('al versionar se conservan', () => {
+    montar([agente({}, { acciones_permitidas: ['versionar'], reservas: [{ capa: 'LCSP', plazas: 2 }] })])
+    fireEvent.click(screen.getByRole('button', { name: 'Nueva versión' }))
+    expect(within(screen.getByTestId('reserva-0')).getByLabelText('Capa')).toHaveValue('LCSP')
+    expect(within(screen.getByTestId('reserva-0')).getByLabelText('Plazas')).toHaveValue(2)
   })
 })
