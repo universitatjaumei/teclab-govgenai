@@ -24,40 +24,42 @@ contrato. El desarrollo del principio y su encaje normativo —Reglamento (UE) 2
 39/2015 y 40/2015, Esquema Nacional de Seguridad— está en `docs/PRESENTACION_PROYECTO.md` y
 `docs/MARCO_GOBERNANZA_IA.md`.
 
-Tres módulos sobre una misma base:
+Lo que hace, sobre una misma base:
 
-| Módulo | Qué hace |
+| Área | Qué hace |
 |---|---|
 | **Chatbots** | Asistentes con recuperación sobre corpus normativo propio (RAG en tres niveles), publicables como widget embebible o como agente identificado. |
 | **Informes** | Redacción asistida de informes: extracción determinista de PDF y hojas de cálculo, transformación declarativa de los datos, gráficos, y valoración escrita por el modelo y **aprobada o editada por una persona** antes de exportar. Cuando un documento es tan irregular que hay que programar su lectura, el código se audita y se ejecuta en un sandbox sin red. |
+| **Automatización** | El catálogo de funciones: código determinista con contrato declarado, versionado e inmutable, que se registra sin aprobación previa y se revisa después. También **registra lo que corre fuera** —un cuaderno se da de alta por su hash, sin ejecutarlo— para que la institución sepa qué automatizaciones circulan. |
+| **Agentes de unidad** | Una unidad publica un agente —un prompt, una carpeta de documentos y un índice— que ejecuta el asistente general que la organización ya tiene (hoy, Gemini). La plataforma elige los documentos de cada consulta, compone el prompt con sus enlaces y registra el uso; una extensión de Chrome lo inserta al lado del asistente. |
 | **Curación** | Rastreo del portal institucional, detección de contenido caducado o contradictorio, y selección de lo que entra al corpus. |
+| **Registro de actividad IA** | El sitio donde las herramientas, también las de fuera (por API o MCP), declaran sus usos de IA: metadatos, nunca contenido. |
+| **Utilidades** | Unir, dividir y optimizar PDF y anonimizar una hoja de cálculo sin subirlos a webs que no aseguran el RGPD. |
 
-**Los tres módulos de la tabla son funcionales y completos en lo que cubren**, y el de Informes
-abarca más de lo que su nombre sugiere: sirve a las fases de cualquier expediente, no sólo a un
-documento suelto.
+Cada área se abre con un **módulo concedido**, no con un rol; el detalle, en
+`docs/ESPECIFICACIONES.md` §5.6.
 
 La hoja de ruta pública, por temas y con estado y enlazada a las *issues* y a los hitos, está en
 [`ROADMAP.md`](ROADMAP.md), por temas y con estado.
 
-Prevé dos líneas más, y de las dos falta código. A las dos las define tanto lo que harán como lo
-que deliberadamente no harán:
+A las dos líneas que más se prestan a malentendidos las define tanto lo que hacen como lo que
+deliberadamente no hacen:
 
-- **Automatización gobernada.** No un cliente de ejecución local: los agentes de propósito general
-  ya ejecutan en el puesto de trabajo mejor de lo que lo haría un cliente propio. Lo que falta es
-  **saber qué automatizaciones circulan** —registrar un cuaderno por su hash sin ejecutarlo, que
-  un agente use la anonimización y el registro de actividad, y que una función del catálogo pueda
-  producir ficheros—.
-- **Trámites asistidos con IA.** No un gestor de expedientes: las administraciones ya tienen uno,
-  y es la fuente de verdad del procedimiento. Lo que falta son **trámites** —baremación, informe
-  de fase, resolución— que se crean a mano o los crea el gestor por API, y cuyo resultado vuelve
-  al expediente. La plataforma no cambia nunca el estado del procedimiento.
+- **Automatización gobernada** (construida y en producción). No un cliente de ejecución local:
+  los agentes de propósito general ya ejecutan en el puesto de trabajo mejor de lo que lo haría un
+  cliente propio. Lo que la plataforma aporta es **saber qué automatizaciones circulan** —el
+  catálogo de funciones, las de origen externo, el registro de actividad y la anonimización— y
+  los agentes de unidad sobre el asistente general.
+- **Trámites asistidos con IA** (previsto, sin código). No un gestor de expedientes: las
+  administraciones ya tienen uno, y es la fuente de verdad del procedimiento. Lo que falta son
+  **trámites** —baremación, informe de fase, resolución— que se crean a mano o los crea el gestor
+  por API, y cuyo resultado vuelve al expediente. La plataforma no cambia nunca el estado del
+  procedimiento. Que no esté escrito no es un retraso: **qué tiene que hacer exactamente lo
+  definen un despliegue real y una necesidad identificada**, y escribirlo antes sería adivinarlo.
 
-Que no estén escritos todavía no es un retraso: **qué tienen que hacer exactamente lo definen un
-despliegue real y una necesidad identificada**, y escribirlos antes sería adivinarlo. Automatizar
-un proceso que nadie ha examinado antes fija en código lo que había que simplificar.
-
-Lo que hoy vive en `server/app/modules/automation/` es infraestructura que consume Informes, no un
-módulo de usuario: no tiene routers registrados ni interfaz.
+`server/app/modules/automation/` no es el módulo de Automatización: son cinco ficheros de
+infraestructura (estrategias de extracción) que consume Informes. El catálogo de funciones vive en
+`server/app/modules/redaccion/`.
 
 La regla que ordena el diseño técnico: **el servidor decide, el cliente pinta**. El frontend no
 calcula qué acciones están permitidas, ni conoce a priori los campos de un formulario; los recibe.
@@ -152,9 +154,10 @@ cd frontend; npm run generate:api
 
 ```
 server/                 el backend FastAPI y **la suite**: `server/tests/`
-server/app/modules/     agents_hub · automation · curation · redaccion
+server/app/modules/     agents_hub · agentes · automation · curation · redaccion · utilidades
 server/app/core/        servicios compartidos: LLM gateway, auth, tenancy, storage
-frontend/src/           admin · curation · redaccion · widget
+frontend/src/           admin · agentes · automatizacion · curation · redaccion · utilidades · widget
+extension/              la extensión de Chrome de los agentes de unidad, que se carga tal cual
 mcp_server/             servidor MCP, stdio y remoto
 shared/                 tipos y contratos compartidos (`automatia_shared`)
 services/               microservicios aislados: `script_sandbox`
