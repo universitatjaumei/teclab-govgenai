@@ -94,7 +94,7 @@ export function ConsultarAgentesPage() {
     <div className="space-y-6">
       <header className="space-y-2">
         <h1 className="text-xl font-semibold">{t('consulta.titulo')}</h1>
-        <p className="text-sm text-muted-foreground">{t('consulta.intro')}</p>
+        <p className="text-sm text-muted-foreground" data-testid="consulta-intro">{t('consulta.intro')}</p>
       </header>
 
       {isLoading ? (

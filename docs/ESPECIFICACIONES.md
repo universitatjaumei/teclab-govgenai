@@ -822,6 +822,13 @@ del navegador (#176).
   —la ley vale para todos—, con coincidencia por prefijo en los dos sentidos para códigos
   jerárquicos; y se filtra antes de gastar el presupuesto. Por qué: los embeddings van bien con
   conceptos y mal con códigos.
+- **Las fichas prioritarias entran antes, si encajan** (#223; decisión del usuario, 2026-10-04:
+  un agente general de pliegos, no uno por tipo de contrato). Una columna `prioritario` de la hoja
+  marca el pliego tipo o el modelo de la casa; la que pasa el filtro de los datos de la consulta
+  entra primero, por similitud entre ellas, y **como mucho la mitad del presupuesto**, para que la
+  otra mitad sea de los ejemplos. La marca no dice «siempre»: la del pliego tipo de suministros no
+  entra en una consulta de servicios. Es una columna como las demás, así que llega por el guion y
+  por la hoja sin cambiarlos.
 - **La selección nunca pasa del presupuesto** que declara el agente —de 1 a 10 documentos, 5 por
   defecto— y **lo no vigente no ocupa plaza**: el filtro va en el `WHERE`. Un índice embebido con
   otro modelo no se compara: se dice que hay que volver a cargarlo.

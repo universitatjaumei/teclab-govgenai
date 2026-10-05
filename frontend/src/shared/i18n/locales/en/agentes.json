@@ -34,7 +34,7 @@
     "grupos": "Comma separated, as the identity provider declares them.",
     "revision_prevista_en": "When the unit will look at it again. If it passes, the agent is still offered, but flagged.",
     "presupuesto_documentos": "How many documents a query may return at most, between 1 and 10. They are the URLs the general assistant will open at once.",
-    "hoja_del_indice": "CSV or Excel with one row per document and the columns url, title and summary; in force and planned review are optional, and any other column is kept as metadata. The sheet is the whole index: whatever is missing is withdrawn.",
+    "hoja_del_indice": "CSV or Excel with one row per document. Required columns: url, titulo and resumen; optional: vigente, revision_prevista_en and prioritario. Write the column names exactly as shown, untranslated; any other column is kept as metadata. The sheet is the whole index: whatever is missing is withdrawn.",
     "adjunto": "If the person consulting attaches their own document in the assistant, the folder's documents are the criteria to analyse it. “May attach” lets them say so in each consultation.",
     "lengua_respuesta": "The platform adds the instruction to the prompt: no need to write it. Tender specifications always in Spanish; resolutions always in Valencian.",
     "datos_consulta": "What is essential for the documents to be chosen well: in a tender agent, the contract type and the CPV. If the index has a column with that detail, write it and it will filter: documents contradicting it are dropped, those not stating it are kept.",
@@ -102,7 +102,7 @@
   "revision_de_la_ficha": "planned review: {{fecha}}",
   "consulta": {
     "titulo": "Ask an agent",
-    "intro": "Choose an agent, write your question and copy the prompt that is prepared: it carries the links to the relevant documents. Paste it into the organisation's general assistant, which will open them with your account. The platform does not keep your question; only that you asked and which documents were offered.",
+    "intro": "Choose an agent, write your question and copy the prompt that is prepared: it carries the links to the relevant documents. Paste it into the organisation's general assistant, which will open them with your account. The platform records that you asked and which documents were offered; if the agent is in validation, it also keeps your question and the answer, to check that it works well.",
     "ninguno": "There is no agent for you yet.",
     "elige": "Agent",
     "responsable": "Responsible: {{responsable}}",

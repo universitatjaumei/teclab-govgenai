@@ -34,7 +34,7 @@
     "grupos": "Separados por comas, tal como los declara el proveedor de identidad.",
     "revision_prevista_en": "Cuándo volverá a mirarlo la unidad. Si pasa, el agente se sigue ofreciendo, pero marcado.",
     "presupuesto_documentos": "Cuántos documentos puede devolver una consulta como mucho, entre 1 y 10. Son las URL que el asistente general abrirá de una vez.",
-    "hoja_del_indice": "CSV o Excel con una fila por documento y las columnas url, título y resumen; vigente y revisión prevista son opcionales, y cualquier otra columna se guarda como metadato. La hoja es el índice entero: lo que no venga se retira.",
+    "hoja_del_indice": "CSV o Excel con una fila por documento. Columnas obligatorias: url, titulo y resumen; opcionales: vigente, revision_prevista_en y prioritario. Escribe los nombres de columna tal cual, sin traducirlos; cualquier otra columna se guarda como metadato. La hoja es el índice entero: lo que no venga se retira.",
     "adjunto": "Si quien consulta adjunta un documento propio en el asistente, los documentos de la carpeta son el criterio para analizarlo. «Puede adjuntar» deja que lo diga en cada consulta.",
     "lengua_respuesta": "La plataforma añade la instrucción al prompt: no hace falta escribirla. Los pliegos, siempre en castellano; las resoluciones, siempre en valenciano.",
     "datos_consulta": "Lo esencial para que se elijan bien los documentos: en un agente de pliegos, el tipo de contrato y el CPV. Si el índice tiene una columna con ese dato, escríbela y filtrará: se descartan los documentos que lo contradicen y se conservan los que no lo dicen.",
@@ -102,7 +102,7 @@
   "revision_de_la_ficha": "revisión prevista: {{fecha}}",
   "consulta": {
     "titulo": "Consultar un agente",
-    "intro": "Elige un agente, escribe tu pregunta y copia el prompt que se prepara: lleva los enlaces a los documentos que tocan. Pégalo en el asistente general de la organización, que los abrirá con tu cuenta. La plataforma no guarda tu pregunta; sólo que consultaste y qué documentos se te ofrecieron.",
+    "intro": "Elige un agente, escribe tu pregunta y copia el prompt que se prepara: lleva los enlaces a los documentos que tocan. Pégalo en el asistente general de la organización, que los abrirá con tu cuenta. La plataforma registra que consultaste y qué documentos se te ofrecieron; si el agente está en validación, guarda también tu pregunta y la respuesta, para comprobar que funciona bien.",
     "ninguno": "No hay ningún agente para ti todavía.",
     "elige": "Agente",
     "responsable": "Responsable: {{responsable}}",
