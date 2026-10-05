@@ -101,6 +101,8 @@ Lo que dice el bloque Deploy (D.4-VM), más lo que ha aparecido en el piloto:
 | `CORS_ALLOWED_ORIGINS` | el origen del bucket **y** el del dominio, separados por coma | **Sin esto el widget no puede hablar con la API**: en producción la política es cerrada y un origen que falta se traduce en un preflight rechazado, no en un error visible. Los dos, y es aditivo a propósito: mientras la URL del bucket siga siendo pública, las páginas servidas desde ahí son de otro origen |
 | `CORPUS_BUCKET` | `<BUCKET_CORPUS>` | El bucket al que el proxy manda todo lo que no es API ni panel (DOM.1). Lo lee **Caddy**, no la aplicación. Vacío compone `https://.storage.googleapis.com` y rompe portada, cercadores y fichas a la vez, así que el compose lo exige con `:?` |
 | `ENVIRONMENT` | `production` | Cierra el sembrado de desarrollo (SEC.8.0) y la documentación de la API (SEC.7) |
+| `AGENTES_EXTENSION_IDS` | `pgcofokabefjfmadgmeiddhfkbkebnhk` | Los ID de la extensión de los agentes de unidad, separados por comas, a los que se entrega el token de consulta (#176). **Vacía, no se conecta ninguna**. El ID es fijo porque el manifiesto lleva la clave pública (`extension/README.md`) |
+| `INDICE_SIN_ACTUALIZAR_DIAS` | `3` por omisión; vacía o ilegible, también | Días sin que el guion mande el índice de un agente antes de marcarlo como «índice sin actualizar» (#174). Avisa, no oculta |
 
 Credenciales de Vertex en la VM: cuenta de servicio con el rol de usuario de Vertex AI, no
 una clave de API. En local se resolvió con ADC; en la VM lo aporta la propia máquina.
