@@ -31,7 +31,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 from pydantic import BaseModel, Field, field_validator, model_validator
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.app.api.deps import (
@@ -118,6 +118,25 @@ class DatoDeLaConsulta(BaseModel):
         return self
 
 
+class ReservaDeCapa(BaseModel):
+    """#228 — cuántas plazas de cada consulta se reservan, como mínimo, a una capa del índice."""
+
+    capa: str = Field(min_length=1, max_length=80)
+    plazas: int = Field(ge=1, le=10)
+
+    model_config = {"extra": "forbid"}
+
+    @field_validator("capa")
+    @classmethod
+    def _con_texto(cls, valor: str) -> str:
+        limpio = valor.strip()
+        # Sólo signos se normaliza a vacío, que es la «capa» de las fichas sin columna `capa`
+        # (revisión de la PR #229): la reserva preferiría documentos sin clasificar.
+        if not indice.normalizar_columna(limpio):
+            raise ValueError("la capa tiene que tener letras o números")
+        return limpio
+
+
 class DatoDeLaConsultaView(DatoDeLaConsulta):
     #: Contra qué clave se manda el valor en la consulta. La deriva la plataforma de la etiqueta.
     clave: str
@@ -142,6 +161,21 @@ class DeclaracionDelAgente(BaseModel):
     #: #219 — los datos que tiene que dar quien pregunta, y una línea de indicaciones.
     datos_consulta: list[DatoDeLaConsulta] = Field(default_factory=list, max_length=8)
     indicaciones: str | None = Field(default=None, max_length=500)
+    #: #228 — plazas reservadas por capa del índice.
+    reservas: list[ReservaDeCapa] = Field(default_factory=list, max_length=10)
+
+    @model_validator(mode="after")
+    def _reservas_que_caben(self) -> "DeclaracionDelAgente":
+        claves = [indice.normalizar_columna(r.capa) for r in self.reservas]
+        repetidas = sorted({c for c in claves if claves.count(c) > 1})
+        if repetidas:
+            raise ValueError(f"la misma capa reservada dos veces: {', '.join(repetidas)}")
+        total = sum(r.plazas for r in self.reservas)
+        if total > self.presupuesto_documentos:
+            raise ValueError(
+                f"las reservas suman {total} plazas y el agente sólo devuelve {self.presupuesto_documentos} documentos"
+            )
+        return self
 
     @field_validator("datos_consulta")
     @classmethod
@@ -230,6 +264,7 @@ class VersionDelAgente(BaseModel):
     lengua_respuesta: str
     datos_consulta: list[DatoDeLaConsultaView]
     indicaciones: str | None
+    reservas: list[ReservaDeCapa]
     autoria_prompt: str
     declarada_en: datetime
     revisada_en: datetime | None
@@ -383,6 +418,7 @@ def _vista(
             lengua_respuesta=version.lengua_respuesta,
             datos_consulta=version.datos_consulta or [],
             indicaciones=version.indicaciones,
+            reservas=version.reservas or [],
             autoria_prompt=version.autoria_prompt,
             declarada_en=version.declarada_en,
             revisada_en=version.revisada_en,
@@ -416,6 +452,7 @@ def _nueva_version(
             {"clave": datos.clave(d.etiqueta), **d.model_dump()} for d in declaracion.datos_consulta
         ],
         indicaciones=(declaracion.indicaciones or "").strip() or None,
+        reservas=[r.model_dump() for r in declaracion.reservas],
         autoria_prompt=declaracion.autoria_prompt,
         declarada_por=user_to_uuid(user.user_id),
         declarada_en=datetime.now(timezone.utc),
@@ -1218,33 +1255,8 @@ async def consultar(
     puntuación—, nunca la pregunta. Si la consulta falla, no se registra nada.
     """
     agente, version = await _el_agente(session, agente_id, user)
-    try:
-        pares = datos.validar(version.datos_consulta or [], body.datos)
-    except datos.DatosNoValidos as fallo:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(fallo)) from fallo
-    try:
-        elegidas = await indice.seleccionar(
-            session,
-            agente,
-            version,
-            datos.para_buscar(body.consulta, pares),
-            embedder,
-            principal=user,
-            filtros=datos.filtros(pares),
-        )
-    except indice.AgenteNoDisponible as fallo:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail={
-                "code": "AGENTE_NO_DISPONIBLE",
-                "message": (
-                    "Este agente no se te ofrece: está suspendido o retirado, o no es para tu "
-                    "colectivo."
-                ),
-            },
-        ) from fallo
-    except indice.IndiceDeOtroModelo as fallo:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(fallo)) from fallo
+    pares = _validar_datos(version, body.datos)
+    elegidas = await _seleccionar(session, agente, version, body.consulta, pares, embedder, user)
 
     # #218 — en `opcional` lo dice quien pregunta; en los otros dos, lo decidió la unidad.
     con_adjunto = version.adjunto == "obligatorio" or (version.adjunto == "opcional" and body.adjunta)
@@ -1273,8 +1285,68 @@ async def consultar(
         ],
     )
 
-    # El evento pasa por la misma validación que un uso declarado desde fuera, que rechaza
-    # cualquier campo de contenido. El hash es del prompt entregado: coteja sin guardar el texto.
+    _registrar(
+        session, agente, version, user, consulta_id, prompt, elegidas,
+        pregunta=body.consulta, datos_dados={d["clave"]: v for d, v in pares},
+    )
+    await session.commit()
+    return respuesta
+
+
+async def _seleccionar(session, agente, version, texto, pares, embedder, user, excluir=frozenset()):
+    """La selección con los errores de la consulta traducidos a HTTP: la comparten la consulta y
+    su ampliación."""
+    try:
+        return await indice.seleccionar(
+            session,
+            agente,
+            version,
+            datos.para_buscar(texto, pares),
+            embedder,
+            principal=user,
+            filtros=datos.filtros(pares),
+            excluir=excluir,
+        )
+    except indice.AgenteNoDisponible as fallo:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "AGENTE_NO_DISPONIBLE",
+                "message": (
+                    "Este agente no se te ofrece: está suspendido o retirado, o no es para tu "
+                    "colectivo."
+                ),
+            },
+        ) from fallo
+    except indice.IndiceDeOtroModelo as fallo:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(fallo)) from fallo
+
+
+def _validar_datos(version, dados: dict[str, str]):
+    try:
+        return datos.validar(version.datos_consulta or [], dados)
+    except datos.DatosNoValidos as fallo:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(fallo)) from fallo
+
+
+def _registrar(
+    session: AsyncSession,
+    agente,
+    version,
+    user: UserInfo,
+    consulta_id: uuid.UUID,
+    prompt: str,
+    elegidas,
+    *,
+    pregunta: str,
+    datos_dados: dict[str, str],
+    consulta_madre_id: uuid.UUID | None = None,
+) -> None:
+    """El uso en el registro de actividad y la consulta con lo que se ofreció.
+
+    El evento pasa por la misma validación que un uso declarado desde fuera, que rechaza
+    cualquier campo de contenido. El hash es del prompt entregado: coteja sin guardar el texto.
+    """
     evento = ActividadIAEvent(
         ocurrido_en=datetime.now(timezone.utc),
         actor=user.user_id,
@@ -1305,9 +1377,83 @@ async def consultar(
             actividad_id=actividad.id,
             modo=agente.modo_registro,
             # #216 — en validación se guarda la pregunta; el registro de actividad, nunca.
-            pregunta=body.consulta if agente.modo_registro == "validacion" else None,
-            datos={d["clave"]: v for d, v in pares} if agente.modo_registro == "validacion" and pares else None,
+            pregunta=pregunta if agente.modo_registro == "validacion" else None,
+            datos=datos_dados if agente.modo_registro == "validacion" and datos_dados else None,
+            consulta_madre_id=consulta_madre_id,
         )
+    )
+
+
+class Ampliacion(BaseModel):
+    """#225 — «Buscar más documentos»: qué falta o qué se quiere precisar, y los datos, que pueden
+    cambiar. Se busca con esto y no con la pregunta original: lo que se pide es otra cosa o la misma
+    más concreta."""
+
+    texto: str = Field(min_length=1, max_length=2000)
+    lengua: Literal["es", "ca", "en"] = "es"
+    datos: dict[str, Annotated[str, Field(max_length=200)]] = Field(default_factory=dict)
+
+    model_config = {"extra": "forbid"}
+
+    @field_validator("texto")
+    @classmethod
+    def _con_texto(cls, valor: str) -> str:
+        limpio = valor.strip()
+        if not limpio:
+            raise ValueError("el texto no puede estar vacío")
+        return limpio
+
+
+@router_catalogo.post("/consultas/{consulta_id}/ampliacion", response_model=RespuestaDeConsulta)
+async def ampliar(
+    consulta_id: uuid.UUID,
+    body: Ampliacion,
+    user: UserInfo = Depends(require_scopes(AGENTES_CONSULTA)),
+    session: AsyncSession = Depends(get_session),
+    embedder=Depends(obtener_embedder),
+) -> RespuestaDeConsulta:
+    """Más documentos para la conversación ya abierta en el asistente (#225), **sin repetir** los
+    ofrecidos en ella. Sólo quien hizo la consulta; se puede ampliar desde cualquier eslabón.
+
+    Con las reglas de la versión vigente —filtro, prioritarias, reservas por capa— sobre lo que
+    queda. Lo que se pega es corto: el texto y los enlaces nuevos, sin el prompt del agente, que ya
+    está en la conversación. Es una consulta más, ligada a la primera, con su fila en el registro.
+    """
+    fila = await _la_consulta(session, consulta_id, user)
+    madre_id = fila.consulta_madre_id or fila.id
+    ofrecidas = (
+        await session.execute(
+            select(HubAgenteConsulta.documentos).where(
+                or_(HubAgenteConsulta.id == madre_id, HubAgenteConsulta.consulta_madre_id == madre_id)
+            )
+        )
+    ).scalars()
+    excluir = frozenset(d["url"] for documentos in ofrecidas for d in (documentos or []))
+
+    agente, version = await _el_agente(session, fila.agente_id, user)
+    pares = _validar_datos(version, body.datos)
+    elegidas = await _seleccionar(session, agente, version, body.texto, pares, embedder, user, excluir)
+    prompt = consulta.componer_ampliacion(
+        body.texto, elegidas, body.lengua, datos=[(d["etiqueta"], v) for d, v in pares]
+    )
+    nueva_id = uuid.uuid4()
+    # Antes del commit: la sesión de los routers expira los objetos al commitear, y leer después
+    # `agente.nombre` daba 500 (verificación en vivo; `db_session` de las pruebas no expira).
+    respuesta = RespuestaDeConsulta(
+        consulta_id=nueva_id,
+        modo_registro=agente.modo_registro,
+        agente=agente.nombre,
+        version=version.version,
+        prompt=prompt,
+        espera_adjunto=False,
+        documentos=[
+            DocumentoOfrecido(url=e.url, titulo=e.titulo, score=e.score, revision_vencida=e.revision_vencida)
+            for e in elegidas
+        ],
+    )
+    _registrar(
+        session, agente, version, user, nueva_id, prompt, elegidas,
+        pregunta=body.texto, datos_dados={d["clave"]: v for d, v in pares}, consulta_madre_id=madre_id,
     )
     await session.commit()
     return respuesta
@@ -1737,6 +1883,8 @@ class ConversacionDelAgente(BaseModel):
     no hace falta, y no se enseña."""
 
     id: uuid.UUID
+    #: #225 — si es una ampliación, la consulta con que empezó la conversación.
+    consulta_madre_id: uuid.UUID | None = None
     ocurrido_en: datetime
     version: int
     modo: str
@@ -1766,6 +1914,7 @@ class RevisionDeLaConversacion(BaseModel):
 def _conversacion(fila: HubAgenteConsulta, titulos: dict[str, str]) -> ConversacionDelAgente:
     return ConversacionDelAgente(
         id=fila.id,
+        consulta_madre_id=fila.consulta_madre_id,
         ocurrido_en=fila.ocurrido_en,
         version=fila.version,
         modo=fila.modo,

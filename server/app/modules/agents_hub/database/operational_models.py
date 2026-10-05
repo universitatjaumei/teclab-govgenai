@@ -1219,6 +1219,12 @@ class HubAgenteUnidadVersion(HubOperationalBase):
     )
     #: #219 — una línea para quien pregunta: qué indicar para que la selección acierte.
     indicaciones: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: #228 — plazas reservadas por capa: `[{capa, plazas}]`, sobre la columna `capa` del índice.
+    #: La selección las cubre comparando **dentro** de cada capa, para que la norma o la doctrina
+    #: no pierdan frente a cientos de ejemplos. Las valida el contrato.
+    reservas: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default="[]"
+    )
     #: #213 — si el prompt se redactó con ayuda de IA (el asistente de propuestas), como
     #: `autoria` en el catálogo de funciones. **Lo declara quien publica**: la plataforma propone,
     #: pero no puede saber cuánto se editó después.
@@ -1349,6 +1355,15 @@ class HubAgenteConsulta(HubOperationalBase):
     #: `[{url, score}]`, en el orden en que se ofrecieron.
     documentos: Mapped[list[dict[str, Any]]] = mapped_column(
         JSONB, nullable=False, default=list, server_default="[]"
+    )
+    #: #225 — si es una ampliación («Buscar más documentos»), la consulta con que empezó la
+    #: conversación. Siempre la primera, aunque se amplíe desde otra ampliación: la conversación es
+    #: una, y lo ya ofrecido se busca en ella y en sus hijas.
+    consulta_madre_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("hub_agente_consultas.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
     )
     #: La fila del registro de actividad que corresponde a esta consulta.
     actividad_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)

@@ -208,5 +208,29 @@
   },
   "eligeUna": {
     "message": "Elige una…"
+  },
+  "queFalta": {
+    "message": "¿Qué te falta o qué quieres precisar?"
+  },
+  "queFaltaAyuda": {
+    "message": "Se buscan otros documentos con este texto y los datos de arriba, sin repetir los que ya tienes, y se añaden a la misma conversación."
+  },
+  "buscarMas": {
+    "message": "Buscar más documentos"
+  },
+  "insertadoAmpliacion": {
+    "message": "Documentos añadidos en $ASISTENTE$, en la misma conversación. Revísalo y envíalo.",
+    "placeholders": {
+      "asistente": {
+        "content": "$1",
+        "example": "Gemini"
+      }
+    }
+  },
+  "copiadoAmpliacion": {
+    "message": "Copiado. Pégalo en la misma conversación del asistente, no en una nueva."
+  },
+  "noQuedan": {
+    "message": "No quedan más documentos pertinentes para esto en el índice del agente."
   }
 }

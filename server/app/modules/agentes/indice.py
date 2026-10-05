@@ -309,6 +309,7 @@ async def seleccionar(
     *,
     principal: Any,
     filtros: Sequence[Any] = (),
+    excluir: frozenset[str] = frozenset(),
 ) -> list[FichaSeleccionada]:
     """Los documentos pertinentes para la consulta, **nunca más que el presupuesto del agente**.
 
@@ -322,6 +323,14 @@ async def seleccionar(
     **Las prioritarias** (#223) que pasan el filtro entran primero, por similitud entre ellas, y
     **como mucho la mitad del presupuesto**: la otra mitad es de los ejemplos, que traen el
     contenido concreto. Las que no caben en su tope compiten como las demás.
+
+    **Las reservas** (#228) van después: para cada capa con plazas reservadas, las fichas de esa capa
+    más parecidas a la pregunta hasta su cupo, contando las prioritarias que ya son de la capa. Se
+    compara **dentro** de la capa: un artículo de la ley compite con los otros trozos de la ley y no
+    con cientos de ejemplos. Lo que una capa no llena vuelve al reparto general.
+
+    Con `excluir` (#225, «Buscar más documentos»), las URL ya ofrecidas en la conversación no
+    compiten: se elige entre lo que queda con las mismas reglas.
     """
     if not lo_puede_usar(agente, version, principal=principal):
         raise AgenteNoDisponible("este agente no se te ofrece")
@@ -360,10 +369,32 @@ async def seleccionar(
             .order_by(distancia)
         )
     ).all()
-    candidatas = [f for f in filas if pasa(f.metadatos, list(filtros))]
+    candidatas = [f for f in filas if f.url not in excluir and pasa(f.metadatos, list(filtros))]
     presupuesto = version.presupuesto_documentos
-    primero = [f for f in candidatas if es_prioritaria(f.metadatos)][: presupuesto // 2]
-    filas = primero + [f for f in candidatas if f not in primero][: presupuesto - len(primero)]
+    reservas = [(normalizar_columna(r["capa"]), r["plazas"]) for r in getattr(version, "reservas", None) or []]
+
+    def pendientes(elegidas: list) -> int:
+        """Las plazas reservadas que aún faltan y que su capa puede llenar."""
+        total = 0
+        for capa, plazas in reservas:
+            ya = sum(1 for f in elegidas if capa_de(f.metadatos) == capa)
+            quedan = sum(1 for f in candidatas if f not in elegidas and capa_de(f.metadatos) == capa)
+            total += min(max(0, plazas - ya), quedan)
+        return total
+
+    # Una prioritaria entra sólo si después siguen cabiendo las reservas pendientes: el mínimo
+    # declarado por capa manda sobre la prioridad (revisión de la PR #229).
+    elegidas: list = []
+    for f in candidatas:
+        if len(elegidas) >= presupuesto // 2:
+            break
+        if es_prioritaria(f.metadatos) and len(elegidas) + 1 + pendientes(elegidas + [f]) <= presupuesto:
+            elegidas.append(f)
+    for capa, plazas in reservas:
+        faltan = plazas - sum(1 for f in elegidas if capa_de(f.metadatos) == capa)
+        de_la_capa = [f for f in candidatas if f not in elegidas and capa_de(f.metadatos) == capa]
+        elegidas += de_la_capa[: max(0, min(faltan, presupuesto - len(elegidas)))]
+    filas = elegidas + [f for f in candidatas if f not in elegidas][: presupuesto - len(elegidas)]
     hoy = date.today()
     return [
         FichaSeleccionada(
@@ -385,6 +416,14 @@ async def seleccionar(
 #: cualquiera, así que llega en los metadatos por los dos caminos (guion y subida) sin tocarlos.
 COLUMNA_PRIORITARIO = "prioritario"
 _MARCAS_DE_PRIORIDAD = {"si", "s", "true", "1", "x", "yes"}
+
+
+def capa_de(metadatos: dict[str, Any] | None) -> str:
+    """#228 — la capa de una ficha, normalizada como las cabeceras: «Pliego tipo GVA» →
+    `pliego_tipo_gva`. Vacía si la hoja no tiene la columna."""
+    return next(
+        (normalizar_columna(v) for k, v in (metadatos or {}).items() if normalizar_columna(k) == "capa"), ""
+    )
 
 
 def es_prioritaria(metadatos: dict[str, Any] | None) -> bool:

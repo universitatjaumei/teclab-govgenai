@@ -26,6 +26,12 @@ LenguaDeLaRespuesta = Literal["pregunta", "es", "ca"]
 
 _TEXTOS: dict[str, dict[str, str]] = {
     "es": {
+        "ampliacion": "Documentos adicionales para la consulta anterior, sobre: {texto}",
+        "ampliacion_documentos": "Tenlos en cuenta junto con los que ya tenías:",
+        "ampliacion_ninguno": (
+            "No quedan más documentos pertinentes para esto en el índice de este agente: dilo y no "
+            "respondas a partir de otra cosa."
+        ),
         "pregunta": "Pregunta",
         "datos": "Datos de la consulta:",
         "documentos": "Responde sólo a partir de estos documentos:",
@@ -56,6 +62,12 @@ _TEXTOS: dict[str, dict[str, str]] = {
         ),
     },
     "ca": {
+        "ampliacion": "Documents addicionals per a la consulta anterior, sobre: {texto}",
+        "ampliacion_documentos": "Tin-los en compte juntament amb els que ja tenies:",
+        "ampliacion_ninguno": (
+            "No queden més documents pertinents per a això a l'índex d'aquest agent: digues-ho i no "
+            "respongues a partir d'una altra cosa."
+        ),
         "pregunta": "Pregunta",
         "datos": "Dades de la consulta:",
         "documentos": "Respon només a partir d'aquests documents:",
@@ -87,6 +99,12 @@ _TEXTOS: dict[str, dict[str, str]] = {
         ),
     },
     "en": {
+        "ampliacion": "Additional documents for the previous query, about: {texto}",
+        "ampliacion_documentos": "Take them into account together with the ones you already had:",
+        "ampliacion_ninguno": (
+            "There are no more relevant documents for this in this agent's index: say so and do not "
+            "answer from anything else."
+        ),
         "pregunta": "Question",
         "datos": "Query details:",
         "documentos": "Answer only from these documents:",
@@ -150,4 +168,30 @@ def componer(
         partes.append(t["ninguno"])
     partes.append(t[f"lengua_{lengua_respuesta}"])
     partes.append(t["abstencion_con_adjunto" if con_adjunto else "abstencion"])
+    return "\n\n".join(partes)
+
+
+def componer_ampliacion(
+    texto: str,
+    documentos: list[FichaSeleccionada],
+    lengua: Lengua,
+    *,
+    datos: Sequence[tuple[str, str]] = (),
+) -> str:
+    """Lo que se pega al «Buscar más documentos» (#225): **sin el prompt del agente**, que ya está en
+    la conversación. Lo que se pidió, los datos si los hay y sólo los enlaces nuevos; la abstención
+    se repite porque cubre estos enlaces, que el asistente aún no ha intentado abrir."""
+    t = _TEXTOS[lengua]
+    partes = [t["ampliacion"].format(texto=texto.strip())]
+    if datos:
+        partes.append("\n".join([t["datos"], *(f"- {etiqueta}: {valor}" for etiqueta, valor in datos)]))
+    if documentos:
+        lineas = [t["ampliacion_documentos"]]
+        for n, d in enumerate(documentos, start=1):
+            marca = f" ({t['pendiente']})" if d.revision_vencida else ""
+            lineas.append(f"{n}. {d.titulo} — {d.url}{marca}")
+        partes.append("\n".join(lineas))
+        partes.append(t["abstencion"])
+    else:
+        partes.append(t["ampliacion_ninguno"])
     return "\n\n".join(partes)

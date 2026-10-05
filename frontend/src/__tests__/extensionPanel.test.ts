@@ -96,6 +96,16 @@ function mundoBase(): Mundo {
       '/api/v1/agentes/asistentes/gemini/adaptador': { status: 200, cuerpo: ADAPTADOR },
       '/api/v1/agentes/asistentes/gemini/fallos': { status: 204, cuerpo: null },
       '/api/v1/agentes/consultas/c1/respuesta': { status: 204, cuerpo: null },
+      '/api/v1/agentes/consultas/c1/ampliacion': {
+        status: 200,
+        cuerpo: { agente: 'Becas', version: 2, prompt: 'AMPLIACION', documentos: [{ url: 'u', titulo: 't', score: 0.5, revision_vencida: false }], espera_adjunto: false, consulta_id: 'c3', modo_registro: 'validacion' },
+      },
+      '/api/v1/agentes/consultas/c3/ampliacion': {
+        status: 200,
+        cuerpo: { agente: 'Becas', version: 2, prompt: 'AMPLIACION 2', documentos: [{ url: 'v', titulo: 'v', score: 0.4, revision_vencida: false }], espera_adjunto: false, consulta_id: 'c4', modo_registro: 'validacion' },
+      },
+      '/api/v1/agentes/consultas/c3/respuesta': { status: 204, cuerpo: null },
+      '/api/v1/agentes/consultas/c4/respuesta': { status: 204, cuerpo: null },
       '/api/v1/agentes/consultas/c1/valoracion': { status: 204, cuerpo: null },
       '/api/v1/agentes/consultas/c2/valoracion': { status: 204, cuerpo: null },
       '/api/v1/agentes/motivos-de-informe': {
@@ -699,3 +709,85 @@ describe('#176 — el panel de la extensión', () => {
   })
 })
 
+describe('#225 — buscar más documentos en la misma conversación', () => {
+  let mundo: Mundo
+
+  beforeEach(() => {
+    document.body.innerHTML = '<main id="raiz"></main>'
+    mundo = mundoBase()
+  })
+
+  async function insertado(m: Mundo) {
+    m.gestionada = { panel_url: 'https://normativa.uji.es/panel' }
+    m.local = { token: 'ggai_pat_x' }
+    await cargar(m).pintar()
+    await vi.waitFor(() => expect(document.getElementById('insertar')).not.toBeNull())
+    ;(document.querySelector('[data-agente="a1"] input') as HTMLInputElement).click()
+    const pregunta = document.getElementById('pregunta') as HTMLTextAreaElement
+    pregunta.value = '¿Plazo?'
+    pregunta.dispatchEvent(new Event('input'))
+    boton('insertar').click()
+    await vi.waitFor(() => expect(estado()).toBe(MENSAJES.insertado.message))
+  }
+  function pedirMas(texto: string) {
+    const caja = document.getElementById('que-falta') as HTMLTextAreaElement
+    caja.value = texto
+    caja.dispatchEvent(new Event('input'))
+    boton('buscar-mas').click()
+  }
+  const estado = () => document.querySelector('[role="status"]')?.textContent
+  const cuerpos = (m: Mundo, final: string) => m.peticiones.filter((p) => p.url.endsWith(final)).map((p) => p.cuerpo)
+
+  it('antes de consultar no se ofrece', async () => {
+    mundo.gestionada = { panel_url: 'https://normativa.uji.es/panel' }
+    mundo.local = { token: 'ggai_pat_x' }
+    await cargar(mundo).pintar()
+    await vi.waitFor(() => expect(document.getElementById('insertar')).not.toBeNull())
+    expect((document.getElementById('buscar-mas-seccion') as HTMLElement).hidden).toBe(true)
+  })
+
+  it('sin texto no se puede pedir', async () => {
+    await insertado(mundo)
+    expect((document.getElementById('buscar-mas-seccion') as HTMLElement).hidden).toBe(false)
+    expect(boton('buscar-mas').disabled).toBe(true)
+  })
+
+  it('amplía la consulta con su texto e inserta sólo lo nuevo en la misma conversación', async () => {
+    await insertado(mundo)
+    pedirMas('la justificación de la exclusividad')
+    await vi.waitFor(() => expect(estado()).toBe(MENSAJES.insertadoAmpliacion.message))
+    expect(cuerpos(mundo, '/consultas/c1/ampliacion')).toEqual([
+      { texto: 'la justificación de la exclusividad', lengua: 'es', datos: {} },
+    ])
+    const inserciones = mundo.inyectadas.filter((i) => i.func === 'insertarEnElAsistente')
+    expect(inserciones.map((i) => i.args[1])).toEqual(['PROMPT COMPUESTO', 'AMPLIACION'])
+    // En validación, la respuesta leída va contra la ampliación.
+    await vi.waitFor(() => expect(cuerpos(mundo, '/consultas/c3/respuesta')).toHaveLength(1))
+  })
+
+  it('la siguiente amplía la última', async () => {
+    await insertado(mundo)
+    pedirMas('uno')
+    await vi.waitFor(() => expect(estado()).toBe(MENSAJES.insertadoAmpliacion.message))
+    pedirMas('dos')
+    await vi.waitFor(() => expect(cuerpos(mundo, '/consultas/c3/ampliacion')).toHaveLength(1))
+  })
+
+  it('si no quedan documentos, lo dice y no inserta nada', async () => {
+    mundo.respuestas['/api/v1/agentes/consultas/c1/ampliacion'] = {
+      status: 200,
+      cuerpo: { agente: 'Becas', version: 2, prompt: 'NADA', documentos: [], espera_adjunto: false, consulta_id: 'c3', modo_registro: 'validacion' },
+    }
+    await insertado(mundo)
+    pedirMas('otra cosa')
+    await vi.waitFor(() => expect(estado()).toBe(MENSAJES.noQuedan.message))
+    expect(mundo.inyectadas.filter((i) => i.func === 'insertarEnElAsistente')).toHaveLength(1)
+  })
+
+  it('sin Gemini delante, lo copia', async () => {
+    await insertado(mundo)
+    mundo.pestanaGemini = false
+    pedirMas('más')
+    await vi.waitFor(() => expect(mundo.copiado).toEqual(['AMPLIACION']))
+  })
+})

@@ -27,7 +27,8 @@
     "lengua_respuesta": "Lengua de la respuesta",
     "datos_consulta": "Datos de la consulta",
     "indicaciones": "Indicaciones para quien pregunta",
-    "calidad": "Calidad"
+    "calidad": "Calidad",
+    "reservas": "Plazas reservadas por capa"
   },
   "pistas": {
     "carpeta_url": "La dirección de la carpeta en el almacén de la organización. La plataforma no guarda ningún documento: los autoriza el almacén.",
@@ -38,7 +39,8 @@
     "adjunto": "Si quien consulta adjunta un documento propio en el asistente, los documentos de la carpeta son el criterio para analizarlo. «Puede adjuntar» deja que lo diga en cada consulta.",
     "lengua_respuesta": "La plataforma añade la instrucción al prompt: no hace falta escribirla. Los pliegos, siempre en castellano; las resoluciones, siempre en valenciano.",
     "datos_consulta": "Lo esencial para que se elijan bien los documentos: en un agente de pliegos, el tipo de contrato y el CPV. Si el índice tiene una columna con ese dato, escríbela y filtrará: se descartan los documentos que lo contradicen y se conservan los que no lo dicen.",
-    "indicaciones": "Una línea que verá quien pregunta, en la extensión y en «Consultar». Por ejemplo: «Indica el tipo de contrato y el CPV; si adjuntas un borrador, di de qué trata»."
+    "indicaciones": "Una línea que verá quien pregunta, en la extensión y en «Consultar». Por ejemplo: «Indica el tipo de contrato y el CPV; si adjuntas un borrador, di de qué trata».",
+    "reservas": "Plazas de cada consulta que se reservan, como mínimo, a una capa del índice (columna «capa»): la norma o la doctrina no compiten con cientos de ejemplos. Se elige lo más parecido a la pregunta dentro de cada capa; lo que una capa no llena vuelve al reparto general."
   },
   "colectivos": {
     "organizacion": "Toda la organización",
@@ -80,7 +82,11 @@
     "fecha_obligatoria": "Indica cuándo se volverá a revisar.",
     "grupos_obligatorios": "Indica al menos un grupo.",
     "presupuesto": "Entre 1 y 10 documentos.",
-    "opciones_minimas": "Una lista lleva al menos dos opciones."
+    "opciones_minimas": "Una lista lleva al menos dos opciones.",
+    "reservas_suman": "Las plazas reservadas no pueden sumar más que los documentos por consulta.",
+    "reservas_repetidas": "Cada capa se reserva una sola vez.",
+    "plazas": "Entre 1 y 10 plazas.",
+    "capa_sin_letras": "La capa tiene que tener letras o números."
   },
   "fichas_en_el_indice_one": "{{count}} ficha",
   "fichas_en_el_indice_other": "{{count}} fichas",
@@ -126,7 +132,12 @@
     "adjunto_opcional": "Puedes adjuntar un documento",
     "voy_a_adjuntar": "Voy a adjuntar un documento",
     "dato_obligatorio": "{{etiqueta}} *",
-    "elige_una": "Elige una…"
+    "elige_una": "Elige una…",
+    "que_falta": "¿Qué te falta o qué quieres precisar?",
+    "que_falta_ayuda": "Se buscan otros documentos con este texto y los datos de arriba, sin repetir los que ya tienes. Puedes cambiar los datos.",
+    "buscar_mas": "Buscar más documentos",
+    "misma_conversacion": "Pégalo en la misma conversación del asistente, no en una nueva.",
+    "no_quedan": "No quedan más documentos pertinentes para esto en el índice del agente."
   },
   "nav_aria": "Agentes",
   "nav_consultar": "Consultar",
@@ -266,6 +277,13 @@
       "sin_terminar": "La respuesta no terminó en el plazo.",
       "selector": "No se pudo leer: la integración con el asistente falló.",
       "copiado": "Se copió para pegarlo a mano: la extensión no puede leer la respuesta."
-    }
+    },
+    "ampliacion": "Buscar más documentos"
+  },
+  "reserva": {
+    "capa": "Capa",
+    "plazas": "Plazas",
+    "anadir": "Reservar plazas para una capa",
+    "quitar": "Quitar"
   }
 }
