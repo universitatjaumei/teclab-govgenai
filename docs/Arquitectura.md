@@ -168,16 +168,22 @@ siendo una base de datos con organizaciones dentro; la separación **física** e
 
 ## 5. Los módulos
 
-Ficheros versionados el 2026-09-19, para dar escala. Lo que importa de estas cifras es que
+Ficheros versionados el 2026-10-05, para dar escala. Lo que importa de estas cifras es que
 `redaccion/` es casi tan grande como `agents_hub/` y que `automation/` no es un módulo, son cinco
 ficheros.
 
 | Módulo | Backend | Frontend | Qué es |
 |---|---|---|---|
-| `agents_hub` | 109 | `admin/` 64 · `widget/` 6 | Asistentes, corpus, ingesta, recuperación, evaluación |
-| `redaccion` | 101 | `redaccion/` 57 | Informes, plantillas, funciones, scripts, anonimización |
+| `agents_hub` | 111 | `admin/` 65 · `widget/` 6 | Asistentes, corpus, ingesta, recuperación, evaluación |
+| `redaccion` | 104 | `redaccion/` 56 · `automatizacion/` 2 | Informes, plantillas, funciones, scripts, anonimización |
 | `curation` | 31 | `curation/` 27 | Rastreo de portales, hallazgos, publicación |
+| `agentes` | 10 | `agentes/` 17 · `extension/` 13 | Agentes de unidad: catálogo, índice de fichas, consulta |
+| `utilidades` | 3 | `utilidades/` 8 | PDF y anonimización de un fichero, sin guardar nada |
 | `automation` | 5 | — | Infraestructura que consume Informes; **no es módulo de usuario** |
+
+El código del catálogo de funciones sigue en `redaccion/` —servicios y páginas—, aunque desde el
+2026-10-05 se sirve en su propio menú, «Automatización» (`/automatizacion`, módulo
+`automatizacion`). `extension/` está en la raíz del repositorio, no en `frontend/`.
 
 ### 5.1 Chatbots — `modules/agents_hub/`
 
@@ -208,7 +214,8 @@ Cuando un documento es tan irregular que hay que **programar su lectura**, ese c
 auditoría estática graduada (aceptable / advertencia / crítico, con número de línea) y se ejecuta
 en un **sandbox sin red** —`services/script_sandbox`, un microservicio aparte—. El filtro es
 automático; la persona entra después, en la revisión posterior. El catálogo de funciones
-compartidas y sus tres niveles: [`CATALOGO_FUNCIONES.md`](CATALOGO_FUNCIONES.md).
+compartidas y sus tres niveles: [`CATALOGO_FUNCIONES.md`](CATALOGO_FUNCIONES.md); su pantalla
+está en el menú «Automatización», no en Informes (§5.6).
 
 ### 5.3 Curación — `modules/curation/`
 
@@ -251,24 +258,66 @@ Su «módulo» no es un paquete Python: es una fila de `hub_platform_modules`, o
 licencia. Qué comprueba y registra la plataforma, y qué de ello es accesible por API:
 [`GOVERNANCA_PER_API.md`](GOVERNANCA_PER_API.md).
 
-### 5.6 Qué está previsto y no tiene código
+### 5.6 Automatización gobernada — el menú «Automatización»
 
-Dos módulos de la hoja de ruta, y de los dos falta código:
+No es un ejecutor de flujos: es **gobernar** las automatizaciones que circulan —qué hay, quién
+las usa, con qué versión—. Su núcleo es el catálogo de funciones, con tres orígenes por el mismo
+contrato: *autoservicio* (el código vive en el catálogo y corre en el sandbox), *paquete* (llega
+por *entry point* desde el repositorio de un equipo) y *externa* (un cuaderno o un guion que
+corre fuera se **registra por su hash, sin ejecutarlo**). Las funciones de tarea añaden
+artefactos de salida y red saliente sólo hacia orígenes declarados. El código sigue en
+`modules/redaccion/funciones_*.py` y en `routers/redaccion/funciones_router.py` y
+`funciones_run_router.py`; la pantalla es `/automatizacion`, con el módulo `automatizacion`.
+Contrato: [`CATALOGO_FUNCIONES.md`](CATALOGO_FUNCIONES.md).
 
-- **Automatización de procesos** —flujos y RPA— necesita además un **cliente de ejecución
-  local**, porque la plataforma no ejecuta nada en la máquina de quien la usa. No hay agente RPA,
-  ni vigilancia de carpetas, correo o web, ni programador de flujos locales: se retiró el
-  2026-09-04 con el cliente NiceGUI porque llevaba tiempo sin compilar. El mapa de lo que hubo,
-  fichero a fichero, está en
-  [`INVENTARIO_RETIRADA_LEGACY.md`](INVENTARIO_RETIRADA_LEGACY.md).
+**No hay agente de ejecución local, y es una decisión** (2026-09-23), no un hueco: ni RPA, ni
+vigilancia de carpetas, correo o web, ni programador de flujos locales, ni *thin client*. Lo
+cubren los agentes de propósito general; la plataforma aporta la gobernanza
+([`ESPECIFICACIONES.md`](ESPECIFICACIONES.md) §10). Lo que hubo en el cliente NiceGUI, retirado
+el 2026-09-04, está fichero a fichero en
+[`INVENTARIO_RETIRADA_LEGACY.md`](INVENTARIO_RETIRADA_LEGACY.md).
+
+### 5.7 Agentes de unidad — `modules/agentes/` y `extension/`
+
+Una unidad publica un **agente**: un prompt, una carpeta de documentos en el almacén de la
+organización y un colectivo que puede usarlo. Ninguna de las tres cosas es código. El reparto es
+lo que define la arquitectura:
+
+- **La plataforma selecciona y compone.** Guarda un **índice de fichas** —URL, título, resumen,
+  vigencia— y, en cada consulta, elige los documentos y compone el prompt con los enlaces y una
+  instrucción de abstención. **Nunca guarda los documentos**: el vector de cada ficha se hace sólo
+  del título y el resumen.
+- **El asistente general es el agente.** Gemini abre los documentos en Drive **con la cuenta de
+  quien pregunta**: la plataforma selecciona y el almacén autoriza, dos puertas independientes.
+- **La extensión del navegador es el puente** (`extension/`, fuera del panel): pide la consulta a
+  la API —que es lo que queda registrado—, inserta el prompt en Gemini sin enviarlo y lee la
+  respuesta.
+- **El índice lo mantiene un guion de Apps Script** que la plataforma sirve con su huella
+  (`modules/agentes/guion/`): corre en el Drive de la unidad, resume con Gemini y manda las
+  fichas. Los documentos no salen de Google.
+
+Código en `modules/agentes/` (`acciones.py`, `indice.py`, `consulta.py`) y
+`routers/agentes_router.py`; pantallas en `frontend/src/agentes/`. Publicar exige el módulo
+`agentes`; consultar, `consulta_agentes`, que es de oficio. Garantías:
+[`ESPECIFICACIONES.md`](ESPECIFICACIONES.md) §5.14.
+
+### 5.8 Utilidades — `modules/utilidades/`
+
+Operaciones sueltas sobre un fichero: unir, dividir y optimizar PDF, y anonimizar un CSV o un
+Excel. El fichero entra en la petición y sale en la respuesta, **sin `StorageService`**, y queda
+constancia sólo de metadatos. Router `routers/utilidades_router.py`, pantallas en
+`frontend/src/utilidades/`, módulo `utilidades` de oficio. Garantías:
+[`ESPECIFICACIONES.md`](ESPECIFICACIONES.md) §5.13.
+
+### 5.9 Qué está previsto y no tiene código
+
 - **Trámites asistidos con IA** —baremación, informe de fase, redacción de resolución— que el
   gestor de expedientes de la institución invoca, o que se crean a mano. **No se construye un
   gestor**: el suyo es la fuente de verdad del procedimiento y la plataforma no cambia nunca su
   estado. [`DECISION_TRAMITES_ASISTIDOS.md`](DECISION_TRAMITES_ASISTIDOS.md).
 
-Que no estén escritos no es un retraso. **Qué tienen que hacer exactamente lo definen un
-despliegue real y una necesidad identificada**, y escribirlos antes sería adivinarlo: automatizar
-un proceso que nadie ha examinado fija en código lo que había que simplificar.
+Que no esté escrito no es un retraso. **Qué tiene que hacer exactamente lo definen un despliegue
+real y una necesidad identificada**, y escribirlo antes sería adivinarlo.
 
 ---
 
@@ -287,8 +336,10 @@ Una lista de organizaciones vacía significa **cosas opuestas según el rol**, y
 un `superadmin` es el comodín «todas»; en cualquier otro es «ninguna». Si «vacío = todas» valiera
 para todos, un `admin` al que se le olvidara poblar el *claim* volvería a verlo todo.
 
-**Seis módulos de licencia** (`core/auth/modulos.py`), que son filas de catálogo y no `Enum`:
-`chatbots`, `curacion`, `informes`, `personas`, `registro`, `plataforma`. Se exigen con
+**Diez módulos de licencia** (`core/auth/modulos.py`), que son filas de catálogo y no `Enum`:
+`chatbots`, `curacion`, `informes`, `automatizacion`, `personas`, `registro`, `utilidades`,
+`agentes`, `consulta_agentes` y `plataforma`. `utilidades` y `consulta_agentes` son **de oficio**:
+los tiene cualquier persona sin concesión, y retirarlos del catálogo los apaga para todos. Se exigen con
 `require_module`, y **un docstring no autoriza nada**: declarar un módulo obliga a exigirlo. El
 `superadmin` entra en todos sin concesión explícita —hacerlo depender de una fila deja una
 instalación recién creada con su superadministrador encerrado fuera—.
@@ -316,6 +367,8 @@ server/app/
 │   ├── agents_hub/    database/ (los dos Base) · agent/ (grafos) · ingestion/ · services/
 │   ├── redaccion/     contracts/ · database/ · pipelines/ · graph/ · services/
 │   ├── curation/      spider, calidad de contenido, publicación
+│   ├── agentes/       agentes de unidad: acciones, índice, consulta, guion del índice
+│   ├── utilidades/    PDF y anonimización de un fichero
 │   └── automation/    cortex, estrategias de extracción, llm_gateway
 ├── services/          agent, library, pricing, scheduler, token, manifest_signature
 └── scripts/           bootstrap.py — sembrado idempotente de primera instalación
@@ -419,10 +472,15 @@ todo pasa por i18n.
 frontend/src/
 ├── admin/       panel de Chatbots y de Plataforma
 ├── curation/    curación de portales
-├── redaccion/   informes, funciones y scripts
+├── redaccion/   informes y scripts; también las páginas del catálogo de funciones
+├── automatizacion/  el menú «Automatización», que monta esas páginas
+├── agentes/     agentes de unidad: consultar, publicar, integración con Gemini
+├── utilidades/  PDF y anonimización
 ├── widget/      el chatbot público embebible
 ├── shared/      i18n, cliente generado, componentes comunes, auth
 └── themes/      la cascada visual
+
+extension/       la extensión de Chrome de los agentes de unidad, fuera de `frontend/`
 ```
 
 El mapa de rutas, que es la forma real del producto:
@@ -431,8 +489,12 @@ El mapa de rutas, que es la forma real del producto:
 |---|---|---|
 | `/` | — | Aterriza en el **primer módulo concedido**, no en `/hub` fijo: quien sólo hace informes entra en informes |
 | `/hub/*` | `chatbots` | chatbots · valores por defecto · documentos · vigencia · revisión de interacciones · prompts · escenarios de prueba |
-| `/redaccion/*` | `informes` | *builder* de plantillas · asistente · borrador · scripts (propuesta y revisión) · catálogo de funciones · espacios de trabajo |
+| `/redaccion/*` | `informes` | *builder* de plantillas · asistente · borrador · scripts (propuesta y revisión) · espacios de trabajo |
+| `/automatizacion/*` | `automatizacion` | catálogo de funciones · revisión posterior |
 | `/curation/*` | `curacion` | sitios · auditoría · hallazgos · publicación |
+| `/agentes/*` | `consulta_agentes` · `agentes` | consultar · publicar y gestionar · integración con Gemini; cada pestaña con su guarda |
+| `/utilidades/*` | `utilidades` | PDF · anonimizar un fichero |
+| `/extension/conectar` | `consulta_agentes` | conectar la extensión del navegador con la cuenta de la persona |
 | `/personas` | `personas` | las personas de la organización |
 | `/registro` | `registro` | el registro de actividad IA |
 | `/plataforma/*` | `plataforma` | organizaciones · modelos · prompts de actividad · tokens · módulos · identidad visual |
@@ -603,10 +665,9 @@ El registro numerado, con estado y fecha, está en [`DECISIONES.md`](DECISIONES.
 dice cuándo hace falta un documento de decisión y cuándo basta una fila del historial. Ninguna
 decisión se actualiza: si cambia, la sustituye otra que la cite.
 
-**Lo que este documento no decide y conviene no dar por cerrado**: qué tipos de expediente
-inicia el gestor cuando se escriba, y con qué sistema de gestión institucional se integra. Las
-dos esperan un despliegue real, y §5.6 explica por qué esperar es la decisión y no la falta de
-ella.
+**Lo que este documento no decide y conviene no dar por cerrado**: qué trámites asistidos se
+escriben primero, y con qué gestor de expedientes de la institución se integran. Las dos esperan
+un despliegue real, y §5.9 explica por qué esperar es la decisión y no la falta de ella.
 
 ---
 
@@ -627,7 +688,7 @@ Lo que decía y no era cierto, para que no vuelva por copia de una versión anti
 | **Python 3.11+** | 3.13 en `.python-version`, la imagen y CI |
 | Modelo de licenciamiento **dual-license** | Una licencia, AGPL; la dual es una posibilidad abierta y no ejercida (§15) |
 | Un árbol con `local-runner/`, `modules/expedientes/`, `frontend/src/agent/`, `frontend/src/automation/` y `server/app/api/` | Ninguno existe. `AGENTS.md` ya advertía que son las rutas que se escriben de memoria |
-| Tres módulos: Hub, AutomatIA y Expedientes | Tres construidos —Chatbots, Informes, Curación— y dos previstos sin código |
+| Tres módulos: Hub, AutomatIA y Expedientes | Construidos: Chatbots, Informes, Curación, Automatización gobernada, Agentes de unidad y Utilidades; los trámites asistidos, previstos sin código, y sin gestor de expedientes propio |
 | «Job Queue propia de AutomatIA» | No existe tal cosa: lo periódico va con APScheduler (`services/scheduler_service.py` para modelos y precios, `curation/quality_scheduler.py` para la revisión de portales) y lo disparado por una petición, con los *background tasks* de FastAPI |
 | Un roadmap por trimestres hasta 2028 | El estado vivo está en `PROJECT_STATE.md` y el pendiente, como *issues* |
 
