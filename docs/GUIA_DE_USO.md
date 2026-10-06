@@ -345,8 +345,10 @@ versión, para qué se declaró y quién responde de él. Dos consecuencias que 
 
 ### 7.4 La revisión posterior
 
-Registrar es compartir, y es automático: declaración completa, auditoría sin hallazgos críticos y
-sandbox superado. **Nadie lo aprueba antes**: la Instrucció 02/2026 prohíbe la aprobación previa
+Registrar es compartir, y es automático. En una función de **autoservicio** basta con la
+declaración completa, una auditoría sin hallazgos críticos y el sandbox superado; una **externa**
+se registra con su declaración, su auditoría es sólo informativa y no pasa por el sandbox, porque
+no se ejecuta aquí (§7.3). En los dos casos, **nadie lo aprueba antes**: la Instrucció 02/2026 prohíbe la aprobación previa
 como condición para compartir dentro del servicio. La persona entra después, en **Revisión
 posterior**, con un plazo de 30 días naturales que avisa sin bloquear.
 

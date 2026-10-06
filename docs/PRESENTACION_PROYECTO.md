@@ -79,8 +79,9 @@ y de competencia en la compra pública, así que se trata como tal.
 
 ## 3. Los módulos: lo que hay hoy
 
-Tres módulos funcionales y dos capacidades más pequeñas —agentes de unidad y utilidades (§3.5)—
-sobre una base común (identidad institucional, pasarela de modelos multiproveedor, almacenamiento
+Cuatro módulos funcionales —asistentes, informes, automatización (los dos en §3.2, cada uno con
+su menú y su módulo de acceso) y curación— y dos capacidades más pequeñas —agentes de unidad y
+utilidades (§3.5)— sobre una base común (identidad institucional, pasarela de modelos multiproveedor, almacenamiento
 portable, frontera edge/cloud):
 
 ### 3.1 Asistentes informativos
