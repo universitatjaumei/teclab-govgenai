@@ -102,6 +102,30 @@ class TestSubirLaHoja:
         assert por_url["https://drive.google.com/file/d/1"]["metadatos"] == {"materia": "Contratación"}
 
     @pytest.mark.asyncio
+    async def test_un_token_con_agentes_indice_tambien_la_sube(self, http):
+        """#226 — la carga por MCP manda la hoja tal cual y la interpreta el servidor: es la misma
+        operación que `PUT …/indice`, y pide el mismo alcance."""
+        c, _ = http
+        agente = await _publicar(c)
+        r = await c.post(
+            f"/api/v1/agentes/{agente['id']}/indice/hoja",
+            files={"file": ("indice.csv", io.BytesIO(HOJA), "text/csv")},
+            headers={"X-Prueba-Scopes": "agentes:indice"},
+        )
+        assert r.status_code == 200, r.text
+
+    @pytest.mark.asyncio
+    async def test_y_uno_que_solo_consulta_no(self, http):
+        c, _ = http
+        agente = await _publicar(c)
+        r = await c.post(
+            f"/api/v1/agentes/{agente['id']}/indice/hoja",
+            files={"file": ("indice.csv", io.BytesIO(HOJA), "text/csv")},
+            headers={"X-Prueba-Scopes": "agentes:consulta"},
+        )
+        assert r.status_code == 403
+
+    @pytest.mark.asyncio
     async def test_una_hoja_sin_url_es_un_422(self, http):
         c, _ = http
         agente = await _publicar(c)

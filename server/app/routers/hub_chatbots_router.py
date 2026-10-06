@@ -15,7 +15,7 @@ from sqlalchemy import delete as sql_delete
 from sqlalchemy import func
 from sqlalchemy import select
 
-from server.app.api.deps import require_role, require_module
+from server.app.api.deps import require_module, require_role, require_scopes
 from server.app.core.auth.models import UserInfo
 from server.app.modules.agents_hub.agent.public_graphs.validacion import (
     validar_estrategias,
@@ -429,7 +429,7 @@ async def opciones_de_grafo(user: UserInfo = Depends(_require_admin)):
     )
 
 
-@router.get("", response_model=list[ChatbotRead])
+@router.get("", response_model=list[ChatbotRead], dependencies=[Depends(require_scopes("chatbots:read"))])
 async def list_chatbots(
     organizacion_id: uuid.UUID | None = Query(default=None),
     user: UserInfo = Depends(_require_admin),
@@ -467,7 +467,12 @@ async def list_chatbots(
     ]
 
 
-@router.post("", response_model=ChatbotRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=ChatbotRead,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_scopes("chatbots:write"))],
+)
 async def create_chatbot(
     body: ChatbotCreate,
     user: UserInfo = Depends(_require_admin),
@@ -544,7 +549,7 @@ async def create_chatbot(
     return chatbot
 
 
-@router.patch("/{chatbot_id}", response_model=ChatbotRead)
+@router.patch("/{chatbot_id}", response_model=ChatbotRead, dependencies=[Depends(require_scopes("chatbots:write"))])
 async def update_chatbot(
     chatbot_id: uuid.UUID,
     body: ChatbotUpdate,
@@ -647,7 +652,7 @@ async def delete_chatbot(
     )
 
 
-@router.get("/{chatbot_id}/corpus-stats", response_model=CorpusStatsOut)
+@router.get("/{chatbot_id}/corpus-stats", response_model=CorpusStatsOut, dependencies=[Depends(require_scopes("chatbots:read"))])
 async def get_corpus_stats(
     chatbot_id: uuid.UUID,
     user: UserInfo = Depends(_require_admin),
@@ -768,7 +773,7 @@ async def recalculate_corpus_endpoint(
     )
 
 
-@router.get("/{chatbot_id}/children", response_model=list[ChatbotRead])
+@router.get("/{chatbot_id}/children", response_model=list[ChatbotRead], dependencies=[Depends(require_scopes("chatbots:read"))])
 async def list_children(
     chatbot_id: uuid.UUID,
     user: UserInfo = Depends(_require_admin),
@@ -787,7 +792,7 @@ async def list_children(
     return result.scalars().all()
 
 
-@router.post("/{chatbot_id}/children", response_model=ChatbotRead)
+@router.post("/{chatbot_id}/children", response_model=ChatbotRead, dependencies=[Depends(require_scopes("chatbots:write"))])
 async def assign_child(
     chatbot_id: uuid.UUID,
     body: AssignChildIn,
@@ -839,7 +844,11 @@ async def assign_child(
     return child_cb
 
 
-@router.delete("/{chatbot_id}/children/{child_chatbot_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{chatbot_id}/children/{child_chatbot_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_scopes("chatbots:write"))],
+)
 async def unassign_child(
     chatbot_id: uuid.UUID,
     child_chatbot_id: uuid.UUID,

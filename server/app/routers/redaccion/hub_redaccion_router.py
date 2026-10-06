@@ -233,6 +233,7 @@ class MigrateResponse(BaseModel):
     "/templates",
     response_model=list[TemplateOut],
     operation_id="listTemplates",
+    dependencies=[Depends(require_scopes("redaccion:templates:read"))],
 )
 async def list_templates(
     user: UserInfo = Depends(get_current_user),

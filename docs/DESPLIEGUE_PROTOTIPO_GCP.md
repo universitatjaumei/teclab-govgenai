@@ -363,12 +363,13 @@ autenticara contra GCS —el `reverse_proxy` a secas no lo hace— y es un cambi
 Desde REG.4 la pila lleva un servicio más, `mcp`, y el proxy le manda `/mcp`. Es un servidor
 **MCP** con transporte *streamable HTTP*: un cliente compatible —Claude Code, entre otros— se
 conecta a `https://normativa.uji.es/mcp` y obtiene las herramientas que hablan con la API de la
-plataforma, en dos juegos:
+plataforma, en tres juegos:
 
 | Juego | Herramientas |
 |---|---|
 | Registro de actividad (REG.4) | `registrar_actividad`, `detectar_pii`, `anonimizar_texto` |
 | Verificaciones (VAS) | `verificar_citas`, `consultar_vigencia`, `auditar_codigo`, `reglas_de_auditoria` |
+| Agentes de unidad (#226) | `catalogo_de_agentes`, `consultar_agente`, `ampliar_consulta`, `cargar_indice_de_agente` |
 
 **La lista se comprueba sola.** `test_issue89_las_herramientas_del_mcp_no_se_cuentan_a_mano.py`
 cruza esta tabla con lo que `http_server` registra de verdad, y se pone rojo si alguna falta. La

@@ -40,6 +40,12 @@ avisa de cuál dejó de casar. Para corregirlo:
    se actualiza `adaptadores/gemini.json`. Las pruebas comprueban el adaptador contra **todas** las
    instantáneas, así que una corrección que rompa lo que ya funcionaba no pasa.
 
+Para no enterarse por el primer usuario al que le falla, un **canario diario** lo prueba antes:
+abre una conversación temporal de Gemini con el adaptador vigente, inserta, envía y lee, y si algo
+no casa avisa a la plataforma y guarda la página nueva para el paso 2. Procedimiento y requisitos
+en [`canario/CANARIO.md`](canario/CANARIO.md). Las funciones que ejecuta en la página están en
+`canario/canario.js`, y **no van en el ZIP de la extensión**: son del canario, no del panel.
+
 Es JavaScript sin empaquetar, sin dependencias ni compilación: Chrome carga esta carpeta tal cual.
 Las pruebas viven en `frontend/src/__tests__/extensionPanel.test.ts`, que la carga con un `chrome`
 de mentira.

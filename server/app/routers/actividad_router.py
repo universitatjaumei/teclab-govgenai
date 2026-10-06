@@ -44,6 +44,7 @@ from server.app.api.deps import (
     require_admin,
     require_module,
     require_pat_scopes,
+    require_scopes,
 )
 from server.app.core.auth.models import UserInfo
 from server.app.core.auth.pat.scopes import ACTIVIDAD_WRITE
@@ -331,6 +332,9 @@ class CategoriaDeDatos(BaseModel):
     "/categorias",
     response_model=list[CategoriaDeDatos],
     operation_id="categoriasDeDatos",
+    # #214 — quien registra con un token tiene que poder leer el catálogo que el contrato le
+    # pide usar; la descripción de `registrar_actividad` en el MCP le manda aquí.
+    dependencies=[Depends(require_scopes(ACTIVIDAD_WRITE))],
 )
 async def categorias_de_datos(
     incluir_retiradas: bool = Query(

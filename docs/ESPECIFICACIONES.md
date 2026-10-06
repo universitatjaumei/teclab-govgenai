@@ -360,6 +360,15 @@ por `funcion_id@versión`.
   significa «ninguna»** (I5, I8).
 - Contraseña local para personas, con interruptor `LOCAL_USER_LOGIN_ENABLED` para apagarla cuando
   llegue el SSO. Cualquiera puede cambiar la suya, exigiendo siempre la actual.
+- **Un token personal (PAT) sólo entra donde el endpoint declara qué alcance acepta** (#214,
+  2026-10-06). Lo hace cumplir `get_current_user`: si la ruta no declara alcance
+  (`require_scopes`, `require_pat_scopes`) o es de persona (`require_sesion_humana`), el token
+  recibe 403 `PAT_NO_PERMITIDO`, **sea cual sea el rol de su dueño**. Antes, un endpoint que no
+  decía nada aceptaba cualquier token, y un token de superadministrador emitido sólo para anotar
+  usos podía conceder módulos. Un endpoint nuevo que no declare nada es de sesión, no de máquina.
+- **Quien entra con la cuenta institucional queda en la organización de la institución**
+  (`SAML_ORGANIZACION_ID`, que usa también el login de Google), y se le vuelve a poner en cada
+  entrada: asignarla a mano no dura.
 
 **Superficie.** `core/auth/` (`tenancy.py`, `modulos.py`, `pat/`) · `core/ambito.py` ·
 `auth_router`, `hub_users_router`, `hub_modulos_router` · `saml_auth_router`.
@@ -820,7 +829,10 @@ del navegador (#176).
   plataforma marca la integración como rota, contando sólo los avisos de la versión vigente.
   **Lo que no puede garantizar**: que Gemini no cambie su página. Las instantáneas de su página en
   `extension/instantaneas/` hacen que una corrección no rompa lo que ya funcionaba; el aviso de
-  campo dice cuándo ha cambiado, no lo evita.
+  campo dice cuándo ha cambiado, no lo evita. Y un **canario diario** (`extension/canario/`) lo
+  prueba antes que nadie: inserta, envía y lee en una conversación temporal con el adaptador
+  vigente, y si algo no casa avisa como lo haría la extensión y guarda la página nueva. Corre en
+  un equipo personal, como tarea programada, porque Gemini sólo se prueba con una cuenta.
 - **Los datos de la consulta** (#219): la unidad declara los datos esenciales que tiene que dar
   quien pregunta —en un agente de pliegos, el tipo de contrato y el CPV—, de dos tipos, lista de
   opciones o texto, y una línea de indicaciones. La pantalla pinta el formulario a partir de lo
@@ -859,7 +871,9 @@ del navegador (#176).
 `routers/agentes_router.py`: `/api/v1/agentes` para la gestión y `/api/v1/agentes/catalogo` para
 quien usa; `modules/agentes/indice.py` (cargar y seleccionar) y `/api/v1/agentes/{id}/indice`.
 `modules/agentes/consulta.py` compone el prompt en es, ca o en. La extensión vive en
-`extension/`, fuera del panel, y se carga tal cual en Chrome. Tablas operacionales
+`extension/`, fuera del panel, y se carga tal cual en Chrome. Y por MCP (#226), en los dos transportes:
+`catalogo_de_agentes`, `consultar_agente`, `ampliar_consulta` y `cargar_indice_de_agente`
+(`mcp_server/tools/agentes.py`), con los mismos alcances; publicar no tiene tool. Tablas operacionales
 `hub_agentes_unidad`, `hub_agente_unidad_versiones`, `hub_agente_fichas` y `hub_agente_consultas`.
 
 **Madurez**: `producción` — desplegado el 2026-10-04 (PR #221), con las fichas prioritarias el
