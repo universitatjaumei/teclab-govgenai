@@ -118,7 +118,7 @@ jobs:
       # porque son workflows distintos; si algún día divergen, el síntoma es este mismo error.
       # ---------------------------------------------------------------------
       - name: Instalar uv
-        uses: astral-sh/setup-uv@v10.1.0
+        uses: astral-sh/setup-uv@v10.2.0
         with:
           version: "latest"
 
