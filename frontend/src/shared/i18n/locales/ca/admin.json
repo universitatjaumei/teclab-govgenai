@@ -17,7 +17,8 @@
         "chatbots": "Chatbots i assistents",
         "curacion": "Curació de contingut",
         "informes": "Informes",
-        "plataforma": "Administració de la plataforma"
+        "plataforma": "Administració de la plataforma",
+        "automatizacion": "Automatització"
       },
       "detected_vars": "Variables detectades",
       "available_vars": "Variables disponibles",
@@ -371,7 +372,8 @@
     "main": "Navegació principal",
     "language": "Idioma",
     "organizacion": "Organització",
-    "plataforma": "Plataforma"
+    "plataforma": "Plataforma",
+    "automatizacion": "Automatització"
   },
   "no_encontrado": {
     "texto": "L’adreça a la qual has arribat no correspon a cap pantalla. Comprova l’enllaç per si esta incomplet.",

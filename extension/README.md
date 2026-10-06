@@ -3,11 +3,26 @@
 Un panel lateral de Chrome con los agentes de unidad que la organización ofrece a quien lo usa
 (§5.14 de [`docs/ESPECIFICACIONES.md`](../docs/ESPECIFICACIONES.md)). Se elige un agente, se escribe
 la pregunta y la extensión **pide el prompt vigente a la plataforma** —que es lo que queda
-registrado— y lo copia para pegarlo en el asistente general.
+registrado—. Lo que el panel pinta sale de lo que declara el agente, no de la extensión:
 
-**En Gemini inserta el prompt y lee la respuesta** (#215), con las funciones de `asistente.js`. No
-envía: lo envía la persona. Sólo actúa en `gemini.google.com`, con un permiso opcional que pide la
-primera vez. **No es un control de acceso**: el asistente se usa igual sin ella.
+- **Los datos de la consulta** (#219): las indicaciones y los campos que pide el agente —una lista
+  de opciones o un texto—, con los obligatorios marcados; sin ellos no se puede consultar.
+- **El adjunto** (#218): en un agente con el adjunto opcional, una casilla para decir si se va a
+  adjuntar un documento, y entonces el panel pide describirlo en la pregunta. En uno de revisión,
+  el adjunto es obligatorio y se avisa.
+- **La lengua de la respuesta** no se elige aquí: la declara el agente y la plataforma añade la
+  instrucción al componer el prompt.
+
+**En Gemini, «Insertar en Gemini» pone el prompt en la conversación y lee la respuesta** (#215),
+con las funciones de `asistente.js`. **No envía**: lo envía la persona, que en un agente de revisión
+adjunta antes su documento. Si no hay pestaña de Gemini o insertar falla, lo copia para pegarlo a
+mano. Sólo actúa en `gemini.google.com`, con un permiso opcional que pide la primera vez. **No es
+un control de acceso**: el asistente se usa igual sin ella.
+
+**«Buscar más documentos»** (#225): tras una consulta, se escribe qué falta —y se pueden cambiar
+los datos— y la plataforma busca con ese texto enlaces **nuevos, sin repetir** los ya ofrecidos en
+la conversación. Se insertan en **la misma conversación** de Gemini, sin volver a pegar el prompt
+del agente. Cada ampliación es una consulta más, ligada a la primera.
 
 **Y registra la conversación** (#216). En un agente **en validación** —el modo de partida— manda a
 la plataforma la respuesta que leyó, o por qué no pudo leerla, y lo avisa en el panel. En cualquier

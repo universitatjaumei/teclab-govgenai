@@ -59,6 +59,7 @@ const RevisionPosteriorPage = lazy(() => import('@/redaccion/pages/RevisionPoste
 const WorkspacePreview = lazy(() => import('@/redaccion/preview/WorkspacePreview').then(m => ({ default: m.WorkspacePreview })))
 const WorkspacePage = lazy(() => import('@/redaccion/pages/WorkspacePage').then(m => ({ default: m.WorkspacePage })))
 const UtilidadesLayout = lazy(() => import('@/utilidades/UtilidadesLayout').then(m => ({ default: m.UtilidadesLayout })))
+const AutomatizacionLayout = lazy(() => import('@/automatizacion/AutomatizacionLayout').then(m => ({ default: m.AutomatizacionLayout })))
 const UtilidadesPdfPage = lazy(() => import('@/utilidades/pages/UtilidadesPdfPage').then(m => ({ default: m.UtilidadesPdfPage })))
 const AnonimizarFicheroPage = lazy(() => import('@/utilidades/pages/AnonimizarFicheroPage').then(m => ({ default: m.AnonimizarFicheroPage })))
 const AgentesPage = lazy(() => import('@/agentes/AgentesPage').then(m => ({ default: m.AgentesPage })))
@@ -200,6 +201,10 @@ function App() {
                     <Route path="draft" element={<LLMDraftPreviewPage />} />
                     <Route path="scripts/wizard" element={<ScriptProposalWizardPage />} />
                     <Route path="scripts/review" element={<AdminScriptReviewQueuePage />} />
+                  </Route>
+                  {/* 2026-10-05 — el catálogo de funciones sale de Informes a su módulo propio. */}
+                  <Route path="/automatizacion" element={<RutaDeModulo modulo="automatizacion"><AutomatizacionLayout /></RutaDeModulo>}>
+                    <Route index element={<Navigate to="/automatizacion/funciones" replace />} />
                     <Route path="funciones" element={<CatalogoDeFuncionesPage />} />
                     <Route path="funciones/revision" element={<RevisionPosteriorPage />} />
                   </Route>

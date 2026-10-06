@@ -74,8 +74,8 @@ describe('AppLayout', () => {
     // hay es peor que un menú corto. «Informes» estaba construido y fuera de todo menú.
     //
     // **PLAT.2 devuelve «Plataforma», esta vez con contenido**: las pantallas transversales
-    // que vivían dentro del módulo Chatbots. «Automatización» sigue fuera, porque ese módulo
-    // no existe — sólo hay infraestructura que consume Informes.
+    // que vivían dentro del módulo Chatbots. «Automatización» vuelve el 2026-10-05 como módulo
+    // propio con el catálogo de funciones; aquí no aparece porque no está concedido.
     renderLayout()
     expect(screen.getByText('Chatbots')).toBeDefined()
     expect(screen.getByText('Informes')).toBeDefined()
@@ -163,5 +163,16 @@ describe('Agentes — una sola entrada para consultar y para publicar (2026-10-0
     conModulos(['informes'])
     renderLayout('/redaccion')
     expect(entradasDeAgentes()).toHaveLength(0)
+  })
+})
+
+describe('2026-10-05 — «Automatización», con el catálogo de funciones', () => {
+  it('quien tiene el módulo ve la entrada, y lleva a su sección', () => {
+    conModulos(['automatizacion'])
+    renderLayout('/automatizacion/funciones')
+    const enlace = screen.getByRole('link', { name: /automatización/i })
+    expect(enlace.getAttribute('href')).toBe('/automatizacion')
+    expect(enlace.getAttribute('aria-current')).toBe('page')
+    expect(screen.queryByRole('link', { name: /informes/i })).toBeNull()
   })
 })

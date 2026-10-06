@@ -45,3 +45,13 @@ describe('RedaccionLayout', () => {
     expect(screen.getByRole('link', { name: /revisión de scripts/i })).toBeDefined()
   })
 })
+
+describe('2026-10-05 — el catálogo de funciones ya no está en Informes', () => {
+  it('no ofrece funciones ni su revisión, que pasaron a «Automatización»', () => {
+    renderLayout()
+    expect(screen.queryByRole('link', { name: /^funciones$/i })).toBeNull()
+    expect(screen.queryByRole('link', { name: /revisión posterior/i })).toBeNull()
+    // Los scripts siguen: quien redacta propone el de su plantilla.
+    expect(screen.getByRole('link', { name: /revisión de scripts/i })).toBeDefined()
+  })
+})

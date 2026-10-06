@@ -79,8 +79,10 @@ y de competencia en la compra pública, así que se trata como tal.
 
 ## 3. Los módulos: lo que hay hoy
 
-Tres módulos funcionales sobre una base común (identidad institucional, pasarela de modelos
-multiproveedor, almacenamiento portable, frontera edge/cloud):
+Cuatro módulos funcionales —asistentes, informes, automatización (los dos en §3.2, cada uno con
+su menú y su módulo de acceso) y curación— y dos capacidades más pequeñas —agentes de unidad y
+utilidades (§3.5)— sobre una base común (identidad institucional, pasarela de modelos multiproveedor, almacenamiento
+portable, frontera edge/cloud):
 
 ### 3.1 Asistentes informativos
 
@@ -138,6 +140,10 @@ Generación asistida de informes a partir de documentos y hojas de cálculo real
   línea), lo revisa además un modelo supervisor, y se ejecuta en un **microservicio sin acceso a
   red** que vuelve a auditarlo antes de ejecutarlo. Ningún código de usuario corre en el proceso
   del servidor.
+- **Catálogo de funciones, en su propio menú «Automatización»**: una extracción se escribe una vez,
+  con su contrato y su declaración responsable, y las plantillas la referencian por versión. Se
+  registra sin aprobación previa y se revisa después; las de origen externo —un cuaderno que corre
+  fuera— se registran por su hash sin que la plataforma las ejecute (§6).
 
 ### 3.3 Curación de contenido
 
@@ -169,6 +175,20 @@ A esa base se le añadieron en agosto de 2026 dos piezas que el modelo multiinst
 - **Administración separada por planos**: la gestión de la plataforma (organizaciones, personas,
   módulos concedidos) se separó de la administración de cada asistente, con concesión de módulos
   a una persona o a un grupo del proveedor de identidad.
+
+### 3.5 Agentes de unidad y utilidades
+
+**Agentes de unidad.** Una unidad —contratación, calidad— publica un agente: un prompt, una carpeta
+de documentos en el almacén de la organización y el colectivo que puede usarlo, sin escribir código.
+La plataforma guarda un índice de fichas —enlace, título, resumen—, **nunca los documentos**; en cada
+consulta selecciona los pertinentes y compone el prompt con sus enlaces. El agente es el asistente
+general de la organización (Gemini), que abre los documentos con la cuenta de quien pregunta, y una
+extensión del navegador hace de puente: inserta el prompt sin enviarlo y, en validación, devuelve
+la respuesta para revisarla. Cada uso queda en el registro de actividad.
+
+**Utilidades.** Unir, dividir y optimizar PDF, y anonimizar un CSV o un Excel para compartirlo:
+lo que hoy se hace en webs que no aseguran la protección de datos. El fichero entra en la petición
+y sale en la respuesta, sin guardarse, y sólo quedan metadatos del uso.
 
 ## 4. Arquitectura y despliegue
 
@@ -340,7 +360,7 @@ la que **no hay mecanismo construido**, y por eso está aquí y no en la tabla d
 ## 6. Lo que viene
 
 Las dos líneas que siguen se replantearon el 23 de septiembre de 2026, y lo que cambió no fue el
-plazo sino el alcance. Merece explicarse, porque el motivo vale para cualquier administración que
+plazo sino el alcance; la primera ya está construida y desplegada. Merece explicarse, porque el motivo vale para cualquier administración que
 se plantee lo mismo: **en los dos casos habíamos previsto construir una pieza que ya existe fuera,
 y lo que de verdad faltaba era la gobernanza alrededor.** El detalle, con sus hitos y sus issues,
 está en `ROADMAP.md`.
@@ -350,10 +370,12 @@ trabajo que ejecutara automatizaciones y capturas de pantalla. Se descarta: los 
 propósito general con acceso al navegador y al escritorio ya hacen eso, y además lo hacen en el
 régimen que las normas de desarrollo ciudadano reservan al uso personal, en el equipo de la
 persona y con sus credenciales. Lo que no dan, y lo que una institución necesita en cuanto una
-automatización se comparte, es saber **cuáles circulan, quién las usa y con qué versión**: un
-cuaderno se registra por su hash con su declaración responsable sin que la plataforma lo ejecute,
-un agente puede pasar el código por la auditoría estática y el texto por la anonimización antes de
-enviarlo a un modelo, y cada uso queda en el registro de actividad.
+automatización se comparte, es saber **cuáles circulan, quién las usa y con qué versión**. Es lo
+que se construyó, y está desplegado en el menú «Automatización»: un cuaderno se registra por su
+hash con su declaración responsable sin que la plataforma lo ejecute, las funciones de tarea
+producen ficheros de salida y sólo salen a la red hacia orígenes declarados, un agente puede pasar
+el código por la auditoría estática y el texto por la anonimización antes de enviarlo a un modelo,
+y cada uso queda en el registro de actividad. **No hay cliente de ejecución local, y no lo habrá.**
 
 **Trámites asistidos con IA.** La previsión era un gestor de expedientes completo. Se descarta por
 la misma razón: las administraciones ya tienen uno, y es la fuente de verdad del procedimiento
@@ -377,8 +399,9 @@ puntuación la calcula una función determinista con el baremo como dato version
 **Hitos orientativos, en la escala de §5.1**: entrada en **validación** de los asistentes
 informativos durante el cuarto trimestre de 2026, sujeta al estudio de integración; apertura del
 repositorio público en la misma ventana; **explotación** no antes de que exista auditoría de
-seguridad independiente; automatización gobernada y trámites asistidos en experimentación durante
-2027-2028.
+seguridad independiente; trámites asistidos en experimentación durante 2027-2028. La
+automatización gobernada está construida y en producción; su primer agente de unidad, el de
+pliegos para grupos de investigación, ha pedido la entrada en la fase de experimento del Teclab.
 
 Las fechas son orientativas y las dependencias no: ninguna de ellas depende sólo del desarrollo,
 y decirlas como si fueran hitos de ingeniería sería confundir lo que uno controla con lo que no.

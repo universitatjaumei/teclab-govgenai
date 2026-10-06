@@ -1,6 +1,7 @@
 # Guía de uso: qué hace cada quien con la plataforma
 
-> **Clase: referencia viva.** Escrita el 2026-09-19. Describe cómo se usa la plataforma **ya
+> **Clase: referencia viva.** Escrita el 2026-09-19; el 2026-10-05 se añadieron Automatización,
+> Utilidades y Agentes de unidad. Describe cómo se usa la plataforma **ya
 > instalada y arrancada**: qué hace un superadministrador el primer día, y cómo se llega desde
 > ahí a un asistente publicado, un informe aprobado o un portal curado.
 >
@@ -29,11 +30,20 @@ de «tengo el rol y no me deja»:
 | `informer` | Supervisa y valida lo que responde la IA. |
 | `user` | Usa los asistentes y trabaja los informes. |
 
-Los seis módulos: `chatbots`, `curacion`, `informes`, `personas`, `registro`, `plataforma`.
+Los diez módulos: `chatbots`, `curacion`, `informes`, `automatizacion`, `personas`, `registro`,
+`utilidades`, `agentes`, `consulta_agentes` y `plataforma`.
 
 `personas` está separado de `plataforma` a propósito: administrar a la gente de tu organización
 no es administrar la plataforma, y meterlo ahí obligaba a dar los modelos de LLM y los tokens
 para poder dar lo primero. Con `registro` pasa lo mismo.
+
+**Dos módulos son de oficio**: `utilidades` y `consulta_agentes` los tiene cualquier persona de
+la plataforma, también quien se dé de alta mañana, sin concesión. Concederlos se rechaza porque
+no cambiaría nada.
+
+`automatizacion` salió de `informes` el 2026-10-05: una función de origen externo no produce
+ningún informe. Los scripts que quien redacta propone para su plantilla siguen en `informes`
+(§4.3).
 
 **Al entrar, la aplicación aterriza en el primer módulo concedido**, no en una pantalla fija.
 Quien sólo hace informes entra en informes.
@@ -213,16 +223,17 @@ informe institucional no sale de un modelo de lenguaje.
 
 Tres caminos, en este orden:
 
-1. **El catálogo de funciones** — `/redaccion/funciones`. Funciones deterministas, versionadas y
-   compartidas entre organizaciones. Antes de escribir código, mirar si ya existe.
-   [`CATALOGO_FUNCIONES.md`](CATALOGO_FUNCIONES.md).
-2. **Proponer una función o un script** — `/redaccion/scripts/wizard`. El código se **audita
-   automáticamente** (auditoría estática graduada: aceptable, advertencia, crítico, con número de
-   línea) y se prueba en un **sandbox sin red**. El filtro es automático, no una aprobación
-   previa de nadie.
-3. **La revisión posterior** — `/redaccion/funciones/revision` y
-   `/redaccion/scripts/review`. Es donde entra la persona: puede pedir correcciones,
-   reclasificar o suspender una función ya publicada.
+1. **El catálogo de funciones** — `/automatizacion/funciones`, en el módulo `automatizacion`
+   (§7). Funciones deterministas, versionadas y compartidas entre organizaciones. Antes de
+   escribir código, mirar si ya existe.
+2. **Proponer una función o un script** — **Informes → Pedir un script**
+   (`/redaccion/scripts/wizard`). El código se **audita automáticamente** (auditoría estática
+   graduada: aceptable, advertencia, crítico, con número de línea) y se prueba en un **sandbox
+   sin red**. El filtro es automático, no una aprobación previa de nadie. Al declararlo, el
+   script queda registrado como función del catálogo.
+3. **La revisión posterior** — `/automatizacion/funciones/revision` para las funciones y
+   `/redaccion/scripts/review` para los scripts. Es donde entra la persona: puede pedir
+   correcciones, reclasificar o suspender una función ya publicada.
 
 Por qué la persona entra **después** y no antes: la Instrucció 02/2026 prohíbe la aprobación
 previa como condición para compartir dentro del servicio. La única aprobación previa que queda es
@@ -287,11 +298,230 @@ comprueba y registra la plataforma, y qué de ello es accesible desde fuera:
 
 ---
 
-## 7. Lo que la plataforma no hace, y conviene saber antes
+## 7. Automatización: el catálogo de funciones
+
+Módulo `automatizacion`, entrada **Automatización** del menú, con dos pestañas: **Funciones**
+(`/automatizacion/funciones`) y **Revisión posterior** (`/automatizacion/funciones/revision`).
+El contrato completo, campo a campo: [`CATALOGO_FUNCIONES.md`](CATALOGO_FUNCIONES.md).
+
+### 7.1 Qué es una función
+
+Una extracción o una tarea determinista —contar las filas de un fichero de gastos, leer los
+importes de un PDF, sacar un CSV limpio— escrita **una vez**, con su contrato y una
+**declaración responsable**: para qué sirve y qué categorías de datos trata. Las plantillas de
+informe la **referencian** por `función@versión` en vez de llevar el código copiado.
+
+Una versión registrada **no cambia nunca**: corregir es publicar otra, y las plantillas ancladas
+a la anterior siguen ejecutándola hasta que su responsable decida adoptar la nueva. Una función
+suspendida o retirada hace fallar en alto el bloque que la usa, con su nombre y el motivo.
+
+### 7.2 Tres orígenes
+
+| Origen | Dónde vive el código | Quién lo ejecuta |
+|---|---|---|
+| `autoservicio` | En el catálogo | La plataforma, en el sandbox |
+| `paquete` | En el repositorio de un equipo, instalado con `pip` | La plataforma, en su proceso |
+| `externa` | Donde lo tenga su autora: un cuaderno o un script | **Nadie desde aquí**: corre fuera |
+
+Las de autoservicio pueden además **producir ficheros** —un Excel, un Word, un CSV— y **leer
+documentos de fuera**, sólo por `GET`, sólo `https` y sólo de los servidores que declaren en el
+contrato. Las dos cosas se declaran; lo que no se declara no se puede hacer.
+
+### 7.3 Registrar una función externa
+
+Para el cuaderno que circula por la unidad sin que nadie sepa cuántas copias hay ni de qué
+versión. Se registra por API (`POST /api/v1/funciones/externas`) con el fichero entero —`.py` o
+`.ipynb`—, la declaración responsable y **dónde corre**. En el catálogo aparece como «Se ejecuta
+fuera, registrada aquí».
+
+**La plataforma no lo ejecuta**, y es a propósito: el código sigue corriendo donde corría, con
+las credenciales de quien lo usa, y la plataforma no toca el dato. Sabe que existe, de qué
+versión, para qué se declaró y quién responde de él. Dos consecuencias que conviene saber:
+
+- **La auditoría es informativa**: sus hallazgos llegan a la revisión y no bloquean el registro,
+  porque un programa que corre fuera usa red y disco legítimamente.
+- **Suspenderla es un aviso, no un cerrojo**: la plataforma la marca y deja de recomendarla, y no
+  puede impedir que alguien la ejecute fuera.
+
+### 7.4 La revisión posterior
+
+Registrar es compartir, y es automático. En una función de **autoservicio** basta con la
+declaración completa, una auditoría sin hallazgos críticos y el sandbox superado; una **externa**
+se registra con su declaración, su auditoría es sólo informativa y no pasa por el sandbox, porque
+no se ejecuta aquí (§7.3). En los dos casos, **nadie lo aprueba antes**: la Instrucció 02/2026 prohíbe la aprobación previa
+como condición para compartir dentro del servicio. La persona entra después, en **Revisión
+posterior**, con un plazo de 30 días naturales que avisa sin bloquear.
+
+Revisa y suspende el administrador de la organización autora o el superadministrador, **nunca
+quien la escribió**. Retirar es de quien la escribe. Las decisiones de la institución que fijan
+este régimen —el ecosistema de módulos autorizado, el plazo, quién revisa— están en
+`CATALOGO_FUNCIONES.md` §4.
+
+### 7.5 Ejecutarla desde fuera, y que conste
+
+Una aplicación externa ejecuta una función con un token personal con el *scope*
+`funciones:execute` (§2.5), **indicando siempre la versión**. Cada ejecución deja un evento en el
+registro de actividad (§6) con la finalidad y las categorías que **la función declaró**, sin
+*payloads*. Una función externa responde **409** y dice dónde corre de verdad.
+
+El cuaderno externo cierra el circuito por su lado: al ejecutarse, calcula el hash de su propio
+fichero y lo manda al registro de actividad en el campo `funcion_sha256`. Ese hash es el que el
+catálogo guardó al registrarlo, así que **el catálogo dice qué cuadernos existen y el registro
+dice cuándo corrieron**. Si el cuaderno no está registrado, el uso consta igual, y eso también es
+información. El ejemplo de código: [`REGISTRO_ACTIVIDAD_IA.md`](REGISTRO_ACTIVIDAD_IA.md).
+
+---
+
+## 8. Utilidades
+
+Módulo `utilidades`, **de oficio**, ruta `/utilidades`. Operaciones sueltas sobre un fichero que
+hoy se hacen en webs que no aseguran el RGPD:
+
+- **PDF** (`/utilidades/pdf`): unir varios, dividir uno —por rangos, extrayendo páginas sueltas o
+  un fichero por página— y optimizarlo para que ocupe menos.
+- **Anonimizar un fichero** (`/utilidades/anonimizar`): un CSV o un Excel. La pantalla propone una
+  regla para cada columna, se revisa, se ve la vista previa y se descarga. **No se descarga sin
+  haber visto la vista previa**, y lo comprueba el servidor. Es **seudonimización asistida, no
+  anonimato garantizado**: lo que el detector no vea sale con el fichero, y la responsabilidad de
+  lo que se comparte es de quien lo comparte.
+
+**Nada se guarda**: el fichero entra en la petición y sale en la respuesta. Queda constancia del
+uso en el registro de la organización —quién, cuándo, qué operación, cuántas páginas o filas—,
+**nunca el nombre del fichero ni su contenido**. Quien no pertenece a una sola organización, como
+el superadministrador, tiene que elegir una en el selector del panel antes de operar.
+
+---
+
+## 9. Agentes de unidad
+
+Una unidad —contratación, control interno, calidad— publica un **agente**: un prompt, una carpeta
+de documentos en el Drive de la organización y el colectivo que puede usarlo. **Nada de eso es
+código**, y el modelo lo pone el asistente general de la organización (Gemini). La plataforma
+cataloga, acota, guarda el **índice** de los documentos y, en cada consulta, elige cuáles tocan y
+devuelve el prompt con sus enlaces.
+
+**La plataforma no guarda ningún documento ni ve los adjuntos.** Guarda la URL y un resumen de
+cada uno. Quien abre los enlaces es Gemini, **con la cuenta de quien pregunta**: la plataforma
+selecciona y el Drive autoriza. Garantías completas: `ESPECIFICACIONES.md` §5.14.
+
+Entrada **Agentes** del menú, con dos pestañas: **Consultar**, para cualquiera (módulo
+`consulta_agentes`, de oficio), y la de publicar y gestionar, con el módulo `agentes`.
+
+### 9.1 Publicar un agente
+
+**Publicar un agente**, en la pestaña de gestión. Publicar es registrar: se ofrece desde ya, sin
+aprobación previa, y quien revisa puede suspenderlo después. Lo que se declara:
+
+| Campo | Qué es |
+|---|---|
+| Nombre, unidad, finalidad, responsable | La declaración. Sin ella no se publica. La unidad es texto: la plataforma no tiene unidades. |
+| Prompt | Las instrucciones del agente. **Proponer un prompt** pide al modelo una propuesta a partir de lo que describas; se edita antes de publicar, y la versión publicada con ella consta como redactada con ayuda de IA. |
+| Carpeta de documentos | La dirección de la carpeta de Drive. |
+| Quién puede usarlo | Toda la organización o unos grupos del proveedor de identidad. Con el inicio de sesión de Google no llegan grupos, así que un agente por grupos no se le ofrecería a nadie; la pantalla lo avisa. |
+| Fecha de revisión prevista | Cuándo volverá a mirarlo la unidad. **Se vuelve a escribir en cada versión nueva**: versionar es volver a mirarlo. Si vence, el agente se sigue ofreciendo, marcado. |
+| Lengua de la respuesta | La de la pregunta, siempre castellano o siempre valenciano. La instrucción la añade la plataforma; no hace falta escribirla en el prompt. |
+| Documento adjunto | Sin adjunto, puede adjuntar (quien pregunta lo dice en cada consulta) o siempre adjunta, que es un agente de revisión. Con adjunto, los documentos de la carpeta son **el criterio** con el que se analiza. |
+| Documentos por consulta | Entre 1 y 10, 5 por defecto. Son los enlaces que Gemini abrirá de una vez. |
+| Datos de la consulta | Lo esencial que tiene que dar quien pregunta —en un agente de pliegos, el tipo de contrato y qué se contrata—, como lista de opciones o como texto. Si se liga a una **columna del índice**, filtra en suave (§9.3). |
+| Indicaciones para quien pregunta | Una línea que se ve al consultar. |
+| Plazas reservadas por capa | Cuántas plazas de cada consulta van, como mínimo, a una capa del índice (§9.3). No pueden sumar más que los documentos por consulta. |
+| Registro de conversaciones | **En validación**, el modo de partida, se guarda cada pregunta con su respuesta; en **sólo incidencias**, sólo lo que se informa como inadecuado. |
+
+Corregir es publicar una **nueva versión**: se ofrece la última. Suspender es de quien revisa —el
+administrador de la organización o el superadministrador, nunca quien lo publicó—, y retirar, de
+quien lo publicó o del administrador de su organización.
+
+### 9.2 El índice
+
+El índice es una **hoja con una fila por documento**. Columnas obligatorias: `url`, `titulo` y
+`resumen`. Opcionales: `vigente`, `revision_prevista_en`, `prioritario` y `capa`. Cualquier otra
+columna se guarda como metadato, y es la que se puede ligar a un dato de la consulta. Los nombres
+de columna se escriben tal cual, sin traducirlos.
+
+Dos maneras de mantenerlo, desde **Actualización del índice** en la ficha del agente:
+
+1. **El guion de Apps Script**, que es la normal. Se instala en una hoja junto a la carpeta —mejor
+   en una unidad compartida: el de una cuenta personal se pierde cuando esa persona se va—, con un
+   **token del guion** que se emite ahí mismo y sólo sirve para mandar el índice. Corre cada
+   mañana con la cuenta de la unidad, resume con Gemini sólo lo nuevo o cambiado y manda el
+   índice. **Los documentos no salen de Google.**
+2. **Subir la hoja a mano**, en CSV o Excel.
+
+**La hoja es el índice entero: lo que no venga se retira.** Lo que no cambió no se toca, y una
+hoja incoherente no se carga a medias. La ficha del agente avisa si el guion lleva días sin mandar
+el índice, cuántos documentos de la carpeta no tienen ficha —un documento sin ficha no existe
+para el agente, y nadie recibe un error— y cuántas fichas se resumieron con un prompt anterior.
+Regenerarlas es decisión de la unidad.
+
+### 9.3 Cómo se eligen los documentos de una consulta
+
+Cada ficha tiene un vector hecho **sólo del título y el resumen**; la pregunta, junto con los datos
+de la consulta, se compara con él. El orden:
+
+1. **Lo no vigente no entra**, ni ocupa plaza.
+2. **El filtro suave de los datos de la consulta**: si un dato está ligado a una columna, se
+   descarta la ficha cuyo valor lo contradice y se conserva la que no lo dice. Los códigos
+   jerárquicos, como el CPV, casan por prefijo.
+3. **Las prioritarias** (columna `prioritario`: el pliego tipo, el modelo de la casa) entran
+   primero si pasan el filtro, **como mucho la mitad del presupuesto**, y **sin quitar plazas
+   reservadas a otra capa**.
+4. **Las reservas por capa**: para cada capa con plazas reservadas, las fichas de esa capa más
+   parecidas a la pregunta, contando las prioritarias que ya son de ella. Así la ley o la doctrina
+   no compiten con cientos de ejemplos. La plaza que una capa no llena vuelve al reparto general.
+5. **El resto, por similitud**, hasta el presupuesto del agente.
+
+Un ejemplo real de carpeta por capas: [`ejemplos/agentes/pliegos/`](ejemplos/agentes/pliegos/).
+
+### 9.4 Consultar
+
+**Desde el panel**: **Agentes → Consultar**. Se elige el agente, se escribe la pregunta, se
+rellenan los datos que pida, **Preparar el prompt** y **Copiar el prompt**, y se pega en Gemini.
+Si el agente espera un adjunto, se describe el documento en la pregunta —es lo que permite elegir
+la normativa que toca— y se adjunta en el mismo mensaje.
+
+**Desde la extensión de Chrome**, un panel lateral al lado de Gemini. Se instala desde la carpeta
+`extension/` del repositorio ([`../extension/README.md`](../extension/README.md)) y se conecta
+con **Conectar**: el panel pide confirmar con tu sesión y emite una conexión que sólo sirve para
+consultar y caduca a los 30 días. Las conexiones se ven y se revocan en **Consultar**. Después:
+elegir el agente, rellenar los campos y **Insertar en Gemini**, que **inserta sin enviar**: envía
+la persona, que en un agente de revisión adjunta antes su documento. En un agente en validación,
+la extensión lee la respuesta de Gemini y la manda a la plataforma, o dice por qué no pudo.
+
+La extensión **no es un control de acceso**: Gemini se usa igual sin ella. Lo que da es que el
+camino cómodo sea el que queda registrado.
+
+**Buscar más documentos**, cuando la primera tanda no basta: se escribe qué falta —y se pueden
+cambiar los datos—, se busca **con ese texto y no con la pregunta**, y **nunca se repite** lo ya
+ofrecido en la conversación. Lo que se pega en la misma conversación de Gemini es corto, el texto
+y los enlaces nuevos, sin volver a pegar el prompt del agente.
+
+Cada consulta va al registro de actividad (§6) **sin la pregunta**.
+
+### 9.5 La calidad de un agente
+
+**Ver la calidad**, en la ficha del agente, sólo para quien lo publicó y quien lo revisa. Muestra
+las conversaciones de lo más reciente a lo más antiguo, **sin decir quién preguntó**: en
+validación, la pregunta, los datos, los documentos ofrecidos con su puntuación y la respuesta que
+leyó la extensión. Las ampliaciones de «Buscar más documentos» aparecen bajo su conversación.
+
+Quien consulta puede valorar con 👍/👎; un 👎 pide un motivo y es un **informe**, que en un agente
+en sólo incidencias es lo único que se guarda. Quien revisa da a cada conversación un veredicto
+—adecuada, en parte, inadecuada— con nota, y cada informe trae una pista de dónde mirar primero:
+el permiso del documento, el índice, el prompt o la selección.
+
+Lo que no se puede saber: si la persona regeneró la respuesta o siguió conversando en Gemini,
+eso no llega.
+
+---
+
+## 10. Lo que la plataforma no hace, y conviene saber antes
 
 - **No ejecuta nada en la máquina de quien la usa.** No hay agente de escritorio, ni vigilancia
-  de carpetas, correo o web, ni programador de flujos locales. La automatización de procesos y el
-  gestor de expedientes están previstos y **no tienen código**.
+  de carpetas, correo o web, ni programador de flujos locales, y **no los habrá**: se decidió el
+  2026-09-23 no construir un agente de ejecución local, porque eso lo cubren los agentes de
+  propósito general. Lo que aporta la plataforma es gobernanza: el catálogo de funciones (§7),
+  incluidas las que corren fuera y sólo se registran. Tampoco hay gestor de expedientes, y no lo
+  habrá: el de la institución es la fuente de verdad.
 - **No convierte documentos para el corpus.** Eso es el pipeline de curación, y lo que llega al
   corpus es su salida.
 - **No decide por una persona.** Ni qué entra al corpus, ni si una valoración es correcta, ni si
@@ -304,7 +534,7 @@ La lista completa y razonada está en `ESPECIFICACIONES.md` §10.
 
 ---
 
-## 8. Dónde seguir leyendo
+## 11. Dónde seguir leyendo
 
 | Si quieres | Lee |
 |---|---|

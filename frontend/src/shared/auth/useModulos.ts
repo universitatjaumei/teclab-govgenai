@@ -42,6 +42,9 @@ export function primeraRutaConcedida(modulos: string[]): string {
  */
 export const RUTA_DEL_MODULO: ReadonlyArray<readonly [string, string]> = [
   ['informes', '/redaccion'],
+  // 2026-10-05 — el catálogo de funciones; sin esta fila, quien sólo lo tuviera aterrizaría en
+  // `/sin-acceso` teniendo acceso.
+  ['automatizacion', '/automatizacion'],
   ['chatbots', '/hub'],
   ['curacion', '/curation'],
   // UTL — trabajo y no administración, así que va con los de trabajo. Sin esta fila, quien sólo

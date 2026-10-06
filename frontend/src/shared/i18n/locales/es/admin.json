@@ -17,7 +17,8 @@
         "chatbots": "Chatbots y asistentes",
         "curacion": "Curación de contenido",
         "informes": "Informes",
-        "plataforma": "Administración de la plataforma"
+        "plataforma": "Administración de la plataforma",
+        "automatizacion": "Automatización"
       },
       "detected_vars": "Variables detectadas",
       "available_vars": "Variables disponibles",
@@ -371,7 +372,8 @@
     "main": "Navegación principal",
     "language": "Idioma",
     "organizacion": "Organización",
-    "plataforma": "Plataforma"
+    "plataforma": "Plataforma",
+    "automatizacion": "Automatización"
   },
   "no_encontrado": {
     "texto": "La direccion a la que has llegado no corresponde a ninguna pantalla. Comprueba el enlace por si esta incompleto.",

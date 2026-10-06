@@ -204,6 +204,8 @@ lo impide mientras no se haga.
 | `SOURCE_URL` | El enlace al código fuente que exige el §13 de la AGPL si has modificado el programa. **Apunta a tu versión** —tu fork, en el commit desplegado—, no al repositorio principal. Lo sirve `GET /api/v1/instancia`, público y sin credencial; vacío significa «sin enlace». Hoy **ninguna interfaz lo enseña todavía** |
 | `DEV_ADMIN_EMAIL` · `DEV_ADMIN_PASSWORD` | La cuenta que siembra el arranque en `development`. Sin ponerlas hay valores por omisión que **sólo valen en local** |
 | `TRUSTED_PROXY_HOPS` | Cuántos proxies de confianza hay delante. Suponerlo es como se falsifica una IP de origen |
+| `AGENTES_EXTENSION_IDS` | Los identificadores de la extensión del navegador de los agentes de unidad a los que se entrega el token de consulta, separados por comas. **Vacía, no se conecta ninguna.** El de la extensión del repositorio es fijo: `extension/README.md` |
+| `INDICE_SIN_ACTUALIZAR_DIAS` | Días que puede pasar el guion del índice de un agente sin mandarlo antes de marcarlo como «índice sin actualizar» (3 por omisión). Avisa y no oculta: el agente se sigue ofreciendo. Una hoja subida a mano no caduca |
 
 ---
 

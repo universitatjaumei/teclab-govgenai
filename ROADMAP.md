@@ -36,11 +36,11 @@ Chatbots de recuperación aumentada sobre el corpus normativo de la institución
 resolubles, aviso de vigencia, política de lengua y trazas por petición. Evaluación con lote
 dorado y veredicto humano.
 
-Abierto: revisión humana de las respuestas ([#8](https://github.com/universitatjaumei/teclab-govgenai/issues/8));
-el catálogo de procedimientos en el mismo asistente ([#12](https://github.com/universitatjaumei/teclab-govgenai/issues/12),
-**bloqueado** por las fichas validadas y la consulta de descarga); orden vigencia→lengua y aviso
-de traducción ([#9](https://github.com/universitatjaumei/teclab-govgenai/issues/9)); reordenador
-por API y su medición en valenciano ([#10](https://github.com/universitatjaumei/teclab-govgenai/issues/10)).
+Abierto: el catálogo de procedimientos en el mismo asistente ([#12](https://github.com/universitatjaumei/teclab-govgenai/issues/12)),
+**bloqueado** por las fichas validadas y la consulta de descarga. Hechos desde la última revisión
+de este documento: la revisión humana de las respuestas ([#8](https://github.com/universitatjaumei/teclab-govgenai/issues/8)),
+el orden vigencia→lengua y el aviso de traducción ([#9](https://github.com/universitatjaumei/teclab-govgenai/issues/9)),
+y el reordenador por API medido en valenciano ([#10](https://github.com/universitatjaumei/teclab-govgenai/issues/10)).
 
 ### 2. Corpus normativo y curación de portales — En producción
 
@@ -52,7 +52,7 @@ Sin trabajo abierto de alcance nuevo. El vocabulario está **pendiente de valida
 secretaría general de la instalación de referencia, y el diseño está hecho para que ese cambio sea
 barato.
 
-### 3. Informes deterministas y catálogo de funciones — En producción (informes) · Construido (catálogo)
+### 3. Informes deterministas y catálogo de funciones — En producción
 
 Informes con tablas que calcula código y valoración de la IA sujeta a aprobación humana. Las
 extracciones deterministas se escriben una vez como **funciones** con contrato declarado,
@@ -60,9 +60,11 @@ versionadas e inmutables, con dos orígenes (autoservicio con *sandbox*; paquete
 point*), registro sin aprobación previa y revisión posterior por muestreo. Detalle en
 [`docs/CATALOGO_FUNCIONES.md`](docs/CATALOGO_FUNCIONES.md).
 
-Abierto: los campos de entrada manual de una plantilla sin dónde rellenarse
-([#86](https://github.com/universitatjaumei/teclab-govgenai/issues/86)). La ampliación del
-catálogo a tareas completas es el tema 4.
+**Desde el 2026-10-05 son dos entradas del panel con dos módulos de acceso**: «Informes»
+(plantillas, borradores, workspaces y los scripts que quien redacta propone para su plantilla) y
+«Automatización» (el catálogo de funciones, con las de origen externo, y su revisión). Una función
+externa no produce ningún informe, y así se concede por separado. La ampliación del catálogo a
+tareas completas es el tema 4.
 
 ### 4. Automatización gobernada — En curso
 
@@ -79,9 +81,9 @@ autorizado, revisión posterior y anonimización**. A eso se dedican los cuatro 
 |---|---|---|---|
 | [1 — Cerrar lo que ya no se hace](https://github.com/universitatjaumei/teclab-govgenai/milestone/9) | ✅ Completo | La especificación declara como límite deliberado que no se ejecuta nada en el equipo de quien la usa; los planes de fase 2 se cierran | [#112](https://github.com/universitatjaumei/teclab-govgenai/issues/112), [#113](https://github.com/universitatjaumei/teclab-govgenai/issues/113) |
 | [2 — Registrar lo que corre fuera](https://github.com/universitatjaumei/teclab-govgenai/milestone/10) | ✅ Completo | Funciones de **origen externo** (un cuaderno se registra por su hash sin ejecutarlo); paquete MCP y *skill* de gobernanza para agentes de código; registro de la ejecución de un cuaderno en tres líneas; depósito del manifiesto de una ejecución hecha fuera | [#114](https://github.com/universitatjaumei/teclab-govgenai/issues/114), [#115](https://github.com/universitatjaumei/teclab-govgenai/issues/115), [#124](https://github.com/universitatjaumei/teclab-govgenai/issues/124), [#116](https://github.com/universitatjaumei/teclab-govgenai/issues/116) |
-| [3 — Funciones de tarea](https://github.com/universitatjaumei/teclab-govgenai/milestone/11) | En curso | Una función produce **ficheros**; red saliente sólo hacia **orígenes declarados**; el ecosistema de módulos ampliado y vigilado; el cuaderno del presupuesto propio como caso guía, partido en dos funciones —anonimizar, y luego CSV limpio y Word— y con datos sintéticos. El de las subvenciones nominativas **se aplaza** ([#211](https://github.com/universitatjaumei/teclab-govgenai/issues/211)): tiene que bajar decenas de PDF y no cabe en una URL por slot | [#117](https://github.com/universitatjaumei/teclab-govgenai/issues/117), [#118](https://github.com/universitatjaumei/teclab-govgenai/issues/118), [#119](https://github.com/universitatjaumei/teclab-govgenai/issues/119), [#120](https://github.com/universitatjaumei/teclab-govgenai/issues/120) |
+| [3 — Funciones de tarea](https://github.com/universitatjaumei/teclab-govgenai/milestone/11) | ✅ Completo | Una función produce **ficheros**; red saliente sólo hacia **orígenes declarados**; el ecosistema de módulos ampliado y vigilado; el cuaderno del presupuesto propio como caso guía, partido en dos funciones —anonimizar, y luego CSV limpio y Word— y con datos sintéticos. El de las subvenciones nominativas **se aplaza** ([#211](https://github.com/universitatjaumei/teclab-govgenai/issues/211)): tiene que bajar decenas de PDF y no cabe en una URL por slot | [#117](https://github.com/universitatjaumei/teclab-govgenai/issues/117), [#118](https://github.com/universitatjaumei/teclab-govgenai/issues/118), [#119](https://github.com/universitatjaumei/teclab-govgenai/issues/119), [#120](https://github.com/universitatjaumei/teclab-govgenai/issues/120) |
 | [4 — Decisiones de la institución](https://github.com/universitatjaumei/teclab-govgenai/milestone/12) | ✅ Completo | El régimen de ejecución frente a la regla de soberanía local; la lista del ecosistema autorizado y el plazo de revisión; quién revisa, quién suspende y la ruta a protección de datos | [#121](https://github.com/universitatjaumei/teclab-govgenai/issues/121), [#122](https://github.com/universitatjaumei/teclab-govgenai/issues/122), [#123](https://github.com/universitatjaumei/teclab-govgenai/issues/123) |
-| [5 — Agentes de unidad sobre el asistente general](https://github.com/universitatjaumei/teclab-govgenai/milestone/17) | Construido: el catálogo, el índice, la consulta, el guion que mantiene el índice y la extensión del navegador (#172–#176) | Una unidad publica un **agente** —prompt, carpeta de documentos, índice y colectivo— y la plataforma lo cataloga, lo acota, selecciona los documentos de cada consulta y registra el uso; el modelo lo ejecuta el asistente general de la organización | [#172](https://github.com/universitatjaumei/teclab-govgenai/issues/172), [#173](https://github.com/universitatjaumei/teclab-govgenai/issues/173), [#174](https://github.com/universitatjaumei/teclab-govgenai/issues/174), [#175](https://github.com/universitatjaumei/teclab-govgenai/issues/175), [#176](https://github.com/universitatjaumei/teclab-govgenai/issues/176) |
+| [5 — Agentes de unidad sobre el asistente general](https://github.com/universitatjaumei/teclab-govgenai/milestone/17) | En producción desde el 2026-10-04; en pruebas con el primer agente real. Quedan el uso de varios días y el canario diario de la extensión (#215) y las herramientas MCP (#226) | Una unidad publica un **agente** —prompt, carpeta de documentos, índice y colectivo— y la plataforma lo cataloga, lo acota, selecciona los documentos de cada consulta y registra el uso; el modelo lo ejecuta el asistente general de la organización | [#172](https://github.com/universitatjaumei/teclab-govgenai/issues/172), [#173](https://github.com/universitatjaumei/teclab-govgenai/issues/173), [#174](https://github.com/universitatjaumei/teclab-govgenai/issues/174), [#175](https://github.com/universitatjaumei/teclab-govgenai/issues/175), [#176](https://github.com/universitatjaumei/teclab-govgenai/issues/176), [#213](https://github.com/universitatjaumei/teclab-govgenai/issues/213), [#215](https://github.com/universitatjaumei/teclab-govgenai/issues/215)–[#220](https://github.com/universitatjaumei/teclab-govgenai/issues/220), [#223](https://github.com/universitatjaumei/teclab-govgenai/issues/223)–[#226](https://github.com/universitatjaumei/teclab-govgenai/issues/226), [#228](https://github.com/universitatjaumei/teclab-govgenai/issues/228) |
 
 **El hito 4 se resolvió el 2026-09-29, y con él la pregunta que condicionaba a los demás.** La
 institución no ha tenido que declarar equivalente la ejecución central, porque la pregunta no se
@@ -100,7 +102,9 @@ No hizo falta tocar la respuesta anterior, porque quien baja el documento es la 
 el guion: una función sigue sin poder hablar con nada, y lo que necesita de fuera se lo piden por
 ella.
 
-Queda el **hito 3**, el de más diseño, con tres de sus cuatro issues por delante.
+Los hitos 1 a 4 están completos y en producción. **Queda el 5**, desplegado y en pruebas con
+su primer agente real: un asistente de pliegos para los grupos de investigación de la instalación
+de referencia.
 
 #### El hito 5, y por qué encaja aquí
 
@@ -125,7 +129,7 @@ El reparto es deliberado, y cada pieza está donde sale más barata y más segur
 | Permisos | Los del almacén y el rol del proveedor de identidad. Dos puertas independientes |
 | Prompt, catálogo y selección | La plataforma |
 | Cómputo del modelo | El asistente general, con la cuota de la organización |
-| Registro | La plataforma, y **sólo metadatos** |
+| Registro | La plataforma: los metadatos de cada uso siempre; la pregunta y la respuesta, sólo en **modo validación**, para revisar la calidad del agente |
 
 **Lo barato es lo que hace esto viable.** Indexar una ficha por documento son tres órdenes de
 magnitud menos que trocear y embeber el texto completo, y no es una versión degradada: la
@@ -142,8 +146,16 @@ impide guardar un texto—: lo que hace es que el camino cómodo, un panel al la
 el prompt vigente a un clic, sea el que pasa por la plataforma.
 
 **Lo que no promete, y conviene leerlo antes que lo anterior**: no es un control de acceso —
-cualquiera puede abrir el asistente general sin pasar por aquí— y la plataforma registra lo que
-ofreció, no lo que el modelo respondió.
+cualquiera puede abrir el asistente general sin pasar por aquí—, y la respuesta que guarda en
+modo validación es la que la extensión leyó en la página del asistente: si la persona la edita o
+sigue conversando, eso no llega. En **modo incidencias** sólo se guarda lo que la persona informa
+como inadecuado.
+
+**Lo que se añadió al probarlo.** Los datos que la unidad pide en cada consulta —en un agente de
+pliegos, el tipo de contrato y qué se contrata—, que filtran el índice; documentos prioritarios;
+**plazas reservadas por capa**, para que la norma y la doctrina no pierdan en semejanza ante
+cientos de ejemplos; y **«Buscar más documentos»** en la misma conversación, sin repetir los ya
+ofrecidos, de modo que el primer lote sólo tiene que ser un buen punto de partida.
 
 ### 5. Registro de actividad IA y gobernanza por API — En producción
 
@@ -154,9 +166,10 @@ auditoría estática de código). Detalle en
 [`docs/REGISTRO_ACTIVIDAD_IA.md`](docs/REGISTRO_ACTIVIDAD_IA.md) y
 [`docs/GOVERNANCA_PER_API.md`](docs/GOVERNANCA_PER_API.md).
 
-Abierto: los candidatos de §4 de ese último documento que no están hechos; el depósito de
-manifiestos entra por el hito 2 del tema 4. **No hay política de retención** del registro, y hace
-falta una.
+Abierto: los candidatos de §4 de ese último documento que no están hechos (el depósito de
+manifiestos ya lo está, con el hito 2 del tema 4); que Claude Code registre su actividad sin que
+nadie se lo pida, con un *hook* ([#230](https://github.com/universitatjaumei/teclab-govgenai/issues/230)). **No hay política de retención** del registro, y hace
+falta una ([#162](https://github.com/universitatjaumei/teclab-govgenai/issues/162)).
 
 ### 6. Identidad, roles, módulos y multitenencia — En producción
 
@@ -164,12 +177,10 @@ Entrada con la cuenta institucional, roles separados de los módulos concedidos,
 organización con inventario tabla a tabla y cascada de configuración plataforma → organización →
 chatbot. Detalle en [`docs/MULTITENENCIA.md`](docs/MULTITENENCIA.md).
 
-Abierto, en el hito [Bloque 1 — dar de alta a una persona](https://github.com/universitatjaumei/teclab-govgenai/milestone/5):
-conceder módulos donde se da de alta ([#100](https://github.com/universitatjaumei/teclab-govgenai/issues/100)),
-la siembra del catálogo sin contraseña ([#97](https://github.com/universitatjaumei/teclab-govgenai/issues/97)) y
-el guion de emergencia del superadministrador ([#96](https://github.com/universitatjaumei/teclab-govgenai/issues/96)).
-La segunda fase de la multitenencia, vista y permisos por organización, espera al piloto
-([#11](https://github.com/universitatjaumei/teclab-govgenai/issues/11)).
+El hito [Bloque 1 — dar de alta a una persona](https://github.com/universitatjaumei/teclab-govgenai/milestone/5)
+está cerrado ([#100](https://github.com/universitatjaumei/teclab-govgenai/issues/100), [#97](https://github.com/universitatjaumei/teclab-govgenai/issues/97), [#96](https://github.com/universitatjaumei/teclab-govgenai/issues/96)), y también el selector de organización que acota todos
+los listados ([#11](https://github.com/universitatjaumei/teclab-govgenai/issues/11)). Abierto: un token de alcance estrecho puede usar los endpoints que no piden
+alcance ([#214](https://github.com/universitatjaumei/teclab-govgenai/issues/214)).
 
 ### 7. Operación, despliegue y apertura del repositorio — En curso
 
@@ -226,7 +237,7 @@ de los asistentes informativos. Recorre su propio procedimiento, y ningún dato 
 El razonamiento completo, con las cinco piezas del vínculo y cómo se dan de alta más tipos de
 trámite, está en [`docs/DECISION_TRAMITES_ASISTIDOS.md`](docs/DECISION_TRAMITES_ASISTIDOS.md).
 
-### 9. Utilidades de uso directo — En curso
+### 9. Utilidades de uso directo — En producción
 
 Los otros ocho temas son capacidades que la plataforma construye. Éste es más corto de explicar:
 hay operaciones que la gente necesita a diario y que **hoy resuelve subiendo el documento a una
@@ -239,7 +250,7 @@ alternativa es la web. Y el documento suele llevar datos personales, a menudo de
 
 | Hito | Estado | Qué entrega | Issues |
 |---|---|---|---|
-| [1 — Lo que hoy se hace fuera](https://github.com/universitatjaumei/teclab-govgenai/milestone/18) | En curso | Unir, dividir y optimizar PDF sin que el fichero salga; anonimizar un fichero tabular y descargarlo, como utilidad suelta y no como paso de un flujo. Construido; falta desplegarlo | [#190](https://github.com/universitatjaumei/teclab-govgenai/issues/190), [#191](https://github.com/universitatjaumei/teclab-govgenai/issues/191) |
+| [1 — Lo que hoy se hace fuera](https://github.com/universitatjaumei/teclab-govgenai/milestone/18) | ✅ Completo | Unir, dividir y optimizar PDF sin que el fichero salga; anonimizar un fichero tabular y descargarlo, como utilidad suelta y no como paso de un flujo. Desplegado el 2026-10-02 | [#190](https://github.com/universitatjaumei/teclab-govgenai/issues/190), [#191](https://github.com/universitatjaumei/teclab-govgenai/issues/191) |
 
 Lo que había que decidir antes de escribir **se decidió el 2026-10-01**: van como **utilidad
 aparte**, en un módulo propio (`utilidades`), y no como funciones del catálogo; **queda constancia

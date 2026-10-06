@@ -214,3 +214,13 @@ describe('USR.9 — el aterrizaje de quien sólo administra personas', () => {
     expect(moduloDeLaRuta('/personas')).toBe('personas')
   })
 })
+
+describe('2026-10-05 — el módulo `automatizacion`', () => {
+  it('quien sólo lo tiene aterriza en su sección', () => {
+    expect(primeraRutaConcedida(['automatizacion'])).toBe('/automatizacion')
+  })
+
+  it('protege sus rutas', () => {
+    expect(moduloDeLaRuta('/automatizacion/funciones/revision')).toBe('automatizacion')
+  })
+})

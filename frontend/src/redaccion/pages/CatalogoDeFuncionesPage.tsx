@@ -342,7 +342,7 @@ export function CatalogoDeFuncionesPage() {
           <FichaDeFuncion
             key={funcion.id}
             funcion={funcion}
-            navegarARevision={() => navigate('/redaccion/funciones/revision')}
+            navegarARevision={() => navigate('/automatizacion/funciones/revision')}
           />
         ))}
       </div>
