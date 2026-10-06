@@ -103,6 +103,7 @@ Lo que dice el bloque Deploy (D.4-VM), más lo que ha aparecido en el piloto:
 | `ENVIRONMENT` | `production` | Cierra el sembrado de desarrollo (SEC.8.0) y la documentación de la API (SEC.7) |
 | `AGENTES_EXTENSION_IDS` | `pgcofokabefjfmadgmeiddhfkbkebnhk` | Los ID de la extensión de los agentes de unidad, separados por comas, a los que se entrega el token de consulta (#176). **Vacía, no se conecta ninguna**. El ID es fijo porque el manifiesto lleva la clave pública (`extension/README.md`) |
 | `INDICE_SIN_ACTUALIZAR_DIAS` | `3` por omisión; vacía o ilegible, también | Días sin que el guion mande el índice de un agente antes de marcarlo como «índice sin actualizar» (#174). Avisa, no oculta |
+| `SAML_ORGANIZACION_ID` | el id de la organización de la institución | **La organización en la que queda quien entra con la cuenta institucional**, por Google o por SAML: el alta automática es la misma, y el nombre dice SAML por historia. Se vuelve a poner en cada entrada, así que asignarla a mano no sirve. **Vacía, la persona entra sin organización** y no ve nada acotado por organización —el catálogo de agentes le dice que no hay ninguno—. Con `GOOGLE_OAUTH_ALLOWED_DOMAIN=uji.es`, todo el que entra es de la UJI y queda en ella. Variable del repositorio, no secreto |
 
 Credenciales de Vertex en la VM: cuenta de servicio con el rol de usuario de Vertex AI, no
 una clave de API. En local se resolvió con ADC; en la VM lo aporta la propia máquina.
