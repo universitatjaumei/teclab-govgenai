@@ -868,7 +868,9 @@ del navegador (#176).
 `routers/agentes_router.py`: `/api/v1/agentes` para la gestión y `/api/v1/agentes/catalogo` para
 quien usa; `modules/agentes/indice.py` (cargar y seleccionar) y `/api/v1/agentes/{id}/indice`.
 `modules/agentes/consulta.py` compone el prompt en es, ca o en. La extensión vive en
-`extension/`, fuera del panel, y se carga tal cual en Chrome. Tablas operacionales
+`extension/`, fuera del panel, y se carga tal cual en Chrome. Y por MCP (#226), en los dos transportes:
+`catalogo_de_agentes`, `consultar_agente`, `ampliar_consulta` y `cargar_indice_de_agente`
+(`mcp_server/tools/agentes.py`), con los mismos alcances; publicar no tiene tool. Tablas operacionales
 `hub_agentes_unidad`, `hub_agente_unidad_versiones`, `hub_agente_fichas` y `hub_agente_consultas`.
 
 **Madurez**: `producción` — desplegado el 2026-10-04 (PR #221), con las fichas prioritarias el

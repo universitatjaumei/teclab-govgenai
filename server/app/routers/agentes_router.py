@@ -832,11 +832,16 @@ async def cargar_indice(
 async def subir_hoja(
     agente_id: uuid.UUID,
     file: UploadFile = File(...),
-    user: UserInfo = Depends(require_sesion_humana()),
+    user: UserInfo = Depends(require_scopes(AGENTES_INDICE_WRITE)),
     session: AsyncSession = Depends(get_session),
     embedder=Depends(obtener_embedder),
 ) -> InformeDeCarga:
-    """La misma carga, desde la hoja en CSV o Excel. Es la vía del piloto, antes del guion."""
+    """La misma carga, desde la hoja en CSV o Excel: la de la pantalla y la del MCP (#226).
+
+    Pide el mismo alcance que `PUT …/indice`, porque es la misma operación; antes exigía la sesión
+    de una persona sin que nada lo motivara. Que la use también el MCP hace que la hoja la
+    interprete un solo sitio: aquí.
+    """
     agente, version = await _el_agente(session, agente_id, user)
     _exigir("cargar_indice", agente, version, user)
     datos = await read_within_limit(file, max_bytes=MAXIMO_BYTES_DE_LA_HOJA)

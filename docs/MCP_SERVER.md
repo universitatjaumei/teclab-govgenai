@@ -104,15 +104,17 @@ El token es revocable desde la misma pantalla.
 Emite el PAT con el conjunto mínimo de scopes para la tarea. Las tools de lectura no
 necesitan scopes de escritura.
 
-**Este mapa dice qué pedir, no dónde se comprueba**, y la diferencia importa cuando se depura un
-403 que no llega. La comprobación es desigual: de las cinco tools de plantillas, sólo
-`get_template_spec` exige `redaccion:templates:read` y `publish_template_version` exige
-`redaccion:templates:write`. `list_templates`, `validate_template_draft` y `create_template`
-pasan por **rol** —administrador o superadministrador— y no miran ningún scope, así que un PAT
-emitido por un administrador crea plantillas aunque no lleve `redaccion:templates:write`. Y
-`chatbots:read`/`chatbots:write` no se comprueban como scope en ningún endpoint: los routers de
-chatbots piden rol y módulo. Emite igualmente el conjunto mínimo — es lo que seguirá siendo
-cierto el día que la comprobación se cierre, y mientras tanto no cuesta nada.
+**Desde el 2026-10-06 (#214) el mapa se comprueba de verdad.** Un token sólo entra en los
+endpoints que declaran qué alcance aceptan; los demás le responden 403 `PAT_NO_PERMITIDO`,
+**aunque su dueño sea superadministrador**. Antes la comprobación era desigual: `list_templates`,
+`validate_template_draft`, `create_template` y todas las tools de chatbots pasaban por el rol del
+dueño y no miraban ningún alcance, así que funcionaban con cualquier token. Ahora sus endpoints
+exigen el alcance de esta tabla, y un token sin él recibe 403 `PAT_SCOPE_MISSING` con el que
+falta. Un guardarraíl del servidor comprueba que las rutas que usa este paquete lo declaran.
+
+**`list_clients` no funciona**: llama a `/api/v1/hub/clients`, una ruta que no existe. Es anterior
+a #214 y está en la #234; mientras tanto, la organización de cada chatbot viene en
+`list_chatbots`.
 
 **Los scopes sólo acotan a los PAT.** Una sesión humana (JWT) no se filtra por scope; el techo
 que la limita es su rol.
@@ -203,6 +205,32 @@ Queda constancia en el registro de actividad de tu organización, con el hash y 
 
 Lo que **no** hace: ejecutar el script. La auditoría es estática; ejecutar es el sandbox, y eso
 vive dentro de la plataforma.
+
+### Las tools de los agentes de unidad (#226)
+
+En los **dos transportes**. Envuelven endpoints que ya existen (`ESPECIFICACIONES.md` §5.14).
+
+| Scope | Tools |
+|---|---|
+| `agentes:consulta` | `catalogo_de_agentes`, `consultar_agente`, `ampliar_consulta` |
+| `agentes:indice` | `cargar_indice_de_agente` |
+
+- **Consultar** devuelve el prompt del agente con la pregunta, los datos y los enlaces a los
+  documentos elegidos, y un `consulta_id`. Se entrega al asistente, que abre los documentos con la
+  cuenta de quien pregunta: así se usa un agente desde Claude además de desde Gemini, porque el
+  agente es configuración y no código. Cada consulta queda registrada como uso del agente.
+- **Ampliar** es «Buscar más documentos»: con un texto nuevo, documentos que aún no se ofrecieron,
+  para la misma conversación.
+- **Cargar el índice** deja el índice **entero** igual que lo que se manda: lo que no venga se
+  retira. Con `fichas` en los dos transportes; con `ruta_hoja` —una hoja CSV o Excel del equipo—
+  **sólo en el local**, porque en el remoto la ruta sería del disco del servidor. La hoja se manda
+  tal cual al mismo endpoint que la pantalla (`POST …/indice/hoja`, que desde #226 admite el
+  alcance `agentes:indice`), y la interpreta el servidor: columnas, vigencia y fechas se leen en un
+  solo sitio.
+
+`agentes:consulta` lo tiene cualquiera por el módulo de oficio `consulta_agentes`, y es el que
+recibe la extensión al conectarse. `agentes:indice` lo da el módulo `agentes`. **Publicar,
+versionar o retirar no tiene tool, a propósito**: exige la sesión de una persona.
 
 ### El paquete de gobernanza, listo para pegar (AUT.4)
 
