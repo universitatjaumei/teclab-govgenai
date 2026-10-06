@@ -829,7 +829,10 @@ del navegador (#176).
   plataforma marca la integración como rota, contando sólo los avisos de la versión vigente.
   **Lo que no puede garantizar**: que Gemini no cambie su página. Las instantáneas de su página en
   `extension/instantaneas/` hacen que una corrección no rompa lo que ya funcionaba; el aviso de
-  campo dice cuándo ha cambiado, no lo evita.
+  campo dice cuándo ha cambiado, no lo evita. Y un **canario diario** (`extension/canario/`) lo
+  prueba antes que nadie: inserta, envía y lee en una conversación temporal con el adaptador
+  vigente, y si algo no casa avisa como lo haría la extensión y guarda la página nueva. Corre en
+  un equipo personal, como tarea programada, porque Gemini sólo se prueba con una cuenta.
 - **Los datos de la consulta** (#219): la unidad declara los datos esenciales que tiene que dar
   quien pregunta —en un agente de pliegos, el tipo de contrato y el CPV—, de dos tipos, lista de
   opciones o texto, y una línea de indicaciones. La pantalla pinta el formulario a partir de lo
