@@ -360,6 +360,15 @@ por `funcion_id@versión`.
   significa «ninguna»** (I5, I8).
 - Contraseña local para personas, con interruptor `LOCAL_USER_LOGIN_ENABLED` para apagarla cuando
   llegue el SSO. Cualquiera puede cambiar la suya, exigiendo siempre la actual.
+- **Un token personal (PAT) sólo entra donde el endpoint declara qué alcance acepta** (#214,
+  2026-10-06). Lo hace cumplir `get_current_user`: si la ruta no declara alcance
+  (`require_scopes`, `require_pat_scopes`) o es de persona (`require_sesion_humana`), el token
+  recibe 403 `PAT_NO_PERMITIDO`, **sea cual sea el rol de su dueño**. Antes, un endpoint que no
+  decía nada aceptaba cualquier token, y un token de superadministrador emitido sólo para anotar
+  usos podía conceder módulos. Un endpoint nuevo que no declare nada es de sesión, no de máquina.
+- **Quien entra con la cuenta institucional queda en la organización de la institución**
+  (`SAML_ORGANIZACION_ID`, que usa también el login de Google), y se le vuelve a poner en cada
+  entrada: asignarla a mano no dura.
 
 **Superficie.** `core/auth/` (`tenancy.py`, `modulos.py`, `pat/`) · `core/ambito.py` ·
 `auth_router`, `hub_users_router`, `hub_modulos_router` · `saml_auth_router`.

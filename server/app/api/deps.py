@@ -10,6 +10,48 @@ from server.app.database.db import server_engine
 
 _PAT_PREFIX = "pat_"
 
+#: #214 — las dependencias que **declaran** si un endpoint admite token y con qué alcance. Llevan
+#: este atributo con los alcances que piden (vacío en `require_sesion_humana`, que los rechaza).
+_ATRIBUTO_DE_ALCANCE = "_alcances_declarados"
+
+
+def _declara(funcion, alcances: tuple[str, ...]):
+    setattr(funcion, _ATRIBUTO_DE_ALCANCE, frozenset(alcances))
+    return funcion
+
+
+def alcances_de_la_ruta(ruta) -> set[str]:
+    """Los alcances que declara una ruta, recorriendo todas sus dependencias."""
+    encontrados: set[str] = set()
+
+    def recorrer(dependant):
+        for dep in dependant.dependencies:
+            encontrados.update(getattr(dep.call, _ATRIBUTO_DE_ALCANCE, ()))
+            recorrer(dep)
+
+    recorrer(ruta.dependant)
+    return encontrados
+
+
+def _ruta_admite_token(ruta) -> bool:
+    """Si alguna dependencia de la ruta declara para tokens (#214). Se cachea en la ruta."""
+    cacheado = getattr(ruta, "_admite_token", None)
+    if cacheado is not None:
+        return cacheado
+
+    def recorrer(dependant) -> bool:
+        for dep in dependant.dependencies:
+            if hasattr(dep.call, _ATRIBUTO_DE_ALCANCE) or recorrer(dep):
+                return True
+        return False
+
+    admite = recorrer(ruta.dependant)
+    try:
+        ruta._admite_token = admite
+    except AttributeError:
+        pass
+    return admite
+
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
     """Dependency for obtaining a database session."""
@@ -78,6 +120,22 @@ async def get_current_user(
         except PatInvalidError as e:
             raise _unauthorized(str(e))
         request.state.pat_scopes = principal.scopes
+        # #214 — **el valor por defecto es el seguro**: un token sólo entra donde la ruta declara
+        # qué alcance acepta. Antes, un endpoint que no decía nada aceptaba cualquier token, y
+        # `require_role` miraba el rol del dueño: un token de superadministrador emitido sólo para
+        # anotar usos podía conceder módulos. Una ruta que no declara es de sesión, no de máquina.
+        ruta = request.scope.get("route")
+        if ruta is not None and hasattr(ruta, "dependant") and not _ruta_admite_token(ruta):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "code": "PAT_NO_PERMITIDO",
+                    "message": (
+                        "Este endpoint no admite tokens: es de una persona con su sesión, o no "
+                        "declara qué alcance acepta."
+                    ),
+                },
+            )
         return principal.user_info
 
     request.state.pat_scopes = None
@@ -160,7 +218,7 @@ def require_scopes_allowing_widget(*needed: str):
             )
         return user
 
-    return _check
+    return _declara(_check, needed)
 
 
 def require_scopes(*needed: str):
@@ -184,7 +242,7 @@ def require_scopes(*needed: str):
             )
         return user
 
-    return _check
+    return _declara(_check, needed)
 
 
 def require_sesion_humana():
@@ -209,7 +267,9 @@ def require_sesion_humana():
             )
         return user
 
-    return _check
+    # Declara, y declara que ningún alcance basta: así el 403 lo da esta dependencia, con su
+    # mensaje, y no el filtro general de `get_current_user`.
+    return _declara(_check, ())
 
 
 def require_pat_scopes(*needed: str):
@@ -250,7 +310,7 @@ def require_pat_scopes(*needed: str):
             )
         return user
 
-    return _check
+    return _declara(_check, needed)
 
 
 async def modulos_concedidos(

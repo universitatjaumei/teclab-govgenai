@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from server.app.api.deps import get_current_user, get_session, require_role, require_module
+from server.app.api.deps import get_current_user, get_session, require_module, require_role, require_scopes
 from server.app.core.auth.models import UserInfo
 from server.app.core.auth.tenancy import organizacion_unica_de
 from server.app.core.uploads import read_within_limit
@@ -191,7 +191,12 @@ async def propose(
         ) from fallo
 
 
-@router.post("/validate", response_model=ReportTemplateDraftValidationResult, operation_id="validateLlmDraft")
+@router.post(
+    "/validate",
+    response_model=ReportTemplateDraftValidationResult,
+    operation_id="validateLlmDraft",
+    dependencies=[Depends(require_scopes("redaccion:templates:read"))],
+)
 async def validate_draft(
     draft: ReportTemplateDraft,
     _: UserInfo = Depends(get_current_user),
@@ -200,7 +205,12 @@ async def validate_draft(
     return DraftValidator().validate(draft)
 
 
-@router.post("/approve-as-template", response_model=ApproveAsTemplateResponse, operation_id="approveAsTemplate")
+@router.post(
+    "/approve-as-template",
+    response_model=ApproveAsTemplateResponse,
+    operation_id="approveAsTemplate",
+    dependencies=[Depends(require_scopes("redaccion:templates:write"))],
+)
 async def approve_as_template(
     body: ApproveAsTemplateRequest,
     user: UserInfo = Depends(_require_admin),

@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from server.app.api.deps import require_role
+from server.app.api.deps import require_role, require_scopes
 from server.app.core.auth.models import UserInfo
 from server.app.core.auth.tenancy import (
     assert_chatbot_org_access,
@@ -69,7 +69,7 @@ class PromptTemplateUpdate(BaseModel):
     override_tier: int | None = None
 
 
-@router.get("/", response_model=list[PromptTemplateRead])
+@router.get("/", response_model=list[PromptTemplateRead], dependencies=[Depends(require_scopes("chatbots:read"))])
 async def list_prompt_templates(
     chatbot_id: UUID | None = None,
     session: AsyncSession = Depends(get_async_session),
@@ -111,7 +111,7 @@ async def create_prompt_template(
     return template
 
 
-@router.patch("/{template_id}", response_model=PromptTemplateRead)
+@router.patch("/{template_id}", response_model=PromptTemplateRead, dependencies=[Depends(require_scopes("chatbots:write"))])
 async def update_prompt_template(
     template_id: UUID,
     body: PromptTemplateUpdate,
