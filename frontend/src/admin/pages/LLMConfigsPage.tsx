@@ -471,7 +471,7 @@ type ProviderFormValues = z.infer<typeof providerSchema>
  * guardar, sino en la siguiente llamada al modelo.
  *
  * Función pura y exportada a propósito: es una decisión con consecuencias y así se puede fijar
- * con un test, igual que `scopesForRole`.
+ * con un test.
  */
 export function payloadDeProveedor(values: ProviderFormValues) {
   if (values.api_key) return values

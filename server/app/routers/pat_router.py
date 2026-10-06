@@ -12,15 +12,18 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel
+from sqlalchemy import select
 
 from server.app.api.deps import get_current_user, get_session, require_module
 from server.app.core.auth.models import UserInfo
-from server.app.core.auth.pat.scopes import UnknownScopeError
+from server.app.core.auth.pat.scopes import UnknownScopeError, allowed_scopes_for
 from server.app.core.auth.pat.service import (
     PatForbiddenError,
     PatInvalidError,
+    PatOrganizacionDesconocidaError,
     PatService,
 )
+from server.app.modules.agents_hub.database.config_models import HubOrganizacion
 
 router = APIRouter(
     prefix="/auth/pats",
@@ -33,6 +36,9 @@ class PatCreateRequest(BaseModel):
     name: str
     scopes: list[str]
     expires_at: datetime | None = None
+    # MT.5, #230: acota el token a una organización. Lo necesita lo que se acota por ella —el
+    # registro de actividad— cuando lo emite un superadmin, que las ve todas.
+    organizacion_id: uuid.UUID | None = None
 
 
 class PatCreatedResponse(BaseModel):
@@ -42,6 +48,7 @@ class PatCreatedResponse(BaseModel):
     name: str
     scopes: list[str]
     expires_at: datetime | None = None
+    organizacion_id: uuid.UUID | None = None
 
 
 class PatView(BaseModel):
@@ -53,6 +60,7 @@ class PatView(BaseModel):
     expires_at: datetime | None = None
     last_used_at: datetime | None = None
     revoked_at: datetime | None = None
+    organizacion_id: uuid.UUID | None = None
 
 
 @router.post(
@@ -68,7 +76,11 @@ async def create_pat(
 ) -> PatCreatedResponse:
     try:
         pat, token = await PatService(session).create(
-            owner=user, name=body.name, scopes=body.scopes, expires_at=body.expires_at
+            owner=user,
+            name=body.name,
+            scopes=body.scopes,
+            expires_at=body.expires_at,
+            organizacion_id=body.organizacion_id,
         )
     except UnknownScopeError as exc:
         raise HTTPException(
@@ -80,6 +92,11 @@ async def create_pat(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={"code": "PAT_FORBIDDEN", "reason": str(exc)},
         )
+    except PatOrganizacionDesconocidaError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail={"code": "ORGANIZACION_DESCONOCIDA", "reason": str(exc)},
+        )
     return PatCreatedResponse(
         id=pat.id,
         token=token,
@@ -87,6 +104,36 @@ async def create_pat(
         name=pat.name,
         scopes=list(pat.scopes),
         expires_at=pat.expires_at,
+        organizacion_id=pat.organizacion_id,
+    )
+
+
+class PatOrganizacion(BaseModel):
+    id: uuid.UUID
+    nombre: str
+
+
+class PatOpciones(BaseModel):
+    """Lo que puede elegir quien emite un token: lo dice el servidor, no la pantalla (#230)."""
+
+    scopes: list[str]
+    organizaciones: list[PatOrganizacion]
+
+
+@router.get("/opciones", response_model=PatOpciones, operation_id="getPatOpciones")
+async def pat_opciones(
+    user: UserInfo = Depends(get_current_user),
+    session=Depends(get_session),
+) -> PatOpciones:
+    consulta = select(HubOrganizacion.id, HubOrganizacion.name).order_by(HubOrganizacion.name)
+    if not user.is_superadmin:
+        consulta = consulta.where(
+            HubOrganizacion.id.in_([uuid.UUID(o) for o in user.organizacion_ids])
+        )
+    filas = (await session.execute(consulta)).all()
+    return PatOpciones(
+        scopes=sorted(allowed_scopes_for(user.role)),
+        organizaciones=[PatOrganizacion(id=i, nombre=n) for i, n in filas],
     )
 
 
@@ -106,6 +153,7 @@ async def list_pats(
             expires_at=p.expires_at,
             last_used_at=p.last_used_at,
             revoked_at=p.revoked_at,
+            organizacion_id=p.organizacion_id,
         )
         for p in pats
     ]

@@ -904,7 +904,8 @@ sandbox, el `RunManifest`, el registro de actividad y las verificaciones por API
 - **Gobernanza para agentes de código**: configuración MCP publicada, para que usar
   `auditar_codigo`, `anonimizar_texto` y `registrar_actividad` sea el camino fácil. Por MCP el
   cumplimiento es **voluntario**, y eso no se disimula: Claude sólo registra si alguien se lo
-  pide. Hacerlo automático con un *hook* es la #230.
+  pide. **Con el hook de #230 deja de serlo para quien lo instale**: Claude Code anota un evento
+  por sesión, con la finalidad que declara el proyecto (`REGISTRO_ACTIVIDAD_IA.md` §4.3.bis).
 - **Funciones de tarea**: artefactos de salida, red saliente sólo hacia **orígenes declarados** y
   el ecosistema de módulos ampliado. Abrir la red debilita el argumento de §5.12 («una función no
   puede hablar con nada»), así que es una **clase distinta**, visible y con revisión en plazo.
@@ -917,7 +918,8 @@ sandbox, el `RunManifest`, el registro de actividad y las verificaciones por API
 
 **Abierto.** Registrar el guion del índice de los agentes en el catálogo de funciones como función
 de origen externo, que es donde lo situaba la #174; hoy lo sirve la plataforma con su huella. Y
-que el registro de los agentes de código deje de depender de que alguien lo pida (#230).
+que el hook de #230 sea obligatorio para todo el personal (configuración gestionada de Claude
+Team), que hoy instala cada persona.
 
 ---
 

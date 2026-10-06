@@ -15,6 +15,7 @@ from server.app.core.auth.pat.scopes import (
     validate_scopes,
 )
 from server.app.modules.agents_hub.database.config_models import (
+    HubOrganizacion,
     HubPersonalAccessToken,
 )
 
@@ -25,6 +26,10 @@ _SECRET_BYTES = 32
 
 class PatForbiddenError(Exception):
     """El rol no puede emitir el PAT o los scopes exceden su techo."""
+
+
+class PatOrganizacionDesconocidaError(Exception):
+    """El token declara una organización que no existe."""
 
 
 class PatInvalidError(Exception):
@@ -63,11 +68,17 @@ class PatService:
         scopes: list[str],
         expires_at: datetime | None = None,
         modulos: list[str] | tuple[str, ...] = (),
+        organizacion_id: uuid.UUID | None = None,
     ) -> tuple[HubPersonalAccessToken, str]:
         """Crea un PAT y devuelve (fila, token_plano). El plano se ve UNA vez.
 
         `modulos` son los concedidos al dueño: un módulo puede abrir algún alcance que su rol no
         tiene (#174, `agentes` → `agentes:indice`).
+
+        `organizacion_id` acota el token a una organización (MT.5, #230). **Acota, nunca amplía**:
+        quien no es superadmin sólo declara una de las suyas. Sin ella, un token de superadmin
+        no tiene una organización única y lo que se acota por ella —el registro de actividad—
+        lo rechaza.
         """
         validate_scopes(scopes)
 
@@ -81,6 +92,8 @@ class PatService:
                 f"Role '{owner.role}' cannot grant scopes outside its ceiling: "
                 f"{', '.join(sorted(set(scopes) - allowed))}"
             )
+        if organizacion_id is not None:
+            await self._comprueba_organizacion(owner, organizacion_id)
 
         prefix = secrets.token_hex(_PREFIX_BYTES)
         secret = secrets.token_urlsafe(_SECRET_BYTES)
@@ -96,11 +109,18 @@ class PatService:
             scopes=list(scopes),
             created_at=datetime.now(timezone.utc),
             expires_at=expires_at,
+            organizacion_id=organizacion_id,
         )
         self.session.add(pat)
         await self.session.commit()
         await self.session.refresh(pat)
         return pat, token
+
+    async def _comprueba_organizacion(self, owner: UserInfo, organizacion_id: uuid.UUID) -> None:
+        if not owner.is_superadmin and str(organizacion_id) not in owner.organizacion_ids:
+            raise PatForbiddenError("Un token sólo se acota a una organización de su dueño")
+        if await self.session.get(HubOrganizacion, organizacion_id) is None:
+            raise PatOrganizacionDesconocidaError(f"No existe la organización {organizacion_id}")
 
     async def verify(self, token: str) -> PatPrincipal:
         """Valida un token y devuelve el principal; actualiza last_used_at."""
