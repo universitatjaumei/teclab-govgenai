@@ -630,6 +630,9 @@ veces.
   validador, un solo resolutor.
 - **Se puede ejecutar desde fuera** con un PAT y el scope `funciones:execute`, con versión
   explícita y un evento en el registro de actividad de IA — metadatos, nunca payloads.
+- **Un agente de código registra los cuadernos que escribe** (#236): con un PAT con
+  `funciones:register`, o por MCP con `registrar_cuaderno`, que lo marca como escrito por IA. El
+  catálogo se lee con ese alcance o con `funciones:execute`.
 
 **Dónde vive.** `modules/redaccion/funciones_service.py`, `funciones_acciones.py`,
 `funciones_resolver.py`, `funciones_paquete.py`, `contracts/funciones.py`; routers

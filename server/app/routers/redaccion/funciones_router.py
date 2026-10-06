@@ -27,8 +27,15 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from server.app.api.deps import get_current_user, get_session, require_module
+from server.app.api.deps import (
+    get_current_user,
+    get_session,
+    require_alguno_de,
+    require_module,
+    require_scopes,
+)
 from server.app.core.auth.models import UserInfo
+from server.app.core.auth.pat.scopes import FUNCIONES_EXECUTE, FUNCIONES_REGISTER
 from server.app.core.auth.tenancy import organizacion_unica_de
 from server.app.modules.redaccion.database.models import (
     HubFuncion,
@@ -358,7 +365,8 @@ def _auditoria_informativa(fichero: str) -> dict[str, Any]:
 )
 async def registrar_funcion_externa(
     body: RegistrarExternaRequest,
-    principal: UserInfo = Depends(get_current_user),
+    # #236 — también con un token: es el agente de código que acaba de escribir el cuaderno.
+    principal: UserInfo = Depends(require_scopes(FUNCIONES_REGISTER)),
     session: AsyncSession = Depends(get_session),
 ) -> FuncionView:
     """Registra un cuaderno o script que se ejecuta **fuera** de la plataforma (AUT.3).
@@ -471,7 +479,8 @@ async def registrar_funcion_externa(
 
 @router.get("", response_model=list[FuncionView], operation_id="listarFunciones")
 async def listar_funciones(
-    principal: UserInfo = Depends(get_current_user),
+    # #236 — quien registra, para no duplicar; quien ejecuta, para saber el `funcion_id`.
+    principal: UserInfo = Depends(require_alguno_de(FUNCIONES_REGISTER, FUNCIONES_EXECUTE)),
     session: AsyncSession = Depends(get_session),
 ) -> list[FuncionView]:
     """El catálogo que ve quien pregunta: las suyas y las publicadas.
@@ -621,7 +630,7 @@ async def _cuantas_plantillas_la_usan(
 )
 async def ver_funcion(
     funcion_id: uuid.UUID,
-    principal: UserInfo = Depends(get_current_user),
+    principal: UserInfo = Depends(require_alguno_de(FUNCIONES_REGISTER, FUNCIONES_EXECUTE)),
     session: AsyncSession = Depends(get_session),
 ) -> FuncionView:
     """La ficha: el contrato legible, la declaración, los hallazgos y las versiones."""

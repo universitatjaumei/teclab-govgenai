@@ -245,6 +245,28 @@ def require_scopes(*needed: str):
     return _declara(_check, needed)
 
 
+def require_alguno_de(*opciones: str):
+    """Como `require_scopes`, pero basta **uno** de los alcances (#236).
+
+    Para lecturas que sirven a capacidades distintas: el catálogo de funciones lo necesita quien
+    registra —para no duplicar— y quien ejecuta —para saber el `funcion_id`—. Una sesión humana no
+    se filtra por alcance.
+    """
+
+    async def _check(
+        request: Request, user: UserInfo = Depends(get_current_user)
+    ) -> UserInfo:
+        scopes = getattr(request.state, "pat_scopes", None)
+        if scopes is None or any(s in scopes for s in opciones):
+            return user
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": "PAT_SCOPE_MISSING", "missing": list(opciones), "basta_uno": True},
+        )
+
+    return _declara(_check, opciones)
+
+
 def require_sesion_humana():
     """Dependency factory que **rechaza los PAT**: la operación es de una persona con sesión.
 

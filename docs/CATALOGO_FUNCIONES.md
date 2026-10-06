@@ -48,6 +48,11 @@ Una organización que trabaja con cuadernos escritos por agentes de código tien
 normas de desarrollo ciudadano exigen registrar antes de compartir y prohíben la distribución
 informal. `externa` es el sitio donde ese cuaderno se registra.
 
+**Y lo registra el propio agente que lo escribe** (#236, decisión del usuario del 2026-10-06): con
+un token con `funciones:register` —lo emite un administrador o quien tiene el módulo
+`automatizacion`— o con la herramienta MCP `registrar_cuaderno`, que lo marca como escrito por IA.
+El catálogo lo lee con ese alcance o con `funciones:execute`, para no duplicar lo que ya existe.
+
 Tres cosas que este origen hace distintas, y las tres a propósito:
 
 1. **No se ejecuta aquí.** `POST /funciones/{id}/run` responde **409** —no 423— con el motivo y

@@ -99,7 +99,8 @@ El token es revocable desde la misma pantalla.
 | `chat:test` | `test_chat` |
 | `chat:debug` | inspección del prompt final (`debug_bypass`) — enseña el system prompt entero |
 | `chat:onbehalf` | preguntar **en nombre de otra persona** (cabecera `X-GovGenAI-Actor`) |
-| `funciones:execute` | ninguna tool MCP: ejecutar una función del catálogo es hoy sólo `POST /api/v1/funciones/{id}/run` |
+| `funciones:execute` | `catalogo_de_funciones`; ejecutar una función del catálogo es hoy sólo `POST /api/v1/funciones/{id}/run` |
+| `funciones:register` | `registrar_cuaderno`, `catalogo_de_funciones` |
 
 Emite el PAT con el conjunto mínimo de scopes para la tarea. Las tools de lectura no
 necesitan scopes de escritura.
@@ -231,6 +232,23 @@ En los **dos transportes**. Envuelven endpoints que ya existen (`ESPECIFICACIONE
 `agentes:consulta` lo tiene cualquiera por el módulo de oficio `consulta_agentes`, y es el que
 recibe la extensión al conectarse. `agentes:indice` lo da el módulo `agentes`. **Publicar,
 versionar o retirar no tiene tool, a propósito**: exige la sesión de una persona.
+
+### Las tools del catálogo de funciones (#236)
+
+En los **dos transportes**. Para que un agente de código registre el cuaderno o el script que acaba
+de escribir y que va a correr **fuera** de la plataforma.
+
+- **`registrar_cuaderno`** envuelve `POST /api/v1/funciones/externas`: el fichero entero —su hash
+  es la versión—, la finalidad, las categorías de datos y dónde corre. Consta como **escrito por
+  IA**. La plataforma no lo ejecuta: lo audita de forma informativa y lo pone en la cola de
+  revisión posterior. Con `funcion_id`, es una versión nueva de uno que ya existe. En el servidor
+  local acepta la `ruta` del fichero; en el remoto, el `contenido`.
+- **`catalogo_de_funciones`** lista lo que ve quien pregunta, para no registrar dos veces lo mismo
+  o para saber el `funcion_id` que se quiere ejecutar.
+
+Cuando el cuaderno corre, su última celda manda su huella al registro de actividad con
+`funcion_sha256` (`REGISTRO_ACTIVIDAD_IA.md` §4.2.bis): el catálogo dice qué existe y el registro,
+cuándo corrió.
 
 ### El paquete de gobernanza, listo para pegar (AUT.4)
 

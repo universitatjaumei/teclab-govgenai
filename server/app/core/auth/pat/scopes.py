@@ -34,6 +34,11 @@ VERIFICACIONES_USE = "verificaciones:use"
 # Instrucció 02/2026). Lo que sigue reservado a la plataforma es promover una función a nivel 3,
 # y eso no se hace con un token.
 FUNCIONES_EXECUTE = "funciones:execute"
+# #236: registrar en el catálogo un cuaderno o un script que corre fuera (AUT.3). Lo pide el agente
+# de código que acaba de escribirlo. **Aparte de `funciones:execute`**: ejecutar lo que hay y añadir
+# al catálogo son dos capacidades, y un token que sólo ejecuta no tiene por qué registrar. Lo emite
+# también un admin, y quien tiene el módulo `automatizacion`: es quien ya puede registrar con sesión.
+FUNCIONES_REGISTER = "funciones:register"
 # AUT.6: depositar el manifiesto de una ejecución hecha fuera. **Aparte de `actividad:write`**
 # porque son dos capacidades: registrar que hubo un uso —«quién, qué, cuándo, con qué
 # finalidad»— y depositar la evidencia de esa ejecución —modelo, prompt, citas, aprobaciones—.
@@ -66,6 +71,7 @@ ALL_SCOPES: frozenset[str] = frozenset(
         ANONIMIZACION_USE,
         VERIFICACIONES_USE,
         FUNCIONES_EXECUTE,
+        FUNCIONES_REGISTER,
         MANIFIESTOS_WRITE,
         AGENTES_INDICE_WRITE,
         AGENTES_CONSULTA,
@@ -104,6 +110,8 @@ def validate_scopes(scopes: list[str]) -> None:
 _MODULE_SCOPES: dict[str, frozenset[str]] = {
     "agentes": frozenset({AGENTES_INDICE_WRITE}),
     "consulta_agentes": frozenset({AGENTES_CONSULTA}),
+    # #236 — quien registra funciones con sesión puede delegarlo en su agente de código.
+    "automatizacion": frozenset({FUNCIONES_REGISTER}),
 }
 
 

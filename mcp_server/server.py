@@ -25,6 +25,7 @@ from api_client import ApiClient
 from config import Config, load_config
 from resources import register_chatbot_resources, register_resources
 from tools.agentes import register_agentes_tools
+from tools.funciones import register_funciones_tools
 from tools.chat import register_chat_tools
 from tools.chatbots import register_chatbot_tools
 from tools.templates import register_template_tools
@@ -72,6 +73,8 @@ def build_server(
     register_chat_tools(mcp, client_provider=cp)
     # #226 — en local, la carga del índice puede leer una hoja del equipo.
     register_agentes_tools(mcp, client_provider=cp, con_ficheros_locales=True)
+    # #236 — un agente de código registra los cuadernos que escribe.
+    register_funciones_tools(mcp, client_provider=cp, con_ficheros_locales=True)
     return mcp
 
 
