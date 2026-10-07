@@ -104,5 +104,20 @@ claude.cmd -p --chrome --model sonnet `
 - El guion y su registro van en `_local/canario/`, que es de cada equipo. Al cerrar, la sesión del
   canario también queda en el registro de actividad IA si el equipo tiene instalado el hook de #230.
 
+**El aviso por correo, sin SMTP.** La plataforma no tiene servidor de correo, así que avisa la
+cuenta de Google de quien tiene instalado el canario, con el conector de Gmail de su cuenta de
+Claude. Tres reglas:
+
+- **El canario no avisa: informa.** Su última línea empieza por `OK` o por `FALLO`, y es el guion
+  —no Claude— el que decide. Todo lo que no empiece por `OK` es un fallo, también que Chrome
+  estuviera cerrado o que no haya salida.
+- **El correo lo manda otra ejecución**, con `--allowedTools mcp__claude_ai_Gmail__send_message` y
+  nada más, el destinatario fijo en el guion y la línea del fallo como cuerpo. La ejecución que
+  acaba de leer la página de Gemini no puede escribir a nadie: el texto de una página ajena no
+  debe poder decidir a quién se manda un correo.
+- **Se prueba sin esperar a un fallo**: el guion admite `-ProbarAviso`, que manda el correo
+  marcado como prueba sin ejecutar el canario.
+
 Instalado así por primera vez el 2026-10-07 (días laborables a las 8:47), con una ejecución
-desatendida de prueba: «adaptador de Gemini v1 · correcto».
+desatendida de prueba —«adaptador de Gemini v1 · correcto»—, la primera programada a las 8:47,
+también correcta, y el correo de prueba recibido.
