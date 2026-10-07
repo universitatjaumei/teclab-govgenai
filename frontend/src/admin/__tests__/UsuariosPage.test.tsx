@@ -38,6 +38,7 @@ vi.mock('@/shared/api/generated/hub-users/hub-users', () => ({
   useDeleteUserApiV1HubUsersUserIdDelete: vi.fn(),
   useSetUsuarioPassword: vi.fn(),
   useCapacidadesDePersonas: vi.fn(),
+  usePonerModulosDePersona: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
   getListUsersApiV1HubUsersGetQueryKey: () => ['usuarios'],
 }))
 
@@ -232,6 +233,24 @@ describe('IDE.4 — lo que la pantalla tiene que advertir', () => {
 })
 
 describe('IDE.4 — alta y edición', () => {
+  it('si el servidor rechaza el alta, la pantalla dice por qué (2026-10-07)', async () => {
+    // En producción «el botón no hacía nada»: la persona ya había entrado con Google, el
+    // servidor respondía 409 y la mutación no tenía `onError`. El mismo defecto que FIX.1.
+    mutar.mockImplementation((_vars: unknown, opciones?: { onError?: (e: unknown) => void }) =>
+      opciones?.onError?.({
+        response: { data: { detail: 'Ya hay una persona con el correo ya@uji.es' } },
+      })
+    )
+    renderPage()
+
+    fireEvent.change(screen.getByLabelText(/correo/i), { target: { value: 'ya@uji.es' } })
+    fireEvent.click(screen.getByRole('button', { name: /dar de alta/i }))
+
+    const aviso = await screen.findByRole('alert')
+    expect(aviso.textContent).toContain('Ya hay una persona con el correo ya@uji.es')
+    mutar.mockReset()
+  })
+
   it('should_create_a_person_with_the_role_chosen', () => {
     renderPage()
 

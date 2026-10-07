@@ -132,6 +132,7 @@ class TestElCasoDeLaIssue:
 #: declararlo, la herramienta deja de funcionar con su token, y es mejor saberlo aquí.
 LO_QUE_USA_EL_MCP = {
     ("GET", "/hub/chatbots"): "chatbots:read",
+    ("GET", "/hub/organizaciones"): "chatbots:read",
     ("GET", "/hub/chatbots/{chatbot_id}/corpus-stats"): "chatbots:read",
     ("GET", "/hub/chatbots/{chatbot_id}/children"): "chatbots:read",
     ("GET", "/hub/prompt-templates/"): "chatbots:read",

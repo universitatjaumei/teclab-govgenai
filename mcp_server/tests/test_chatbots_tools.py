@@ -15,7 +15,7 @@ from errors import ApiError, ScopeError, ValidationError
 from server import build_server
 from tools.chatbots import (
     CHATBOTS_PATH,
-    CLIENTS_PATH,
+    ORGANIZACIONES_PATH,
     PROMPT_TEMPLATES_PATH,
     assign_child_core,
     child_path,
@@ -26,7 +26,7 @@ from tools.chatbots import (
     get_chatbot_core,
     get_corpus_stats_core,
     list_chatbots_core,
-    list_clients_core,
+    list_organizaciones_core,
     list_prompt_templates_core,
     unassign_child_core,
     update_chatbot_core,
@@ -48,8 +48,8 @@ def make_client() -> ApiClient:
 
 def _bots() -> list[dict]:
     return [
-        {"id": CB1, "name": "Bot A", "client_id": CLIENT_A, "retrieval_mode": "RAG", "retrieval_top_k": 8},
-        {"id": CB2, "name": "Bot B", "client_id": CLIENT_B, "retrieval_mode": "RAG", "retrieval_top_k": 8},
+        {"id": CB1, "name": "Bot A", "organizacion_id": CLIENT_A, "retrieval_mode": "RAG", "retrieval_top_k": 8},
+        {"id": CB2, "name": "Bot B", "organizacion_id": CLIENT_B, "retrieval_mode": "RAG", "retrieval_top_k": 8},
     ]
 
 
@@ -58,13 +58,13 @@ def _bots() -> list[dict]:
 # ---------------------------------------------------------------------------
 
 @respx.mock
-async def test_list_clients_calls_endpoint():
-    route = respx.get(f"{BASE}{CLIENTS_PATH}").mock(
+async def test_list_organizaciones_calls_endpoint():
+    route = respx.get(f"{BASE}{ORGANIZACIONES_PATH}").mock(
         return_value=httpx.Response(200, json=[{"id": CLIENT_A, "name": "Org A"}])
     )
     client = make_client()
     try:
-        result = await list_clients_core(client)
+        result = await list_organizaciones_core(client)
     finally:
         await client.aclose()
     assert route.called
@@ -83,11 +83,11 @@ async def test_list_chatbots_returns_all_without_filter():
 
 
 @respx.mock
-async def test_list_chatbots_filters_by_client_id():
+async def test_list_chatbots_filters_by_organizacion_id():
     respx.get(f"{BASE}{CHATBOTS_PATH}").mock(return_value=httpx.Response(200, json=_bots()))
     client = make_client()
     try:
-        result = await list_chatbots_core(client, client_id=CLIENT_A)
+        result = await list_chatbots_core(client, organizacion_id=CLIENT_A)
     finally:
         await client.aclose()
     assert len(result) == 1
@@ -342,7 +342,7 @@ async def test_chatbot_tools_registered_on_server():
     srv = build_server(client_provider=lambda: None, config_provider=lambda: None)
     names = {t.name for t in await srv.list_tools()}
     assert {
-        "list_clients",
+        "list_organizaciones",
         "list_chatbots",
         "get_chatbot",
         "get_corpus_stats",

@@ -465,7 +465,13 @@
       "de_plataforma_no_mostradas_other": "No es mostren {{count}} comptes que no pertanyen a cap organització.",
       "ver_todas": "Veure-les totes",
       "sin_acotar": "Es mostren les persones de totes les organitzacions.",
-      "volver_a_la_organizacion": "Veure només l'organització triada"
+      "volver_a_la_organizacion": "Veure només l'organització triada",
+      "error_alta": "No s'ha pogut donar d'alta.",
+      "editar_modulos": "Edita",
+      "editar_modulos_de": "Edita els mòduls de {{email}}",
+      "guardar_modulos": "Desa",
+      "cancelar_modulos": "Cancel·la",
+      "error_modulos": "No s'han pogut desar els mòduls."
     },
     "modulos_nav": "Mòduls",
     "modulos": {

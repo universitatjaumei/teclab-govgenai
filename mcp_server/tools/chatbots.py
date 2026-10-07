@@ -1,6 +1,6 @@
 """Tools MCP de configuración de chatbots (MCP.3).
 
-Envuelven `hub_chatbots_router` / `hub_clients_router` / `hub_prompt_templates_router`
+Envuelven `hub_chatbots_router` / `hub_organizaciones_router` / `hub_prompt_templates_router`
 (`Deploy: cloud`). El riesgo dominante es la **mutación in-place** sobre bots en
 producción (sin historial; el widget público cambia al instante, ver mcp.md val.2).
 Mitigaciones por construcción:
@@ -12,7 +12,8 @@ Mitigaciones por construcción:
 Notas de mapeo (la API no ofrece todo lo que las tools necesitan, y MCP.3 es
 tools-only —sin cambios de backend—):
 - No existe ``GET /hub/chatbots/{id}`` individual: ``get_chatbot`` lista y filtra.
-- ``GET /hub/chatbots`` no filtra por cliente: ``list_chatbots`` filtra client-side.
+- ``list_chatbots`` filtra en el cliente por ``organizacion_id``, que es como lo llama el
+  contrato (#234). El servidor también admite ``?organizacion_id=``.
 - ``GET /hub/prompt-templates/`` SÍ acepta ``chatbot_id`` (filtro server-side).
 
 Lógica en funciones ``_core`` (ApiClient explícito, testeables con respx); los
@@ -26,7 +27,7 @@ from mcp.server.fastmcp import FastMCP
 
 from api_client import ApiClient, ApiError
 
-CLIENTS_PATH = "/api/v1/hub/clients"
+ORGANIZACIONES_PATH = "/api/v1/hub/organizaciones"
 CHATBOTS_PATH = "/api/v1/hub/chatbots"
 PROMPT_TEMPLATES_PATH = "/api/v1/hub/prompt-templates/"
 
@@ -58,14 +59,14 @@ ClientProvider = Callable[[], ApiClient]
 # Lectura
 # ---------------------------------------------------------------------------
 
-async def list_clients_core(client: ApiClient) -> Any:
-    return await client.get(CLIENTS_PATH)
+async def list_organizaciones_core(client: ApiClient) -> Any:
+    return await client.get(ORGANIZACIONES_PATH)
 
 
-async def list_chatbots_core(client: ApiClient, client_id: str | None = None) -> Any:
+async def list_chatbots_core(client: ApiClient, organizacion_id: str | None = None) -> Any:
     bots = await client.get(CHATBOTS_PATH)
-    if client_id is not None and isinstance(bots, list):
-        return [b for b in bots if str(b.get("client_id")) == str(client_id)]
+    if organizacion_id is not None and isinstance(bots, list):
+        return [b for b in bots if str(b.get("organizacion_id")) == str(organizacion_id)]
     return bots
 
 
@@ -156,14 +157,14 @@ async def unassign_child_core(
 
 def register_chatbot_tools(mcp: FastMCP, *, client_provider: ClientProvider) -> None:
     @mcp.tool()
-    async def list_clients() -> Any:
-        """Lista los clientes (organizaciones). [scope chatbots:read]"""
-        return await list_clients_core(client_provider())
+    async def list_organizaciones() -> Any:
+        """Lista las organizaciones que ve el token, con su id: el que pide create_chatbot. [scope chatbots:read]"""
+        return await list_organizaciones_core(client_provider())
 
     @mcp.tool()
-    async def list_chatbots(client_id: str | None = None) -> Any:
-        """Lista chatbots, opcionalmente filtrados por client_id. [scope chatbots:read]"""
-        return await list_chatbots_core(client_provider(), client_id)
+    async def list_chatbots(organizacion_id: str | None = None) -> Any:
+        """Lista chatbots, opcionalmente de una organización. [scope chatbots:read]"""
+        return await list_chatbots_core(client_provider(), organizacion_id)
 
     @mcp.tool()
     async def get_chatbot(chatbot_id: str) -> dict:

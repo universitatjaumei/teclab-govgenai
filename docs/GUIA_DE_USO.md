@@ -87,14 +87,21 @@ respuestas malas. Por eso hay un guardarraíl que lo impide y obliga a reindexar
 
 ### 2.3 Conceder módulos
 
-`/plataforma/modulos`. Sin concesión no hay acceso, para cualquier rol que no sea
-`superadmin`. Es aquí donde se decide qué tiene contratado cada organización.
+Sin concesión no hay acceso, para cualquier rol que no sea `superadmin`. Tres sitios, según lo
+que se tenga delante:
+
+- **En `/personas`, en la fila de la persona**: «Editar» en la columna de módulos, se marcan los
+  que tiene que tener —varios a la vez— y se guarda. Es lo habitual, porque quien entra con su
+  cuenta institucional queda dado de alta solo y lo que le falta son sus módulos.
+- **Al dar de alta** a alguien a mano, en el mismo formulario.
+- **En `/plataforma/modulos`**, de uno en uno, y la única forma de conceder a un **grupo** del IdP.
 
 ### 2.4 Dar de alta a las personas
 
-`/personas`. Alta manual, con contraseña local, mientras el SSO institucional no esté conectado.
-Cuando lo esté, las personas llegan del IdP y esta pantalla pasa a ser el sitio donde se revisa
-lo que el IdP declara.
+`/personas`. **Quien entra con su cuenta institucional queda dado de alta solo**, en la
+organización de la institución; aquí sólo hay que darle módulos (§2.3). El alta manual es para
+quien todavía no ha entrado y se quiere preparar antes: si ya había entrado, el alta lo dice
+—«Ya hay una persona con el correo…»— y lo que toca es editar sus módulos.
 
 Se puede crear, editar, cambiar la contraseña y dar de baja. La pantalla no deja quedarse sin
 ningún superadministrador activo: es la comprobación que evita cerrar la puerta desde dentro.

@@ -82,6 +82,42 @@ como texto y se comprueba fuera.
 
 ## Programarlo
 
-Como tarea programada de Claude en el equipo, una vez al día y a una hora en la que el equipo esté
-encendido y Chrome abierto. El prompt de la tarea es este documento: «Ejecuta el canario de
-`extension/canario/CANARIO.md` y dime el resultado».
+Una vez al día, a una hora en la que el equipo esté encendido y Chrome abierto. El prompt es este
+documento: «Ejecuta el canario de `extension/canario/CANARIO.md` y dime el resultado».
+
+**Con el Programador de tareas de Windows, no con las tareas de una sesión de Claude Code**, que
+desaparecen al cerrarla. La tarea lanza un guion de PowerShell que ejecuta Claude sin sesión
+interactiva y apunta una línea en un registro local:
+
+```powershell
+claude.cmd -p --chrome --model sonnet `
+  --allowedTools Read 'Bash(cat:*)' 'Bash(curl:*)' 'Write(extension/instantaneas/**)' mcp__claude-in-chrome `
+  -- 'Ejecuta el canario de extension/canario/CANARIO.md y termina con UNA sola línea: ...'
+```
+
+- **`--allowedTools` es la lista entera** de lo que puede hacer sin preguntar —y sin nadie delante,
+  lo que no está en la lista se deniega—: leer, `curl` contra la plataforma, guardar la instantánea
+  y el navegador.
+- **La tarea, sólo con la sesión de Windows iniciada** (`LogonType Interactive`): necesita el Chrome
+  de esa persona.
+- **`sonnet`** porque el procedimiento es mecánico, y corre cada día.
+- El guion y su registro van en `_local/canario/`, que es de cada equipo. Al cerrar, la sesión del
+  canario también queda en el registro de actividad IA si el equipo tiene instalado el hook de #230.
+
+**El aviso por correo, sin SMTP.** La plataforma no tiene servidor de correo, así que avisa la
+cuenta de Google de quien tiene instalado el canario, con el conector de Gmail de su cuenta de
+Claude. Tres reglas:
+
+- **El canario no avisa: informa.** Su última línea empieza por `OK` o por `FALLO`, y es el guion
+  —no Claude— el que decide. Todo lo que no empiece por `OK` es un fallo, también que Chrome
+  estuviera cerrado o que no haya salida.
+- **El correo lo manda otra ejecución**, con `--allowedTools mcp__claude_ai_Gmail__send_message` y
+  nada más, el destinatario fijo en el guion y la línea del fallo como cuerpo. La ejecución que
+  acaba de leer la página de Gemini no puede escribir a nadie: el texto de una página ajena no
+  debe poder decidir a quién se manda un correo.
+- **Se prueba sin esperar a un fallo**: el guion admite `-ProbarAviso`, que manda el correo
+  marcado como prueba sin ejecutar el canario.
+
+Instalado así por primera vez el 2026-10-07 (días laborables a las 8:47), con una ejecución
+desatendida de prueba —«adaptador de Gemini v1 · correcto»—, la primera programada a las 8:47,
+también correcta, y el correo de prueba recibido.

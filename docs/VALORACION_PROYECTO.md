@@ -141,7 +141,7 @@ resueltos**, con la diferencia clave de que hay tests que impiden la recaída:
 | `AIBrainService` monolítico (~1.082 LOC) | **Resuelto** (la clase no existe) | Ver deuda nueva D1: el módulo sustituto quedó sin cablear. |
 | Shims `init_db`/alias en `seeds.py` | **Resuelto** | Guardarraíl `test_no_legacy_shims.py`. |
 | Capa API manual del frontend (fetch crudo, tipos a mano) | **Resuelto** (estructural) | Migrado a Orval con guardarraíl `contractFirstApi.test.ts`. Ver D2: queda una isla que es un bug. |
-| Scopes calculados en cliente (`AccessTokensPage`) | **Resuelto** | `scopesForRole()`, función pura testeable. |
+| Scopes calculados en cliente (`AccessTokensPage`) | **Resuelto** (#230) | Primero se resolvió con `scopesForRole()`, una función pura testeable, pero la lista seguía siendo del cliente y se quedó en cinco alcances mientras el servidor llegaba a quince. Desde #230 los alcances y las organizaciones los da `GET /auth/pats/opciones`. |
 | `ca/admin.json` al ~25 % | **Resuelto** | Paridad **exacta**: 854 claves × 3 locales, 0 huecos, con guardarraíl de cobertura. |
 | `DocumentsPage.tsx` (1.019 LOC) | **Resuelto** | Descompuesta a 287 LOC + 12 módulos con tests. |
 
@@ -358,7 +358,10 @@ routers la usan. Hay que separar tres categorías:
 - MT.3 (`get_model_for_tier` recibe la organización, obligatoria, en los 7 llamadores).
 - MT.4 en plantillas de informe (`hub_report_templates` filtra por organización + nivel plataforma).
 - MT.5 en la lógica de los PAT (acotan y nunca amplían; las organizaciones del dueño se resuelven
-  en cada validación, no se congelan).
+  en cada validación, no se congelan). Con un hueco que salió en la revisión de la PR #237: el
+  token acotado de un superadmin conservaba el rol, y lo que mira `is_superadmin` antes que las
+  organizaciones lo dejaba pasar a todas. Cerrado en #238: actúa como administrador de esa
+  organización.
 
 **Huecos NO documentados (el inventario los presenta como funcionalidad viva):**
 - Los routers de `hub_activity_prompts` y `hub_llm_configs` (ya en §3.2 como hallazgos de
@@ -367,10 +370,10 @@ routers la usan. Hay que separar tres categorías:
   acotado por organización, pero nadie rellena la columna y el acceso real es por propiedad
   (`es_propietario`), que hoy es *más* estrecho —así que no es fuga—, pero el inventario miente y
   ningún test lo caza (MT.7 solo vigila `HubConfigBase`, no las tablas operacionales).
-- **MT.5 está inerte en toda su superficie**: las columnas `organizacion_id` de `HubModuleGrant` y
-  `HubPersonalAccessToken` existen pero ni `PatCreateRequest` ni `ConcesionCreate` las exponen, y
-  el camino de enforcement (`require_module`) no las usa. Es coherente con «MT.5 no cambia
-  comportamiento», pero el inventario no lo dice.
+- **MT.5 está inerte en las concesiones**: la columna `organizacion_id` de `HubModuleGrant` existe
+  pero `ConcesionCreate` no la expone y el camino de enforcement (`require_module`) no la usa. Es
+  coherente con «MT.5 no cambia comportamiento», pero el inventario no lo dice. (La mitad de los
+  PAT ya no lo está: `PatCreateRequest` la acepta desde #230.)
 - La cola de revisión de scripts de Informes (`scripts_router`) se protege por rol y no por
   pertenencia: un admin de A puede listar, reejecutar, aprobar y rechazar las propuestas de script
   de B, incluido el código y los datos de prueba del otro municipio.

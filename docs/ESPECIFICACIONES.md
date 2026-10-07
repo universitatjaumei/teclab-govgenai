@@ -355,7 +355,9 @@ por `funcion_id@versión`.
   en `informes`. El catálogo es tabla (I4). El superadmin no
   necesita concesión, y **un módulo marcado `de_oficio` en el catálogo tampoco**: lo tiene
   cualquier persona de la plataforma, también quien se dé de alta mañana, y concederlo se rechaza
-  porque no cambiaría nada. Hoy lo son `utilidades` y `consulta_agentes`.
+  porque no cambiaría nada. Hoy lo son `utilidades` y `consulta_agentes`. Los de una persona se
+  editan **de una vez** desde su fila en Personas: se manda la lista entera y el servidor
+  reconcilia en una transacción, sin tocar lo que la pantalla no ofrece (2026-10-07).
 - Toda consulta que sirva datos de inquilino se acota con `scope_query_to_orgs`, y **la lista vacía
   significa «ninguna»** (I5, I8).
 - Contraseña local para personas, con interruptor `LOCAL_USER_LOGIN_ENABLED` para apagarla cuando
@@ -366,6 +368,15 @@ por `funcion_id@versión`.
   recibe 403 `PAT_NO_PERMITIDO`, **sea cual sea el rol de su dueño**. Antes, un endpoint que no
   decía nada aceptaba cualquier token, y un token de superadministrador emitido sólo para anotar
   usos podía conceder módulos. Un endpoint nuevo que no declare nada es de sesión, no de máquina.
+- **Un PAT se puede acotar a una organización al emitirlo** (#230), y **acota, nunca amplía**:
+  quien no es superadmin sólo elige una de las suyas. El de un superadministrador acotado **actúa
+  como administrador de esa organización** (#238, 2026-10-07): conservar el rol dejaba pasar al
+  token a todas allí donde se mira `is_superadmin` antes que las organizaciones. **Y como
+  administrador entra sólo en los módulos de oficio y en los concedidos**: un superadmin no suele
+  tener concesiones, porque entra por su rol, así que un token acotado suyo para `chatbots`,
+  `informes`, `automatizacion` o `agentes` recibe 403 de módulo. Sirve para lo que no pide módulo
+  (`actividad:write`) o lo pide de oficio (`agentes:consulta`); para lo demás, sin acotar o emitido
+  por un administrador de esa organización.
 - **Quien entra con la cuenta institucional queda en la organización de la institución**
   (`SAML_ORGANIZACION_ID`, que usa también el login de Google), y se le vuelve a poner en cada
   entrada: asignarla a mano no dura.

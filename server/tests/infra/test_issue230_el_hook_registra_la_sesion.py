@@ -186,3 +186,100 @@ def test_el_token_no_vive_en_el_repositorio():
     import re
 
     assert not re.search(r"pat_[A-Za-z0-9]{4,}_[A-Za-z0-9]{8,}", texto)
+
+
+class TestEntradasRaras:
+    """Revisión de la PR #237: había entradas que salían con traza y código 1 sin dejar nada escrito."""
+
+    def _registro(self, proyecto):
+        return (proyecto["casa"] / ".claude" / "govgenai-actividad.log").read_text(encoding="utf-8")
+
+    def test_una_entrada_que_no_es_un_objeto(self, proyecto, monkeypatch):
+        modulo = _guion()
+        envios = Envios()
+        monkeypatch.setattr(modulo.urllib.request, "urlopen", envios)
+        monkeypatch.setattr("sys.stdin", io.StringIO("[]"))
+        assert modulo.main() == 0
+        assert envios.peticiones == []
+        assert "entrada" in self._registro(proyecto)
+
+    def test_una_declaracion_que_no_es_un_objeto(self, proyecto, monkeypatch):
+        (proyecto["raiz"] / ".claude" / "govgenai.json").write_text('["x"]', encoding="utf-8")
+        modulo = _guion()
+        envios = Envios()
+        assert _ejecutar(modulo, proyecto["entrada"], monkeypatch, envios) == 0
+        assert envios.peticiones == []
+        assert "govgenai.json" in self._registro(proyecto)
+
+    def test_categorias_que_no_son_una_lista_no_se_inventan(self, proyecto, monkeypatch):
+        (proyecto["raiz"] / ".claude" / "govgenai.json").write_text(
+            json.dumps({"finalidad": "x", "categorias_datos": "sin_datos_personales"}), encoding="utf-8"
+        )
+        modulo = _guion()
+        envios = Envios()
+        assert _ejecutar(modulo, proyecto["entrada"], monkeypatch, envios) == 0
+        assert envios.peticiones == []
+        assert "categorias_datos" in self._registro(proyecto)
+
+    def test_una_transcripcion_con_bytes_invalidos_no_impide_registrar(self, proyecto, monkeypatch):
+        Path(proyecto["entrada"]["transcript_path"]).write_bytes(b'\xff\xfe{"message": 1}\n')
+        modulo = _guion()
+        envios = Envios()
+        assert _ejecutar(modulo, proyecto["entrada"], monkeypatch, envios) == 0
+        assert len(envios.peticiones) == 1
+        assert "modelo_usado" not in json.loads(envios.peticiones[0].data)
+
+    def test_cualquier_otro_fallo_sale_con_cero_y_queda_escrito(self, proyecto, monkeypatch):
+        modulo = _guion()
+
+        def _revienta(_desde):
+            raise PermissionError("sin permiso")
+
+        monkeypatch.setattr(modulo, "_declaracion_del_proyecto", _revienta)
+        assert _ejecutar(modulo, proyecto["entrada"], monkeypatch, Envios()) == 0
+        assert "sin permiso" in self._registro(proyecto)
+
+
+class TestLaEntradaEnWindows:
+    """La entrada llega en UTF-8, pero Python en Windows lee la tubería con la página de códigos.
+
+    Salió probándolo a mano el 2026-10-07: con una ruta con acentos, el `cwd` llegaba desfigurado,
+    el guion no encontraba la declaración del proyecto y no registraba. Y una entrada con BOM, como
+    la que manda PowerShell 5.1, no se leía.
+    """
+
+    def _stdin(self, crudo: bytes):
+        return io.TextIOWrapper(io.BytesIO(crudo), encoding="cp1252")
+
+    def test_una_ruta_con_acentos_encuentra_la_declaracion(self, proyecto, monkeypatch, tmp_path):
+        raiz = tmp_path / "Proyección"
+        (raiz / ".claude").mkdir(parents=True)
+        (raiz / ".claude" / "govgenai.json").write_text(
+            json.dumps({"finalidad": "Con acentos", "categorias_datos": []}), encoding="utf-8"
+        )
+        entrada = dict(proyecto["entrada"], cwd=str(raiz))
+        modulo = _guion()
+        envios = Envios()
+        monkeypatch.setattr(modulo.urllib.request, "urlopen", envios)
+        monkeypatch.setattr("sys.stdin", self._stdin(json.dumps(entrada, ensure_ascii=False).encode("utf-8")))
+        assert modulo.main() == 0
+        assert json.loads(envios.peticiones[0].data)["finalidad"] == "Con acentos"
+
+    def test_una_entrada_con_bom_se_lee(self, proyecto, monkeypatch):
+        modulo = _guion()
+        envios = Envios()
+        monkeypatch.setattr(modulo.urllib.request, "urlopen", envios)
+        monkeypatch.setattr("sys.stdin", self._stdin(b"\xef\xbb\xbf" + json.dumps(proyecto["entrada"]).encode("utf-8")))
+        assert modulo.main() == 0
+        assert len(envios.peticiones) == 1
+
+
+def test_una_declaracion_con_bom_se_lee(proyecto, monkeypatch):
+    """El `.claude/govgenai.json` que escribe PowerShell 5.1 lleva BOM (revisión de la PR #240)."""
+    (proyecto["raiz"] / ".claude" / "govgenai.json").write_bytes(
+        b"\xef\xbb\xbf" + json.dumps({"finalidad": "Con BOM", "categorias_datos": []}).encode("utf-8")
+    )
+    modulo = _guion()
+    envios = Envios()
+    assert _ejecutar(modulo, proyecto["entrada"], monkeypatch, envios) == 0
+    assert json.loads(envios.peticiones[0].data)["finalidad"] == "Con BOM"

@@ -155,6 +155,9 @@ class TestElAltaManual:
 
         assert primera.status_code == 201
         assert segunda.status_code == 409
+        # 2026-10-07: el caso real es alguien que ya entró con Google. El mensaje tiene que decir
+        # qué hacer, no sólo que no se puede: los módulos se conceden a quien ya existe.
+        assert "Plataforma → Módulos" in segunda.json()["detail"]
 
     @pytest.mark.asyncio
     async def test_should_be_reserved_to_a_superadmin(self, db_session):

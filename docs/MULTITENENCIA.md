@@ -57,7 +57,7 @@ vacío»), sin lo cual no se puede vaciar un valor heredado desde la pantalla.
 | `hub_themes` | `heredable` | `organizacion_id` | La cascada visual, de la que salió el patrón. |
 | `hub_users` | `heredable` | `organizacion_id` | Nulo = cuenta que no pertenece a ninguna. El filtro del listado lo puso MT.9 (issue #186), **diciendo cuántas deja fuera y ofreciendo verlas**: en herencia, filtrar y callarse es esconder. |
 | `hub_module_grants` | `heredable` | `organizacion_id` | MT.5. **Nulo = en todas**, que es lo que valen las concesiones de siempre. Eje perpendicular al de `subject_type`. |
-| `hub_personal_access_tokens` | `heredable` | `organizacion_id` | MT.5. Nulo = donde valga su dueño. Cuando lo declara **acota, nunca amplía**. |
+| `hub_personal_access_tokens` | `heredable` | `organizacion_id` | MT.5. Nulo = donde valga su dueño. Cuando lo declara **acota, nunca amplía**; el de un superadmin actúa entonces como administrador de esa organización (#238). Se declara al emitir (#230). |
 
 ## Tablas operacionales (`HubOperationalBase`, viven sólo en el edge)
 
