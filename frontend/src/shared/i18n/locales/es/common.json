@@ -19,5 +19,8 @@
     "codigo_fuente": "Código fuente"
   },
   "required": "Obligatorio",
-  "close": "Cerrar"
+  "close": "Cerrar",
+  "create_report": "Crear informe",
+  "sample_label": "Fichero de datos (opcional)",
+  "sample_rows": "filas"
 }

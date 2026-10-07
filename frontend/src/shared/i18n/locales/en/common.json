@@ -19,5 +19,8 @@
     "codigo_fuente": "Source code"
   },
   "required": "Required",
-  "close": "Close"
+  "close": "Close",
+  "create_report": "Create report",
+  "sample_label": "Data file (optional)",
+  "sample_rows": "rows"
 }

@@ -19,5 +19,8 @@
     "codigo_fuente": "Codi font"
   },
   "required": "Obligatori",
-  "close": "Tanca"
+  "close": "Tanca",
+  "create_report": "Crea l'informe",
+  "sample_label": "Fitxer de dades (opcional)",
+  "sample_rows": "files"
 }

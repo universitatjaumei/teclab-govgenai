@@ -326,7 +326,7 @@ export function AIBlockReviewPanel({ workspaceId }: Props) {
                     onClick={() => cerrarEditor(block.block_id)}
                     className="px-2 py-1 text-xs border rounded"
                   >
-                    {t('cancel', 'Cancelar')}
+                    {t('cancel')}
                   </button>
                 </div>
               </div>
