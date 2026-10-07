@@ -38,6 +38,7 @@ vi.mock('@/shared/api/generated/hub-users/hub-users', () => ({
   useDeleteUserApiV1HubUsersUserIdDelete: vi.fn(),
   useSetUsuarioPassword: vi.fn(),
   useCapacidadesDePersonas: vi.fn(),
+  usePonerModulosDePersona: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
   getListUsersApiV1HubUsersGetQueryKey: () => ['usuarios'],
 }))
 

@@ -466,7 +466,12 @@
       "ver_todas": "Show them",
       "sin_acotar": "Showing people from every organisation.",
       "volver_a_la_organizacion": "Show only the chosen organisation",
-      "error_alta": "The person could not be added."
+      "error_alta": "The person could not be added.",
+      "editar_modulos": "Edit",
+      "editar_modulos_de": "Edit the modules of {{email}}",
+      "guardar_modulos": "Save",
+      "cancelar_modulos": "Cancel",
+      "error_modulos": "The modules could not be saved."
     },
     "modulos_nav": "Modules",
     "modulos": {

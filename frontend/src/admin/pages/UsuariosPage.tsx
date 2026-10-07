@@ -12,6 +12,7 @@ import {
   useDeleteUserApiV1HubUsersUserIdDelete,
   useSetUsuarioPassword,
   useCapacidadesDePersonas,
+  usePonerModulosDePersona,
   getListUsersApiV1HubUsersGetQueryKey,
 } from '@/shared/api/generated/hub-users/hub-users'
 import { useGetCatalogoApiV1HubModulosCatalogoGet } from '@/shared/api/generated/hub-modulos/hub-modulos'
@@ -143,6 +144,46 @@ export function UsuariosPage() {
   })
   // Lo de oficio no se ofrece en el alta: lo tiene cualquier persona sin concesión.
   const modulosVigentes = (catalogoDeModulos ?? []).filter((m) => m.vigente && !m.de_oficio)
+
+  /**
+   * Editar los módulos de quien ya existe, varios a la vez (2026-10-07). Lo normal ya no es crear
+   * a alguien con sus módulos: quien entra con su cuenta institucional queda dado de alta solo, y
+   * lo que falta son sus módulos. Se manda **la lista entera** y el servidor reconcilia.
+   */
+  const { mutate: ponerModulos, isPending: poniendoModulos } = usePonerModulosDePersona()
+  const [modulosEnEdicionDe, setModulosEnEdicionDe] = useState<string | null>(null)
+  const [modulosMarcados, setModulosMarcados] = useState<string[]>([])
+  const [falloDeModulos, setFalloDeModulos] = useState<string | null>(null)
+
+  function editarModulos(persona: UsuarioRead) {
+    // Sólo lo que la pantalla ofrece: un módulo retirado que tenga concedido no se puede
+    // desmarcar, y el servidor no lo tocará; mandarlo sería un 400.
+    const ofrecidos = new Set(modulosVigentes.map((m) => m.code))
+    setModulosMarcados((persona.modulos_concedidos ?? []).filter((c) => ofrecidos.has(c)))
+    setFalloDeModulos(null)
+    setModulosEnEdicionDe(persona.id)
+  }
+
+  function alternarMarcado(codigo: string) {
+    setModulosMarcados((antes) =>
+      antes.includes(codigo) ? antes.filter((c) => c !== codigo) : [...antes, codigo]
+    )
+  }
+
+  function guardarModulos(persona: UsuarioRead) {
+    setFalloDeModulos(null)
+    ponerModulos(
+      { userId: persona.id, data: { modulos: modulosMarcados } },
+      {
+        onSuccess: () => {
+          setModulosEnEdicionDe(null)
+          invalidar()
+        },
+        onError: (fallo) =>
+          setFalloDeModulos(mensajeDelFallo(fallo, t('plataforma.usuarios.error_modulos'))),
+      }
+    )
+  }
 
   function alternarModulo(codigo: string) {
     setModulosDelAlta((antes) =>
@@ -453,6 +494,44 @@ export function UsuariosPage() {
                     rol con la lista vacía, y esa regla vive en el servidor. Escribirla aquí
                     sería tenerla dos veces. */}
                 <td data-testid={`modulos-${persona.id}`}>
+                  {modulosEnEdicionDe === persona.id ? (
+                    <div className="flex flex-col gap-1 py-1">
+                      {/* Iterando el catálogo del servidor, como el alta. */}
+                      {modulosVigentes.map((m) => (
+                        <label key={m.code} className="flex items-center gap-1.5 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={modulosMarcados.includes(m.code)}
+                            onChange={() => alternarMarcado(m.code)}
+                          />
+                          {m.label}
+                        </label>
+                      ))}
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          disabled={poniendoModulos}
+                          onClick={() => guardarModulos(persona)}
+                          className="rounded-md bg-primary px-2 py-0.5 text-xs text-primary-foreground disabled:opacity-50"
+                        >
+                          {t('plataforma.usuarios.guardar_modulos')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setModulosEnEdicionDe(null)}
+                          className="rounded-md border px-2 py-0.5 text-xs"
+                        >
+                          {t('plataforma.usuarios.cancelar_modulos')}
+                        </button>
+                      </div>
+                      {falloDeModulos && (
+                        <p role="alert" className="text-xs text-destructive">
+                          {falloDeModulos}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                  <>
                   {persona.sin_concesion_directa ? (
                     <span
                       data-testid={`sin-concesion-directa-${persona.id}`}
@@ -465,6 +544,19 @@ export function UsuariosPage() {
                     (persona.modulos_concedidos ?? []).join(', ')
                   ) : (
                     '—'
+                  )}
+                  {/* El botón lo decide el servidor (`puede_editar_modulos`), no un `rol ===`. */}
+                  {persona.puede_editar_modulos && (
+                    <button
+                      type="button"
+                      onClick={() => editarModulos(persona)}
+                      aria-label={t('plataforma.usuarios.editar_modulos_de', { email: persona.email })}
+                      className="ml-2 rounded-md border px-1.5 py-0.5 text-xs"
+                    >
+                      {t('plataforma.usuarios.editar_modulos')}
+                    </button>
+                  )}
+                  </>
                   )}
                 </td>
                 {/* «Nunca» y no una celda vacía: que alguien no haya entrado todavía es lo

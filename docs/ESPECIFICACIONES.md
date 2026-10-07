@@ -355,7 +355,9 @@ por `funcion_id@versión`.
   en `informes`. El catálogo es tabla (I4). El superadmin no
   necesita concesión, y **un módulo marcado `de_oficio` en el catálogo tampoco**: lo tiene
   cualquier persona de la plataforma, también quien se dé de alta mañana, y concederlo se rechaza
-  porque no cambiaría nada. Hoy lo son `utilidades` y `consulta_agentes`.
+  porque no cambiaría nada. Hoy lo son `utilidades` y `consulta_agentes`. Los de una persona se
+  editan **de una vez** desde su fila en Personas: se manda la lista entera y el servidor
+  reconcilia en una transacción, sin tocar lo que la pantalla no ofrece (2026-10-07).
 - Toda consulta que sirva datos de inquilino se acota con `scope_query_to_orgs`, y **la lista vacía
   significa «ninguna»** (I5, I8).
 - Contraseña local para personas, con interruptor `LOCAL_USER_LOGIN_ENABLED` para apagarla cuando

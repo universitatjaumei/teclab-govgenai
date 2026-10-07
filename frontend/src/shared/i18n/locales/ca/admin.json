@@ -466,7 +466,12 @@
       "ver_todas": "Veure-les totes",
       "sin_acotar": "Es mostren les persones de totes les organitzacions.",
       "volver_a_la_organizacion": "Veure només l'organització triada",
-      "error_alta": "No s'ha pogut donar d'alta."
+      "error_alta": "No s'ha pogut donar d'alta.",
+      "editar_modulos": "Edita",
+      "editar_modulos_de": "Edita els mòduls de {{email}}",
+      "guardar_modulos": "Desa",
+      "cancelar_modulos": "Cancel·la",
+      "error_modulos": "No s'han pogut desar els mòduls."
     },
     "modulos_nav": "Mòduls",
     "modulos": {

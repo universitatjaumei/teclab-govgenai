@@ -122,6 +122,10 @@ class UsuarioRead(BaseModel):
     #: De las dos salidas posibles ésta es la honesta: resolver el acceso efectivo de verdad
     #: exige datos que esta pantalla no tiene, y prometerlo con los que hay sería inventarlo.
     sin_concesion_directa: bool = False
+    #: Si **quien pregunta** puede editar los módulos de esta persona desde Personas (2026-10-07).
+    #: Lo decide el servidor, como `puede_borrarse`: conceder es de superadministrador, y no tiene
+    #: sentido en otro superadministrador, que entra en todo por su rol.
+    puede_editar_modulos: bool = False
 
 
 class PersonasListadas(BaseModel):
@@ -179,14 +183,7 @@ class UsuarioCreate(BaseModel):
         códigos **no se comprueban contra el catálogo** en el modelo: eso lo hace `conceder`,
         que es donde vive esa regla, y duplicarla aquí sería tenerla en dos sitios.
         """
-        limpios: list[str] = []
-        for codigo in valor:
-            corto = codigo.strip()
-            if not corto:
-                raise ValueError("hay un código de módulo vacío")
-            if corto not in limpios:
-                limpios.append(corto)
-        return limpios
+        return _sin_repetidos(valor)
 
     @field_validator("email")
     @classmethod
@@ -202,6 +199,35 @@ class UsuarioCreate(BaseModel):
         if valor not in _ROLES:
             raise ValueError(f"rol desconocido. Admitidos: {', '.join(_ROLES)}")
         return valor
+
+
+def _sin_repetidos(valor: list[str]) -> list[str]:
+    """Sin repetidos y sin vacíos, conservando el orden en que se eligieron."""
+    limpios: list[str] = []
+    for codigo in valor:
+        corto = codigo.strip()
+        if not corto:
+            raise ValueError("hay un código de módulo vacío")
+        if corto not in limpios:
+            limpios.append(corto)
+    return limpios
+
+
+class ModulosDePersona(BaseModel):
+    """**La lista entera** de módulos que tiene que tener la persona (2026-10-07).
+
+    Entera y no altas y bajas sueltas: así guardar es un solo acto, y lo que la pantalla enseña
+    marcado es exactamente lo que queda.
+    """
+
+    modulos: list[str]
+
+    model_config = {"extra": "forbid"}
+
+    @field_validator("modulos")
+    @classmethod
+    def _modulos_limpios(cls, valor: list[str]) -> list[str]:
+        return _sin_repetidos(valor)
 
 
 class UsuarioUpdate(BaseModel):
@@ -283,6 +309,13 @@ def _a_lectura(
         sin_concesion_directa=(
             modulos is not None
             and not modulos
+            and fila.role != UserRole.SUPERADMIN.value
+        ),
+        # La misma puerta que `poner_modulos`: superadministrador, y no sobre otro que entra por
+        # su rol. Sin `quien`, falso: el fallo seguro de siempre.
+        puede_editar_modulos=(
+            quien is not None
+            and quien.role == UserRole.SUPERADMIN.value
             and fila.role != UserRole.SUPERADMIN.value
         ),
     )
@@ -609,6 +642,90 @@ def _preparar_concesiones(
             )
         )
     return sorted(codigos)
+
+
+@router.put(
+    "/{user_id}/modulos",
+    response_model=UsuarioRead,
+    operation_id="ponerModulosDePersona",
+)
+async def poner_modulos(
+    user_id: uuid.UUID,
+    body: ModulosDePersona,
+    user: UserInfo = Depends(_require_superadmin),
+    session: AsyncSession = Depends(get_async_session),
+) -> UsuarioRead:
+    """Deja a una persona **exactamente** con estos módulos, en una transacción (2026-10-07).
+
+    Lo normal ya no es crear a alguien con sus módulos: quien entra con su cuenta institucional
+    queda dado de alta solo, y lo que falta son sus módulos. Esto se hacía en Plataforma → Módulos,
+    uno por formulario.
+
+    - **Sólo se reconcilia lo que se puede conceder**: vigente y no de oficio. Una concesión a un
+      módulo retirado no se ofrece, así que no se puede desmarcar; borrarla por no venir en la
+      lista sería retirar algo que nadie ha pedido retirar.
+    - **Lo que sigue marcado conserva su fila**, y con ella cuándo y quién lo concedió.
+    - **Un código que no se puede conceder no cambia nada**: se comprueba todo antes de tocar.
+    """
+    fila = await session.get(HubUser, user_id)
+    if fila is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Persona no encontrada")
+
+    concedibles = {
+        codigo
+        for (codigo,) in (
+            await session.execute(
+                select(HubPlatformModule.code).where(
+                    HubPlatformModule.vigente.is_(True),
+                    HubPlatformModule.de_oficio.is_(False),
+                )
+            )
+        ).all()
+    }
+    invalidos = [c for c in body.modulos if c not in concedibles]
+    if invalidos:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Estos módulos no se pueden conceder —no están en el catálogo, están retirados o "
+                f"son de oficio—: {', '.join(invalidos)}"
+            ),
+        )
+
+    sujeto = str(user_to_uuid(str(fila.id)))
+    actuales = (
+        await session.execute(
+            select(HubModuleGrant).where(
+                HubModuleGrant.subject_type == TIPO_USUARIO,
+                HubModuleGrant.subject_id == sujeto,
+            )
+        )
+    ).scalars().all()
+    pedidos = set(body.modulos)
+    tenidos = {g.module_code for g in actuales}
+
+    for concesion in actuales:
+        if concesion.module_code in concedibles and concesion.module_code not in pedidos:
+            await session.delete(concesion)
+    ahora = datetime.now(timezone.utc)
+    for codigo in body.modulos:
+        if codigo not in tenidos:
+            session.add(
+                HubModuleGrant(
+                    subject_type=TIPO_USUARIO,
+                    subject_id=sujeto,
+                    module_code=codigo,
+                    granted_by=user.user_id,
+                    granted_at=ahora,
+                )
+            )
+
+    quedan = sorted((tenidos - (concedibles - pedidos)) | pedidos)
+    # La respuesta se construye **antes** del `commit`: esta sesión expira al confirmar, y leer la
+    # fila después sería una carga perezosa fuera de contexto (el 500 de #225).
+    lectura = _a_lectura(fila, quien=user, modulos=quedan)
+    await session.commit()
+    return lectura
 
 
 @router.patch("/{user_id}", response_model=UsuarioRead)

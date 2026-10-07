@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import i18n from '@/shared/i18n'
@@ -11,6 +11,7 @@ import {
   useDeleteUserApiV1HubUsersUserIdDelete as useBorrar,
   useSetUsuarioPassword,
   useCapacidadesDePersonas,
+  usePonerModulosDePersona,
 } from '@/shared/api/generated/hub-users/hub-users'
 import { useGetCatalogoApiV1HubModulosCatalogoGet } from '@/shared/api/generated/hub-modulos/hub-modulos'
 import type { UsuarioRead } from '@/shared/api/generated/model'
@@ -36,6 +37,7 @@ vi.mock('@/shared/api/generated/hub-users/hub-users', () => ({
   useDeleteUserApiV1HubUsersUserIdDelete: vi.fn(),
   useSetUsuarioPassword: vi.fn(),
   useCapacidadesDePersonas: vi.fn(),
+  usePonerModulosDePersona: vi.fn(),
   getListUsersApiV1HubUsersGetQueryKey: () => ['usuarios'],
 }))
 
@@ -76,6 +78,7 @@ function persona(cambios: Partial<UsuarioRead> = {}): UsuarioRead {
 }
 
 const crear = vi.fn()
+const poner = vi.fn()
 
 function montar(
   personas: UsuarioRead[],
@@ -96,6 +99,7 @@ function montar(
     isPending: false,
   } as never)
   vi.mocked(useBorrar).mockReturnValue({ mutate: vi.fn(), isPending: false } as never)
+  vi.mocked(usePonerModulosDePersona).mockReturnValue({ mutate: poner, isPending: false } as never)
   vi.mocked(useSetUsuarioPassword).mockReturnValue({
     mutate: vi.fn(),
     isPending: false,
@@ -233,5 +237,63 @@ describe('Quien no puede entrar en ningún módulo se ve', () => {
     const celda = screen.getByTestId('modulos-11111111-1111-1111-1111-111111111111')
     expect(celda).toHaveTextContent('chatbots')
     expect(celda).toHaveTextContent('informes')
+  })
+})
+
+describe('Los módulos de quien ya existe se editan en su fila, varios a la vez (2026-10-07)', () => {
+  /**
+   * Quien entra con su cuenta institucional queda dado de alta solo: lo que falta son sus
+   * módulos, y hasta ahora se daban de uno en uno en Plataforma → Módulos.
+   */
+  const ID = '11111111-1111-1111-1111-111111111111'
+
+  it('sólo ofrece editar donde el servidor lo permite', () => {
+    montar([persona({ puede_editar_modulos: false })])
+    const celda = screen.getByTestId(`modulos-${ID}`)
+    expect(within(celda).queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  it('marca lo que ya tiene, deja marcar varios y manda la lista entera', () => {
+    montar([persona({ modulos_concedidos: ['chatbots'], puede_editar_modulos: true })])
+    const celda = screen.getByTestId(`modulos-${ID}`)
+
+    fireEvent.click(within(celda).getByRole('button', { name: /editar/i }))
+    expect(within(celda).getByLabelText('Chatbots')).toBeChecked()
+    expect(within(celda).getByLabelText('Informes')).not.toBeChecked()
+    // Lo que no se puede conceder tampoco se ofrece aquí.
+    expect(within(celda).queryByLabelText('Retirado')).not.toBeInTheDocument()
+    expect(within(celda).queryByLabelText('Utilidades')).not.toBeInTheDocument()
+
+    fireEvent.click(within(celda).getByLabelText('Informes'))
+    fireEvent.click(within(celda).getByLabelText('Chatbots'))
+    fireEvent.click(within(celda).getByRole('button', { name: /guardar/i }))
+
+    expect(poner).toHaveBeenCalledTimes(1)
+    expect(poner.mock.calls[0][0]).toEqual({ userId: ID, data: { modulos: ['informes'] } })
+  })
+
+  it('no manda lo que tiene concedido y la pantalla no ofrece', () => {
+    // Un módulo retirado no se puede desmarcar ni el servidor lo acepta: mandarlo sería un 400.
+    montar([persona({ modulos_concedidos: ['retirado', 'chatbots'], puede_editar_modulos: true })])
+    const celda = screen.getByTestId(`modulos-${ID}`)
+
+    fireEvent.click(within(celda).getByRole('button', { name: /editar/i }))
+    fireEvent.click(within(celda).getByRole('button', { name: /guardar/i }))
+
+    expect(poner.mock.calls[0][0].data.modulos).toEqual(['chatbots'])
+  })
+
+  it('si el servidor lo rechaza, dice por qué', async () => {
+    poner.mockImplementation((_v: unknown, o?: { onError?: (e: unknown) => void }) =>
+      o?.onError?.({ response: { data: { detail: 'Estos módulos no se pueden conceder: x' } } })
+    )
+    montar([persona({ puede_editar_modulos: true })])
+    const celda = screen.getByTestId(`modulos-${ID}`)
+
+    fireEvent.click(within(celda).getByRole('button', { name: /editar/i }))
+    fireEvent.click(within(celda).getByRole('button', { name: /guardar/i }))
+
+    expect((await within(celda).findByRole('alert')).textContent).toContain('no se pueden conceder')
+    poner.mockReset()
   })
 })
