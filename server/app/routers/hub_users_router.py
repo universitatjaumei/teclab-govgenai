@@ -500,7 +500,13 @@ async def create_user(
     if existente is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"Ya hay una persona con el correo {body.email}",
+            # Lo normal es que ya haya entrado con la cuenta institucional, que crea su cuenta
+            # sola: lo que falta entonces son sus módulos, y eso se dice (2026-10-07).
+            detail=(
+                f"Ya hay una persona con el correo {body.email}: probablemente ya ha entrado "
+                "con su cuenta institucional. Para darle módulos, concédeselos en "
+                "Plataforma → Módulos."
+            ),
         )
 
     # **Antes de crear nada.** Si un código no vale y la persona ya existiera, el reintento daría

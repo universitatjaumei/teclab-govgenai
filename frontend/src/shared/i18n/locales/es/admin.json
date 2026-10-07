@@ -465,7 +465,8 @@
       "de_plataforma_no_mostradas_other": "No se muestran {{count}} cuentas que no pertenecen a ninguna organización.",
       "ver_todas": "Ver todas",
       "sin_acotar": "Se muestran las personas de todas las organizaciones.",
-      "volver_a_la_organizacion": "Ver solo la organización elegida"
+      "volver_a_la_organizacion": "Ver solo la organización elegida",
+      "error_alta": "No se ha podido dar de alta."
     },
     "modulos_nav": "Módulos",
     "modulos": {

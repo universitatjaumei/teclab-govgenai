@@ -465,7 +465,8 @@
       "de_plataforma_no_mostradas_other": "{{count}} accounts that belong to no organisation are not shown.",
       "ver_todas": "Show them",
       "sin_acotar": "Showing people from every organisation.",
-      "volver_a_la_organizacion": "Show only the chosen organisation"
+      "volver_a_la_organizacion": "Show only the chosen organisation",
+      "error_alta": "The person could not be added."
     },
     "modulos_nav": "Modules",
     "modulos": {

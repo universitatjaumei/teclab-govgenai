@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { mensajeDelFallo } from '@/utilidades/mensajeDelFallo'
 import {
   useListUsersApiV1HubUsersGet,
   useCreateUserApiV1HubUsersPost,
@@ -126,6 +127,9 @@ export function UsuariosPage() {
   // Plataforma → Módulos, o sea un segundo viaje, y el segundo viaje se olvida: en producción
   // la tabla de concesiones estuvo vacía semanas y nadie podía entrar en nada.
   const [modulosDelAlta, setModulosDelAlta] = useState<string[]>([])
+  // Por qué el servidor rechazó el alta. Sin esto, un 409 —la persona ya entró con Google y su
+  // cuenta existe— dejaba la pantalla igual: «el botón no hace nada» (2026-10-07).
+  const [falloDelAlta, setFalloDelAlta] = useState<string | null>(null)
   // El catálogo es dato del servidor. Si los códigos estuvieran escritos aquí, añadir un módulo
   // exigiría tocar el frontend, que es lo que la regla del catálogo-como-dato viene a evitar.
   //
@@ -181,6 +185,7 @@ export function UsuariosPage() {
 
   function darDeAlta(evento: React.FormEvent) {
     evento.preventDefault()
+    setFalloDelAlta(null)
     crear(
       {
         data: {
@@ -199,6 +204,8 @@ export function UsuariosPage() {
           setModulosDelAlta([])
           invalidar()
         },
+        onError: (fallo) =>
+          setFalloDelAlta(mensajeDelFallo(fallo, t('plataforma.usuarios.error_alta'))),
       }
     )
   }
@@ -361,6 +368,14 @@ export function UsuariosPage() {
         >
           {t('plataforma.usuarios.dar_de_alta')}
         </button>
+        {falloDelAlta && (
+          <p
+            role="alert"
+            className="w-full rounded-md border border-destructive/40 bg-destructive/10 p-2 text-sm text-destructive"
+          >
+            {falloDelAlta}
+          </p>
+        )}
         {/* Sin campo de contraseña: el alta crea identidad y permisos, no una credencial.
             Quien entra, entra por SSO. Dicho aquí porque la ausencia se lee como un olvido. */}
         <p className="w-full text-xs text-muted-foreground">
