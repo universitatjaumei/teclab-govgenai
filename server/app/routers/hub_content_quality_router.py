@@ -24,7 +24,7 @@ from fastapi import (
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from server.app.api.deps import get_current_user
+from server.app.api.deps import require_module
 from server.app.core.auth.models import UserInfo
 from server.app.core.auth.tenancy import (
     assert_chatbot_org_access,
@@ -92,9 +92,18 @@ def get_report_exporter() -> Any:
     return WebQualityReportExporter()
 
 
-async def _require_admin(user: UserInfo = Depends(get_current_user)) -> UserInfo:
-    if not (user.is_superadmin or user.is_admin):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role")
+#: La curación se concede por **módulo**, no por rol (2026-10-07). Pedía `admin` y no miraba el
+#: módulo, que sólo escondía el menú: para dejar curar a alguien había que hacerle administrador
+#: de su organización. La organización la siguen acotando las guardas de `tenancy`.
+_de_curacion = require_module("curacion")
+
+
+async def _de_curacion_y_chatbots(
+    user: UserInfo = Depends(require_module("curacion")),
+    _chatbots: UserInfo = Depends(require_module("chatbots")),
+) -> UserInfo:
+    """Lo que toca el corpus de **un chatbot** pide además `chatbots`: con sólo `curacion` no se
+    eligen, ingieren ni retiran páginas del asistente de nadie."""
     return user
 
 
@@ -144,7 +153,7 @@ async def list_site_findings(
     site_id: uuid.UUID,
     finding_status: str | None = Query(default=None, alias="status"),
     finding_type: str | None = Query(default=None, alias="type"),
-    current_user: UserInfo = Depends(_require_admin),
+    current_user: UserInfo = Depends(_de_curacion),
     findings_repo: ContentFindingRepo = Depends(get_findings_repo),
     session: AsyncSession = Depends(get_async_session),
 ):
@@ -169,7 +178,7 @@ async def transition_finding(
     site_id: uuid.UUID,
     finding_id: uuid.UUID,
     body: _TransitionIn,
-    current_user: UserInfo = Depends(_require_admin),
+    current_user: UserInfo = Depends(_de_curacion),
     findings_repo: ContentFindingRepo = Depends(get_findings_repo),
     session: AsyncSession = Depends(get_async_session),
 ):
@@ -211,7 +220,7 @@ def _is_uuid(value: str) -> bool:
 )
 async def get_site_report(
     site_id: uuid.UUID,
-    current_user: UserInfo = Depends(_require_admin),
+    current_user: UserInfo = Depends(_de_curacion),
     builder: Any = Depends(get_report_builder),
     session: AsyncSession = Depends(get_async_session),
 ):
@@ -230,7 +239,7 @@ async def get_site_report(
 async def export_site_report(
     site_id: uuid.UUID,
     report_format: str = Query(default="docx", alias="format"),
-    current_user: UserInfo = Depends(_require_admin),
+    current_user: UserInfo = Depends(_de_curacion),
     builder: Any = Depends(get_report_builder),
     exporter: Any = Depends(get_report_exporter),
     session: AsyncSession = Depends(get_async_session),
@@ -276,7 +285,7 @@ async def export_site_report(
 async def analyze_site(
     site_id: uuid.UUID,
     background_tasks: BackgroundTasks,
-    current_user: UserInfo = Depends(_require_admin),
+    current_user: UserInfo = Depends(_de_curacion),
     quality_job: Any = Depends(get_quality_job),
     session: AsyncSession = Depends(get_async_session),
 ):
@@ -305,7 +314,7 @@ async def analyze_content_gaps(
     chatbot_id: uuid.UUID = Query(..., description="Chatbot cuyas conversaciones se leen"),
     dias: int = Query(30, ge=1, le=365),
     min_cluster: int = Query(3, ge=2, le=100),
-    current_user: UserInfo = Depends(_require_admin),
+    current_user: UserInfo = Depends(_de_curacion_y_chatbots),
     session: AsyncSession = Depends(get_async_session),
 ):
     """Busca huecos de corpus en las conversaciones que salieron mal (RAG.14).
@@ -344,7 +353,7 @@ class StaleAnalysisOut(BaseModel):
 )
 async def analyze_stale_documents(
     chatbot_id: uuid.UUID = Query(..., description="Chatbot cuyo corpus se revisa"),
-    current_user: UserInfo = Depends(_require_admin),
+    current_user: UserInfo = Depends(_de_curacion_y_chatbots),
     session: AsyncSession = Depends(get_async_session),
 ):
     """Busca documentos con la revisión prevista vencida (SYNC.2).
@@ -370,7 +379,7 @@ async def analyze_stale_documents(
 async def list_stale_documents(
     chatbot_id: uuid.UUID = Query(...),
     status_filter: str | None = Query(None, alias="status"),
-    current_user: UserInfo = Depends(_require_admin),
+    current_user: UserInfo = Depends(_de_curacion_y_chatbots),
     session: AsyncSession = Depends(get_async_session),
 ):
     """Cola de revisión de las caducidades de un chatbot (SYNC.2).
@@ -411,7 +420,7 @@ async def list_stale_documents(
 async def list_content_gaps(
     chatbot_id: uuid.UUID = Query(...),
     status_filter: str | None = Query(None, alias="status"),
-    current_user: UserInfo = Depends(_require_admin),
+    current_user: UserInfo = Depends(_de_curacion_y_chatbots),
     session: AsyncSession = Depends(get_async_session),
 ):
     """Cola de revisión de los huecos de un chatbot (RAG.14).
