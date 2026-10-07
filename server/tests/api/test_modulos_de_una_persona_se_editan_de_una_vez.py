@@ -224,3 +224,29 @@ class TestLaPantallaLoSabePorElServidor:
     def test_un_admin_no_puede(self):
         admin = UserInfo(user_id="adm", email="adm@uji.es", role="admin")
         assert self._lectura(rol_fila="user", quien=admin).puede_editar_modulos is False
+
+
+class TestRevisionDeLaPR240:
+    """Lo que encontró la revisión independiente antes de desplegar."""
+
+    @pytest.mark.asyncio
+    async def test_no_se_editan_los_de_un_superadmin(self, sesion):
+        """La misma puerta que el botón: entra por su rol y una concesión no cambia nada."""
+        persona = await _persona(sesion, role="superadmin")
+        r = await _poner(sesion, persona, [])
+        assert r.status_code == 400, r.text
+
+    @pytest.mark.asyncio
+    async def test_una_concesion_que_otro_acaba_de_crear_es_409_y_no_500(self, sesion, monkeypatch):
+        """Dos guardados a la vez chocan con la restricción única: es un conflicto, no un fallo."""
+        from sqlalchemy.exc import IntegrityError
+
+        a = await _modulo(sesion)
+        persona = await _persona(sesion)
+
+        async def _choca(*_a, **_k):
+            raise IntegrityError("INSERT", {}, Exception("uq_grant_subject_type_module"))
+
+        monkeypatch.setattr(sesion, "commit", _choca)
+        r = await _poner(sesion, persona, [a])
+        assert r.status_code == 409, r.text

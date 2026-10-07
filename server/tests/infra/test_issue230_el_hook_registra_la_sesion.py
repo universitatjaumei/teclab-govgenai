@@ -272,3 +272,14 @@ class TestLaEntradaEnWindows:
         monkeypatch.setattr("sys.stdin", self._stdin(b"\xef\xbb\xbf" + json.dumps(proyecto["entrada"]).encode("utf-8")))
         assert modulo.main() == 0
         assert len(envios.peticiones) == 1
+
+
+def test_una_declaracion_con_bom_se_lee(proyecto, monkeypatch):
+    """El `.claude/govgenai.json` que escribe PowerShell 5.1 lleva BOM (revisión de la PR #240)."""
+    (proyecto["raiz"] / ".claude" / "govgenai.json").write_bytes(
+        b"\xef\xbb\xbf" + json.dumps({"finalidad": "Con BOM", "categorias_datos": []}).encode("utf-8")
+    )
+    modulo = _guion()
+    envios = Envios()
+    assert _ejecutar(modulo, proyecto["entrada"], monkeypatch, envios) == 0
+    assert json.loads(envios.peticiones[0].data)["finalidad"] == "Con BOM"

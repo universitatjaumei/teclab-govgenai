@@ -371,7 +371,12 @@ por `funcion_id@versión`.
 - **Un PAT se puede acotar a una organización al emitirlo** (#230), y **acota, nunca amplía**:
   quien no es superadmin sólo elige una de las suyas. El de un superadministrador acotado **actúa
   como administrador de esa organización** (#238, 2026-10-07): conservar el rol dejaba pasar al
-  token a todas allí donde se mira `is_superadmin` antes que las organizaciones.
+  token a todas allí donde se mira `is_superadmin` antes que las organizaciones. **Y como
+  administrador entra sólo en los módulos de oficio y en los concedidos**: un superadmin no suele
+  tener concesiones, porque entra por su rol, así que un token acotado suyo para `chatbots`,
+  `informes`, `automatizacion` o `agentes` recibe 403 de módulo. Sirve para lo que no pide módulo
+  (`actividad:write`) o lo pide de oficio (`agentes:consulta`); para lo demás, sin acotar o emitido
+  por un administrador de esa organización.
 - **Quien entra con la cuenta institucional queda en la organización de la institución**
   (`SAML_ORGANIZACION_ID`, que usa también el login de Google), y se le vuelve a poner en cada
   entrada: asignarla a mano no dura.

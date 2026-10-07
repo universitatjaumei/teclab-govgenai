@@ -80,9 +80,18 @@ function persona(cambios: Partial<UsuarioRead> = {}): UsuarioRead {
 const crear = vi.fn()
 const poner = vi.fn()
 
+const CATALOGO = [
+  { code: 'chatbots', label: 'Chatbots', vigente: true },
+  { code: 'informes', label: 'Informes', vigente: true },
+  { code: 'retirado', label: 'Retirado', vigente: false },
+  { code: 'utilidades', label: 'Utilidades', vigente: true, de_oficio: true },
+]
+
 function montar(
   personas: UsuarioRead[],
-  acciones: string[] = ['listar', 'crear', 'editar', 'borrar']
+  acciones: string[] = ['listar', 'crear', 'editar', 'borrar'],
+  /** `null`: el catálogo todavía no ha llegado (o falló). */
+  catalogo: typeof CATALOGO | null = CATALOGO
 ) {
   vi.mocked(useListUsersApiV1HubUsersGet).mockReturnValue({
     // MT.9 — el listado viene en un sobre con el recuento de lo que el filtro deja fuera.
@@ -109,12 +118,7 @@ function montar(
     isLoading: false,
   } as never)
   vi.mocked(useGetCatalogoApiV1HubModulosCatalogoGet).mockReturnValue({
-    data: [
-      { code: 'chatbots', label: 'Chatbots', vigente: true },
-      { code: 'informes', label: 'Informes', vigente: true },
-      { code: 'retirado', label: 'Retirado', vigente: false },
-      { code: 'utilidades', label: 'Utilidades', vigente: true, de_oficio: true },
-    ],
+    data: catalogo ?? undefined,
   } as never)
 
   return render(
@@ -246,6 +250,16 @@ describe('Los módulos de quien ya existe se editan en su fila, varios a la vez 
    * módulos, y hasta ahora se daban de uno en uno en Plataforma → Módulos.
    */
   const ID = '11111111-1111-1111-1111-111111111111'
+
+  it('no deja editar hasta tener el catálogo: guardar sin él retiraría todo (revisión PR #240)', () => {
+    montar(
+      [persona({ modulos_concedidos: ['chatbots'], puede_editar_modulos: true })],
+      undefined,
+      null
+    )
+    const celda = screen.getByTestId(`modulos-${ID}`)
+    expect(within(celda).getByRole('button', { name: /editar/i })).toBeDisabled()
+  })
 
   it('sólo ofrece editar donde el servidor lo permite', () => {
     montar([persona({ puede_editar_modulos: false })])

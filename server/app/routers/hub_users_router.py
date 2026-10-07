@@ -32,6 +32,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.app.api.deps import require_role
@@ -537,8 +538,8 @@ async def create_user(
             # sola: lo que falta entonces son sus módulos, y eso se dice (2026-10-07).
             detail=(
                 f"Ya hay una persona con el correo {body.email}: probablemente ya ha entrado "
-                "con su cuenta institucional. Para darle módulos, concédeselos en "
-                "Plataforma → Módulos."
+                "con su cuenta institucional. Para darle módulos, edítalos en su fila del "
+                "listado (o en Plataforma → Módulos)."
             ),
         )
 
@@ -670,6 +671,13 @@ async def poner_modulos(
     fila = await session.get(HubUser, user_id)
     if fila is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Persona no encontrada")
+    # La misma puerta que `puede_editar_modulos`: un superadministrador entra en todo por su rol,
+    # y una concesión suya no cambiaría nada.
+    if fila.role == UserRole.SUPERADMIN.value:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Un superadministrador entra en todos los módulos por su rol: no se le conceden.",
+        )
 
     concedibles = {
         codigo
@@ -724,7 +732,16 @@ async def poner_modulos(
     # La respuesta se construye **antes** del `commit`: esta sesión expira al confirmar, y leer la
     # fila después sería una carga perezosa fuera de contexto (el 500 de #225).
     lectura = _a_lectura(fila, quien=user, modulos=quedan)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError:
+        # Otro guardado —esta pantalla en otra pestaña, o Plataforma → Módulos— concedió lo mismo
+        # entre la lectura y el `commit`. Es un conflicto, no un fallo del servidor.
+        await session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Los módulos de esta persona acaban de cambiar en otro sitio: vuelve a cargar y repite.",
+        )
     return lectura
 
 

@@ -549,6 +549,9 @@ export function UsuariosPage() {
                   {persona.puede_editar_modulos && (
                     <button
                       type="button"
+                      // Sin el catálogo no hay casillas, y guardar mandaría la lista vacía: el
+                      // servidor retiraría todos sus módulos (revisión de la PR #240).
+                      disabled={!catalogoDeModulos}
                       onClick={() => editarModulos(persona)}
                       aria-label={t('plataforma.usuarios.editar_modulos_de', { email: persona.email })}
                       className="ml-2 rounded-md border px-1.5 py-0.5 text-xs"

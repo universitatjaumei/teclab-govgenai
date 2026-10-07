@@ -12,8 +12,8 @@ Mitigaciones por construcción:
 Notas de mapeo (la API no ofrece todo lo que las tools necesitan, y MCP.3 es
 tools-only —sin cambios de backend—):
 - No existe ``GET /hub/chatbots/{id}`` individual: ``get_chatbot`` lista y filtra.
-- ``GET /hub/chatbots`` no filtra por organización: ``list_chatbots`` filtra en el cliente,
-  por ``organizacion_id``, que es como lo llama el contrato (#234).
+- ``list_chatbots`` filtra en el cliente por ``organizacion_id``, que es como lo llama el
+  contrato (#234). El servidor también admite ``?organizacion_id=``.
 - ``GET /hub/prompt-templates/`` SÍ acepta ``chatbot_id`` (filtro server-side).
 
 Lógica en funciones ``_core`` (ApiClient explícito, testeables con respx); los

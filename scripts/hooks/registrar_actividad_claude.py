@@ -69,7 +69,8 @@ def _declaracion_del_proyecto(desde: Path) -> dict | None:
     for carpeta in [desde, *desde.parents]:
         fichero = carpeta / FICHERO_DEL_PROYECTO
         if fichero.is_file():
-            return json.loads(fichero.read_text(encoding="utf-8"))
+            # `utf-8-sig`: el que escribe PowerShell 5.1 lleva BOM.
+            return json.loads(fichero.read_text(encoding="utf-8-sig"))
     return None
 
 
