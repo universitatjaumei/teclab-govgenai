@@ -55,3 +55,12 @@ describe('2026-10-05 — el catálogo de funciones ya no está en Informes', () 
     expect(screen.getByRole('link', { name: /revisión de scripts/i })).toBeDefined()
   })
 })
+
+describe('#243 — dónde se entra en Informes', () => {
+  it('se entra por «Nuevo informe», que puede usar cualquiera con el módulo', async () => {
+    // Entraba por «Plantillas», que es de administración: a una persona con rol `user` el
+    // módulo la recibía con «Esta pantalla es sólo para administradores».
+    const { ENTRADA_DE_INFORMES } = await import('../rutas')
+    expect(ENTRADA_DE_INFORMES).toBe('/redaccion/wizard')
+  })
+})

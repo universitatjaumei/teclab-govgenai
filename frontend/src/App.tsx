@@ -8,6 +8,7 @@ import { AppLayout } from '@/admin/AppLayout'
 import { HubLayout } from '@/admin/HubLayout'
 import { PlataformaLayout } from '@/admin/PlataformaLayout'
 import { CurationLayout } from '@/curation/CurationLayout'
+import { ENTRADA_DE_INFORMES } from '@/redaccion/rutas'
 import { ThemeProvider } from './themes/ThemeProvider'
 import './index.css'
 import './themes/base.css'
@@ -195,7 +196,7 @@ function App() {
                   {/* Informes: las pantallas existían pero sus rutas estaban sueltas y
                       fuera de todo menú, así que sólo se llegaba escribiendo la URL. */}
                   <Route path="/redaccion" element={<RutaDeModulo modulo="informes"><RedaccionLayout /></RutaDeModulo>}>
-                    <Route index element={<Navigate to="/redaccion/builder" replace />} />
+                    <Route index element={<Navigate to={ENTRADA_DE_INFORMES} replace />} />
                     <Route path="builder" element={<ReportTemplateBuilderPage />} />
                     <Route path="wizard" element={<GenericReportWizard />} />
                     <Route path="draft" element={<LLMDraftPreviewPage />} />

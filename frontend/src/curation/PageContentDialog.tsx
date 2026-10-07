@@ -51,7 +51,7 @@ export function PageContentDialog({ pageId, onClose }: Props) {
               onClick={onClose}
               className="text-sm px-2 py-1 rounded border hover:bg-accent"
             >
-              {tc('close', 'Cerrar')}
+              {tc('close')}
             </button>
           </div>
 

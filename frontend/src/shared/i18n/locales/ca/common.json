@@ -18,5 +18,9 @@
   "licencia": {
     "codigo_fuente": "Codi font"
   },
-  "required": "Obligatori"
+  "required": "Obligatori",
+  "close": "Tanca",
+  "create_report": "Crea l'informe",
+  "sample_label": "Fitxer de dades (opcional)",
+  "sample_rows": "files"
 }

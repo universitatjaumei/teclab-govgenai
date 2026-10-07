@@ -49,6 +49,7 @@ from server.app.modules.redaccion.services.preview_builder import (
 )
 from server.app.modules.redaccion.database.repos import (
     RunManifestRepo,
+    ReportTemplateRepo,
     ReportTemplateVersionRepo,
     WorkspaceBlockRepo,
     WorkspaceRepo,
@@ -338,7 +339,10 @@ async def resume_workspace(
     if workspace.status != "in_review":
         raise HTTPException(
             status_code=422,
-            detail=f"Workspace must be in 'in_review' state to resume, got '{workspace.status}'",
+            detail=(
+                "El informe sólo se ensambla cuando está en revisión, y ahora está en "
+                f"«{workspace.status}». Vuelve a cargar la página."
+            ),
         )
 
     workspace.status = "drafting"
@@ -689,6 +693,8 @@ def _constructor_de_vista_previa(session: AsyncSession, storage: Any):
         manifest_repo=RunManifestRepo(session),
         # PRO.5 — la imagen de los gráficos vive en el almacén, no en la base de datos.
         storage_service=storage,
+        # #243 — la portada lleva el nombre de la plantilla.
+        template_repo=ReportTemplateRepo(session),
     )
 
 

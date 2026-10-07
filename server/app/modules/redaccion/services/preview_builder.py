@@ -54,6 +54,7 @@ class PreviewBuilderService:
         template_version_repo: Any,
         manifest_repo: Any,
         storage_service: Any = None,
+        template_repo: Any = None,
     ) -> None:
         self._workspace_repo = workspace_repo
         self._block_repo = block_repo
@@ -62,6 +63,9 @@ class PreviewBuilderService:
         # PRO.5 — para traer la imagen de los gráficos, que vive en el almacén y no en la
         # base de datos. Sin almacén el bloque sale sin imagen, no revienta.
         self._storage = storage_service
+        # #243 — para encabezar el informe con el nombre de la plantilla y no con el identificador
+        # del espacio de trabajo, que es lo que salía en la vista previa y en el Word.
+        self._template_repo = template_repo
 
     async def _imagenes_de(self, bloque: Any) -> dict[str, bytes]:
         """Las imágenes que el bloque referencia, traídas del almacén.
@@ -80,6 +84,14 @@ class PreviewBuilderService:
         except Exception:  # noqa: BLE001
             _log.warning("No se pudo leer el gráfico %s del almacén", clave)
             return {}
+
+    async def _titulo(self, template_version: Any, workspace_id: UUID) -> str:
+        """El nombre de la plantilla; el identificador sólo si no hay de dónde sacarlo."""
+        if self._template_repo is not None and template_version is not None:
+            plantilla = await self._template_repo.get(template_version.template_id)
+            if plantilla is not None and getattr(plantilla, "name", None):
+                return plantilla.name
+        return str(workspace_id)
 
     async def build_payload(self, workspace_id: UUID) -> PreviewPayload:
         workspace = await self._workspace_repo.get(workspace_id)
@@ -118,7 +130,7 @@ class PreviewBuilderService:
 
         cover = PreviewSection(
             level=0,
-            title=str(workspace_id),
+            title=await self._titulo(template_version, workspace_id),
             blocks=[],
         )
 

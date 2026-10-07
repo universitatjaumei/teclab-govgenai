@@ -185,7 +185,7 @@ export function LLMDraftPreviewPage() {
           no ha visto es pedirle que adivine los nombres de las columnas. Es opcional. */}
       <div className="space-y-2 border rounded p-3 bg-card">
         <label htmlFor="fichero-de-muestra" className="text-sm font-medium block">
-          {t('sample_label', 'Fichero de datos (opcional)')}
+          {t('sample_label')}
         </label>
         <p className="text-xs text-muted-foreground">
           {t(
@@ -229,7 +229,7 @@ export function LLMDraftPreviewPage() {
           <div data-testid="resumen-de-muestra" className="text-xs space-y-1">
             <p>
               <strong>{muestra.nombre_del_fichero}</strong> — {muestra.filas_totales}{' '}
-              {t('sample_rows', 'filas')}
+              {t('sample_rows')}
             </p>
             {/* Lo que se va a enviar, a la vista. */}
             <p className="text-muted-foreground">{muestra.columnas.join(' · ')}</p>

@@ -129,7 +129,7 @@ export function ReportTemplateBuilderPage() {
                   onClick={() => setRenombrando(null)}
                   className="px-3 py-1 text-xs border rounded"
                 >
-                  {tc('cancel', 'Cancelar')}
+                  {tc('cancel')}
                 </button>
               </div>
             ) : (
@@ -217,7 +217,7 @@ export function ReportTemplateBuilderPage() {
               onClick={() => setARetirar(null)}
               className="px-4 py-2 text-sm border rounded"
             >
-              {tc('cancel', 'Cancelar')}
+              {tc('cancel')}
             </button>
           </div>
         </div>

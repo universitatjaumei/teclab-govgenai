@@ -74,7 +74,7 @@ export function WorkspaceAnonymizationPanel({
   }
 
   if (isLoading) {
-    return <div className="p-4 text-sm text-muted-foreground">{t('anonymization.loading', 'Cargando…')}</div>
+    return <div className="p-4 text-sm text-muted-foreground">{t('anonymization.loading')}</div>
   }
 
   return (

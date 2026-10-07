@@ -18,5 +18,9 @@
   "licencia": {
     "codigo_fuente": "Código fuente"
   },
-  "required": "Obligatorio"
+  "required": "Obligatorio",
+  "close": "Cerrar",
+  "create_report": "Crear informe",
+  "sample_label": "Fichero de datos (opcional)",
+  "sample_rows": "filas"
 }
