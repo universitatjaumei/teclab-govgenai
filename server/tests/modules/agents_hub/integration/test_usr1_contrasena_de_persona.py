@@ -349,3 +349,72 @@ class TestElHashNoSale:
         assert editada.status_code == 200, editada.text
         assert "hashed_password" not in editada.text
         assert "$2b$" not in editada.text
+
+
+class TestUnAdminNoSubeDeRango:
+    """2026-10-07 — un administrador no fija la contraseña de quien tiene su rango o más.
+
+    **Cómo salió.** Revisando qué permisos dar a dos compañeras para curación. El login con Google
+    pone a todo `@uji.es` en la organización de la UJI, **también al superadministrador**, y el
+    login local está encendido en producción. Un administrador de la UJI podía fijar la contraseña
+    del superadministrador, entrar con ella —el token de un solo uso de #94 sólo le obligaba a
+    cambiarla— y quedarse la cuenta: escalar a superadmin.
+
+    La regla: un administrador fija la contraseña de **usuarios e informadores** de su
+    organización, que es para lo que existe (dar de alta a sus probadores). La de otro
+    administrador o la de un superadministrador, sólo un superadministrador.
+    """
+
+    async def _de_rol(self, session, org_id, role):
+        fila = await _persona(session, org_id)
+        fila.role = role
+        await session.flush()
+        return fila
+
+    @pytest.mark.parametrize("rol", ["superadmin", "admin"])
+    async def test_should_refuse_an_admin_setting_it_for_an_equal_or_higher_role(self, db_session, rol):
+        org = await _organizacion(db_session, "UJI")
+        victima = await self._de_rol(db_session, org.id, rol)
+
+        principal = _principal("admin", orgs=(str(org.id),))
+        async with _cliente(db_session, principal) as c:
+            r = await c.patch(
+                f"/api/v1/hub/users/{victima.id}/password", json={"password": CONTRASENA}
+            )
+
+        assert r.status_code == 403, r.text
+
+    async def test_should_still_let_an_admin_set_it_for_an_informer(self, db_session):
+        org = await _organizacion(db_session, "UJI")
+        persona = await self._de_rol(db_session, org.id, "informer")
+
+        principal = _principal("admin", orgs=(str(org.id),))
+        async with _cliente(db_session, principal) as c:
+            r = await c.patch(
+                f"/api/v1/hub/users/{persona.id}/password", json={"password": CONTRASENA}
+            )
+
+        assert r.status_code == 204, r.text
+
+    async def test_should_let_a_superadmin_set_it_for_an_admin(self, db_session):
+        org = await _organizacion(db_session, "UJI")
+        admin = await self._de_rol(db_session, org.id, "admin")
+
+        async with _cliente(db_session, _principal()) as c:
+            r = await c.patch(
+                f"/api/v1/hub/users/{admin.id}/password", json={"password": CONTRASENA}
+            )
+
+        assert r.status_code == 204, r.text
+
+    async def test_the_row_says_so_too(self, db_session):
+        """El botón lo pinta `puede_fijar_contrasena`: tiene que decir lo mismo que la puerta."""
+        from server.app.routers.hub_users_router import _a_lectura
+
+        org = await _organizacion(db_session, "UJI")
+        superadmin = await self._de_rol(db_session, org.id, "superadmin")
+        usuario = await self._de_rol(db_session, org.id, "user")
+        admin = _principal("admin", orgs=(str(org.id),))
+
+        assert _a_lectura(superadmin, quien=admin).puede_fijar_contrasena is False
+        assert _a_lectura(usuario, quien=admin).puede_fijar_contrasena is True

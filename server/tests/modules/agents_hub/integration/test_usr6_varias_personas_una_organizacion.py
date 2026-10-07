@@ -158,7 +158,10 @@ class TestDosPersonasLaMismaOrganizacion:
 class TestLaPuertaDeLaContrasena:
     """Un administrador fija la contraseña de su gente, y sólo de la suya (USR.1 + USR.6)."""
 
-    async def test_should_let_an_admin_set_the_password_of_their_colleague(self, db_session):
+    async def test_should_not_let_an_admin_set_the_password_of_a_fellow_admin(self, db_session):
+        """Hasta el 2026-10-07 sí podía: era el mismo agujero que dejaba fijar la del
+        superadministrador. La de otro administrador la fija sólo un superadministrador; un
+        administrador, la de los usuarios e informadores de su organización."""
         from server.app.routers.hub_users_router import router as usuarios_router
         from server.app.modules.agents_hub.database.connection import get_async_session
 
@@ -186,7 +189,7 @@ class TestLaPuertaDeLaContrasena:
                 json={"password": "una-contrasena-nueva-larga"},
             )
 
-        assert r.status_code == 204, r.text
+        assert r.status_code == 403, r.text
 
     async def test_should_refuse_an_admin_over_someone_of_another_organization(self, db_session):
         from server.app.routers.hub_users_router import router as usuarios_router
