@@ -94,7 +94,7 @@ El token es revocable desde la misma pantalla.
 |---|---|
 | `redaccion:templates:read` | `list_templates`, `get_template_spec`, `validate_template_draft` |
 | `redaccion:templates:write` | `create_template`, `publish_template_version` |
-| `chatbots:read` | `list_clients`, `list_chatbots`, `get_chatbot`, `get_corpus_stats`, `list_prompt_templates` |
+| `chatbots:read` | `list_organizaciones`, `list_chatbots`, `get_chatbot`, `get_corpus_stats`, `list_prompt_templates` |
 | `chatbots:write` | `create_chatbot`, `update_chatbot`, `update_prompt_template`, `assign_child`, `unassign_child` |
 | `chat:test` | `test_chat` |
 | `chat:debug` | inspección del prompt final (`debug_bypass`) — enseña el system prompt entero |
@@ -113,9 +113,13 @@ dueño y no miraban ningún alcance, así que funcionaban con cualquier token. A
 exigen el alcance de esta tabla, y un token sin él recibe 403 `PAT_SCOPE_MISSING` con el que
 falta. Un guardarraíl del servidor comprueba que las rutas que usa este paquete lo declaran.
 
-**`list_clients` no funciona**: llama a `/api/v1/hub/clients`, una ruta que no existe. Es anterior
-a #214 y está en la #234; mientras tanto, la organización de cada chatbot viene en
-`list_chatbots`.
+**`list_organizaciones` se llamaba `list_clients` y no funcionó nunca** (#234): llamaba a
+`/api/v1/hub/clients`, una ruta que dejó de existir con el renombrado a «organización», y el filtro
+de `list_chatbots` buscaba un `client_id` que el contrato ya llama `organizacion_id`. Sus tests
+pasaban porque simulaban lo que la herramienta creía que existía. Ahora lee
+`GET /api/v1/hub/organizaciones` —las que ve el token, que es el `organizacion_id` que pide
+`create_chatbot`— y un guardarraíl del servidor comprueba que **toda ruta escrita en el paquete
+existe en la aplicación**.
 
 **Los scopes sólo acotan a los PAT.** Una sesión humana (JWT) no se filtra por scope; el techo
 que la limita es su rol.
@@ -358,7 +362,7 @@ claude mcp add govgenai \
 **Plantillas de redacción (MCP.2)** — `list_templates`, `get_template_spec`,
 `validate_template_draft`, `create_template`, `publish_template_version`.
 
-**Configuración de chatbots (MCP.3)** — `list_clients`, `list_chatbots`,
+**Configuración de chatbots (MCP.3)** — `list_organizaciones`, `list_chatbots`,
 `get_chatbot`, `get_corpus_stats`, `list_prompt_templates`, `create_chatbot`,
 `update_chatbot`, `update_prompt_template`, `assign_child`, `unassign_child`.
 

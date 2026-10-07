@@ -22,7 +22,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, field_validator
 from sqlalchemy import func, select, delete as sql_delete
 
-from server.app.api.deps import require_module, require_role
+from server.app.api.deps import require_module, require_role, require_scopes
 from server.app.core.auth.models import UserInfo
 from server.app.core.auth.tenancy import assert_org_access, scope_query_to_orgs
 from server.app.modules.agents_hub.database.connection import get_async_session
@@ -179,7 +179,13 @@ _count_sq = (
 )
 
 
-@router.get("", response_model=list[OrganizacionRead])
+# #234 — con un token, `chatbots:read`: `create_chatbot` del MCP pide la organización, y el
+# agente tiene que poder saber cuáles hay. Sigue acotado a las suyas (`scope_query_to_orgs`).
+@router.get(
+    "",
+    response_model=list[OrganizacionRead],
+    dependencies=[Depends(require_scopes("chatbots:read"))],
+)
 async def list_organizaciones(
     user: UserInfo = Depends(_require_admin),
     session=Depends(get_async_session),

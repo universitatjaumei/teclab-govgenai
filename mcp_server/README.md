@@ -45,8 +45,8 @@ Gate HITL por construcción: las tools de escritura no persisten sin `confirm=Tr
 
 | Tool | Scope | Efecto |
 |---|---|---|
-| `list_clients()` | `chatbots:read` | Lista clientes |
-| `list_chatbots(client_id?)` | read | Lista chatbots (filtra client-side por cliente) |
+| `list_organizaciones()` | `chatbots:read` | Las organizaciones que ve el token, con el id que pide `create_chatbot` |
+| `list_chatbots(organizacion_id?)` | read | Lista chatbots (filtra en el cliente por organización) |
 | `get_chatbot(chatbot_id)` | read | Config de un chatbot (vía listado, no hay GET individual) |
 | `get_corpus_stats(chatbot_id)` | read | Stats del corpus + modo recomendado |
 | `list_prompt_templates(chatbot_id?)` | read | Plantillas de prompt (filtro server-side) |
