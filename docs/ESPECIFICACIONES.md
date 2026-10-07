@@ -366,6 +366,10 @@ por `funcion_id@versión`.
   recibe 403 `PAT_NO_PERMITIDO`, **sea cual sea el rol de su dueño**. Antes, un endpoint que no
   decía nada aceptaba cualquier token, y un token de superadministrador emitido sólo para anotar
   usos podía conceder módulos. Un endpoint nuevo que no declare nada es de sesión, no de máquina.
+- **Un PAT se puede acotar a una organización al emitirlo** (#230), y **acota, nunca amplía**:
+  quien no es superadmin sólo elige una de las suyas. El de un superadministrador acotado **actúa
+  como administrador de esa organización** (#238, 2026-10-07): conservar el rol dejaba pasar al
+  token a todas allí donde se mira `is_superadmin` antes que las organizaciones.
 - **Quien entra con la cuenta institucional queda en la organización de la institución**
   (`SAML_ORGANIZACION_ID`, que usa también el login de Google), y se le vuelve a poner en cada
   entrada: asignarla a mano no dura.

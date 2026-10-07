@@ -176,7 +176,8 @@ producción in-place. Registrar actividad añade metadatos y no muta nada.)
 ella y no se elige en la petición. El de un administrador de organización lo es sin más; el de un
 superadministrador, que las ve todas, no, y el servidor responde `ORGANIZACION_INDETERMINADA`.
 Por eso el formulario tiene el campo **Organización**, que acota el token a una —nunca amplía: un
-administrador sólo puede elegir la suya—. Los alcances y las organizaciones que ofrece la pantalla
+administrador sólo puede elegir la suya, y el token de un superadministrador acotado actúa como
+administrador de esa organización y de ninguna otra (#238)—. Los alcances y las organizaciones que ofrece la pantalla
 los dice el servidor (#230): hasta entonces ofrecía cinco alcances escritos a mano y ninguno de
 éstos.
 

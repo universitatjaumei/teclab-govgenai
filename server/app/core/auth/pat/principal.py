@@ -24,7 +24,7 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import Any
 
-from server.app.core.auth.models import UserInfo
+from server.app.core.auth.models import UserInfo, UserRole
 
 
 def acota_a_la_organizacion(dueno: UserInfo, pat: Any) -> UserInfo:
@@ -33,19 +33,21 @@ def acota_a_la_organizacion(dueno: UserInfo, pat: Any) -> UserInfo:
     Con un token sin organización, el principal sale tal cual. Con una declarada, el resultado
     es la intersección: nunca más de lo que tiene el dueño.
 
-    **El superadministrador es el caso a no equivocar.** Su lista vacía significa «todas» (ver
-    `UserInfo.organizacion_ids`), así que intersecarla como si fuera un conjunto vacío dejaría el
-    token sin acceso a nada. Un token de superadministrador acotado a una organización vale
-    exactamente en ésa, que es acotar de verdad y no anular.
+    **El superadministrador es el caso a no equivocar, y de dos maneras.** Su lista vacía
+    significa «todas» (ver `UserInfo.organizacion_ids`), así que intersecarla como si fuera un
+    conjunto vacío dejaría el token sin acceso a nada. Y **conservar su rol** dejaría el acotado
+    en papel: `puede_acceder`, `scope_query_to_orgs` y cuantos miran `is_superadmin` antes que
+    las organizaciones lo dejaban pasar a todas (#238). Así que un token de superadministrador
+    acotado actúa como **administrador de esa organización**: ni fuera de ella ni con lo que sólo
+    puede un superadmin (decisión del usuario, 2026-10-07).
     """
     declarada = getattr(pat, "organizacion_id", None)
     if declarada is None:
         return dueno
 
     pedida = str(declarada)
-    if getattr(dueno, "is_superadmin", False) and not dueno.organizacion_ids:
-        alcance: tuple[str, ...] = (pedida,)
-    else:
-        alcance = (pedida,) if pedida in dueno.organizacion_ids else ()
+    if getattr(dueno, "is_superadmin", False):
+        return replace(dueno, role=UserRole.ADMIN.value, organizacion_ids=(pedida,))
 
+    alcance = (pedida,) if pedida in dueno.organizacion_ids else ()
     return replace(dueno, organizacion_ids=alcance)
