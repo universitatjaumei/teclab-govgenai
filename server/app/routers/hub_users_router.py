@@ -268,6 +268,23 @@ MOTIVO_ULTIMO_SUPERADMIN = (
 )
 
 
+#: Los roles a los que un administrador de organización puede fijar la contraseña (2026-10-07).
+_ROLES_BAJO_UN_ADMIN = frozenset({UserRole.USER.value, UserRole.INFORMER.value})
+
+
+def _puede_fijar_contrasena(quien: UserInfo, fila: HubUser) -> bool:
+    """Quién puede fijar la contraseña de quién. **Una sola regla**, para la puerta y el botón.
+
+    Un superadministrador, a cualquiera. Un administrador, sólo a usuarios e informadores de una
+    organización que gestione: fijar la de alguien de su rango o superior era escalar. El login con
+    Google mete a todo `@uji.es` en la UJI, superadministrador incluido, así que un administrador
+    de la UJI podía poner la contraseña del superadministrador y entrar como él (2026-10-07).
+    """
+    if quien.role == UserRole.SUPERADMIN.value:
+        return True
+    return fila.role in _ROLES_BAJO_UN_ADMIN and puede_acceder(quien, fila.organizacion_id)
+
+
 def _a_lectura(
     fila: HubUser,
     *,
@@ -301,7 +318,7 @@ def _a_lectura(
         motivo_no_borrable=motivo,
         # La misma función que autoriza el endpoint, no una copia de su regla.
         puede_fijar_contrasena=(
-            puede_acceder(quien, fila.organizacion_id) if quien is not None else False
+            _puede_fijar_contrasena(quien, fila) if quien is not None else False
         ),
         modulos_concedidos=list(modulos or ()),
         # Sin `modulos` **no se marca**: es el fallo seguro y el mismo criterio que
@@ -822,6 +839,14 @@ async def set_usuario_password(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Persona no encontrada")
 
     assert_org_access(user, fila.organizacion_id)
+    if not _puede_fijar_contrasena(user, fila):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Un administrador sólo fija la contraseña de usuarios e informadores. La de otro "
+                "administrador o la de un superadministrador, sólo un superadministrador."
+            ),
+        )
 
     fila.hashed_password = hash_password(body.password)
     # Issue #94 — **la contraseña que pone otra persona vale una sola vez**. Quien restablece

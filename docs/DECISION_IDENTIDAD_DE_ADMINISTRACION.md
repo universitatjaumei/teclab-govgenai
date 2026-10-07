@@ -135,6 +135,12 @@ pudiera crear personas con rol podría crearse un admin»—. Lo que quedó:
 - `POST`, `PATCH /{id}` y `DELETE` siguen siendo de superadministrador.
 - `GET /hub/users/capacidades` devuelve `acciones_permitidas`, y la pantalla pinta iterándola en
   vez de calcular el reparto en React (regla maestra 2).
+- **Y desde el 2026-10-07, sólo a usuarios e informadores.** Un administrador podía fijar la
+  contraseña de **cualquiera** de su organización, y el login con Google mete en la UJI a todo
+  `@uji.es`, superadministrador incluido: con el login local encendido, un administrador de la UJI
+  podía poner la contraseña del superadministrador y entrar como él. La de otro administrador o la
+  de un superadministrador la fija sólo un superadministrador; puerta y botón usan la misma regla
+  (`_puede_fijar_contrasena`).
 - La pantalla **sale del módulo `plataforma`** a un módulo propio, `personas`. Tenerla ahí
   obligaba a dar los modelos de LLM, las organizaciones, los tokens y los módulos para poder dar
   lo primero — el caso de «Modelos LLM» de PLAT.2 al revés.

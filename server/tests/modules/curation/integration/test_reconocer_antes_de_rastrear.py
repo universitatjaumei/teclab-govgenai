@@ -135,15 +135,21 @@ def test_una_url_que_no_es_una_url_se_rechaza_antes_de_pedir_nada():
     assert servicio.llamadas == []
 
 
-def test_un_usuario_sin_rol_no_puede_hacer_rastrear_al_servidor():
-    """El reconocimiento hace que el servidor pida páginas: es la misma potestad que crear un sitio."""
+def test_sin_el_modulo_de_curacion_no_se_hace_rastrear_al_servidor():
+    """El reconocimiento hace que el servidor pida páginas: es la misma potestad que crear un sitio.
+
+    Pedía rol de administrador; desde el 2026-10-07 la curación se concede por módulo, así que lo
+    que se exige es `curacion`, sea cual sea el rol.
+    """
+    from server.app.api.deps import modulos_concedidos
+
     servicio = _ServicioFalso()
     app = _app(servicio)
 
-    async def _lector():
-        return UserInfo(user_id=str(uuid.uuid4()), email="x@uji.es", role="user")
+    async def _sin_curacion():
+        return ["informes"]
 
-    app.dependency_overrides[get_current_user] = _lector
+    app.dependency_overrides[modulos_concedidos] = _sin_curacion
 
     with TestClient(app) as client:
         respuesta = client.post("/api/v1/hub/site-reconnaissance", json={"root_url": _RAIZ})

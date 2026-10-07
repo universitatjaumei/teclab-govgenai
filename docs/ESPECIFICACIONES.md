@@ -358,6 +358,13 @@ por `funcion_id@versión`.
   porque no cambiaría nada. Hoy lo son `utilidades` y `consulta_agentes`. Los de una persona se
   editan **de una vez** desde su fila en Personas: se manda la lista entera y el servidor
   reconcilia en una transacción, sin tocar lo que la pantalla no ofrece (2026-10-07).
+- **Curar pide el módulo `curacion`, no un rol** (2026-10-07): con rol `user` se cura. Pedía `admin`
+  y no comprobaba el módulo, así que para dejar curar había que hacer administrador. Lo que toca el
+  corpus de un chatbot —elegir, ingerir y retirar páginas, huecos y caducidades— pide además
+  `chatbots`.
+- **Un administrador fija la contraseña sólo de usuarios e informadores** de su organización
+  (2026-10-07). Antes, de cualquiera de ella, y como el login institucional mete en la organización
+  también al superadministrador, eso era escalar a superadministrador.
 - Toda consulta que sirva datos de inquilino se acota con `scope_query_to_orgs`, y **la lista vacía
   significa «ninguna»** (I5, I8).
 - Contraseña local para personas, con interruptor `LOCAL_USER_LOGIN_ENABLED` para apagarla cuando
