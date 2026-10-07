@@ -18,5 +18,6 @@
   "licencia": {
     "codigo_fuente": "Source code"
   },
-  "required": "Required"
+  "required": "Required",
+  "close": "Close"
 }

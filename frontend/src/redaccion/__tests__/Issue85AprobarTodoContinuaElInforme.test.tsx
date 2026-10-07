@@ -67,9 +67,17 @@ const PENDIENTE = {
   acciones_permitidas: ['approve', 'edit', 'reject'],
 }
 
-function pintar(bloques: object[], resumir = vi.fn()) {
+/**
+ * #243 — `acciones` es lo que el servidor dice que se puede hacer con el informe entero. Por
+ * defecto, lo que diría de uno en revisión con todo aprobado.
+ */
+function pintar(
+  bloques: object[],
+  resumir = vi.fn(),
+  { status = 'in_review', acciones = ['ensamblar'] }: { status?: string; acciones?: string[] } = {},
+) {
   vi.mocked(useGetWorkspaceById).mockReturnValue({
-    data: { id: WS, status: 'in_review', blocks: bloques },
+    data: { id: WS, status, blocks: bloques, acciones_permitidas: acciones },
     isLoading: false,
   } as never)
   vi.mocked(usePatchWorkspaceBlock).mockReturnValue({
@@ -120,7 +128,7 @@ describe('aprobar todo continúa el informe', () => {
   })
 
   it('mientras quede algo pendiente, no lo ofrece', () => {
-    pintar([APROBADO, PENDIENTE])
+    pintar([APROBADO, PENDIENTE], vi.fn(), { acciones: [] })
 
     // Lo que decide es `acciones_permitidas`, que la calcula el servidor: el frontend no
     // deduce el estado de la revisión (INF.2).
@@ -143,6 +151,23 @@ describe('aprobar todo continúa el informe', () => {
           .some((n) => n.textContent?.includes('el informe ya no está en revisión'))
       ).toBe(true)
     )
+  })
+
+  it('#243: antes de generar no anuncia «todo aprobado» ni ofrece ensamblar', () => {
+    // Un informe recién creado: sin bloques y sin acciones. Cero valoraciones no es «todas
+    // aprobadas», y era lo que la pantalla deducía.
+    pintar([], vi.fn(), { status: 'draft', acciones: [] })
+
+    expect(screen.queryByTestId('ready-for-assembly')).toBeNull()
+    expect(screen.queryByTestId('btn-continuar')).toBeNull()
+  })
+
+  it('#243: después de ensamblar el botón desaparece', () => {
+    // Pulsarlo otra vez daba «Workspace must be in 'in_review' state…».
+    pintar([APROBADO], vi.fn(), { status: 'assembled', acciones: [] })
+
+    expect(screen.queryByTestId('btn-continuar')).toBeNull()
+    expect(screen.queryByTestId('ready-for-assembly')).toBeNull()
   })
 
   it('el texto del botón está traducido, no es la clave', () => {

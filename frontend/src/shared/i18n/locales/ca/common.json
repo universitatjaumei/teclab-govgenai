@@ -18,5 +18,6 @@
   "licencia": {
     "codigo_fuente": "Codi font"
   },
-  "required": "Obligatori"
+  "required": "Obligatori",
+  "close": "Tanca"
 }

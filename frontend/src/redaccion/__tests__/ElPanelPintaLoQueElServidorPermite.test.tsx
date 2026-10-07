@@ -57,9 +57,9 @@ const BLOQUE_EN_REVISION = {
 
 const patch = vi.fn()
 
-function pintar(bloques: object[]) {
+function pintar(bloques: object[], accionesDelInforme: string[] = []) {
   vi.mocked(useGetWorkspaceById).mockReturnValue({
-    data: { id: WS, status: 'in_review', blocks: bloques },
+    data: { id: WS, status: 'in_review', blocks: bloques, acciones_permitidas: accionesDelInforme },
     isLoading: false,
   } as never)
   vi.mocked(usePatchWorkspaceBlock).mockReturnValue({ mutate: patch, isPending: false } as never)
@@ -118,16 +118,20 @@ describe('INF.2 — el panel itera las acciones del servidor', () => {
     expect(screen.queryByTestId('btn-approve-v_tesis')).toBeDefined()
   })
 
-  it('should_say_everything_is_approved_only_when_no_block_has_actions', async () => {
-    pintar([
-      {
-        ...BLOQUE_EN_REVISION,
-        status: 'approved',
-        acciones_permitidas: [],
-      },
-    ])
+  it('should_say_everything_is_approved_only_when_the_server_offers_to_assemble', async () => {
+    // #243 — lo decía «ningún bloque con acciones», que también es cierto antes de generar y
+    // después de ensamblar. Ahora lo dice el informe: `acciones_permitidas` con «ensamblar».
+    const aprobado = { ...BLOQUE_EN_REVISION, status: 'approved', acciones_permitidas: [] }
+    pintar([aprobado], ['ensamblar'])
 
     expect(await screen.findByTestId('ready-for-assembly')).toBeDefined()
+  })
+
+  it('#243: sin «ensamblar» del servidor, no lo anuncia aunque no quede nada pendiente', () => {
+    const aprobado = { ...BLOQUE_EN_REVISION, status: 'approved', acciones_permitidas: [] }
+    pintar([aprobado], [])
+
+    expect(screen.queryByTestId('ready-for-assembly')).toBeNull()
   })
 
   it('should_not_decide_from_the_status_string', async () => {

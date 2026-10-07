@@ -48,6 +48,7 @@ from server.app.modules.redaccion.services.campos_manuales import (
 )
 from server.app.modules.redaccion.services.block_actions import (
     _DESTINO_DE_LA_ACCION,
+    acciones_del_informe,
     acciones_permitidas,
 )
 from server.app.modules.redaccion.services.estructura_del_informe import (
@@ -125,6 +126,10 @@ class WorkspaceOut(BaseModel):
     # pintar. Sin esto, reejecutar un informe manda el formulario vacío y **borra** lo que había:
     # el endpoint de campos es un `PUT`, que es lo que permite vaciar uno a propósito.
     manual_inputs: dict[str, str] = {}
+    # #243 — lo que se puede hacer con el informe entero, decidido aquí como en cada bloque. El
+    # panel deducía «se puede ensamblar» de que ningún bloque tuviera acciones, que también es
+    # cierto antes de generar y después de ensamblar.
+    acciones_permitidas: list[str] = []
 
 
 class BlockPatchRequest(BaseModel):
@@ -681,6 +686,7 @@ async def get_workspace_by_id(
         manual_inputs={
             str(k): str(v) for k, v in (workspace.manual_inputs_json or {}).items()
         },
+        acciones_permitidas=acciones_del_informe(workspace.status, blocks),
     )
 
 

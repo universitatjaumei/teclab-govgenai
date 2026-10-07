@@ -18,5 +18,6 @@
   "licencia": {
     "codigo_fuente": "Código fuente"
   },
-  "required": "Obligatorio"
+  "required": "Obligatorio",
+  "close": "Cerrar"
 }

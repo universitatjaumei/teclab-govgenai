@@ -99,7 +99,10 @@ export function AIBlockReviewPanel({ workspaceId }: Props) {
   // anunciaba «todos aprobados» mientras la exportación devolvía 409 por ese mismo bloque:
   // quien revisaba se quedaba sin nada que pulsar. El frontend no decide estados.
   const pendientes = workspace.blocks.filter((b) => (b.acciones_permitidas ?? []).length > 0)
-  const todoAprobado = pendientes.length === 0
+  // #243 — si se puede ensamblar **lo dice el servidor**. Deducirlo de que no quede nada
+  // pendiente anunciaba «todos aprobados» antes de generar nada y dejaba el botón a la vista
+  // después de ensamblar, cuando el servidor ya lo rechazaba.
+  const puedeEnsamblar = (workspace.acciones_permitidas ?? []).includes('ensamblar')
   const refrescar = {
     onSuccess: () => qc.invalidateQueries({ queryKey: getGetWorkspaceByIdQueryKey(workspaceId) }),
   }
@@ -176,18 +179,18 @@ export function AIBlockReviewPanel({ workspaceId }: Props) {
 
   return (
     <div className="space-y-3 p-4">
-      {!todoAprobado && (
+      {pendientes.length > 0 && (
         <p data-testid="pending-review-count" className="text-sm text-muted-foreground">
           {tR('review.pending', { count: pendientes.length })}
         </p>
       )}
 
-      {todoAprobado && (
+      {puedeEnsamblar && (
         <div className="space-y-2">
           <p data-testid="ready-for-assembly" className="text-sm text-green-700 font-medium">
             {tR('review.all_approved')}
           </p>
-          {/* Botón y no automático (issue #85): un efecto sobre `todoAprobado` se dispararía
+          {/* Botón y no automático (issue #85): un efecto sobre `puedeEnsamblar` se dispararía
               más de una vez y el endpoint responde 409 en cuanto el informe sale de
               `in_review`. Quien revisa decide cuándo seguir.
 

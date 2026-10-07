@@ -109,3 +109,16 @@ def bloques_pendientes(bloques: list[Any], *, omitidos: frozenset[str] | set[str
         and b.kind in TIPOS_DE_IA
         and b.status not in ESTADOS_APROBADOS
     ]
+
+
+def acciones_del_informe(status: str, bloques: list[Any]) -> list[str]:
+    """Lo que se puede hacer con el informe entero, ahora mismo (#243).
+
+    Hoy, sólo «ensamblar»: cuando está **en revisión** y no queda nada pendiente. El panel lo
+    deducía de que ningún bloque tuviera acciones, y eso también es verdad antes de generar
+    —un informe recién creado anunciaba «todos aprobados»— y después de ensamblar, cuando el
+    botón seguía ahí y el servidor lo rechazaba.
+    """
+    if status == "in_review" and not bloques_pendientes(bloques):
+        return ["ensamblar"]
+    return []
