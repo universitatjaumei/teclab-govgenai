@@ -127,9 +127,19 @@ def main() -> int:
     return 0
 
 
+def _leer_entrada():
+    """La entrada viene en UTF-8; en Windows, `sys.stdin` la leería con la página de códigos.
+
+    Leyendo los bytes, una ruta con acentos llega entera y un BOM —el de PowerShell 5.1— se ignora.
+    """
+    tuberia = getattr(sys.stdin, "buffer", None)
+    texto = tuberia.read().decode("utf-8-sig") if tuberia is not None else sys.stdin.read()
+    return json.loads(texto)
+
+
 def _registrar() -> None:
     try:
-        entrada = json.load(sys.stdin)
+        entrada = _leer_entrada()
     except ValueError:
         entrada = None
     if not isinstance(entrada, dict):

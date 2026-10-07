@@ -238,3 +238,37 @@ class TestEntradasRaras:
         monkeypatch.setattr(modulo, "_declaracion_del_proyecto", _revienta)
         assert _ejecutar(modulo, proyecto["entrada"], monkeypatch, Envios()) == 0
         assert "sin permiso" in self._registro(proyecto)
+
+
+class TestLaEntradaEnWindows:
+    """La entrada llega en UTF-8, pero Python en Windows lee la tubería con la página de códigos.
+
+    Salió probándolo a mano el 2026-10-07: con una ruta con acentos, el `cwd` llegaba desfigurado,
+    el guion no encontraba la declaración del proyecto y no registraba. Y una entrada con BOM, como
+    la que manda PowerShell 5.1, no se leía.
+    """
+
+    def _stdin(self, crudo: bytes):
+        return io.TextIOWrapper(io.BytesIO(crudo), encoding="cp1252")
+
+    def test_una_ruta_con_acentos_encuentra_la_declaracion(self, proyecto, monkeypatch, tmp_path):
+        raiz = tmp_path / "Proyección"
+        (raiz / ".claude").mkdir(parents=True)
+        (raiz / ".claude" / "govgenai.json").write_text(
+            json.dumps({"finalidad": "Con acentos", "categorias_datos": []}), encoding="utf-8"
+        )
+        entrada = dict(proyecto["entrada"], cwd=str(raiz))
+        modulo = _guion()
+        envios = Envios()
+        monkeypatch.setattr(modulo.urllib.request, "urlopen", envios)
+        monkeypatch.setattr("sys.stdin", self._stdin(json.dumps(entrada, ensure_ascii=False).encode("utf-8")))
+        assert modulo.main() == 0
+        assert json.loads(envios.peticiones[0].data)["finalidad"] == "Con acentos"
+
+    def test_una_entrada_con_bom_se_lee(self, proyecto, monkeypatch):
+        modulo = _guion()
+        envios = Envios()
+        monkeypatch.setattr(modulo.urllib.request, "urlopen", envios)
+        monkeypatch.setattr("sys.stdin", self._stdin(b"\xef\xbb\xbf" + json.dumps(proyecto["entrada"]).encode("utf-8")))
+        assert modulo.main() == 0
+        assert len(envios.peticiones) == 1
