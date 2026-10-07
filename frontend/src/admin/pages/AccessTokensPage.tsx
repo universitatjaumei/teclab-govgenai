@@ -8,48 +8,36 @@ import {
   useListPats,
   useCreatePat,
   useRevokePat,
+  useGetPatOpciones,
   getListPatsQueryKey,
 } from '@/shared/api/generated/auth-pat/auth-pat'
 import type { PatView, PatCreatedResponse } from '@/shared/api/generated/model'
-import { useAuth } from '@/shared/auth'
 
-const ALL_SCOPES = [
-  'redaccion:templates:read',
-  'redaccion:templates:write',
-  'chatbots:read',
-  'chatbots:write',
-  'chat:test',
-] as const
-
-// Techo de scopes por rol (espejo del backend: el admin no emite chatbots:write).
-export function scopesForRole(role: string | undefined): string[] {
-  if (role === 'superadmin') return [...ALL_SCOPES]
-  if (role === 'admin') return ALL_SCOPES.filter((s) => s !== 'chatbots:write')
-  return []
-}
-
-const SCOPE_LABEL_KEY: Record<string, string> = {
-  'redaccion:templates:read': 'scope_templates_read',
-  'redaccion:templates:write': 'scope_templates_write',
-  'chatbots:read': 'scope_chatbots_read',
-  'chatbots:write': 'scope_chatbots_write',
-  'chat:test': 'scope_chat_test',
+// Los alcances y las organizaciones que se ofrecen los dice el servidor (#230): la lista escrita
+// aquí a mano se quedó en cinco mientras el servidor llegaba a quince. Lo único que vive en la
+// pantalla es la etiqueta, y un alcance sin traducir se muestra por su código.
+function scopeLabelKey(scope: string): string {
+  return `scope_${scope.replace(/:/g, '_')}`
 }
 
 const patSchema = z.object({
   name: z.string().min(1),
   scopes: z.array(z.string()).min(1),
   expires_at: z.string().optional().or(z.literal('')),
+  organizacion_id: z.string().optional().or(z.literal('')),
 })
 type PatFormValues = z.infer<typeof patSchema>
 
 export function AccessTokensPage() {
   const { t } = useTranslation('auth')
   const { t: tc } = useTranslation('common')
-  const { user } = useAuth()
   const qc = useQueryClient()
-  const offeredScopes = scopesForRole(user?.role)
+  const { data: opciones } = useGetPatOpciones()
+  const offeredScopes = opciones?.scopes ?? []
+  const organizaciones = opciones?.organizaciones ?? []
   const canManage = offeredScopes.length > 0
+  const nombreDeOrganizacion = (id: string | null | undefined) =>
+    organizaciones.find((o) => o.id === id)?.nombre ?? id
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [created, setCreated] = useState<PatCreatedResponse | null>(null)
@@ -84,6 +72,7 @@ export function AccessTokensPage() {
         name: data.name,
         scopes: data.scopes,
         expires_at: data.expires_at ? new Date(data.expires_at).toISOString() : null,
+        organizacion_id: data.organizacion_id || null,
       },
     })
   }
@@ -130,6 +119,7 @@ export function AccessTokensPage() {
                 <th className="py-2 pr-4">{t('pat_col_name')}</th>
                 <th className="py-2 pr-4">{t('pat_col_prefix')}</th>
                 <th className="py-2 pr-4">{t('pat_col_scopes')}</th>
+                <th className="py-2 pr-4">{t('pat_col_organizacion')}</th>
                 <th className="py-2 pr-4">{t('pat_col_last_used')}</th>
                 <th className="py-2 pr-4">{t('pat_col_expires')}</th>
                 <th className="py-2 pr-4">{t('pat_col_status')}</th>
@@ -143,6 +133,9 @@ export function AccessTokensPage() {
                   <td className="py-2 pr-4 font-mono text-xs">{pat.token_prefix}…</td>
                   <td className="py-2 pr-4 text-xs text-muted-foreground">
                     {pat.scopes.join(', ')}
+                  </td>
+                  <td className="py-2 pr-4 text-xs">
+                    {pat.organizacion_id ? nombreDeOrganizacion(pat.organizacion_id) : t('pat_sin_organizacion')}
                   </td>
                   <td className="py-2 pr-4 text-xs">
                     {pat.last_used_at ? new Date(pat.last_used_at).toLocaleString() : t('pat_never')}
@@ -175,7 +168,7 @@ export function AccessTokensPage() {
 
       {dialogOpen && (
         <div role="dialog" aria-modal="true" aria-label={t('pat_modal_title')} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-background rounded-lg shadow-lg p-6 w-full max-w-md space-y-4">
+          <div className="bg-background rounded-lg shadow-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto space-y-4">
             <h2 className="text-lg font-semibold">{t('pat_modal_title')}</h2>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-3" noValidate>
               <div>
@@ -190,12 +183,23 @@ export function AccessTokensPage() {
                   {offeredScopes.map((scope) => (
                     <label key={scope} className="flex items-center gap-2 text-sm">
                       <input type="checkbox" value={scope} {...register('scopes')} />
-                      {t(SCOPE_LABEL_KEY[scope])}
+                      {t(scopeLabelKey(scope), { defaultValue: scope })}
                     </label>
                   ))}
                 </div>
                 {errors.scopes && <p className="text-xs text-destructive mt-0.5">{tc('required')}</p>}
               </fieldset>
+              <div>
+                <label htmlFor="pat-organizacion" className="text-sm font-medium">{t('pat_field_organizacion')}</label>
+                <select id="pat-organizacion" {...register('organizacion_id')}
+                  className="w-full border rounded px-2 py-1.5 text-sm mt-1">
+                  <option value="">{t('pat_sin_organizacion')}</option>
+                  {organizaciones.map((o) => (
+                    <option key={o.id} value={o.id}>{o.nombre}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-muted-foreground mt-0.5">{t('pat_field_organizacion_ayuda')}</p>
+              </div>
               <div>
                 <label htmlFor="pat-expiry" className="text-sm font-medium">{t('pat_field_expiry')}</label>
                 <input id="pat-expiry" {...register('expires_at')} type="date"

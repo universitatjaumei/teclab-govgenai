@@ -89,8 +89,11 @@ async def run_cargar_indice_core(
     """El índice entero, de una de las dos maneras. **Lo que no venga se retira.**"""
     if (fichas is None) == (ruta_hoja is None):
         raise ValueError("Pasa las fichas o la ruta de una hoja, una de las dos.")
+    if ruta_hoja is not None and documentos_en_carpeta is not None:
+        # La subida de la hoja no lo recibe: descartarlo en silencio sería mentir sobre lo cargado.
+        raise ValueError("Con una hoja no se puede indicar `documentos_en_carpeta`: manda las fichas.")
     if ruta_hoja is not None:
-        hoja = Path(ruta_hoja)
+        hoja = Path(ruta_hoja).expanduser()
         return await client.post(
             f"{indice_path(agente_id)}/hoja", files={"file": (hoja.name, hoja.read_bytes())}
         )

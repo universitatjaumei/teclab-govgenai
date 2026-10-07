@@ -172,6 +172,14 @@ Los dos los puede emitir tanto un superadministrador como un administrador de or
 (`chatbots:write` es la excepción del catálogo, y por un motivo concreto: muta un chatbot en
 producción in-place. Registrar actividad añade metadatos y no muta nada.)
 
+**Para registrar, el token tiene que ser de una sola organización**: el registro se acota por
+ella y no se elige en la petición. El de un administrador de organización lo es sin más; el de un
+superadministrador, que las ve todas, no, y el servidor responde `ORGANIZACION_INDETERMINADA`.
+Por eso el formulario tiene el campo **Organización**, que acota el token a una —nunca amplía: un
+administrador sólo puede elegir la suya—. Los alcances y las organizaciones que ofrece la pantalla
+los dice el servidor (#230): hasta entonces ofrecía cinco alcances escritos a mano y ninguno de
+éstos.
+
 El token se muestra **una sola vez** y es revocable desde la misma pantalla.
 
 ### 4.2 Registrar un uso, por HTTP
@@ -283,6 +291,51 @@ claude mcp add --transport http govgenai https://normativa.uji.es/mcp \
 El token viaja en cada petición y no vive en el servidor: ver
 [`MCP_SERVER.md`](MCP_SERVER.md) para los dos transportes y por qué no son intercambiables, y
 [`DESPLIEGUE_PROTOTIPO_GCP.md`](DESPLIEGUE_PROTOTIPO_GCP.md) §3.septies para el despliegue.
+
+### 4.3.bis Claude Code, solo: el hook al cerrar la sesión (#230)
+
+Por MCP el registro es **voluntario**: Claude sólo anota un uso si alguien se lo pide. Para que
+conste sin pedirlo, `scripts/hooks/registrar_actividad_claude.py` es un *hook* `SessionEnd` que
+manda **un evento por sesión** al cerrarla (decisiones del usuario del 2026-10-06). Sólo
+metadatos: cuándo, quién —un identificador opaco—, `claude-code`, la finalidad, el modelo y las
+categorías de datos. Lee la transcripción **sólo para saber el modelo**; nada de la conversación
+sale del equipo.
+
+**1. El proyecto declara para qué se usa**, en `.claude/govgenai.json` (se busca desde la carpeta
+de trabajo hacia arriba). Sin este fichero no se registra, y se dice:
+
+```json
+{"finalidad": "Desarrollo de la plataforma Gov Gen AI", "categorias_datos": ["sin_datos_personales"]}
+```
+
+Los códigos de `categorias_datos` son los del catálogo de la organización (§2.bis). Opcional:
+`"agente"`, si el proyecto quiere distinguir un agente concreto.
+
+**2. Cada persona pone en su entorno**, nunca en el repositorio:
+
+| Variable | Qué |
+|---|---|
+| `GOVGENAI_PAT_ACTIVIDAD` | Un token con **sólo** `actividad:write` y acotado a la organización (§4.1) |
+| `GOVGENAI_URL` | La plataforma; por omisión `https://normativa.uji.es` |
+| `GOVGENAI_ACTOR` | Opcional: su identificador. Sin él, uno opaco y estable derivado del usuario y el equipo, nunca el correo |
+
+**3. Y activa el hook** en su configuración de Claude Code (`~/.claude/settings.json`), con la
+ruta del guion en su copia del repositorio:
+
+```json
+{
+  "hooks": {
+    "SessionEnd": [
+      {"hooks": [{"type": "command", "command": "python C:/ruta/al/repositorio/scripts/hooks/registrar_actividad_claude.py"}]}
+    ]
+  }
+}
+```
+
+**Si algo falla, la sesión no se rompe**, pero queda escrito en `~/.claude/govgenai-actividad.log`
+y en la salida de error: la falta del fichero del proyecto o del token, y la respuesta del
+servidor si rechaza el evento. Hacerlo obligatorio para todo el personal con la configuración
+gestionada de Claude Team es una decisión pendiente; hoy lo instala cada persona.
 
 ### 4.4 La anonimización, si la herramienta la quiere usar
 

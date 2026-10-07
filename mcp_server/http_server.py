@@ -59,6 +59,7 @@ from api_client import ApiClient
 from config import HttpConfig, load_http_config
 from tools.actividad import register_actividad_tools
 from tools.agentes import register_agentes_tools
+from tools.funciones import register_funciones_tools
 from tools.verificaciones import register_verificaciones_tools
 
 _TIMEOUT = 30.0
@@ -143,6 +144,7 @@ def _construye(
     register_actividad_tools(mcp, client_provider=client_provider)
     register_verificaciones_tools(mcp, client_provider=client_provider)
     register_agentes_tools(mcp, client_provider=client_provider)
+    register_funciones_tools(mcp, client_provider=client_provider)
     return mcp, pool
 
 

@@ -17,5 +17,6 @@
   "continue": "Continue",
   "licencia": {
     "codigo_fuente": "Source code"
-  }
+  },
+  "required": "Required"
 }

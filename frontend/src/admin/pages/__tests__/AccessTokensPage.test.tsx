@@ -9,6 +9,10 @@ import { AccessTokensPage } from '../AccessTokensPage'
 
 const hooks = vi.hoisted(() => ({
   list: [] as object[],
+  opciones: {
+    scopes: ['actividad:write', 'redaccion:templates:read', 'alcance:nuevo'],
+    organizaciones: [{ id: 'org-uji', nombre: 'Universitat Jaume I' }],
+  },
   createMutate: vi.fn(),
   revokeMutate: vi.fn(),
   createdResponse: {
@@ -31,6 +35,7 @@ vi.mock('@/shared/api/generated/auth-pat/auth-pat', () => ({
     isPending: false,
   })),
   useRevokePat: vi.fn(() => ({ mutate: hooks.revokeMutate })),
+  useGetPatOpciones: vi.fn(() => ({ data: hooks.opciones })),
   getListPatsQueryKey: vi.fn(() => ['/api/v1/auth/pats']),
 }))
 
@@ -46,6 +51,10 @@ beforeAll(async () => {
 
 afterEach(() => {
   hooks.list = []
+  hooks.opciones = {
+    scopes: ['actividad:write', 'redaccion:templates:read', 'alcance:nuevo'],
+    organizaciones: [{ id: 'org-uji', nombre: 'Universitat Jaume I' }],
+  }
   hooks.createMutate.mockClear()
   hooks.revokeMutate.mockClear()
   localStorage.clear()
@@ -92,6 +101,34 @@ describe('AccessTokensPage', () => {
     await waitFor(() => screen.getByTestId('pat-plaintext'))
     await act(async () => { fireEvent.click(screen.getByText('Cerrar')) })
     expect(screen.queryByTestId('pat-plaintext')).toBeNull()
+  })
+
+  it('ofrece los alcances que dice el servidor, y uno sin traducir por su código', async () => {
+    renderPage()
+    await act(async () => { fireEvent.click(screen.getByText('Crear token')) })
+    expect(screen.getByLabelText('Registro de actividad IA: anotar')).toBeTruthy()
+    expect(screen.getByLabelText('alcance:nuevo')).toBeTruthy()
+    expect(screen.queryByLabelText('Chatbots: escritura')).toBeNull()
+  })
+
+  it('manda la organización elegida', async () => {
+    renderPage()
+    await act(async () => { fireEvent.click(screen.getByText('Crear token')) })
+    fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'hook' } })
+    fireEvent.click(screen.getByLabelText('Registro de actividad IA: anotar'))
+    fireEvent.change(screen.getByLabelText('Organización'), { target: { value: 'org-uji' } })
+    await act(async () => { fireEvent.submit(screen.getByText('Crear').closest('form')!) })
+    await waitFor(() => expect(hooks.createMutate).toHaveBeenCalled())
+    expect(hooks.createMutate.mock.calls[0][0].data).toMatchObject({
+      scopes: ['actividad:write'],
+      organizacion_id: 'org-uji',
+    })
+  })
+
+  it('sin opciones del servidor no ofrece crear', () => {
+    hooks.opciones = { scopes: [], organizaciones: [] }
+    renderPage()
+    expect(screen.queryByText('Crear token')).toBeNull()
   })
 
   it('should_revoke_pat_after_confirm', async () => {

@@ -17,5 +17,6 @@
   "continue": "Continuar",
   "licencia": {
     "codigo_fuente": "Código fuente"
-  }
+  },
+  "required": "Obligatorio"
 }

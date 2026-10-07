@@ -100,12 +100,17 @@ class ApiClient:
                 detail=detail,
             )
         if status == 403:
-            raise ScopeError(
-                "Permiso denegado (403): el PAT no porta el scope necesario para "
-                "esta operación.",
-                status_code=status,
-                detail=detail,
+            # #214 — un endpoint que no admite tokens no es «te falta un alcance»: decirlo así
+            # manda a buscar un alcance que no existe (revisión de la PR #235).
+            interno = detail.get("detail") if isinstance(detail, dict) else None
+            codigo = interno.get("code") if isinstance(interno, dict) else None
+            mensaje = (
+                "Permiso denegado (403): este endpoint no admite tokens; es de una persona con "
+                "su sesión."
+                if codigo == "PAT_NO_PERMITIDO"
+                else "Permiso denegado (403): el PAT no porta el scope necesario para esta operación."
             )
+            raise ScopeError(mensaje, status_code=status, detail=detail)
         if status in (400, 422):
             # 400 Bad Request y 422 Unprocessable Entity comparten familia: entrada
             # rechazada por el servidor (reglas de negocio o validación de esquema).

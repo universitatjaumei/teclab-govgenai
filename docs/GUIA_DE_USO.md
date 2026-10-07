@@ -331,7 +331,9 @@ contrato. Las dos cosas se declaran; lo que no se declara no se puede hacer.
 
 Para el cuaderno que circula por la unidad sin que nadie sepa cuántas copias hay ni de qué
 versión. Se registra por API (`POST /api/v1/funciones/externas`) con el fichero entero —`.py` o
-`.ipynb`—, la declaración responsable y **dónde corre**. En el catálogo aparece como «Se ejecuta
+`.ipynb`—, la declaración responsable y **dónde corre**: con la sesión de una persona o con un
+token con `funciones:register`, que es como lo registra el agente de código que acaba de
+escribirlo. Por MCP, la herramienta `registrar_cuaderno` (`MCP_SERVER.md`). En el catálogo aparece como «Se ejecuta
 fuera, registrada aquí».
 
 **La plataforma no lo ejecuta**, y es a propósito: el código sigue corriendo donde corría, con

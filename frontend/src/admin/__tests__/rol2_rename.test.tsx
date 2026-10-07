@@ -5,14 +5,14 @@
  * claves i18n renombradas sin labels hardcodeados, ruta /organizaciones en el
  * sub-nav del Hub, y el techo de capacidad por rol (superadmin=plataforma,
  * admin=organización, user=oculto). Las secciones de ruta gateadas por rol no
- * existen como infraestructura separada; el gating real vive en el techo de
- * scopes (`scopesForRole`) y en los checks de las páginas.
+ * existen como infraestructura separada; el gating real vive en el servidor
+ * (el techo de scopes lo calcula y lo prueba el backend, #230) y en los checks
+ * de las páginas.
  */
 import { describe, it, expect } from 'vitest'
 import { render } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import esAdmin from '@/shared/i18n/locales/es/admin.json'
-import { scopesForRole } from '@/admin/pages/AccessTokensPage'
 import { HubLayout } from '@/admin/HubLayout'
 import { PlataformaLayout } from '@/admin/PlataformaLayout'
 
@@ -64,26 +64,5 @@ describe('ROL.2 — routing / navegación por Organización', () => {
     )
     expect(container.querySelector('a[href="/hub/clients"]')).toBeNull()
     expect(container.querySelector('a[href="/hub/organizaciones"]')).toBeNull()
-  })
-})
-
-describe('ROL.2 — techo de capacidad por rol', () => {
-  it('should_route_superadmin_to_platform_section', () => {
-    // superadmin = capacidad de plataforma (todos los scopes).
-    expect(scopesForRole('superadmin')).toContain('chatbots:write')
-    expect(scopesForRole('superadmin').length).toBeGreaterThan(0)
-  })
-
-  it('should_route_admin_to_org_scoped_section', () => {
-    // admin (ex-partner) = capacidad de organización, sin mutar chatbots en prod.
-    const admin = scopesForRole('admin')
-    expect(admin.length).toBeGreaterThan(0)
-    expect(admin).not.toContain('chatbots:write')
-  })
-
-  it('should_hide_platform_admin_from_user_role', () => {
-    expect(scopesForRole('user')).toEqual([])
-    // 'partner' ya no existe como rol → sin capacidades.
-    expect(scopesForRole('partner')).toEqual([])
   })
 })

@@ -175,3 +175,26 @@ def test_lo_que_usa_el_mcp_declara_su_alcance():
         if alcance not in declaradas.get(clave, set())
     }
     assert not faltan, f"rutas del MCP sin su alcance declarado: {faltan}"
+
+
+def test_ningun_include_router_declara_dependencias():
+    """El filtro de #214 lee el `dependant` de la ruta original (FastAPI 0.141 resuelve
+    `scope["route"]` a la ruta del router incluido). Un alcance puesto en
+    `app.include_router(..., dependencies=[...])` no se vería, y el token recibiría un 403 falso.
+    Hoy no hay ninguno; esto impide que aparezca sin que alguien lo mire (revisión de la PR #235).
+    """
+    import ast
+    from pathlib import Path
+
+    arbol = ast.parse(Path("app/main.py").read_text(encoding="utf-8"))
+    con_dependencias = [
+        nodo.lineno
+        for nodo in ast.walk(arbol)
+        if isinstance(nodo, ast.Call)
+        and getattr(nodo.func, "attr", "") == "include_router"
+        and any(k.arg == "dependencies" for k in nodo.keywords)
+    ]
+    assert not con_dependencias, (
+        f"app/main.py declara dependencias en include_router (líneas {con_dependencias}): "
+        "decláralas en el APIRouter, donde las ve el filtro de tokens de #214"
+    )
