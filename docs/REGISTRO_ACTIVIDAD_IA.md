@@ -326,11 +326,23 @@ ruta del guion en su copia del repositorio:
 {
   "hooks": {
     "SessionEnd": [
-      {"hooks": [{"type": "command", "command": "python C:/ruta/al/repositorio/scripts/hooks/registrar_actividad_claude.py"}]}
+      {"hooks": [{"type": "command", "command": "py -3 C:/ruta/al/repositorio/scripts/hooks/registrar_actividad_claude.py"}]}
     ]
   }
 }
 ```
+
+**En Windows, nunca `python` a secas.** En un Windows sin Python instalado a mano, `python` es el
+alias de la Microsoft Store: sale con un aviso y el guion **no llega a ejecutarse**, así que
+tampoco escribe nada en el registro local. Vale cualquiera de estas dos órdenes:
+
+- `py -3 …`, si Python está instalado (el lanzador `py` viene con el instalador oficial);
+- `uv run --no-project python …`, si lo que hay es `uv`: usa su Python y no necesita proyecto.
+
+En Linux o macOS, `python3`. **Antes de confiar en él, pruébalo a mano** con la misma orden que
+vayas a poner en el hook: `echo {} | <orden> C:/ruta/…/registrar_actividad_claude.py` tiene que
+dejar una línea en `~/.claude/govgenai-actividad.log` (la de «sin `.claude\govgenai.json`», si lo
+ejecutas fuera de un proyecto).
 
 **Si algo falla, la sesión no se rompe**, pero queda escrito en `~/.claude/govgenai-actividad.log`
 y en la salida de error: la falta del fichero del proyecto o del token, y la respuesta del

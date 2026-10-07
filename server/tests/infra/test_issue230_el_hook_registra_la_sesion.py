@@ -186,3 +186,55 @@ def test_el_token_no_vive_en_el_repositorio():
     import re
 
     assert not re.search(r"pat_[A-Za-z0-9]{4,}_[A-Za-z0-9]{8,}", texto)
+
+
+class TestEntradasRaras:
+    """Revisión de la PR #237: había entradas que salían con traza y código 1 sin dejar nada escrito."""
+
+    def _registro(self, proyecto):
+        return (proyecto["casa"] / ".claude" / "govgenai-actividad.log").read_text(encoding="utf-8")
+
+    def test_una_entrada_que_no_es_un_objeto(self, proyecto, monkeypatch):
+        modulo = _guion()
+        envios = Envios()
+        monkeypatch.setattr(modulo.urllib.request, "urlopen", envios)
+        monkeypatch.setattr("sys.stdin", io.StringIO("[]"))
+        assert modulo.main() == 0
+        assert envios.peticiones == []
+        assert "entrada" in self._registro(proyecto)
+
+    def test_una_declaracion_que_no_es_un_objeto(self, proyecto, monkeypatch):
+        (proyecto["raiz"] / ".claude" / "govgenai.json").write_text('["x"]', encoding="utf-8")
+        modulo = _guion()
+        envios = Envios()
+        assert _ejecutar(modulo, proyecto["entrada"], monkeypatch, envios) == 0
+        assert envios.peticiones == []
+        assert "govgenai.json" in self._registro(proyecto)
+
+    def test_categorias_que_no_son_una_lista_no_se_inventan(self, proyecto, monkeypatch):
+        (proyecto["raiz"] / ".claude" / "govgenai.json").write_text(
+            json.dumps({"finalidad": "x", "categorias_datos": "sin_datos_personales"}), encoding="utf-8"
+        )
+        modulo = _guion()
+        envios = Envios()
+        assert _ejecutar(modulo, proyecto["entrada"], monkeypatch, envios) == 0
+        assert envios.peticiones == []
+        assert "categorias_datos" in self._registro(proyecto)
+
+    def test_una_transcripcion_con_bytes_invalidos_no_impide_registrar(self, proyecto, monkeypatch):
+        Path(proyecto["entrada"]["transcript_path"]).write_bytes(b'\xff\xfe{"message": 1}\n')
+        modulo = _guion()
+        envios = Envios()
+        assert _ejecutar(modulo, proyecto["entrada"], monkeypatch, envios) == 0
+        assert len(envios.peticiones) == 1
+        assert "modelo_usado" not in json.loads(envios.peticiones[0].data)
+
+    def test_cualquier_otro_fallo_sale_con_cero_y_queda_escrito(self, proyecto, monkeypatch):
+        modulo = _guion()
+
+        def _revienta(_desde):
+            raise PermissionError("sin permiso")
+
+        monkeypatch.setattr(modulo, "_declaracion_del_proyecto", _revienta)
+        assert _ejecutar(modulo, proyecto["entrada"], monkeypatch, Envios()) == 0
+        assert "sin permiso" in self._registro(proyecto)

@@ -79,7 +79,8 @@ def _modelo(transcripcion: str | None) -> str | None:
         return None
     modelo = None
     try:
-        with open(transcripcion, encoding="utf-8") as f:
+        # `errors="replace"`: una línea con bytes inválidos se salta, no tumba el registro.
+        with open(transcripcion, encoding="utf-8", errors="replace") as f:
             for linea in f:
                 try:
                     entrada = json.loads(linea)
@@ -118,26 +119,45 @@ def construir_evento(entrada: dict, declaracion: dict) -> dict:
 
 
 def main() -> int:
+    """Siempre 0: un fallo no imprevisto tampoco rompe la sesión, pero queda escrito."""
+    try:
+        _registrar()
+    except Exception as fallo:  # noqa: BLE001 — la promesa es no romper la sesión y decirlo
+        _anotar(f"fallo inesperado, no se registra: {type(fallo).__name__}: {fallo}")
+    return 0
+
+
+def _registrar() -> None:
     try:
         entrada = json.load(sys.stdin)
     except ValueError:
+        entrada = None
+    if not isinstance(entrada, dict):
         _anotar("no se pudo leer la entrada del hook: no se registra")
-        return 0
+        return
 
     carpeta = Path(entrada.get("cwd") or os.getcwd())
     try:
         declaracion = _declaracion_del_proyecto(carpeta)
     except ValueError as fallo:
         _anotar(f"{FICHERO_DEL_PROYECTO} no es JSON válido en {carpeta}: {fallo}; no se registra")
-        return 0
+        return
+    if declaracion is not None and not isinstance(declaracion, dict):
+        _anotar(f"{FICHERO_DEL_PROYECTO} tiene que ser un objeto JSON en {carpeta}: no se registra")
+        return
     if not declaracion or not declaracion.get("finalidad"):
         _anotar(f"sin {FICHERO_DEL_PROYECTO} con «finalidad» en {carpeta} ni encima: no se registra")
-        return 0
+        return
+    categorias = declaracion.get("categorias_datos", [])
+    if not isinstance(categorias, list) or not all(isinstance(c, str) for c in categorias):
+        # Una cadena suelta acabaría troceada en letras: sería un dato que nadie declaró.
+        _anotar(f"«categorias_datos» de {FICHERO_DEL_PROYECTO} tiene que ser una lista de códigos: no se registra")
+        return
 
     token = os.environ.get("GOVGENAI_PAT_ACTIVIDAD", "").strip()
     if not token:
         _anotar("falta GOVGENAI_PAT_ACTIVIDAD (un token con actividad:write): no se registra")
-        return 0
+        return
 
     url = os.environ.get("GOVGENAI_URL", URL_POR_OMISION).rstrip("/") + "/api/v1/actividad"
     evento = construir_evento(entrada, declaracion)
@@ -155,7 +175,6 @@ def main() -> int:
         _anotar(f"el registro respondió {fallo.code} a la sesión {entrada.get('session_id')}: {cuerpo}")
     except (urllib.error.URLError, OSError) as fallo:
         _anotar(f"no se pudo hablar con {url}: {fallo}")
-    return 0
 
 
 if __name__ == "__main__":

@@ -141,7 +141,7 @@ resueltos**, con la diferencia clave de que hay tests que impiden la recaída:
 | `AIBrainService` monolítico (~1.082 LOC) | **Resuelto** (la clase no existe) | Ver deuda nueva D1: el módulo sustituto quedó sin cablear. |
 | Shims `init_db`/alias en `seeds.py` | **Resuelto** | Guardarraíl `test_no_legacy_shims.py`. |
 | Capa API manual del frontend (fetch crudo, tipos a mano) | **Resuelto** (estructural) | Migrado a Orval con guardarraíl `contractFirstApi.test.ts`. Ver D2: queda una isla que es un bug. |
-| Scopes calculados en cliente (`AccessTokensPage`) | **Resuelto** | `scopesForRole()`, función pura testeable. |
+| Scopes calculados en cliente (`AccessTokensPage`) | **Resuelto** (#230) | Primero se resolvió con `scopesForRole()`, una función pura testeable, pero la lista seguía siendo del cliente y se quedó en cinco alcances mientras el servidor llegaba a quince. Desde #230 los alcances y las organizaciones los da `GET /auth/pats/opciones`. |
 | `ca/admin.json` al ~25 % | **Resuelto** | Paridad **exacta**: 854 claves × 3 locales, 0 huecos, con guardarraíl de cobertura. |
 | `DocumentsPage.tsx` (1.019 LOC) | **Resuelto** | Descompuesta a 287 LOC + 12 módulos con tests. |
 
