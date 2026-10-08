@@ -55,6 +55,8 @@ export function PublicationPage() {
   const [enviadasAIngerir, setEnviadasAIngerir] = useState<number | null>(null)
   const [selectedSiteId, setSelectedSiteId] = useState<string>('')
   const [selectedChatbotId, setSelectedChatbotId] = useState<string>('')
+  // 2026-10-08 — ver sólo lo que quien curó propuso para un asistente (piloto de la Escola).
+  const [soloPropuestas, setSoloPropuestas] = useState(false)
 
   const { data: sites = [] } = useListSites()
   const { data: chatbots = [] } = useChatbotsDeLaOrganizacion()
@@ -132,7 +134,10 @@ export function PublicationPage() {
    * Lo que desaparece es tener que pulsar trescientas cuarenta y nueve veces para publicar un
    * apartado. Una página que ya está en el corpus no se puede marcar — para eso está `is_ingested`.
    */
-  const publicables = (candidates as CandidatePageView[]).filter((c) => !c.is_ingested)
+  // Con el filtro, «marcar todo» marca sólo las propuestas: es el camino de publicar lo que se
+  // propuso al curar sin ir página a página.
+  const visibles = (candidates as CandidatePageView[]).filter((c) => !soloPropuestas || !!c.propuesta_at)
+  const publicables = visibles.filter((c) => !c.is_ingested)
 
   const alternarMarca = (pageId: string) =>
     setMarcadas((previas) => {
@@ -244,12 +249,23 @@ export function PublicationPage() {
             )}
             <div className="flex items-center justify-between mb-2 gap-3 flex-wrap">
               <h3 className="text-sm font-semibold">{t('candidates_title')}</h3>
+              <label className="flex items-center gap-1.5 text-xs">
+                <input
+                  type="checkbox"
+                  checked={soloPropuestas}
+                  onChange={(e) => {
+                    setSoloPropuestas(e.target.checked)
+                    setMarcadas(new Set())
+                  }}
+                />
+                {t('publish_only_proposed')}
+              </label>
               {(candidates as CandidatePageView[]).length > 0 && (
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground" data-testid="resumen-corpus">
                     {t('candidates_summary', {
                       publicables: publicables.length,
-                      ingeridas: (candidates as CandidatePageView[]).length - publicables.length,
+                      ingeridas: visibles.length - publicables.length,
                     })}
                   </span>
                   <button
@@ -287,7 +303,7 @@ export function PublicationPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(candidates as CandidatePageView[]).map((c) => (
+                  {visibles.map((c) => (
                     <tr key={String(c.page_id)} className="border-b">
                       <td className="py-1 pr-2">
                         <input
@@ -312,6 +328,15 @@ export function PublicationPage() {
                         >
                           {c.url}
                         </a>
+                        {c.propuesta_at && (
+                          <span
+                            data-testid={`propuesta-${c.page_id}`}
+                            title={c.propuesta_por ?? undefined}
+                            className="ml-1 rounded bg-sky-100 px-1.5 py-0.5 text-sky-900"
+                          >
+                            {t('candidate_proposed')}
+                          </span>
+                        )}
                       </td>
                       <td className="py-1 pr-2">{c.matched_rule ?? '—'}</td>
                       <td className="py-1 pr-2">{c.is_new ? '✓' : '—'}</td>

@@ -77,6 +77,9 @@ def _fake_page(**kw):
     m.superseded = kw.get("superseded", False)
     m.quality_score = kw.get("quality_score", None)
     m.last_crawled_at = None
+    # 2026-10-08 — sin esto, MagicMock inventa un objeto para la propuesta y la respuesta no valida.
+    m.propuesta_at = kw.get("propuesta_at", None)
+    m.propuesta_por = kw.get("propuesta_por", None)
     return m
 
 
