@@ -23,5 +23,7 @@
   "create_report": "Crear informe",
   "sample_label": "Fichero de datos (opcional)",
   "sample_rows": "filas",
-  "sample_help": "Si lo aportas, la IA verá los nombres de las columnas y su tipo. Los valores se anonimizan antes de enviarse."
+  "sample_help": "Si lo aportas, la IA verá los nombres de las columnas y su tipo. Los valores se anonimizan antes de enviarse.",
+  "new_version": "Hay una versión nueva del panel.",
+  "reload": "Recargar"
 }

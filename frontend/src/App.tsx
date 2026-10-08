@@ -10,6 +10,7 @@ import { PlataformaLayout } from '@/admin/PlataformaLayout'
 import { CurationLayout } from '@/curation/CurationLayout'
 import { ENTRADA_DE_INFORMES } from '@/redaccion/rutas'
 import { ThemeProvider } from './themes/ThemeProvider'
+import { AvisoDeVersionNueva } from '@/shared/version/AvisoDeVersionNueva'
 import './index.css'
 import './themes/base.css'
 import '@/shared/i18n'
@@ -227,6 +228,7 @@ function App() {
           </Suspense>
         </AuthProvider>
       </BrowserRouter>
+      <AvisoDeVersionNueva />
       </ThemeProvider>
     </QueryClientProvider>
   )
