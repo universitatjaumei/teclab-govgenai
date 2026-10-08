@@ -12,9 +12,12 @@ descubiertas, cambiadas, desaparecidas— y ahí se queda; publicar al corpus si
 decisión por candidata, según `docs/DECISION_CURACION_SEPARADA.md`. Una página nueva es una
 señal para quien cura, no un disparador.
 
-**Sobre la sesión**: el despachador abre la suya y hace commit al terminar, igual que hacía
-el `_NullCrawler` al que sustituye. Un rastreo dura minutos y toca cientos de filas; colgarlo
-de la sesión de la petición que lo encoló la mantendría abierta todo ese tiempo.
+**Sobre la sesión**: el despachador abre la suya y confirma **cada página al guardarla**. Un
+rastreo dura minutos y toca cientos de filas; colgarlo de la sesión de la petición que lo encoló la
+mantendría abierta todo ese tiempo. Y confirmar sólo al final (como hasta #247) dejaba bloqueada
+cada página tocada hasta entonces: proponerla para un asistente esperaba 30 s y daba 500. Lo que el
+job tiene que hacer después con cada página queda en la propia fila (`pendiente`), no en la memoria
+del rastreo, para que un reinicio a mitad no lo pierda.
 
 **Pendiente de Deploy**: hoy el rastreo se encola con `BackgroundTasks`, o sea dentro del
 proceso web. En un entorno que escala a cero —Cloud Run— la instancia puede morir a mitad y
@@ -70,6 +73,7 @@ class SiteCrawlerDispatcher:
                 spider=spider,
                 signal_extractor=CrawlSignalExtractor(),
                 page_repo=CrawledPageRepo(session),
+                confirmar=session.commit,
             )
             resumen = await crawler.crawl_site(site_id, section_id=section_id)
             await session.commit()

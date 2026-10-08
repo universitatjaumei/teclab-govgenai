@@ -290,7 +290,8 @@ para que una persona decida qué entra al corpus.
 - **Quien cura propone qué páginas deberían alimentar un asistente** (2026-10-08): una marca por
   página, con quién y cuándo, independiente de cualquier asistente y que un nuevo rastreo no
   borra. Proponer sólo pide el módulo `curacion`; publicar sigue pidiendo además `chatbots`, y
-  Publicación filtra por lo propuesto.
+  Publicación filtra por lo propuesto. **Se puede proponer mientras se rastrea el sitio** (#247):
+  el rastreo confirma cada página al guardarla en vez de bloquearlas todas hasta el final.
 - Salvaguardas contra el vaciado: una pasada parcial no puede dar de baja el resto del portal.
 - **El rastreo no sale de la red pública** (I15). Quien da de alta un sitio decide a dónde pide
   el servidor, y basta tener el módulo de curación (antes, ser administrador): hasta APER.1 eso alcanzaba la red
@@ -610,7 +611,13 @@ cambió y retira lo que desapareció.
 - **El censo se acota al ámbito rastreado.** Una pasada de sección compara contra las páginas de
   esa sección; fuera del ámbito no declara nada, ni baja ni cambio.
 - **Nada entra al corpus con hallazgos bloqueantes**: la automatización no tiene menos criterio
-  que el curador al que sustituye. La página bloqueada sigue siendo candidata.
+  que el curador al que sustituye. La página bloqueada sigue siendo candidata, y la pasada
+  siguiente la vuelve a considerar.
+- **Lo que el rastreo ve nuevo o cambiado no se pierde por una interrupción** (#247). La señal
+  vive en la página (`pendiente`) y sólo la quita el job cuando ha procesado la página; un
+  reinicio a mitad, un fallo de reingesta o una puerta de calidad la dejan para la pasada
+  siguiente. Antes dependía de la memoria del rastreo, y una página cambiada podía quedarse con
+  su copia vieja en el corpus sin ningún aviso.
 - **Ninguna retirada masiva silenciosa**: por encima del umbral del ámbito (30 % por defecto) no
   se retira nada y queda el aviso con las cifras.
 - **Todo lo que hace queda escrito** en un diario por pasada, con el ámbito que cubrió.

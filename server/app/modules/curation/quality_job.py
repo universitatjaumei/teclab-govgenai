@@ -253,6 +253,7 @@ class SiteQualityAnalysisJob:
             # Un asistente puede tener la página una vez; varios pueden tenerla cada uno.
             chatbots = {doc.chatbot_id for doc in documentos}
             if not chatbots:
+                await self._ya_procesada(session, page)
                 continue
 
             actualizados = 0
@@ -276,6 +277,21 @@ class SiteQualityAnalysisJob:
 
             if actualizados and self._finding_repo is not None:
                 await self._avisar_de_la_actualizacion(site_id, page, actualizados)
+            # Si algún asistente falló, sigue pendiente: la pasada siguiente lo reintenta.
+            if actualizados == len(chatbots):
+                await self._ya_procesada(session, page)
+
+    @staticmethod
+    async def _ya_procesada(session: Any, page: Any) -> None:
+        """#247 — quita la marca que dejó el rastreo y lo confirma en el acto.
+
+        Sólo se llama cuando el trabajo con la página está hecho; lo que una puerta de calidad
+        detiene o lo que falla sigue marcado y la pasada siguiente lo vuelve a recibir. Confirmar
+        aquí y no al final de la pasada es por lo mismo que en el rastreo: la reingesta embebe, eso
+        tarda, y mientras tanto la fila no puede quedarse bloqueada para quien la propone.
+        """
+        page.pendiente = None
+        await session.commit()
 
     # ──────────────────── DIN.5 — la puerta de calidad ────────────────────
 
@@ -727,7 +743,9 @@ class SiteQualityAnalysisJob:
                 if page is not None:
                     page.quality_score = _compute_quality_score(page_findings)
 
-            await session.flush()
+            # #247 — confirmado antes de reingerir: la reingesta embebe y eso tarda, y con la nota
+            # sin confirmar cada página puntuada quedaba bloqueada para quien la propone.
+            await session.commit()
 
             # ── 3.bis. REINGESTA DE LO QUE CAMBIÓ (RAS.5) ─────────────────────
             #
@@ -768,6 +786,15 @@ class SiteQualityAnalysisJob:
                 selections = await repo_de_selecciones.list_by_site(site_id)
                 auto_sels = [s for s in selections if getattr(s, "auto_ingest_new", False)]
 
+                # #247 — sin selección automática no hay nada que hacer con lo nuevo, y se da por
+                # procesado: si siguiera marcado, una selección automática creada meses después
+                # ingeriría de golpe todo lo que fue nuevo alguna vez.
+                if not auto_sels:
+                    for page_id in new_page_ids:
+                        page = await session.get(HubCrawledPage, page_id)
+                        if page is not None:
+                            await self._ya_procesada(session, page)
+
                 if auto_sels:
                     # DIN.3 — las secciones a las que apuntan, cargadas antes del bucle.
                     secciones = await repo_de_selecciones.secciones_de(auto_sels)
@@ -793,6 +820,7 @@ class SiteQualityAnalysisJob:
                             )
                             continue
 
+                        fallos = 0
                         for sel in auto_sels:
                             if repo_de_selecciones.matches(
                                 sel, page.url, secciones=secciones
@@ -816,6 +844,9 @@ class SiteQualityAnalysisJob:
                                         sel.chatbot_id,
                                     )
                                     summary.errors.append(f"auto-ingest {page.url}: {exc}")
+                                    fallos += 1
+                        if not fallos:
+                            await self._ya_procesada(session, page)
 
             # ── 5. AUTO-RETIRADA DE LO QUE DESAPARECIÓ (DIN.4) ─────────────────
             #

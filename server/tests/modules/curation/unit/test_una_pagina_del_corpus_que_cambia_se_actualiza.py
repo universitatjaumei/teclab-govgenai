@@ -37,6 +37,7 @@ class _Pagina:
     superseded: bool = False
     superseded_by_page_id: uuid.UUID | None = None
     quality_score: float | None = None
+    pendiente: str | None = "cambiada"
 
 
 @dataclass
@@ -221,6 +222,44 @@ async def test_si_la_reingesta_falla_el_job_no_revienta_y_lo_dice():
 
     assert resultado.documents_reingested == 0
     assert any("reingesta" in e for e in resultado.errors)
+
+
+@pytest.mark.asyncio
+async def test_247_reingerida_deja_de_estar_pendiente():
+    pagina = _Pagina(id=uuid.uuid4(), url="https://www.uji.es/centres/escola-doctorat/beques/")
+    job = _job(pagina, [_Documento(pagina.id, _CHATBOT_CON_LA_PAGINA)], _Watcher(),
+               _RepoDeHallazgos(), _ResumenDeRastreo(changed_page_ids=[pagina.id]))
+
+    await job.run_for_site(_SITIO)
+
+    assert pagina.pendiente is None
+
+
+@pytest.mark.asyncio
+async def test_247_si_la_reingesta_falla_sigue_pendiente_para_la_pasada_siguiente():
+    pagina = _Pagina(id=uuid.uuid4(), url="https://www.uji.es/centres/escola-doctorat/beques/")
+
+    class _WatcherQueFalla(_Watcher):
+        async def process_source(self, **kwargs: Any) -> Any:
+            raise RuntimeError("el modelo de embeddings no responde")
+
+    job = _job(pagina, [_Documento(pagina.id, _CHATBOT_CON_LA_PAGINA)], _WatcherQueFalla(),
+               _RepoDeHallazgos(), _ResumenDeRastreo(changed_page_ids=[pagina.id]))
+
+    await job.run_for_site(_SITIO)
+
+    assert pagina.pendiente == "cambiada"
+
+
+@pytest.mark.asyncio
+async def test_247_una_cambiada_que_no_esta_en_ningun_corpus_no_queda_pendiente():
+    pagina = _Pagina(id=uuid.uuid4(), url="https://www.uji.es/centres/escola-doctorat/otra/")
+    job = _job(pagina, [], _Watcher(), _RepoDeHallazgos(),
+               _ResumenDeRastreo(changed_page_ids=[pagina.id]))
+
+    await job.run_for_site(_SITIO)
+
+    assert pagina.pendiente is None
 
 
 def test_content_updated_es_un_tipo_de_hallazgo_del_contrato():

@@ -257,6 +257,12 @@ class HubCrawledPage(HubOperationalBase):
     propuesta_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     propuesta_por: Mapped[str | None] = mapped_column(String(320), nullable=True)
 
+    # #247 — `nueva` o `cambiada` desde que el rastreo la ve así hasta que el job la procesa
+    # (reingesta o auto-ingesta). Vive en la fila y no en la memoria del rastreo porque éste
+    # confirma página a página: tras un reinicio a mitad, la página ya está guardada con su
+    # contenido nuevo y el rastreo siguiente no la vería cambiar. Nula = nada pendiente.
+    pendiente: Mapped[str | None] = mapped_column(String(16), nullable=True)
+
     # embedding de página para auditoría semántica en modo "full" (9Q.4).
     # Misma dimensión que HubDocumentChunk.embedding (BGE-M3 = 1024) para que cruce coseno.
     # None = sin embedding (no auditada en modo full todavía).
