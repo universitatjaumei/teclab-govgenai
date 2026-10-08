@@ -146,6 +146,8 @@ def test_patch_finding_transitions_status():
     updated_finding = _fake_orm_finding(site_id=site_id, id=finding_id, status="confirmed")
 
     findings_repo = MagicMock()
+    # #242: la ruta comprueba que el hallazgo es de este sitio antes de cambiarlo.
+    findings_repo.get = AsyncMock(return_value=_fake_orm_finding(site_id=site_id, id=finding_id))
     findings_repo.transition = AsyncMock(return_value=updated_finding)
 
     app = _build_app_with_overrides(findings_repo_mock=findings_repo)
@@ -169,6 +171,7 @@ def test_patch_finding_invalid_transition_returns_422():
     finding_id = uuid.uuid4()
 
     findings_repo = MagicMock()
+    findings_repo.get = AsyncMock(return_value=_fake_orm_finding(site_id=site_id, id=finding_id))
     findings_repo.transition = AsyncMock(
         side_effect=InvalidFindingTransitionError("invalid")
     )
