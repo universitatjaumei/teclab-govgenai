@@ -22,5 +22,6 @@
   "close": "Tanca",
   "create_report": "Crea l'informe",
   "sample_label": "Fitxer de dades (opcional)",
-  "sample_rows": "files"
+  "sample_rows": "files",
+  "sample_help": "Si l'aportes, la IA veurà els noms de les columnes i el seu tipus. Els valors s'anonimitzen abans d'enviar-se."
 }

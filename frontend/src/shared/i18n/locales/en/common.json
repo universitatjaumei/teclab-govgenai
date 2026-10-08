@@ -22,5 +22,6 @@
   "close": "Close",
   "create_report": "Create report",
   "sample_label": "Data file (optional)",
-  "sample_rows": "rows"
+  "sample_rows": "rows",
+  "sample_help": "If you provide it, the AI will see the column names and their types. Values are anonymised before being sent."
 }

@@ -119,7 +119,7 @@ export function CopilotPanel() {
         data-testid="copilot-input"
         className="border rounded-md p-2 text-sm resize-y bg-background"
         rows={3}
-        placeholder={t('copilot.placeholder', 'Escribe tu pregunta o instrucción…')}
+        placeholder={t('copilot.placeholder')}
         value={input}
         onChange={(e) => setInput(e.target.value)}
       />
@@ -130,7 +130,7 @@ export function CopilotPanel() {
         disabled={isPending || !input.trim()}
         onClick={handleSend}
       >
-        {isPending ? t('copilot.sending', 'Enviando…') : t('copilot.send', 'Enviar')}
+        {isPending ? t('copilot.sending') : t('copilot.send')}
       </button>
 
       {error && (
@@ -171,14 +171,11 @@ export function CopilotPanel() {
             onClick={handleCopy}
           >
             {copiado
-              ? t('copilot.copied', 'Copiado')
-              : t('copilot.copy', 'Copiar la propuesta')}
+              ? t('copilot.copied')
+              : t('copilot.copy')}
           </button>
           <p className="text-xs text-muted-foreground">
-            {t(
-              'copilot.translate_hint',
-              'Esta propuesta es una sugerencia para que la leas: los bloques del informe se crean desde la descripción, en «Proponer con IA».',
-            )}
+            {t('copilot.translate_hint')}
           </p>
         </div>
       )}
