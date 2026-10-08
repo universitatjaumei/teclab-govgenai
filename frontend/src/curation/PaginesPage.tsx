@@ -23,8 +23,16 @@ import { PageContentDialog } from './PageContentDialog'
  * No había ninguna pantalla con todas las páginas de un sitio: la lista de Troballes sólo enseña
  * las que tienen un problema, y la mayoría de las que irían a un asistente no tienen ninguno.
  */
+/** Los estados que da el rastreo a una página. Otro, si apareciera, se enseña tal cual.
+ *  Claves escritas enteras: el guardarraíl de claves sin uso no ve las que se componen. */
+const ETIQUETA_DE_ESTADO: Record<string, string> = {
+  active: 'pages_status_active',
+  error: 'pages_status_error',
+  gone: 'pages_status_gone',
+}
+
 export function PaginesPage() {
-  const { t } = useTranslation('curation')
+  const { t, i18n } = useTranslation('curation')
   const qc = useQueryClient()
   const [siteId, setSiteId] = useState('')
   const [soloPropuestas, setSoloPropuestas] = useState(false)
@@ -32,7 +40,7 @@ export function PaginesPage() {
   const [fallo, setFallo] = useState<string | null>(null)
 
   const { data: sitios = [] } = useListSites()
-  const { data: paginas = [], isLoading } = useListSitePages(
+  const { data: paginas = [], isLoading, isError, error } = useListSitePages(
     siteId,
     soloPropuestas ? { propuestas: true } : undefined,
     { query: { enabled: !!siteId } },
@@ -87,6 +95,11 @@ export function PaginesPage() {
 
       {siteId && (isLoading ? (
         <p className="text-sm text-muted-foreground">{t('pages_loading')}</p>
+      ) : isError ? (
+        // Revisión de la PR #246: un fallo al cargar se leía como «no hay páginas».
+        <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-sm text-destructive">
+          {mensajeDelFallo(error, t('pages_load_error'))}
+        </p>
       ) : paginas.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t('pages_empty')}</p>
       ) : (
@@ -108,7 +121,9 @@ export function PaginesPage() {
                     {p.url}
                   </a>
                 </td>
-                <td className="pr-4">{p.status}</td>
+                <td className="pr-4">
+                  {ETIQUETA_DE_ESTADO[p.status] ? t(ETIQUETA_DE_ESTADO[p.status]) : p.status}
+                </td>
                 <td className="pr-4">
                   <label className="flex items-center gap-1.5">
                     <input
@@ -121,7 +136,7 @@ export function PaginesPage() {
                       <span className="text-xs text-muted-foreground">
                         {t('pages_proposed_by', {
                           who: p.propuesta_por ?? '—',
-                          date: new Date(p.propuesta_at).toLocaleDateString(),
+                          date: new Date(p.propuesta_at).toLocaleDateString(i18n.language),
                         })}
                       </span>
                     )}

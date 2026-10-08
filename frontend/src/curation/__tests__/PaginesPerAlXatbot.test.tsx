@@ -100,3 +100,29 @@ describe('Pàgines: proposar per a l\'assistent', () => {
     expect(crides[crides.length - 1][1]).toEqual({ propuestas: true })
   })
 })
+
+describe('Pàgines: el que la revisió de la PR #246 va trobar', () => {
+  it("l'estat de la pàgina ix traduït, no com a codi", () => {
+    pintar()
+    const fila = screen.getByTestId('pagina-p-beques')
+    expect(fila.textContent).toContain('Activa')
+    expect(fila.textContent).not.toContain('active')
+  })
+
+  it('si la llista no es pot carregar, ho diu en lloc de «no hi ha pàgines»', () => {
+    vi.mocked(useListSitePages).mockReturnValue({
+      data: undefined, isLoading: false, isError: true,
+      error: { response: { data: { detail: 'Sense accés al mòdul' } } },
+    } as never)
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter>
+          <PaginesPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+    fireEvent.change(screen.getByRole('combobox', { name: /lloc/i }), { target: { value: 'sitio-1' } })
+
+    expect(screen.getByRole('alert').textContent).toContain('Sense accés al mòdul')
+  })
+})
