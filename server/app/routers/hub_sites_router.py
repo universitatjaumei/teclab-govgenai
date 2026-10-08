@@ -23,7 +23,11 @@ from server.app.core.auth.tenancy import (
     scope_query_to_orgs,
 )
 from server.app.modules.agents_hub.database.connection import get_async_session
-from server.app.modules.agents_hub.database.operational_models import HubCrawledPage
+from server.app.modules.agents_hub.database.operational_models import (
+    HubCorpusSelection,
+    HubCrawledPage,
+    HubWebSite,
+)
 from server.app.modules.curation.selection_contracts import (
     CandidatePageView,
     CrawlConfig,
@@ -255,7 +259,6 @@ async def list_sites(
     solo si el cliente pasaba el parámetro —o sea, el filtro lo elegía quien preguntaba— y
     sin parámetro devolvía los sitios de todas las administraciones.
     """
-    from server.app.modules.agents_hub.database.operational_models import HubWebSite
 
     stmt = scope_query_to_orgs(select(HubWebSite), current_user, HubWebSite)
     if organizacion_id is not None:
@@ -614,8 +617,6 @@ async def delete_site_section(
     await assert_site_org_access(session, site_id, current_user)
     await _seccion_de_este_sitio(session, site_id, section_id)
 
-    from server.app.modules.agents_hub.database.operational_models import HubCorpusSelection
-
     colgando = (
         await session.execute(
             select(HubCorpusSelection).where(HubCorpusSelection.section_id == section_id)
@@ -768,7 +769,6 @@ async def list_selections(
     Deploy: edge.
     """
     await assert_chatbot_org_access(session, chatbot_id, current_user)
-    from server.app.modules.agents_hub.database.operational_models import HubCorpusSelection
 
     stmt = (
         select(HubCorpusSelection)
@@ -795,6 +795,10 @@ async def delete_selection(
     Deploy: edge.
     """
     await assert_chatbot_org_access(session, chatbot_id, current_user)
+    seleccion = await session.get(HubCorpusSelection, selection_id)
+    if seleccion is None or seleccion.chatbot_id != chatbot_id:
+        # #242: el asistente de la ruta pasaba el control y la selección podía ser de otro.
+        raise HTTPException(status_code=404, detail="Selección no encontrada en este asistente")
     repo = CorpusSelectionRepo(session)
     await repo.delete(selection_id)
     await session.commit()
@@ -887,7 +891,12 @@ async def ingest_page(
     llegaba nunca al corpus. Sin esto, la curación termina en una bandeja que no lleva a ningún
     sitio, que es justo el circuito que el módulo existe para cerrar.
     """
-    await assert_chatbot_org_access(session, chatbot_id, current_user)
+    asistente = await assert_chatbot_org_access(session, chatbot_id, current_user)
+    pagina = await session.get(HubCrawledPage, page_id)
+    sitio = await session.get(HubWebSite, pagina.site_id) if pagina is not None else None
+    if sitio is None or sitio.organizacion_id != asistente.organizacion_id:
+        # #242: sin esto, el contenido de una página de otra organización entraba en este corpus.
+        raise HTTPException(status_code=404, detail="Página no encontrada para este asistente")
     servicio = await _servicio_que_puede_ingerir(session, chatbot_id)
     background_tasks.add_task(servicio.ingest_page, chatbot_id, page_id)
     return {"status": "queued", "chatbot_id": str(chatbot_id), "page_id": str(page_id)}
