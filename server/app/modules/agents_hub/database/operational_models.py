@@ -251,6 +251,12 @@ class HubCrawledPage(HubOperationalBase):
     )
     content_owner: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
+    # 2026-10-08 — la página propuesta para un asistente mientras se cura la web, y quién la
+    # propuso. Es de la página y no de un asistente: se propone antes de que el asistente exista,
+    # y quien lo crea decide en Publicación. Nula = no propuesta. El rastreo no la toca.
+    propuesta_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    propuesta_por: Mapped[str | None] = mapped_column(String(320), nullable=True)
+
     # embedding de página para auditoría semántica en modo "full" (9Q.4).
     # Misma dimensión que HubDocumentChunk.embedding (BGE-M3 = 1024) para que cruce coseno.
     # None = sin embedding (no auditada en modo full todavía).

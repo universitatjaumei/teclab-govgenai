@@ -5,6 +5,8 @@ const CURATION_SUBNAV = [
   { key: 'nav_sites', path: '/curation/sites' },
   { key: 'nav_audit', path: '/curation/audit' },
   { key: 'nav_findings', path: '/curation/findings' },
+  // 2026-10-08 — proponer páginas para un asistente mientras se cura, antes de publicar.
+  { key: 'nav_pages', path: '/curation/pages' },
   { key: 'nav_publish', path: '/curation/publish' },
 ] as const
 

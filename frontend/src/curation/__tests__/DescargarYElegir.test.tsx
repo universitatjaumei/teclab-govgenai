@@ -291,3 +291,35 @@ describe('el boton de PDF solo si hay PDF (CUR.8)', () => {
     expect(screen.queryByTestId('aviso-sin-pdf')).not.toBeInTheDocument()
   })
 })
+
+describe('las páginas propuestas al curar (2026-10-08)', () => {
+  /**
+   * Piloto del asistente de la Escuela de Doctorado: quien cura propone las páginas en «Páginas»
+   * y quien crea el asistente las publica aquí. La marca viene del servidor en cada candidata.
+   */
+  const PROPUESTA = { ...OTRA, propuesta_at: '2026-10-08T09:00:00Z', propuesta_por: 'curadora@uji.es' }
+
+  it('cada candidata propuesta lo dice, con quién la propuso', async () => {
+    mockCandidatas.list = [SIN_INGERIR, PROPUESTA]
+    await pantallaDePublicacionCompartida()
+
+    const etiqueta = screen.getByTestId(`propuesta-${PROPUESTA.page_id}`)
+    expect(etiqueta.getAttribute('title')).toContain('curadora@uji.es')
+    expect(screen.queryByTestId(`propuesta-${SIN_INGERIR.page_id}`)).toBeNull()
+  })
+
+  it('se pueden ver sólo las propuestas, y «marcar todo» marca sólo ésas', async () => {
+    mockCandidatas.list = [SIN_INGERIR, PROPUESTA]
+    await pantallaDePublicacionCompartida()
+
+    fireEvent.click(screen.getByLabelText(/sólo las propuestas/i))
+    expect(screen.queryByTestId(`marca-${SIN_INGERIR.page_id}`)).toBeNull()
+    // El resumen cuenta lo que se ve: la otra candidata no está «ya en el corpus» por estar oculta.
+    expect(screen.getByTestId('resumen-corpus').textContent).toMatch(/1\D+0/)
+
+    fireEvent.click(screen.getByTestId('marca-todo'))
+    fireEvent.click(screen.getByTestId('btn-ingerir-marcadas'))
+    const ingeridas = mockIngerir.mutate.mock.calls.map((c) => c[0].pageId)
+    expect(ingeridas).toEqual([PROPUESTA.page_id])
+  })
+})

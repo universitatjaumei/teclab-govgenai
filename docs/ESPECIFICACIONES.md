@@ -282,10 +282,18 @@ para que una persona decida qué entra al corpus.
 
 **Garantiza.**
 - Rastreo con cadencia, alta automática de páginas nuevas y reingesta de las cambiadas.
-- Los hallazgos se revisan **uno a uno**; nada entra al corpus sin decisión humana.
+- Los hallazgos se revisan **uno a uno**; nada entra al corpus sin decisión humana. **Lo que una
+  persona revisó no se pierde**: el estado es del hallazgo, lo ven igual todos los de la
+  organización, y un nuevo rastreo o análisis lo vuelve a detectar sin tocar el estado; la
+  reconciliación sólo cierra lo `new` o `confirmed` que ya no se detecta, nunca lo descartado.
+  Comprobado de punta a punta el 2026-10-08.
+- **Quien cura propone qué páginas deberían alimentar un asistente** (2026-10-08): una marca por
+  página, con quién y cuándo, independiente de cualquier asistente y que un nuevo rastreo no
+  borra. Proponer sólo pide el módulo `curacion`; publicar sigue pidiendo además `chatbots`, y
+  Publicación filtra por lo propuesto.
 - Salvaguardas contra el vaciado: una pasada parcial no puede dar de baja el resto del portal.
 - **El rastreo no sale de la red pública** (I15). Quien da de alta un sitio decide a dónde pide
-  el servidor, y basta ser administrador de una organización: hasta APER.1 eso alcanzaba la red
+  el servidor, y basta tener el módulo de curación (antes, ser administrador): hasta APER.1 eso alcanzaba la red
   interna del despliegue y el texto volvía en el informe de reconocimiento. Ahora la dirección se
   comprueba en **cada petición y cada redirección**, y una raíz privada se rechaza al darla de
   alta con un 422 que dice por qué.

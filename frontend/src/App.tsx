@@ -48,6 +48,7 @@ const RedaccionLayout = lazy(() => import('@/redaccion/RedaccionLayout').then(m 
 const CurationSitesPage = lazy(() => import('@/curation/SitesPage').then(m => ({ default: m.SitesPage })))
 const CurationAuditPage = lazy(() => import('@/curation/AuditPage').then(m => ({ default: m.AuditPage })))
 const CurationFindingsPage = lazy(() => import('@/curation/FindingsPage').then(m => ({ default: m.FindingsPage })))
+const CurationPaginesPage = lazy(() => import('@/curation/PaginesPage').then(m => ({ default: m.PaginesPage })))
 const CurationPublicationPage = lazy(() => import('@/curation/PublicationPage').then(m => ({ default: m.PublicationPage })))
 const TestScenariosPage = lazy(() => import('@/admin/pages/TestScenariosPage').then(m => ({ default: m.TestScenariosPage })))
 const ReportTemplateBuilderPage = lazy(() => import('@/redaccion/pages/ReportTemplateBuilderPage').then(m => ({ default: m.ReportTemplateBuilderPage })))
@@ -191,6 +192,7 @@ function App() {
                     <Route path="sites" element={<CurationSitesPage />} />
                     <Route path="audit" element={<CurationAuditPage />} />
                     <Route path="findings" element={<CurationFindingsPage />} />
+                    <Route path="pages" element={<CurationPaginesPage />} />
                     <Route path="publish" element={<CurationPublicationPage />} />
                   </Route>
                   {/* Informes: las pantallas existían pero sus rutas estaban sueltas y

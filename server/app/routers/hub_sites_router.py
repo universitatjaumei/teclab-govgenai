@@ -351,12 +351,13 @@ async def trigger_crawl(
 async def list_site_pages(
     site_id: uuid.UUID,
     page_status: str | None = Query(default=None, alias="status"),
+    propuestas: bool = Query(default=False),
     current_user: UserInfo = Depends(_de_curacion),
     session: AsyncSession = Depends(get_async_session),
 ):
     """Lista las páginas rastreadas de un sitio, opcionalmente filtradas por status.
 
-    Deploy: edge.
+    Deploy: edge. Con `propuestas`, sólo las propuestas para un asistente (2026-10-08).
     """
     await assert_site_org_access(session, site_id, current_user)
     # recorrido-acotado: ver `site_repo.listar_paginas`. Paginar este endpoint cambia un
@@ -364,9 +365,72 @@ async def list_site_pages(
     stmt = select(HubCrawledPage).where(HubCrawledPage.site_id == site_id)
     if page_status is not None:
         stmt = stmt.where(HubCrawledPage.status == page_status)
+    if propuestas:
+        stmt = stmt.where(HubCrawledPage.propuesta_at.is_not(None))
     stmt = stmt.order_by(HubCrawledPage.url)
     result = await session.execute(stmt)
     return result.scalars().all()
+
+
+async def _pagina_de_este_sitio(
+    session: AsyncSession, site_id: uuid.UUID, page_id: uuid.UUID
+) -> HubCrawledPage:
+    """La página, si es de este sitio. Una ajena es un 404: comprobar sólo el sitio de la ruta y
+    no que la página le pertenezca es el hueco de #242."""
+    pagina = await session.get(HubCrawledPage, page_id)
+    if pagina is None or pagina.site_id != site_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Page not found")
+    return pagina
+
+
+@router.put(
+    "/hub/sites/{site_id}/pages/{page_id}/propuesta",
+    response_model=PageView,
+    operation_id="proponerPagina",
+)
+async def proponer_pagina(
+    site_id: uuid.UUID,
+    page_id: uuid.UUID,
+    current_user: UserInfo = Depends(_de_curacion),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """Propone la página para un asistente (2026-10-08).
+
+    Basta el módulo de curación: proponer no publica nada. Quien crea el asistente —con el
+    módulo `chatbots`— decide en Publicación. Volver a proponer no cambia quién lo hizo primero.
+    """
+    await assert_site_org_access(session, site_id, current_user)
+    pagina = await _pagina_de_este_sitio(session, site_id, page_id)
+    if pagina.propuesta_at is None:
+        from datetime import datetime, timezone
+
+        pagina.propuesta_at = datetime.now(timezone.utc)
+        pagina.propuesta_por = current_user.email
+    # La vista antes del `commit`: esta sesión expira al confirmar (el 500 de #225).
+    vista = PageView.model_validate(pagina)
+    await session.commit()
+    return vista
+
+
+@router.delete(
+    "/hub/sites/{site_id}/pages/{page_id}/propuesta",
+    response_model=PageView,
+    operation_id="retirarPropuestaDePagina",
+)
+async def retirar_propuesta(
+    site_id: uuid.UUID,
+    page_id: uuid.UUID,
+    current_user: UserInfo = Depends(_de_curacion),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """Quita la propuesta. No toca el corpus: si ya se publicó, eso se retira en Publicación."""
+    await assert_site_org_access(session, site_id, current_user)
+    pagina = await _pagina_de_este_sitio(session, site_id, page_id)
+    pagina.propuesta_at = None
+    pagina.propuesta_por = None
+    vista = PageView.model_validate(pagina)
+    await session.commit()
+    return vista
 
 
 # ──────────────────────── Secciones del sitio (DIN.3) ────────────────────────

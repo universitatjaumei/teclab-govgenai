@@ -205,5 +205,20 @@
   "refresh_candidates": "Refresh",
   "pdf_unavailable": "This server has no LibreOffice, so it cannot generate PDF: the report downloads as Word. Installing LibreOffice on the server brings the PDF button back.",
   "status_open": "Open",
-  "status_all": "All statuses"
+  "status_all": "All statuses",
+  "nav_pages": "Pages",
+  "candidate_proposed": "Proposed",
+  "publish_only_proposed": "Only those proposed while curating",
+  "pages_title": "Site pages",
+  "pages_intro": "All crawled pages. Tick the ones that should feed the assistant: whoever creates it will see them as proposed in Publication. Proposing publishes nothing.",
+  "pages_site": "Site",
+  "pages_only_proposed": "Proposed only",
+  "pages_error": "The proposal could not be saved.",
+  "pages_loading": "Loading pages…",
+  "pages_empty": "No pages to show.",
+  "pages_col_page": "Page",
+  "pages_col_status": "Status",
+  "pages_col_proposed": "For the assistant",
+  "pages_propose_aria": "Propose “{{page}}” for the assistant",
+  "pages_proposed_by": "Proposed by {{who}} on {{date}}"
 }

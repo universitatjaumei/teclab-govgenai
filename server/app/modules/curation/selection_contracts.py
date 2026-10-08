@@ -196,6 +196,9 @@ class PageView(BaseModel):
     superseded: bool
     quality_score: float | None
     last_crawled_at: datetime | None
+    #: 2026-10-08 — propuesta para un asistente: cuándo y quién. Nula = no propuesta.
+    propuesta_at: datetime | None = None
+    propuesta_por: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -488,3 +491,6 @@ class CandidatePageView(BaseModel):
     matched_rule: str | None
     is_new: bool
     is_ingested: bool = False
+    #: 2026-10-08 — si quien curó la propuso para un asistente, y quién: Publicación filtra por ello.
+    propuesta_at: datetime | None = None
+    propuesta_por: str | None = None

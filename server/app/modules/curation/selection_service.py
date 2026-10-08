@@ -89,6 +89,8 @@ class CorpusSelectionService:
                     matched_rule=matched_rule,
                     is_new=(matched_rule is None),
                     is_ingested=(page.id in ingested_ids),
+                    propuesta_at=getattr(page, "propuesta_at", None),
+                    propuesta_por=getattr(page, "propuesta_por", None),
                 )
             )
 
