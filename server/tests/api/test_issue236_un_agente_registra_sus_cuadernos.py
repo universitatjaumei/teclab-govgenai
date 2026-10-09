@@ -7,8 +7,11 @@ cuaderno lo registra— se quedaba fuera.
 
 - **Alcance nuevo, `funciones:register`.** Aparte de `funciones:execute`: ejecutar lo que hay y
   añadir al catálogo son dos capacidades, y un token que sólo ejecuta no tiene por qué registrar.
-- **Lo emite quien ya puede registrar con sesión**: un administrador, y también quien tiene el
-  módulo `automatizacion`, igual que el módulo `agentes` da `agentes:indice`.
+- **Lo emite un administrador.** #236 lo abría también al módulo `automatizacion`, como `agentes`
+  da `agentes:indice`, pero ningún camino lo emitía: `/auth/pats` no pasa módulos y un `user` no
+  tiene techo de rol. Se retiró en #239 (decisión del usuario, 2026-10-09) en vez de abrir otro
+  endpoint de emisión: no hay hoy unidad que escriba cuadernos con su propio agente. Si la hay, se
+  hace como en `agentes`, con su endpoint, y este test es el que hay que cambiar.
 - **Leer el catálogo** —para encontrar lo registrado y no duplicarlo, o el `funcion_id` que se
   quiere ejecutar— lo admite cualquiera de los dos alcances.
 """
@@ -33,9 +36,9 @@ def test_el_alcance_esta_en_el_catalogo():
     assert REGISTRAR in alcances.ALL_SCOPES
 
 
-def test_lo_emite_un_administrador_y_quien_tiene_automatizacion():
+def test_lo_emite_un_administrador_y_no_el_modulo_automatizacion():
     assert REGISTRAR in alcances.allowed_scopes_for("admin")
-    assert REGISTRAR in alcances.allowed_scopes_for("user", ["automatizacion"])
+    assert REGISTRAR not in alcances.allowed_scopes_for("user", ["automatizacion"])
     assert REGISTRAR not in alcances.allowed_scopes_for("user", ["informes"])
 
 

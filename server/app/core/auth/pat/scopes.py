@@ -110,8 +110,6 @@ def validate_scopes(scopes: list[str]) -> None:
 _MODULE_SCOPES: dict[str, frozenset[str]] = {
     "agentes": frozenset({AGENTES_INDICE_WRITE}),
     "consulta_agentes": frozenset({AGENTES_CONSULTA}),
-    # #236 — quien registra funciones con sesión puede delegarlo en su agente de código.
-    "automatizacion": frozenset({FUNCIONES_REGISTER}),
 }
 
 
