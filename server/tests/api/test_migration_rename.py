@@ -4,7 +4,7 @@
   ausentes) preservando filas (rename, no drop+create).
 - No quedan referencias a los nombres antiguos en el código de producción
   (excluyendo migraciones, la capa NiceGUI legacy `ui/` — retirada en CAL.1 — y el
-  concepto legacy AutomatIA `ClientAccount`/`AutomationLibrary`, ajeno a este mapa).
+  concepto legacy AutomatIA `AutomationLibrary`, ajeno a este mapa).
 """
 
 import os

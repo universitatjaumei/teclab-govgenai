@@ -48,7 +48,7 @@ type ValoresContrasena = z.infer<typeof esquemaContrasena>
  * **Dos cosas que la pantalla dice y no solo hace.** Con la autoridad del rol en el IdP, editar
  * un rol a mano es tirar el trabajo porque lo pisa el siguiente inicio de sesión: se avisa en
  * vez de dejar que se descubra solo. Y el listado **no son todas las cuentas** —siguen
- * existiendo `SuperAdminAccount`, `AdminAccount` y `ClientAccount` sin unificar (IDE.2)—, así
+ * existiendo `SuperAdminAccount` y `AdminAccount` sin unificar (IDE.2)—, así
  * que se dice, porque un listado que se lee como completo miente por omisión.
  */
 export function UsuariosPage() {

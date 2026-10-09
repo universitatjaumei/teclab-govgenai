@@ -91,29 +91,3 @@ class TestLasOtrasTablasDeIdentidad:
         from server.app.modules.agents_hub.database.config_models import HubUser
 
         assert HubUser.__table__.c.email.unique
-
-    def test_should_document_that_the_client_email_is_not_queried(self):
-        """`ClientAccount.email` **no** es único y aquí se deja dicho por qué no se toca.
-
-        No hay ni una consulta que lo lea: `grep` sobre `server/app` el 2026-09-03 encuentra
-        `SuperAdminAccount.email` y `AdminAccount.email`, y ninguna de `ClientAccount.email`. Sin
-        consumidor no hay ambigüedad que cerrar, y un índice único sobre una columna que nadie
-        busca es una restricción que sólo puede romper un alta legítima. Si algún día se
-        autentica a un cliente por correo, ése es el momento.
-
-        El test no exige que sea único: **exige que siga sin consumidor**. El día que alguien
-        escriba esa consulta, este rojo le recuerda que hace falta el índice.
-        """
-        from pathlib import Path
-
-        raiz = Path(__file__).resolve().parents[4] / "app"
-        consultas = [
-            f"{fichero.relative_to(raiz).as_posix()}:{numero}"
-            for fichero in raiz.rglob("*.py")
-            for numero, linea in enumerate(fichero.read_text(encoding="utf-8").splitlines(), 1)
-            if "ClientAccount.email" in linea
-        ]
-        assert not consultas, (
-            "Alguien consulta ya `ClientAccount.email`: si se busca por correo, hace falta el "
-            f"índice único, o el resultado depende del orden que devuelva Postgres. {consultas}"
-        )

@@ -409,9 +409,9 @@ por `funcion_id@versión`.
   grupos en el claim), pero sin IdP configurado no se puede cerrar.
 - **Una persona administrando varias organizaciones** no es representable hoy: `organizacion_id`
   es una columna. El camino está escrito (tabla puente que la sustituya), y nadie lo pide aún.
-- **Cuatro tablas de identidad sin unificar** (`SuperAdminAccount`, `AdminAccount`,
-  `ClientAccount`, `HubUser`). Merece bloque propio con inventario delante; es la parte con riesgo
-  real.
+- **Tres tablas de identidad sin unificar** (`SuperAdminAccount`, `AdminAccount`, `HubUser`); la
+  cuarta, `ClientAccount`, no la usaba nadie y se retiró en #249. Merece bloque propio con
+  inventario delante; es la parte con riesgo real.
 
 ---
 
