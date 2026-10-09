@@ -25,6 +25,7 @@ class StorageService(Protocol):
     async def put(self, key: str, data: bytes) -> None: ...
     async def get(self, key: str) -> bytes: ...
     async def delete(self, key: str) -> None: ...
+    async def delete_prefix(self, prefix: str) -> None: ...
     async def exists(self, key: str) -> bool: ...
 
 
@@ -102,6 +103,15 @@ class FsspecStorageService:
     async def delete(self, key: str) -> None:
         path = self._full_path(key)
         await asyncio.to_thread(self._fs.rm, path)
+
+    async def delete_prefix(self, prefix: str) -> None:
+        """Borra todo lo que cuelga de `prefix`, y nada si no hay nada (#251)."""
+        path = self._full_path(prefix.rstrip("/"))
+        await asyncio.to_thread(self._sync_delete_prefix, path)
+
+    def _sync_delete_prefix(self, path: str) -> None:
+        if self._fs.exists(path):
+            self._fs.rm(path, recursive=True)
 
     async def exists(self, key: str) -> bool:
         path = self._full_path(key)

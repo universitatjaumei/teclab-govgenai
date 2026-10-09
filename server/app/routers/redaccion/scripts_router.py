@@ -212,8 +212,10 @@ class AnonymizeTestDataRequest(BaseModel):
 
 
 class AnonymizeTestDataResponse(BaseModel):
+    """Sin el mapa ficticio→real (#251): es la llave que deshace la anonimización y no lo usa
+    nadie —el reintento del administrador trabaja sobre el sintético—."""
+
     synthetic_ref: StorageRef
-    anonymization_map: dict[str, str] = Field(default_factory=dict)
 
 
 class TestProposalRequest(BaseModel):
@@ -444,8 +446,13 @@ async def anonymize_test_data(
     user: UserInfo = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
     anonymizer: TestDataAnonymizerService = Depends(get_test_data_anonymizer),
+    storage: StorageService = Depends(get_storage_service),
 ) -> AnonymizeTestDataResponse:
-    """Aplica sustituciones tabulares u overrides de PDF y persiste el sintético."""
+    """Aplica sustituciones tabulares u overrides de PDF y persiste el sintético.
+
+    #251 — y borra lo subido: desde aquí todo usa el sintético, y el original es justo el dato
+    que se quería no tener.
+    """
     proposal = await _load_proposal(proposal_id, session)
     if proposal.proposer_user_id != _user_to_uuid(user.user_id):
         raise HTTPException(status_code=403, detail="Not the proposer of this proposal")
@@ -455,26 +462,30 @@ async def anonymize_test_data(
             body.file_ref, body.substitutions or []
         )
         synthetic_ref = result.synthetic_ref
-        amap = result.anonymization_map
     elif body.kind == "pdf_text":
         result_pdf: AnonymizedPdfResult = await anonymizer.anonymize_pdf_to_text(
             body.file_ref, body.span_overrides
         )
         synthetic_ref = result_pdf.synthetic_ref
-        amap = result_pdf.anonymization_map
     else:
         raise HTTPException(status_code=422, detail="Unsupported kind")
 
     proposal.test_data_ref = synthetic_ref.model_dump()
     proposal.test_data_kind = body.kind
     proposal.test_data_is_anonymized = True
-    proposal.test_data_anonymization_map = {"map": amap}
     await session.commit()
+    await _borrar_lo_subido(storage, proposal_id)
 
-    return AnonymizeTestDataResponse(
-        synthetic_ref=synthetic_ref,
-        anonymization_map=amap,
-    )
+    return AnonymizeTestDataResponse(synthetic_ref=synthetic_ref)
+
+
+async def _borrar_lo_subido(storage: StorageService, proposal_id: uuid.UUID) -> None:
+    """Todo lo que se subió para esta propuesta, también las subidas que se repitieron (#251).
+
+    Se llama **después** del commit: si el borrado fallara antes, la propuesta se quedaría
+    apuntando a un fichero que ya no existe. El sintético vive fuera de esta carpeta y se queda.
+    """
+    await storage.delete_prefix(f"test-data/uploads/{proposal_id}/")
 
 
 # ---------------------------------------------------------------------------
@@ -899,6 +910,7 @@ async def save_to_private_template(
     body: DeclaracionResponsable | None = None,
     user: UserInfo = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
+    storage: StorageService = Depends(get_storage_service),
 ) -> SaveToPrivateTemplateResponse:
     """Registra el script en el catálogo y lo referencia desde una plantilla del proposer.
 
@@ -956,6 +968,8 @@ async def save_to_private_template(
     template_id = template.id
     new_version_id = new_version.id
     await session.commit()
+    # #251 — quien probó con datos reales los deja aquí: la propuesta ya no los necesita.
+    await _borrar_lo_subido(storage, proposal_id)
 
     return SaveToPrivateTemplateResponse(
         proposal_id=proposal_id,
@@ -1112,6 +1126,7 @@ async def approve_script_proposal(
     body: ApproveRequest,
     user: UserInfo = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
+    storage: StorageService = Depends(get_storage_service),
 ) -> ApproveResponse:
     """El admin aprueba la propuesta e incrusta el script en la plantilla global."""
     _require_admin(user)
@@ -1161,6 +1176,7 @@ async def approve_script_proposal(
     template_id = template.id
     new_version_id = new_version.id
     await session.commit()
+    await _borrar_lo_subido(storage, proposal_id)
 
     return ApproveResponse(
         proposal_id=proposal_id,
@@ -1183,6 +1199,7 @@ async def reject_script_proposal(
     body: RejectRequest,
     user: UserInfo = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
+    storage: StorageService = Depends(get_storage_service),
 ) -> RejectResponse:
     """El admin rechaza la propuesta y registra la nota de revisión."""
     _require_admin(user)
@@ -1199,6 +1216,7 @@ async def reject_script_proposal(
     proposal.reviewer_user_id = _user_to_uuid(user.user_id)
     proposal.reviewed_at = datetime.now(timezone.utc)
     await session.commit()
+    await _borrar_lo_subido(storage, proposal_id)
 
     return RejectResponse(
         proposal_id=proposal_id,

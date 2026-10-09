@@ -554,7 +554,6 @@ describe('ScriptProposalWizardPage', () => {
       mutate: vi.fn(),
       data: {
         synthetic_ref: { bucket: 'test-data', key: 'sintetico.xlsx' },
-        anonymization_map: {},
       },
       isPending: false,
       isSuccess: true,

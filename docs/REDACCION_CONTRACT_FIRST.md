@@ -303,8 +303,10 @@ Migrado de `client_app/app/modules/privacy/` (1011 LOC). Adaptaciones duras:
 - **Async**: las operaciones de I/O son `async`; la detección/sustitución
   CPU-bound sigue síncrona.
 - **Sin `EncryptionService`**: el determinismo se obtiene por instancia
-  (`FakerGenerator(seed=...)`). La persistencia cifrada del mapa es TODO
-  post-MVP (`save_state` / `load_state` son no-op explícitos).
+  (`FakerGenerator(seed=...)`). El mapa ficticio→real **no se persiste**
+  (`save_state` / `load_state` son no-op explícitos): en el flujo de scripts todo
+  trabaja sobre el sintético, y desde #251 ni se guarda en la propuesta ni se
+  devuelve; lo subido se borra al anonimizar y al cerrar la propuesta.
 - **Sin `enterprise_audit_service`**: la auditoría la delega el llamador a
   `hub_workspace_audit_events` (existente desde 9R.8.1).
 - **Fallback explícito sin spaCy**: si el modelo no carga, degrada a
