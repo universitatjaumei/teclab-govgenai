@@ -126,3 +126,57 @@ async def test_borrar_la_organizacion_se_lleva_el_corpus_de_sus_chatbots(sesion,
     # Y la otra organización, intacta.
     assert await _cuenta(sesion, HubDocument, b["bots"]) == 2
     assert await _cuenta(sesion, HubDocumentChunk, b["bots"]) == 4
+
+
+# ---------------------------------------------------------------------------
+# Lo demás no se purga: se bloquea (decisión del usuario, 2026-10-10)
+# ---------------------------------------------------------------------------
+#
+# Una organización tiene, sin clave foránea, mucho más que corpus: sitios, informes, plantillas,
+# funciones y sus artefactos, agentes de unidad, pares léxicos. Borrarlo todo en cascada es
+# irreversible y alcanza ficheros del almacenamiento, y para retirar una organización con actividad
+# ya está desactivarla. Así que mientras le quede algo de eso, borrarla es un 409 que dice qué.
+# El registro de actividad y los manifiestos no bloquean: son traza de lo que pasó, como las
+# interacciones.
+
+
+@pytest.mark.asyncio
+async def test_una_organizacion_con_un_sitio_no_se_borra_y_se_dice_por_que(sesion, dos):
+    from server.app.modules.agents_hub.database.config_models import HubOrganizacion
+    from server.app.modules.agents_hub.database.operational_models import HubDocument
+    from server.app.modules.curation.site_repo import WebSiteRepo
+
+    a, _ = dos
+    await WebSiteRepo(sesion).create(
+        organizacion_id=a["org"], name="Sitio", root_url=f"https://s{a['org'].hex[:6]}.es/"
+    )
+    await sesion.commit()
+
+    async with _cliente(sesion) as c:
+        r = await c.delete(f"/api/v1/hub/organizaciones/{a['org']}")
+
+    assert r.status_code == 409, r.text
+    detalle = r.json()["detail"]
+    assert detalle["code"] == "ORGANIZACION_CON_DATOS"
+    assert detalle["pendiente"] == {"sitios": 1}
+    # No se ha tocado nada: ni la organización ni el corpus de sus chatbots.
+    assert await sesion.get(HubOrganizacion, a["org"]) is not None
+    assert await _cuenta(sesion, HubDocument, a["bots"]) == 2
+
+
+def test_la_traza_no_bloquea():
+    """Qué cuenta como «datos que quedan» está escrito en un sitio, y la traza no está."""
+    from server.app.routers.hub_organizaciones_router import LO_QUE_BLOQUEA_EL_BORRADO
+
+    tablas = {modelo.__tablename__ for _, modelo in LO_QUE_BLOQUEA_EL_BORRADO}
+    assert tablas == {
+        "hub_web_sites",
+        "hub_workspaces",
+        "hub_report_templates",
+        "hub_funciones",
+        "hub_funcion_artefactos",
+        "hub_agentes_unidad",
+        "hub_lexicon_pairs",
+    }
+    assert "hub_actividad_ia" not in tablas
+    assert "hub_manifiestos_externos" not in tablas

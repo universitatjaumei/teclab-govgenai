@@ -14,6 +14,18 @@ import {
 } from '@/shared/api/generated/hub-organizaciones/hub-organizaciones'
 import type { OrganizacionRead } from '@/shared/api/generated/model'
 
+/**
+ * #252 — el servidor no borra una organización que todavía tiene datos: responde 409 con
+ * `detail.pendiente`, cuánto le queda de cada cosa. Las claves las decide el servidor; aquí sólo
+ * se traducen.
+ */
+function pendienteDelFallo(fallo: unknown): Record<string, number> | null {
+  const detalle = (fallo as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
+  if (!detalle || typeof detalle !== 'object' || !('pendiente' in detalle)) return null
+  const pendiente = (detalle as { pendiente?: unknown }).pendiente
+  return pendiente && typeof pendiente === 'object' ? (pendiente as Record<string, number>) : null
+}
+
 const schema = z.object({
   name: z.string().min(1),
   partner_id: z.string().min(1),
@@ -29,6 +41,7 @@ export function OrganizacionesPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<OrganizacionRead | null>(null)
   const [deleteError, setDeleteError] = useState('')
+  const [deletePendiente, setDeletePendiente] = useState<Record<string, number> | null>(null)
   const [filter, setFilter] = useState('')
 
   const listQueryKey = getListOrganizacionesApiV1HubOrganizacionesGetQueryKey()
@@ -60,8 +73,13 @@ export function OrganizacionesPage() {
         invalidateList()
         setDeleteTarget(null)
         setDeleteError('')
+        setDeletePendiente(null)
       },
-      onError: (err: Error) => setDeleteError(err.message),
+      onError: (err: Error) => {
+        const pendiente = pendienteDelFallo(err)
+        setDeletePendiente(pendiente)
+        setDeleteError(pendiente ? t('hub.delete_organizacion_con_datos') : err.message)
+      },
     },
   })
 
@@ -262,10 +280,17 @@ export function OrganizacionesPage() {
             <p className="text-sm">{t('hub.delete_organizacion_confirm')}</p>
             <p className="font-medium">{deleteTarget.name}</p>
             {deleteError && <p className="text-destructive text-xs">{deleteError}</p>}
+            {deletePendiente && (
+              <ul className="text-destructive text-xs list-disc pl-5">
+                {Object.entries(deletePendiente).map(([clave, cuantos]) => (
+                  <li key={clave}>{t(`hub.organizacion_pendiente_${clave}`, { count: cuantos })}</li>
+                ))}
+              </ul>
+            )}
             <div className="flex gap-2 justify-end">
               <button
                 type="button"
-                onClick={() => { setDeleteTarget(null); setDeleteError('') }}
+                onClick={() => { setDeleteTarget(null); setDeleteError(''); setDeletePendiente(null) }}
                 className="px-3 py-2 border rounded-md text-sm"
               >
                 {tc('cancel')}

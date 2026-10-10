@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest'
-import { render, screen, waitFor, act, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, act, fireEvent, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import i18n from '@/shared/i18n'
@@ -142,5 +142,40 @@ describe('OrganizacionesPage', () => {
       expect(screen.getByText('Universitat Jaume I')).toBeDefined()
       expect(screen.queryByText('Ajuntament de Castelló')).toBeNull()
     })
+  })
+
+  it('should_explain_what_the_organizacion_still_has_when_delete_is_blocked', async () => {
+    // #252 — el servidor no borra una organización que todavía tiene datos: responde 409 con lo
+    // que le queda, y la pantalla lo tiene que decir en vez de «Request failed with status code».
+    const fallo = Object.assign(new Error('Request failed with status code 409'), {
+      response: {
+        data: {
+          detail: {
+            code: 'ORGANIZACION_CON_DATOS',
+            message: 'La organización todavía tiene datos; desactívala en vez de borrarla.',
+            pendiente: { sitios: 1, informes: 12 },
+          },
+        },
+      },
+    })
+    vi.mocked(useDeleteOrganizacionApiV1HubOrganizacionesOrganizacionIdDelete).mockImplementation(
+      ((opciones: { mutation: { onError: (e: Error) => void } }) =>
+        mutationDouble(vi.fn(() => opciones.mutation.onError(fallo)))) as any,
+    )
+    renderPage(SAMPLE_CLIENTS)
+    await waitFor(() => screen.getByText('Universitat Jaume I'))
+
+    await act(async () => {
+      screen.getAllByRole('button', { name: /^eliminar$/i })[0].click()
+    })
+    const dialogo = screen.getByRole('dialog')
+    await act(async () => {
+      within(dialogo).getByRole('button', { name: /^eliminar$/i }).click()
+    })
+
+    expect(within(dialogo).getByText(/todavía tiene datos/i)).toBeDefined()
+    expect(within(dialogo).getByText('1 sitio de curación')).toBeDefined()
+    expect(within(dialogo).getByText('12 informes')).toBeDefined()
+    expect(within(dialogo).queryByText(/status code/i)).toBeNull()
   })
 })
