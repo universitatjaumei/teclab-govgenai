@@ -441,6 +441,22 @@ async def _arranque(app: FastAPI):
 
     temporales_task = asyncio.create_task(bucle_de_temporales(AsyncSessionLocal))
 
+    # #258 — lo que un borrado de ficheros no pudo borrar después de su commit: fuentes de
+    # ingesta de chatbots que ya no existen y subidas de propuestas de script cerradas.
+    from server.app.core.periodico import cada
+    from server.app.modules.agents_hub.services.corpus_purge import barrer_fuentes_huerfanas
+    from server.app.modules.redaccion.services.subidas_huerfanas import barrer_subidas_huerfanas
+
+    async def _barrer_huerfanos() -> None:
+        almacen = get_storage_service()
+        async with AsyncSessionLocal() as sesion:
+            await barrer_fuentes_huerfanas(sesion, almacen)
+            await barrer_subidas_huerfanas(sesion, almacen)
+
+    huerfanos_task = asyncio.create_task(
+        cada(_barrer_huerfanos, descripcion="El barrido de ficheros huérfanos")
+    )
+
     # Content quality scheduler (9Q.5) — Deploy: edge
     quality_scheduler = _start_quality_scheduler()
 
@@ -449,6 +465,7 @@ async def _arranque(app: FastAPI):
     refresh_task.cancel()
     caducados_task.cancel()
     temporales_task.cancel()
+    huerfanos_task.cancel()
     if quality_scheduler is not None:
         quality_scheduler.shutdown(wait=False)
 

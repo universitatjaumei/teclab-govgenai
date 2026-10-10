@@ -48,7 +48,9 @@ def _tabla_de(nombre: str, df: pd.DataFrame) -> dict:
     return {
         "name": nombre,
         "headers": [str(c) for c in df.columns],
-        "rows": df.astype(str).values.tolist(),
+        # Lo vacío, como texto vacío. Con pandas 2 `astype(str)` lo convertía en «nan», que
+        # salía tal cual en la tabla; con pandas 3 sigue siendo `NaN`, que JSONB no admite.
+        "rows": df.astype(str).where(df.notna(), "").values.tolist(),
         "source_page": None,
     }
 

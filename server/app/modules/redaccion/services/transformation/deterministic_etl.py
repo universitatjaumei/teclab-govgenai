@@ -212,8 +212,10 @@ class DeterministicETLService:
     @staticmethod
     def _merge_columns(df: pd.DataFrame, op: MergeColumnsOp) -> pd.DataFrame:
         _exigir_columnas(df, op.source_columns, "merge_columns")
+        # Lo vacío se queda fuera. Con pandas 2 `astype(str)` lo convertía en «None» o «nan» y
+        # acababa dentro de la referencia; con pandas 3 sigue siendo nulo y el `join` fallaba.
         valores = df[op.source_columns].apply(
-            lambda fila: op.separator.join(fila.astype(str)), axis=1
+            lambda fila: op.separator.join(str(v) for v in fila if pd.notna(v)), axis=1
         )
         if not op.drop_source:
             salida = df.copy()
@@ -262,7 +264,8 @@ class DeterministicETLService:
             elif op.mode == "strip":
                 salida[col] = texto.str.strip()
             elif op.mode == "snake_case":
-                salida[col] = texto.map(_a_snake_case)
+                # Con pandas 3 lo vacío sigue siendo nulo tras `astype(str)`, y no es texto.
+                salida[col] = texto.map(_a_snake_case, na_action="ignore")
         return salida
 
     # ------------------------------------------------------------------
@@ -281,11 +284,15 @@ class DeterministicETLService:
         for col in op.columns:
             if pd.api.types.is_numeric_dtype(salida[col]):
                 continue
+            # Con pandas 3 lo vacío sigue siendo nulo tras `astype(str)`: no es texto que
+            # limpiar ni cuenta como un valor que se intentó convertir.
             texto = salida[col].astype(str)
-            _exigir_separadores_coherentes(texto, col, op)
-            tenia_valor = texto.str.strip().str.lower().isin(["", "nan", "none", "<na>"]).eq(False)
+            _exigir_separadores_coherentes(texto.dropna(), col, op)
+            tenia_valor = salida[col].notna() & ~texto.str.strip().str.lower().isin(
+                ["", "nan", "none", "<na>"]
+            )
             convertida = pd.to_numeric(
-                texto.map(lambda v: _limpiar_numero(v, op)), errors="coerce"
+                texto.map(lambda v: _limpiar_numero(v, op), na_action="ignore"), errors="coerce"
             )
             if tenia_valor.any() and convertida.notna().sum() == 0:
                 raise TransformacionImposibleError(

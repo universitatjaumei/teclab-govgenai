@@ -69,6 +69,19 @@ class TestColumnas:
         assert salida["referencia"].iloc[1] == "A-2 - LUIS"
         assert "Codigo " not in salida.columns
 
+    def test_should_dejar_fuera_de_la_fusion_lo_que_esta_vacio(self, sucio: pd.DataFrame) -> None:
+        """Una celda vacía no aporta nada a la referencia. Con pandas 2 `astype(str)` la convertía
+        en el texto «None» o «nan» y acababa dentro —«A-3 - None»—; con pandas 3 sigue siendo
+        nula y el `join` fallaba (2026-10-10, al subir a pandas 3)."""
+        salida = _aplicar(sucio, {
+            "op": "merge_columns",
+            "source_columns": ["Codigo ", "Nombre"],
+            "target_column": "referencia",
+            "separator": " - ",
+        })
+
+        assert salida["referencia"].iloc[3] == "A-3"
+
     def test_should_conservar_las_de_origen_si_se_pide(self, sucio: pd.DataFrame) -> None:
         salida = _aplicar(sucio, {
             "op": "merge_columns",
