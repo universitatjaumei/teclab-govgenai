@@ -113,14 +113,27 @@ class TestDataAnonymizerService:
         substitutions: list[ColumnSubstitution],
         output_bucket: str | None = None,
     ) -> AnonymizedTabularResult:
-        """Aplica sustituciones por columna fila a fila."""
+        """Aplica sustituciones por columna fila a fila.
+
+        #255 — **una columna que no llega en `substitutions` se trata con lo que el propio servidor
+        propone al describirla**. Antes se dejaba como estaba, y el asistente no mandaba ninguna:
+        el «sintético» era una copia del original marcada como anonimizada. Lo que el cliente
+        manda manda, y `keep` es como se dice que una columna no es dato personal.
+        """
         data = await self._storage.get(file_ref.key)
         suffix = _suffix_from_key(file_ref.key)
         df = _read_dataframe(data, suffix)
 
+        indicadas = {sub.column_name for sub in substitutions}
+        propuestas = [
+            ColumnSubstitution(column_name=str(col.name), faker_provider=col.inferred_faker_provider)
+            for col in PiiDetector().scan_dataframe(df)
+            if str(col.name) not in indicadas
+        ]
+
         fakes = FakerGenerator()
         applied: list[str] = []
-        for sub in substitutions:
+        for sub in [*substitutions, *propuestas]:
             if sub.column_name not in df.columns:
                 continue
             if sub.faker_provider == "keep":

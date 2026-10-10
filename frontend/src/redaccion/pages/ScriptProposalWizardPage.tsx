@@ -13,6 +13,7 @@ import {
 import { useCategoriasDeDatos } from '@/shared/api/generated/actividad/actividad'
 import type {
   AnonymizeTestDataResponse,
+  ColumnSubstitution,
   DescribeColumnsResponse,
   ProposeResponse,
   StorageRef,
@@ -21,7 +22,7 @@ import type {
 } from '@/shared/api/generated/model'
 import { ScriptCodePreview } from '../components/ScriptCodePreview'
 import { ModelAuditVerdict } from '../components/ModelAuditVerdict'
-import { TestDataAnonymizerForm } from '../components/TestDataAnonymizerForm'
+import { TestDataAnonymizerForm, sustitutoDe } from '../components/TestDataAnonymizerForm'
 import { SandboxTestResultViewer } from '../components/SandboxTestResultViewer'
 
 type TargetOwnerKind = 'user' | 'platform'
@@ -66,6 +67,9 @@ export function ScriptProposalWizardPage() {
   // mandaban `{bucket:'', key:''}` y el script se ejecutaba sin fichero.
   const [testDataKind, setTestDataKind] = useState<TestDataKind | null>(null)
   const [pdfElegido, setPdfElegido] = useState<File | null>(null)
+  // #255 — lo que la persona cambia en el paso 4; el resto de columnas sigue la propuesta del
+  // servidor, y al anonimizar se mandan todas, que es lo que la pantalla enseña.
+  const [sustituciones, setSustituciones] = useState<ColumnSubstitution[]>([])
   // La declaración responsable (Instrucció 02/2026 §8.2). Vive aquí y no en la propuesta porque
   // declarar es el acto de compartir: mientras el script es una propuesta sigue en el nivel 1,
   // que es libre y no se declara. Sin esto, `save-to-private-template` respondía **422
@@ -163,6 +167,7 @@ export function ScriptProposalWizardPage() {
     if (!fichero || !activeProposalId) return
     const kind = tipoDeFichero(fichero.name)
     setTestDataKind(kind)
+    setSustituciones([])
 
     if (kind === 'pdf_text') {
       setPdfElegido(fichero)
@@ -317,7 +322,11 @@ export function ScriptProposalWizardPage() {
       {/* Step 4: Anonymize */}
       {step === 4 && (
         <div className="space-y-4">
-          <TestDataAnonymizerForm columns={[]} onChange={() => {}} />
+          <TestDataAnonymizerForm
+            columns={subida?.columns ?? []}
+            value={sustituciones}
+            onChange={setSustituciones}
+          />
           <div className="flex gap-2">
             <button
               type="button"
@@ -336,7 +345,18 @@ export function ScriptProposalWizardPage() {
                 if (activeProposalId && refOriginal && testDataKind) {
                   anonymizeHook.mutate({
                     proposalId: activeProposalId,
-                    data: { file_ref: refOriginal, kind: testDataKind },
+                    data: {
+                      file_ref: refOriginal,
+                      kind: testDataKind,
+                      ...(subida?.columns?.length
+                        ? {
+                            substitutions: subida.columns.map(c => ({
+                              column_name: c.name,
+                              faker_provider: sustitutoDe(c, sustituciones) as ColumnSubstitution['faker_provider'],
+                            })),
+                          }
+                        : {}),
+                    },
                   })
                 }
                 setStep(5)

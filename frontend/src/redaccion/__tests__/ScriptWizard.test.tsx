@@ -575,6 +575,51 @@ describe('ScriptProposalWizardPage', () => {
     expect(enviado.data.use_real_data).toBe(false)
   })
 
+  it('should_enviar_al_anonimizar_lo_que_propuso_el_servidor_y_lo_que_cambio_la_persona', () => {
+    // #255 — el paso 4 pintaba el formulario sin columnas y anonimizaba sin sustituciones: con
+    // Excel y CSV no se cambiaba nada y la propuesta quedaba como anonimizada. Ahora el
+    // formulario parte de lo que el servidor propuso al describir el fichero, y se manda.
+    _proposalListo()
+    _mockDescribe(vi.fn(), {
+      file_ref: { bucket: 'test-data', key: 'test-data/uploads/p1/f.xlsx' },
+      columns: [
+        { name: 'IBAN', inferred_faker_provider: 'iban' },
+        { name: 'Nombre', inferred_faker_provider: 'first_name' },
+      ],
+    })
+    const anonimizar = vi.fn()
+    vi.mocked(useAnonymizeTestData).mockReturnValue({
+      mutate: anonimizar,
+      data: undefined,
+      isPending: false,
+      isSuccess: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useAnonymizeTestData>)
+
+    wrap(<ScriptProposalWizardPage />)
+    fireEvent.click(screen.getByTestId('btn-next-step-2'))
+    fireEvent.change(screen.getByTestId('input-test-data-file'), {
+      target: { files: [new File(['x'], 'ejecucion.xlsx')] },
+    })
+    fireEvent.click(screen.getByTestId('btn-next-step-3'))
+
+    // Cada columna, con el sustituto que propuso el servidor ya elegido.
+    const iban = screen.getByTestId('sustituto-IBAN') as HTMLSelectElement
+    const nombre = screen.getByTestId('sustituto-Nombre') as HTMLSelectElement
+    expect(iban.value).toBe('iban')
+    expect(nombre.value).toBe('first_name')
+
+    // La persona decide que el nombre no hace falta cambiarlo.
+    fireEvent.change(nombre, { target: { value: 'keep' } })
+    fireEvent.click(screen.getByTestId('btn-next-step-4'))
+
+    expect(anonimizar).toHaveBeenCalledTimes(1)
+    expect(anonimizar.mock.calls[0][0].data.substitutions).toEqual([
+      { column_name: 'IBAN', faker_provider: 'iban' },
+      { column_name: 'Nombre', faker_provider: 'keep' },
+    ])
+  })
+
   it('should_block_save_button_until_test_validated', () => {
     vi.mocked(useProposeScript).mockReturnValue({
       mutate: mockProposeScript,
