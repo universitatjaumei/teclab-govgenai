@@ -8,6 +8,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
@@ -67,6 +68,8 @@ from server.app.modules.redaccion.services.test_data_anonymizer import (
     TestDataAnonymizerService,
 )
 
+
+_log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/redaccion/scripts", tags=["redaccion-scripts"],
     # INF.7 — el modulo se exige a nivel de router: asi no se puede olvidar en un
@@ -504,7 +507,16 @@ async def _borrar_lo_subido(storage: StorageService, proposal_id: uuid.UUID) -> 
     Se llama **después** del commit: si el borrado fallara antes, la propuesta se quedaría
     apuntando a un fichero que ya no existe. El sintético vive fuera de esta carpeta y se queda.
     """
-    await storage.delete_prefix(f"test-data/uploads/{proposal_id}/")
+    try:
+        await storage.delete_prefix(f"test-data/uploads/{proposal_id}/")
+    except Exception:  # noqa: BLE001 — se registra; `barrer_subidas_huerfanas` lo recoge
+        # #258 — la operación ya está hecha: un 500 diría lo contrario, y en anonimizar el
+        # asistente se quedaría sin el sintético y probaría con el original.
+        _log.warning(
+            "No se pudo borrar lo subido para la propuesta %s; lo recogerá el barrido",
+            proposal_id,
+            exc_info=True,
+        )
 
 
 # ---------------------------------------------------------------------------
