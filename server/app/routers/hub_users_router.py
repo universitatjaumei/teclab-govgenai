@@ -491,7 +491,7 @@ async def list_users(
     enseñan: no son de ninguna organización, así que colarlas en un listado acotado sería
     filtrarle las cuentas de la plataforma por la puerta de atrás.
 
-    Siguen sin listarse `AdminAccount` y `ClientAccount`, que tampoco están unificadas. La
+    Sigue sin listarse `AdminAccount`, que tampoco está unificada. La
     pantalla lo dice, para que nadie lea el listado como «todas las cuentas».
     """
     consulta = scope_query_to_orgs(select(HubUser), user, HubUser).order_by(HubUser.email)

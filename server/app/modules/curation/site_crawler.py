@@ -12,7 +12,7 @@ import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Protocol
+from typing import Any, Awaitable, Callable, Protocol
 
 from server.app.modules.agents_hub.services.language_detector import detect_language
 from server.app.modules.agents_hub.database.operational_models import HubWebSite
@@ -81,6 +81,20 @@ class _AmbitoDesconocido(RuntimeError):
     """Se ha pedido rastrear una sección que no existe, o que no es de este sitio."""
 
 
+def _lo_que_queda_pendiente(prev: Any, prev_hash: str | None, content_hash: str) -> str | None:
+    """Qué tendrá que hacer el job con esta página, o `None` si esta pasada no cambia nada.
+
+    Una página nueva que cambia antes de procesarse **sigue siendo nueva**: como «cambiada», el job
+    la buscaría en el corpus, no la encontraría y la daría por hecha, y la auto-ingesta de lo nuevo
+    no la vería nunca.
+    """
+    if prev is None:
+        return "nueva"
+    if prev_hash != content_hash:
+        return "nueva" if getattr(prev, "pendiente", None) == "nueva" else "cambiada"
+    return None
+
+
 @dataclass
 class _FuenteDelAmbito:
     """El sitio tal y como lo ve el spider en esta pasada (DIN.2).
@@ -145,11 +159,20 @@ class SiteCrawler:
         spider: _Spider,
         signal_extractor: _SignalExtractor,
         page_repo: _PageRepo,
+        confirmar: Callable[[], Awaitable[None]] | None = None,
     ) -> None:
         self._session = session
         self._spider = spider
         self._signals = signal_extractor
         self._pages = page_repo
+        # #247 — confirmar cada página al guardarla. La transacción no es del rastreador sino de
+        # quien le da la sesión, así que se la pasa quien la abre (el despachador); sin ella, el
+        # rastreo entero sigue siendo una sola transacción, que es lo que usan los tests unitarios.
+        self._confirmar = confirmar
+
+    async def _confirmar_lo_guardado(self) -> None:
+        if self._confirmar is not None:
+            await self._confirmar()
 
     async def crawl_site(
         self, site_id: uuid.UUID, section_id: uuid.UUID | None = None
@@ -236,6 +259,7 @@ class SiteCrawler:
                     error_attempts=getattr(exc, "intentos", 1),
                     last_crawled_at=now,
                 )
+                await self._confirmar_lo_guardado()
                 summary.pages_error += 1
                 continue
 
@@ -244,6 +268,7 @@ class SiteCrawler:
             # Capturar el hash previo ANTES del upsert: el repo puede devolver el
             # mismo objeto identity-mapped y mutarlo, invalidando la comparación.
             prev_hash = prev.content_hash if prev is not None else None
+            pendiente = _lo_que_queda_pendiente(prev, prev_hash, content_hash)
 
             try:
                 upserted = await self._pages.upsert(
@@ -255,7 +280,9 @@ class SiteCrawler:
                     sitemap_lastmod=sitemap_map.get(url),
                     **self._page_fields(url, body, headers, fuente),
                     content_hash=content_hash,
+                    **({"pendiente": pendiente} if pendiente else {}),
                 )
+                await self._confirmar_lo_guardado()
             except Exception as exc:  # noqa: BLE001
                 # Guardar una página tampoco puede tumbar el rastreo. Ocurrió en el rastreo real:
                 # un PDF servido como si fuera página trajo bytes nulos, Postgres rechazó la fila
@@ -292,12 +319,14 @@ class SiteCrawler:
                 error_attempts=fallo.get("attempts", 1),
                 last_crawled_at=now,
             )
+            await self._confirmar_lo_guardado()
             summary.pages_error += 1
 
         # 2.ter. La plantilla que ningún selector declara, reconocida por repetición (CUR.3): una
         # línea que sale igual en casi todas las páginas del sitio es menú, no contenido. Se hace
         # aquí, con todas las páginas leídas, porque es lo único que permite verlo.
         await self._quitar_la_plantilla_repetida(fuente, summary)
+        await self._confirmar_lo_guardado()
 
         # 3. Diff de sitemap: bajas (páginas activas que ya no aparecen).
         #
@@ -310,6 +339,11 @@ class SiteCrawler:
             if gone_ids:
                 summary.pages_gone = await self._pages.mark_gone(gone_ids)
                 summary.gone_page_ids = gone_ids
+
+        # 3.bis. Lo que sigue pendiente de una pasada anterior (#247): el job no llegó a
+        # procesarlo —un reinicio, o una puerta de calidad que lo detuvo— y esta pasada ya no lo ve
+        # cambiar. Se entrega igual, porque la marca sólo la quita el job.
+        self._entregar_lo_pendiente(existing_pages, summary)
 
         # 4. Cierre del ámbito, guardando la cola si quedó algo por ver (RAS.3).
         site.status = "active"
@@ -330,6 +364,18 @@ class SiteCrawler:
         await self._session.flush()
 
         return summary
+
+    @staticmethod
+    def _entregar_lo_pendiente(paginas: list, summary: SiteCrawlSummary) -> None:
+        bajas = set(summary.gone_page_ids)
+        for pagina in paginas:
+            if getattr(pagina, "status", None) != "active" or pagina.id in bajas:
+                continue
+            pendiente = getattr(pagina, "pendiente", None)
+            if pendiente == "nueva" and pagina.id not in summary.new_page_ids:
+                summary.new_page_ids.append(pagina.id)
+            elif pendiente == "cambiada" and pagina.id not in summary.changed_page_ids:
+                summary.changed_page_ids.append(pagina.id)
 
     async def _ambito(
         self, site: HubWebSite, section_id: uuid.UUID | None

@@ -103,6 +103,9 @@ class _AlmacenDePrueba:
     async def get(self, key: str) -> bytes:
         return b"contenido de prueba"
 
+    async def delete_prefix(self, prefix: str) -> None:
+        """#251 — cerrar la propuesta borra lo subido; aquí no hay nada subido que borrar."""
+
 
 async def test_ciclo_completo_propuesta_hasta_aprobada_en_bd_real(db_url):
     """SuperAdmin de desarrollo (user_id no-UUID) propone, prueba y un admin aprueba."""
@@ -164,6 +167,7 @@ async def test_ciclo_completo_propuesta_hasta_aprobada_en_bd_real(db_url):
                 body=_ApproveRequest(target_global_template_id=template_id),
                 user=admin,
                 session=session,
+                storage=almacen,
             )
             assert approve_out.proposal_id == proposal_id
             assert approve_out.template_id == template_id
@@ -189,6 +193,7 @@ async def test_reject_devuelve_el_proposal_id_correcto_en_bd_real(db_url):
                 body=_RejectRequest(review_note="No cumple el formato esperado"),
                 user=admin,
                 session=session,
+                storage=_AlmacenDePrueba(),
             )
 
             assert reject_out.proposal_id == proposal_id

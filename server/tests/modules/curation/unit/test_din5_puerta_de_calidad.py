@@ -42,6 +42,7 @@ class _Pagina:
     title: str | None = "Título"
     superseded: bool = False
     quality_score: float | None = None
+    pendiente: str | None = None
 
 
 @dataclass
@@ -205,6 +206,11 @@ class _Sesion:
         return _R()
 
     async def flush(self) -> None:
+        return None
+
+    # #247 — el job confirma a mitad de pasada (la nota antes de reingerir, cada página al
+    # procesarla), no sólo al final.
+    async def commit(self) -> None:
         return None
 
 
@@ -543,3 +549,86 @@ class TestLosTiposExistenDeVerdad:
         from server.app.modules.curation.contracts import FindingType
 
         assert "auto_ingesta_detenida" in FindingType.__args__
+
+
+# ──────────────────────────── #247: la marca de pendiente ────────────────────────────
+
+
+class TestLaMarcaDePendienteSoloLaQuitaLoProcesado:
+    """El rastreo deja en la página lo que el job tiene que hacer con ella; el job la quita sólo
+    cuando lo ha hecho. Lo que una puerta detiene **sigue pendiente**: así la pasada siguiente lo
+    vuelve a recibir, que es lo que el docstring de DIN.5 prometía y el rastreo no cumplía —una
+    página dejaba de ser «nueva» en la pasada siguiente y la auto-ingesta no la veía nunca—."""
+
+    @pytest.mark.asyncio
+    async def test_should_clear_a_new_page_once_ingested(self):
+        sitio = _Sitio()
+        nueva = _Pagina(url="https://www.uji.es/jornadas/nueva", pendiente="nueva")
+
+        await _job(
+            sesion=_Sesion(sitio, [nueva]),
+            resumen=_ResumenDeRastreo(new_page_ids=[nueva.id], pages_new=1),
+            hallazgos_del_detector=[],
+            selecciones=[_Seleccion(chatbot_id=uuid.uuid4(), site_id=sitio.id)],
+            watcher=_Watcher(),
+            repo_de_hallazgos=_RepoDeHallazgos(),
+        ).run_for_site(sitio.id)
+
+        assert nueva.pendiente is None
+
+    @pytest.mark.asyncio
+    async def test_should_keep_a_new_page_pending_when_the_gate_stops_it(self):
+        sitio = _Sitio()
+        nueva = _Pagina(url="https://www.uji.es/jornadas/nueva", pendiente="nueva")
+
+        await _job(
+            sesion=_Sesion(sitio, [nueva]),
+            resumen=_ResumenDeRastreo(new_page_ids=[nueva.id], pages_new=1),
+            hallazgos_del_detector=[_Hallazgo(finding_type="empty", page_id=nueva.id)],
+            selecciones=[_Seleccion(chatbot_id=uuid.uuid4(), site_id=sitio.id)],
+            watcher=_Watcher(),
+            repo_de_hallazgos=_RepoDeHallazgos(),
+        ).run_for_site(sitio.id)
+
+        assert nueva.pendiente == "nueva"
+
+    @pytest.mark.asyncio
+    async def test_should_clear_a_new_page_when_no_selection_ingests_automatically(self):
+        """Si no, una selección automática creada meses después ingeriría de golpe todo lo que
+        fue nuevo alguna vez, y eso no lo ha aprobado nadie."""
+        sitio = _Sitio()
+        nueva = _Pagina(url="https://www.uji.es/jornadas/nueva", pendiente="nueva")
+
+        await _job(
+            sesion=_Sesion(sitio, [nueva]),
+            resumen=_ResumenDeRastreo(new_page_ids=[nueva.id], pages_new=1),
+            hallazgos_del_detector=[],
+            selecciones=[],
+            watcher=_Watcher(),
+            repo_de_hallazgos=_RepoDeHallazgos(),
+        ).run_for_site(sitio.id)
+
+        assert nueva.pendiente is None
+
+    @pytest.mark.asyncio
+    async def test_should_keep_a_changed_page_pending_when_the_gate_stops_it(self):
+        sitio = _Sitio()
+        cambiada = _Pagina(url="https://www.uji.es/jornadas/cambiada", pendiente="cambiada")
+        chatbot = uuid.uuid4()
+
+        await _job(
+            sesion=_Sesion(
+                sitio,
+                [cambiada],
+                documentos=[_Documento(chatbot_id=chatbot, crawled_page_id=cambiada.id)],
+            ),
+            resumen=_ResumenDeRastreo(changed_page_ids=[cambiada.id], pages_changed=1),
+            hallazgos_del_detector=[
+                _Hallazgo(finding_type="needs_javascript", page_id=cambiada.id)
+            ],
+            selecciones=[],
+            watcher=_Watcher(),
+            repo_de_hallazgos=_RepoDeHallazgos(),
+        ).run_for_site(sitio.id)
+
+        assert cambiada.pendiente == "cambiada"

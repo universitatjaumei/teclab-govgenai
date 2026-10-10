@@ -604,3 +604,34 @@ async def cleanup_temporary_chunks(session: AsyncSession, ttl_hours: int = 24) -
     )
     await session.commit()
     return resultado.rowcount or 0
+
+
+#: Cada cuánto pasa la limpieza de temporales. Viven 24 h, así que una pasada cada seis horas los
+#: borra como mucho un cuarto de día tarde; es la cadencia del barrido de artefactos de funciones.
+TEMPORALES_CADA_SEGUNDOS = 6 * 60 * 60
+
+
+async def una_pasada_de_temporales(session_factory) -> int:
+    """Una limpieza de los PDF temporales del chat, con su propia sesión (#254)."""
+    async with session_factory() as session:
+        borrados = await cleanup_temporary_chunks(session)
+    if borrados:
+        logger.info("Fragmentos temporales caducados borrados: %d", borrados)
+    return borrados
+
+
+async def bucle_de_temporales(
+    session_factory, *, cada_segundos: int = TEMPORALES_CADA_SEGUNDOS
+) -> None:
+    """Pasa la limpieza de temporales para siempre. Lo lanza el arranque (#254).
+
+    `cleanup_temporary_chunks` existía, con su test, y no la llamaba nadie: los PDF que alguien
+    subía como contexto de su consulta se quedaban para siempre. **Un fallo de una pasada no para
+    el bucle**: se registra y se espera a la siguiente, como en `bucle_de_caducados`.
+    """
+    while True:
+        try:
+            await una_pasada_de_temporales(session_factory)
+        except Exception:  # noqa: BLE001 — se registra y se reintenta en la siguiente pasada
+            logger.exception("La limpieza de fragmentos temporales falló; se reintenta luego")
+        await asyncio.sleep(cada_segundos)

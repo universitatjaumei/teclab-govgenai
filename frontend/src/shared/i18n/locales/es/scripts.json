@@ -89,5 +89,20 @@
     "otra_categoria": "Otra categoría, si no está en la lista",
     "porque": "Guardar este script lo comparte con tu servicio: a partir de ahí lo puede usar otra persona en sus informes. Por eso hay que decir para qué sirve y qué datos trata — no lo revisa nadie antes, así que la declaración es lo que permite revisarlo después.",
     "titulo": "Declaración responsable"
+  },
+  "informe_anonimizacion": {
+    "aceptado": "Aceptado por {{por}} el {{en}}.",
+    "acepto_restos": "Acepto que los datos de prueba incluyen lo que el informe señala como posiblemente personal.",
+    "descargar": "Descargar los datos de prueba anonimizados",
+    "fallo_descarga": "No se han podido descargar los datos de prueba.",
+    "fragmentos": "Fragmentos sustituidos, por tipo:",
+    "mantenidas_personales": "Columnas que parecían datos personales y se mantuvieron como estaban:",
+    "proponia": "(se proponía «{{propuesta}}»)",
+    "rechazados": "Fragmentos detectados que se decidió no sustituir, por tipo:",
+    "restos_one": "{{count}} valor original sigue en el resultado.",
+    "restos_other": "{{count}} valores originales siguen en el resultado.",
+    "sin_restos": "Ningún valor original de lo sustituido sigue en el resultado.",
+    "sustituidas": "Columnas sustituidas por datos inventados:",
+    "titulo": "Informe de anonimización"
   }
 }

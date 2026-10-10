@@ -98,6 +98,9 @@ describe('CAL.4 — i18n del panel admin', () => {
       // módulos del desplegable salen de los datos y el catálogo crece cuando se cablea un
       // consumidor nuevo, así que escribir las claves literales aquí sería congelarlo.
       'hub.activity_prompts.modulos.',
+      // #252 — lo que le queda a una organización que no se puede borrar, iterando el
+      // `detail.pendiente` del 409: `t(`hub.organizacion_pendiente_${clave}`, { count })`.
+      'hub.organizacion_pendiente_',
     ]
 
     // Las formas plurales de i18next (`x_one` / `x_other`) tampoco aparecen literales: el

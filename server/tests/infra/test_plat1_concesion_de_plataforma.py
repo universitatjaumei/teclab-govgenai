@@ -145,7 +145,12 @@ class TestLaMigracionRellenaSinPisar:
         """Quien solo hace informes no tiene por qué administrar la plataforma."""
         _alembic(base_en_inf7, "upgrade", "head")
 
-        assert _modulos_de(base_en_inf7, SOLO_INFORMES) == ["informes"]
+        # Lo que se comprueba es que PLAT.1 no le da `plataforma`, no la lista entera: se migra
+        # hasta `head`, y AUT.14 le da `automatizacion` a propósito a quien tenía `informes`.
+        # Con la lista exacta, esta prueba se puso roja por una migración posterior correcta.
+        modulos = _modulos_de(base_en_inf7, SOLO_INFORMES)
+        assert "plataforma" not in modulos
+        assert "informes" in modulos
 
     def test_should_not_steal_the_authorship_of_a_grant_a_person_made(self, base_en_inf7: str):
         """La concesión que puso una persona sigue firmada por ella: `granted_by` es la

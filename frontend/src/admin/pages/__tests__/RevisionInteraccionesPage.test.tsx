@@ -270,7 +270,7 @@ describe('RevisionInteraccionesPage — revisión (REV.1)', () => {
     renderPage()
     await waitFor(() => screen.getByText('How does Python work?'))
 
-    fireEvent.change(screen.getAllByLabelText(/nota de revisión/i)[0], {
+    fireEvent.change(screen.getAllByLabelText('hub.reports_review_note')[0], {
       target: { value: 'La respuesta cita un artículo derogado' },
     })
     const inadecuada = screen.getAllByRole('button', { name: /inadecuada/i })[0]

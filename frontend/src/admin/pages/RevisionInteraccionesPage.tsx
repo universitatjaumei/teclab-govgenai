@@ -193,27 +193,27 @@ export function RevisionInteraccionesPage() {
             onChange={(e) => setOnlyLowScores(e.target.checked)}
             className="rounded"
           />
-          {t('hub.reports_only_low', 'Solo puntuaciones bajas')}
+          {t('hub.reports_only_low')}
         </label>
 
         <select
           value={reviewStatus}
           onChange={(e) => setReviewStatus(e.target.value as ReviewStatus)}
-          aria-label={t('hub.reports_review_status', 'Estado de revisión')}
+          aria-label={t('hub.reports_review_status')}
           className="rounded-md border bg-background px-3 py-1.5 text-sm"
         >
-          <option value="pending">{t('hub.reports_status_pending', 'Sin revisar')}</option>
-          <option value="reviewed">{t('hub.reports_status_reviewed', 'Revisadas')}</option>
-          <option value="all">{t('hub.reports_status_all', 'Todas')}</option>
+          <option value="pending">{t('hub.reports_status_pending')}</option>
+          <option value="reviewed">{t('hub.reports_status_reviewed')}</option>
+          <option value="all">{t('hub.reports_status_all')}</option>
         </select>
 
         <select
           value={verdictFilter}
           onChange={(e) => setVerdictFilter(e.target.value as Verdict | '')}
-          aria-label={t('hub.reports_verdict_filter', 'Veredicto')}
+          aria-label={t('hub.reports_verdict_filter')}
           className="rounded-md border bg-background px-3 py-1.5 text-sm"
         >
-          <option value="">{t('hub.reports_verdict_any', 'Cualquier veredicto')}</option>
+          <option value="">{t('hub.reports_verdict_any')}</option>
           {VEREDICTOS.map((v) => (
             <option key={v.valor} value={v.valor}>
               {t(v.clave, v.defecto)}
@@ -224,7 +224,7 @@ export function RevisionInteraccionesPage() {
         <button
           onClick={() => exportToCsv(selectedChatbotId, interactions)}
           disabled={interactions.length === 0}
-          aria-label={t('hub.reports_export_csv', 'Exportar CSV')}
+          aria-label={t('hub.reports_export_csv')}
           className="ml-auto flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm hover:bg-accent disabled:opacity-50"
         >
           <Download className="h-3.5 w-3.5" />
@@ -236,7 +236,7 @@ export function RevisionInteraccionesPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card>
           <CardHeader>
-            <CardTitle>{t('hub.reports_total', 'Total interacciones')}</CardTitle>
+            <CardTitle>{t('hub.reports_total')}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{interactions.length}</p>
@@ -245,7 +245,7 @@ export function RevisionInteraccionesPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>{t('hub.reports_pending_review', 'Pendientes de revisar')}</CardTitle>
+            <CardTitle>{t('hub.reports_pending_review')}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold" data-testid="pending-count">
@@ -256,7 +256,7 @@ export function RevisionInteraccionesPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>{t('hub.reports_avg_score', 'Puntuación media')}</CardTitle>
+            <CardTitle>{t('hub.reports_avg_score')}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold" data-testid="avg-score">
@@ -292,18 +292,18 @@ export function RevisionInteraccionesPage() {
         </div>
       ) : interactions.length === 0 ? (
         <p className="py-8 text-center text-sm text-muted-foreground">
-          {t('hub.reports_no_data', 'Sin interacciones para este chatbot')}
+          {t('hub.reports_no_data')}
         </p>
       ) : (
         <div className="rounded-lg border">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/50 text-left text-xs text-muted-foreground">
-                <th className="px-3 py-2">{t('hub.reports_date', 'Fecha')}</th>
-                <th className="px-3 py-2">{t('hub.reports_user_msg', 'Mensaje usuario')}</th>
-                <th className="px-3 py-2">{t('hub.reports_score', 'Puntuación')}</th>
-                <th className="px-3 py-2">{t('hub.reports_comment', 'Comentario')}</th>
-                <th className="px-3 py-2">{t('hub.reports_review', 'Revisión')}</th>
+                <th className="px-3 py-2">{t('hub.reports_date')}</th>
+                <th className="px-3 py-2">{t('hub.reports_user_msg')}</th>
+                <th className="px-3 py-2">{t('hub.reports_score')}</th>
+                <th className="px-3 py-2">{t('hub.reports_comment')}</th>
+                <th className="px-3 py-2">{t('hub.reports_review')}</th>
                 <th className="px-3 py-2 w-10" />
               </tr>
             </thead>
@@ -338,7 +338,7 @@ export function RevisionInteraccionesPage() {
                         </span>
                       ) : (
                         <span className="text-muted-foreground">
-                          {t('hub.reports_status_pending', 'Sin revisar')}
+                          {t('hub.reports_status_pending')}
                         </span>
                       )}
                     </td>
@@ -346,8 +346,8 @@ export function RevisionInteraccionesPage() {
                       <button
                         aria-label={
                           expandedRow === interaction.id
-                            ? t('hub.reports_collapse', 'Collapse')
-                            : t('hub.reports_expand', 'Expand')
+                            ? t('hub.reports_collapse')
+                            : t('hub.reports_expand')
                         }
                         onClick={() =>
                           setExpandedRow(expandedRow === interaction.id ? null : interaction.id)
@@ -367,19 +367,19 @@ export function RevisionInteraccionesPage() {
                       <td colSpan={6} className="px-4 py-3 space-y-2">
                         <div>
                           <p className="text-xs font-medium text-muted-foreground mb-1">
-                            {t('hub.reports_user_msg', 'Mensaje usuario')}
+                            {t('hub.reports_user_msg')}
                           </p>
                           <p className="text-sm">{interaction.user_message}</p>
                         </div>
                         <div>
                           <p className="text-xs font-medium text-muted-foreground mb-1">
-                            {t('hub.reports_assistant_msg', 'Respuesta asistente')}
+                            {t('hub.reports_assistant_msg')}
                           </p>
                           <p className="text-sm">{interaction.assistant_message}</p>
                         </div>
                         {interaction.review_by && (
                           <p className="text-xs text-muted-foreground">
-                            {t('hub.reports_reviewed_by', 'Revisada por')}{' '}
+                            {t('hub.reports_reviewed_by')}{' '}
                             {interaction.review_by}
                             {interaction.review_at
                               ? ` · ${new Date(interaction.review_at).toLocaleString()}`
@@ -398,11 +398,8 @@ export function RevisionInteraccionesPage() {
                           onChange={(e) =>
                             setNotes({ ...notes, [interaction.id]: e.target.value })
                           }
-                          placeholder={t(
-                            'hub.reports_review_note',
-                            'Qué habría que cambiar (obligatorio si es inadecuada)',
-                          )}
-                          aria-label={t('hub.reports_review_note', 'Nota de revisión')}
+                          placeholder={t('hub.reports_review_note')}
+                          aria-label={t('hub.reports_review_note')}
                           className="flex-1 min-w-[16rem] rounded-md border bg-background px-2 py-1 text-sm"
                         />
                         {VEREDICTOS.map((v) => {
@@ -421,10 +418,7 @@ export function RevisionInteraccionesPage() {
                               // llega a quien usa un lector de pantalla sobre un botón gris.
                               title={
                                 faltaLaNota
-                                  ? t(
-                                      'hub.reports_note_required',
-                                      'Escribe qué habría que cambiar: un «inadecuada» sin motivo no permite reformular nada',
-                                    )
+                                  ? t('hub.reports_note_required')
                                   : undefined
                               }
                               className={`rounded-md border px-2 py-1 text-xs hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed ${v.clase}`}
@@ -438,10 +432,7 @@ export function RevisionInteraccionesPage() {
                             data-testid="nota-obligatoria"
                             className="text-xs text-muted-foreground"
                           >
-                            {t(
-                              'hub.reports_note_required',
-                              'Escribe qué habría que cambiar: un «inadecuada» sin motivo no permite reformular nada',
-                            )}
+                            {t('hub.reports_note_required')}
                           </span>
                         )}
                       </div>

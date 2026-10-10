@@ -89,5 +89,20 @@
     "otra_categoria": "Una altra categoria, si no és a la llista",
     "porque": "Guardar aquest script el comparteix amb el teu servei: a partir d'aquí el pot fer servir una altra persona en els seus informes. Per això cal dir per a què serveix i quines dades tracta — no el revisa ningú abans, així que la declaració és el que permet revisar-lo després.",
     "titulo": "Declaració responsable"
+  },
+  "informe_anonimizacion": {
+    "aceptado": "Acceptat per {{por}} el {{en}}.",
+    "acepto_restos": "Accepte que les dades de prova inclouen el que l'informe assenyala com a possiblement personal.",
+    "descargar": "Descarregar les dades de prova anonimitzades",
+    "fallo_descarga": "No s'han pogut descarregar les dades de prova.",
+    "fragmentos": "Fragments substituïts, per tipus:",
+    "mantenidas_personales": "Columnes que semblaven dades personals i es van mantindre com estaven:",
+    "proponia": "(es proposava «{{propuesta}}»)",
+    "rechazados": "Fragments detectats que es va decidir no substituir, per tipus:",
+    "restos_one": "{{count}} valor original continua en el resultat.",
+    "restos_other": "{{count}} valors originals continuen en el resultat.",
+    "sin_restos": "Cap valor original del que s'ha substituït continua en el resultat.",
+    "sustituidas": "Columnes substituïdes per dades inventades:",
+    "titulo": "Informe d'anonimització"
   }
 }

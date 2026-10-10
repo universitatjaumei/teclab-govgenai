@@ -4,8 +4,9 @@
 (`8879cf0a3197_initial_schema`), así que no desaparecen solas: hace falta migración. Dejarlas vacías
 sería peor que borrarlas, porque **una tabla que existe invita a que alguien la use**.
 
-De `models.py` se retiran **dos** clases de diecinueve: las otras diecisiete están vivas, así que el
-fichero se queda.
+De `models.py` se retiran **dos** clases de diecinueve: las otras diecisiete estaban vivas, así que el
+fichero se queda. #249 retiró después nueve de esas diecisiete, que resultaron no tener uso
+(`test_issue249_tablas_heredadas_de_automatia.py`): quedan ocho.
 """
 from __future__ import annotations
 
@@ -27,12 +28,12 @@ def test_las_dos_clases_ya_no_estan():
     assert "class SystemPrompt" not in fuente
 
 
-def test_las_otras_diecisiete_siguen():
-    """El fichero se queda: retirar dos clases no es retirar el módulo."""
+def test_las_otras_ocho_siguen():
+    """El fichero se queda: retirar clases no es retirar el módulo."""
     clases = re.findall(r"^class (\w+)", _fuente_de_models(), re.MULTILINE)
 
-    assert len(clases) == 17, f"esperaba 17 clases vivas, hay {len(clases)}: {clases}"
-    for viva in ("AIConfig", "TokenLog", "ModelPricing", "AutomationLibrary", "License"):
+    assert len(clases) == 8, f"esperaba 8 clases vivas, hay {len(clases)}: {clases}"
+    for viva in ("AIConfig", "TokenLog", "ModelPricing", "AutomationLibrary", "AdminAccount"):
         assert viva in clases
 
 

@@ -9,16 +9,12 @@ sys.path.insert(0, str(project_root))
 
 from server.app.database.db import init_server_db
 from server.app.database.seeds import seed_all
-from server.scripts.fix_db_schema import fix_schema
 
 async def main():
     print("Script de poblado de base de datos del servidor...")
     try:
         # Inicializar tablas si no existen
         await init_server_db()
-        
-        # Corregir esquema (añadir columnas faltantes)
-        await fix_schema()
         
         # Ejecutar seeds
         await seed_all()

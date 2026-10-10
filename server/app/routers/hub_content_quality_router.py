@@ -187,6 +187,10 @@ async def transition_finding(
     Deploy: edge. Devuelve 422 si la transición no es válida.
     """
     await assert_site_org_access(session, site_id, current_user)
+    hallazgo = await findings_repo.get(finding_id)
+    if hallazgo is None or hallazgo.site_id != site_id:
+        # #242: el sitio de la ruta pasaba el control y el hallazgo podía ser de otro.
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Hallazgo no encontrado en este sitio")
     try:
         updated = await findings_repo.transition(
             finding_id=finding_id,

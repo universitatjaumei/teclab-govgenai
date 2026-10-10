@@ -291,11 +291,17 @@ def test_delete_selection_returns_204():
     sel_id = uuid.uuid4()
     sel = _fake_selection(id=sel_id, chatbot_id=chatbot_id)
     session = AsyncMock()
-    session.get = AsyncMock(return_value=sel)
     session.delete = AsyncMock()
     session.flush = AsyncMock()
 
-    client = TestClient(_build_app(session_mock=session))
+    app = _build_app(session_mock=session)
+    # #242: la ruta carga la selección para comprobar que es de este asistente; `_build_app`
+    # responde un sitio a cualquier `session.get`, así que la selección se sirve aparte.
+    from server.app.modules.agents_hub.database.operational_models import HubCorpusSelection
+
+    sitio = _fake_site()
+    session.get = AsyncMock(side_effect=lambda modelo, _id: sel if modelo is HubCorpusSelection else sitio)
+    client = TestClient(app)
     resp = client.delete(
         f"/api/v1/hub/chatbots/{chatbot_id}/selections/{sel_id}",
         headers={"Authorization": f"Bearer {_make_token()}"},

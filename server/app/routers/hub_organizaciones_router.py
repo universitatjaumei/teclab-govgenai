@@ -15,6 +15,7 @@ consume otro módulo:
   `/hub`, que es coherente.
 """
 
+import logging
 import uuid
 from datetime import datetime, timezone
 
@@ -27,6 +28,22 @@ from server.app.core.auth.models import UserInfo
 from server.app.core.auth.tenancy import assert_org_access, scope_query_to_orgs
 from server.app.modules.agents_hub.database.connection import get_async_session
 from server.app.modules.agents_hub.database.config_models import HubChatbot, HubOrganizacion
+from server.app.modules.agents_hub.database.operational_models import (
+    HubAgenteUnidad,
+    HubLexiconPair,
+    HubWebSite,
+)
+from server.app.core.storage import StorageService, get_storage_service
+from server.app.modules.agents_hub.services.corpus_purge import (
+    borrar_fuentes_del_chatbot,
+    purgar_corpus_del_chatbot,
+)
+from server.app.modules.redaccion.database.models import (
+    HubFuncion,
+    HubFuncionArtefacto,
+    HubReportTemplate,
+    HubWorkspace,
+)
 from server.app.modules.agents_hub.agent.public_graphs.validacion import (
     validar_estrategias,
     validar_modo,
@@ -40,6 +57,40 @@ _require_admin = require_role("superadmin", "admin")
 # se puede derivar del token porque ROL.1 retiró la dimensión de *partner* del principal.
 _require_superadmin = require_role("superadmin")
 #: Administrar la plataforma: crear, renombrar y borrar organizaciones.
+logger = logging.getLogger(__name__)
+
+#: #252 — lo que una organización tiene sin clave foránea y que, mientras exista, impide borrarla.
+#: Borrarlo en cascada sería irreversible y alcanzaría ficheros del almacenamiento; para retirar una
+#: organización con actividad está desactivarla (decisión del usuario, 2026-10-10). **Fuera, a
+#: propósito, la traza**: el registro de actividad y los manifiestos cuentan lo que pasó, como las
+#: interacciones, y no impiden nada. Los chatbots tampoco: cascadean y su corpus se purga.
+LO_QUE_BLOQUEA_EL_BORRADO = (
+    ("sitios", HubWebSite),
+    ("informes", HubWorkspace),
+    ("plantillas", HubReportTemplate),
+    ("funciones", HubFuncion),
+    ("artefactos", HubFuncionArtefacto),
+    ("agentes", HubAgenteUnidad),
+    ("pares_lexicos", HubLexiconPair),
+)
+
+
+async def _lo_que_le_queda(session, organizacion_id: uuid.UUID) -> dict[str, int]:
+    """Cuánto le queda de cada cosa que bloquea el borrado; sólo lo que no es cero."""
+    pendiente: dict[str, int] = {}
+    for nombre, modelo in LO_QUE_BLOQUEA_EL_BORRADO:
+        cuantos = (
+            await session.execute(
+                select(func.count()).select_from(modelo).where(
+                    modelo.organizacion_id == organizacion_id
+                )
+            )
+        ).scalar_one()
+        if cuantos:
+            pendiente[nombre] = int(cuantos)
+    return pendiente
+
+
 _de_plataforma = Depends(require_module("plataforma"))
 #: Configuración del módulo Chatbots aplicada a una organización (PLAT.3).
 _de_chatbots = Depends(require_module("chatbots"))
@@ -335,6 +386,7 @@ async def delete_organizacion(
     user: UserInfo = Depends(_require_admin),
     session=Depends(get_async_session),
     _modulo=_de_plataforma,
+    storage: StorageService = Depends(get_storage_service),
 ):
     organizacion = await session.get(HubOrganizacion, organizacion_id)
     if not organizacion:
@@ -344,7 +396,44 @@ async def delete_organizacion(
     # El borrado arrastra los chatbots por CASCADE: sin esta línea, un admin destruye los
     # datos de otra administración con un solo DELETE.
     assert_org_access(user, organizacion.id)
+    pendiente = await _lo_que_le_queda(session, organizacion_id)
+    if pendiente:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "ORGANIZACION_CON_DATOS",
+                "message": "La organización todavía tiene datos; desactívala en vez de borrarla.",
+                "pendiente": pendiente,
+            },
+        )
+    # #252 — la cascada llega a los chatbots y no a su corpus, que no cuelga de ellos por clave
+    # foránea. Mismo camino que `delete_chatbot` (PIL.2) y en la misma transacción: borrar la
+    # organización dejaba documentos y embeddings sin dueño. Las interacciones se quedan, como
+    # al borrar un chatbot.
+    chatbots = (
+        await session.execute(
+            select(HubChatbot.id).where(HubChatbot.organizacion_id == organizacion_id)
+        )
+    ).scalars().all()
+    documentos = fragmentos = trabajos = 0
+    for chatbot_id in chatbots:
+        retirado = await purgar_corpus_del_chatbot(session, chatbot_id)
+        documentos += retirado.documentos
+        fragmentos += retirado.fragmentos
+        trabajos += retirado.trabajos
     await session.execute(
         sql_delete(HubOrganizacion).where(HubOrganizacion.id == organizacion_id)
     )
     await session.commit()
+    for chatbot_id in chatbots:
+        await borrar_fuentes_del_chatbot(storage, chatbot_id)
+    logger.info(
+        "Organización %s eliminada por %s; %d chatbots, corpus retirado: %d documentos, "
+        "%d fragmentos, %d trabajos de ingesta",
+        organizacion_id,
+        user.email,
+        len(chatbots),
+        documentos,
+        fragmentos,
+        trabajos,
+    )

@@ -3,8 +3,8 @@
 Tiene correo único, nombre, rol, organización, activo y último acceso. Es una tabla de usuarios
 completa; se llamaba así porque su **único escritor** era el ACS de SAML. Mientras el nombre
 dijera «SSO», nadie iba a escribir ahí una persona dada de alta a mano, y el siguiente que lo
-necesitara habría creado una segunda tabla — que es como se llega a las cuatro que ya hay
-(`SuperAdminAccount`, `AdminAccount`, `ClientAccount`, y esta).
+necesitara habría creado una segunda tabla — que es como se llegó a las cuatro que hubo
+(`SuperAdminAccount`, `AdminAccount`, `ClientAccount` —retirada en #249—, y esta).
 
 **Las migraciones antiguas no se renombran.** `w4f5g6h7i8j9` creó `hub_sso_users` y
 `q4z5a6b7c8d9` le añadió la organización: una migración describe lo que hizo el día que se

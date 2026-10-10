@@ -13,6 +13,7 @@ import {
 import { useCategoriasDeDatos } from '@/shared/api/generated/actividad/actividad'
 import type {
   AnonymizeTestDataResponse,
+  ColumnSubstitution,
   DescribeColumnsResponse,
   ProposeResponse,
   StorageRef,
@@ -22,7 +23,9 @@ import type {
 import { ScriptCodePreview } from '../components/ScriptCodePreview'
 import { ModelAuditVerdict } from '../components/ModelAuditVerdict'
 import { TestDataAnonymizerForm } from '../components/TestDataAnonymizerForm'
+import { sustitutoDe } from '../components/sustitutoDe'
 import { SandboxTestResultViewer } from '../components/SandboxTestResultViewer'
+import { InformeAnonimizacion } from '../components/InformeAnonimizacion'
 
 type TargetOwnerKind = 'user' | 'platform'
 type WizardStep = 1 | 2 | 3 | 4 | 5 | 6 | 7
@@ -66,6 +69,12 @@ export function ScriptProposalWizardPage() {
   // mandaban `{bucket:'', key:''}` y el script se ejecutaba sin fichero.
   const [testDataKind, setTestDataKind] = useState<TestDataKind | null>(null)
   const [pdfElegido, setPdfElegido] = useState<File | null>(null)
+  // #255 — lo que la persona cambia en el paso 4; el resto de columnas sigue la propuesta del
+  // servidor, y al anonimizar se mandan todas, que es lo que la pantalla enseña.
+  const [sustituciones, setSustituciones] = useState<ColumnSubstitution[]>([])
+  // #255 — si la anonimización dejó algo personal, pedir revisión de plantilla global exige
+  // aceptarlo; lo decide el informe del servidor, no esta pantalla.
+  const [aceptoRestos, setAceptoRestos] = useState(false)
   // La declaración responsable (Instrucció 02/2026 §8.2). Vive aquí y no en la propuesta porque
   // declarar es el acto de compartir: mientras el script es una propuesta sigue en el nivel 1,
   // que es libre y no se declara. Sin esto, `save-to-private-template` respondía **422
@@ -105,6 +114,7 @@ export function ScriptProposalWizardPage() {
   const refOriginal: StorageRef | undefined = subida?.file_ref ?? spansPdf?.file_ref
   const refDePrueba: StorageRef | undefined = anonimizado?.synthetic_ref ?? refOriginal
   const hayFicheroDePrueba = !!refDePrueba?.key
+  const pideAceptarRestos = anonimizado?.informe?.requiere_aceptacion === true
 
   const auditPassed = proposal?.audit_result?.approved === true
   // **La declaración es parte de poder guardar**, no una validación de formulario: el servidor
@@ -163,6 +173,7 @@ export function ScriptProposalWizardPage() {
     if (!fichero || !activeProposalId) return
     const kind = tipoDeFichero(fichero.name)
     setTestDataKind(kind)
+    setSustituciones([])
 
     if (kind === 'pdf_text') {
       setPdfElegido(fichero)
@@ -197,7 +208,7 @@ export function ScriptProposalWizardPage() {
 
   function handleSubmitForReview() {
     if (!activeProposalId || !canSave) return
-    submitHook.mutate({ proposalId: activeProposalId }, {})
+    submitHook.mutate({ proposalId: activeProposalId, data: { acepto_restos: aceptoRestos } }, {})
   }
 
   return (
@@ -317,7 +328,11 @@ export function ScriptProposalWizardPage() {
       {/* Step 4: Anonymize */}
       {step === 4 && (
         <div className="space-y-4">
-          <TestDataAnonymizerForm columns={[]} onChange={() => {}} />
+          <TestDataAnonymizerForm
+            columns={subida?.columns ?? []}
+            value={sustituciones}
+            onChange={setSustituciones}
+          />
           <div className="flex gap-2">
             <button
               type="button"
@@ -336,7 +351,18 @@ export function ScriptProposalWizardPage() {
                 if (activeProposalId && refOriginal && testDataKind) {
                   anonymizeHook.mutate({
                     proposalId: activeProposalId,
-                    data: { file_ref: refOriginal, kind: testDataKind },
+                    data: {
+                      file_ref: refOriginal,
+                      kind: testDataKind,
+                      ...(subida?.columns?.length
+                        ? {
+                            substitutions: subida.columns.map(c => ({
+                              column_name: c.name,
+                              faker_provider: sustitutoDe(c, sustituciones) as ColumnSubstitution['faker_provider'],
+                            })),
+                          }
+                        : {}),
+                    },
                   })
                 }
                 setStep(5)
@@ -349,6 +375,10 @@ export function ScriptProposalWizardPage() {
         </div>
       )}
 
+      {step >= 5 && activeProposalId && anonimizado?.informe && (
+        <InformeAnonimizacion informe={anonimizado.informe} proposalId={activeProposalId} />
+      )}
+
       {/* Step 5: PDF preview (optional) */}
       {step === 5 && (
         <div className="space-y-3">
@@ -357,8 +387,9 @@ export function ScriptProposalWizardPage() {
           </p>
           <div className="flex gap-2">
             {/* El botón sólo existe con un PDF delante: mandaba un blob vacío, y con un
-                fichero tabular no hay nada que previsualizar. */}
-            {pdfElegido && (
+                fichero tabular no hay nada que previsualizar. Y no una vez anonimizado: volvía
+                a subir el PDF real y deshacía el borrado de lo subido (auditoría de la PR #256). */}
+            {pdfElegido && !anonimizado && (
               <button
                 type="button"
                 data-testid="btn-preview-pdf"
@@ -530,12 +561,24 @@ export function ScriptProposalWizardPage() {
             </button>
           )}
 
+          {targetOwnerKind === 'platform' && pideAceptarRestos && (
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                data-testid="acepto-restos"
+                checked={aceptoRestos}
+                onChange={e => setAceptoRestos(e.target.checked)}
+              />
+              <span>{t('informe_anonimizacion.acepto_restos')}</span>
+            </label>
+          )}
+
           {targetOwnerKind === 'platform' && (
             <button
               type="button"
               data-testid="btn-submit-for-review"
-              aria-disabled={!canSave}
-              disabled={!canSave || submitHook.isPending}
+              aria-disabled={!canSave || (pideAceptarRestos && !aceptoRestos)}
+              disabled={!canSave || (pideAceptarRestos && !aceptoRestos) || submitHook.isPending}
               onClick={handleSubmitForReview}
               className="px-4 py-2 text-sm bg-blue-600 text-white rounded disabled:opacity-50"
             >

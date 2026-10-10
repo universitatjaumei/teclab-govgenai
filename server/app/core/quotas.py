@@ -17,9 +17,13 @@ cruza el límite se desborda: no se pre-reserva presupuesto. Es una decisión, n
 —reservar exigiría estimar el coste de una respuesta que todavía no existe, y una estimación
 de más bloquearía a gente con cuota disponible—. El desbordamiento está acotado por
 `max_tokens` del modelo y se cobra en la ventana siguiente.
+
+**La IP no se guarda** (#250): el sujeto del anónimo es `huella_de_ip`, no la dirección.
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -27,6 +31,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
+from server.app.core.config import get_settings
 from server.app.modules.agents_hub.database.operational_models import HubUsageCounter
 
 SUJETO_USUARIO = "user"
@@ -47,6 +52,23 @@ def clave_de_ventana(ventana: str, momento: datetime | None = None) -> str:
     if ventana == VENTANA_MES:
         return ahora.strftime("%Y-%m")
     return VENTANA_TOTAL
+
+
+def huella_de_ip(ip: str, momento: datetime | None = None) -> str:
+    """El sujeto de la cuota del anónimo: una huella de su IP que cambia cada día (#250).
+
+    Para contar una cuota diaria basta con reconocer la misma IP el mismo día, y una IP es dato
+    personal. Antes el contador la guardaba tal cual, una fila por IP y día, sin plazo.
+
+    - **Con el día dentro**: la misma IP da otra huella mañana, así que la tabla no sigue a
+      nadie de un día a otro. Es la ventana del único límite que la usa, `anon_ip` diario.
+    - **Con clave**: un hash sin ella se deshace probando las IPv4, que caben en minutos. La
+      clave es `JWT_SECRET_KEY`, que el servidor ya exige; rotarla pone a cero los contadores
+      por IP del día, que es lo mismo que pasa a medianoche.
+    """
+    clave = get_settings().jwt_secret_key.encode()
+    mensaje = f"cuota-ip:{clave_de_ventana(VENTANA_DIA, momento)}:{ip}".encode()
+    return hmac.new(clave, mensaje, hashlib.sha256).hexdigest()[:32]
 
 
 @dataclass(frozen=True)
@@ -120,7 +142,10 @@ def limites_aplicables(actor, chatbot, organizacion, *, ip: str | None = None) -
         # Solo para el anónimo del widget: con sesión, el sujeto es la persona, y limitar
         # además por IP castigaría a media facultad detrás del mismo NAT.
         _añadir(
-            SUJETO_IP, ip, VENTANA_DIA, getattr(chatbot, "anon_ip_daily_token_quota", None)
+            SUJETO_IP,
+            huella_de_ip(ip),
+            VENTANA_DIA,
+            getattr(chatbot, "anon_ip_daily_token_quota", None),
         )
 
     return limites
@@ -248,4 +273,4 @@ async def contabilizar_interaccion(
     )
 
     if ip:
-        await registrar_consumo(session, SUJETO_IP, ip, VENTANA_DIA, tokens, cost)
+        await registrar_consumo(session, SUJETO_IP, huella_de_ip(ip), VENTANA_DIA, tokens, cost)

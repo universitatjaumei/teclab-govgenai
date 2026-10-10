@@ -129,13 +129,3 @@ describe('CUR.2 — i18n de curación', () => {
     ).toEqual([])
   })
 })
-
-describe('#243 — sin textos de reserva en las llamadas a t()', () => {
-  it('ninguna llamada a t() de curación lleva un texto por defecto', () => {
-    // `tc('close', 'Cerrar')` pintaba «Cerrar» en valenciano: la clave no existía en ningún
-    // idioma y el texto de reserva lo tapaba. Sin reserva, una clave que falta se ve en pantalla
-    // (sale la clave) y la paridad de idiomas la caza.
-    const conReserva = codigoCuracion.match(/\bt[A-Za-z]*\(\s*'[^']+'\s*,\s*'[^']*'\s*\)/g) ?? []
-    expect(conReserva).toEqual([])
-  })
-})

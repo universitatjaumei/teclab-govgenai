@@ -667,8 +667,9 @@ class HubUser(HubConfigBase):
     `IDENTITY_ROLE_AUTHORITY=app` —el defecto— quien entra por SSO no cambia el rol que le puso
     una persona, y quien llega nuevo entra con `SAML_DEFAULT_ROLE`.
 
-    **Sigue habiendo cuatro tablas de identidad** (`SuperAdminAccount` con `admin_id` entero,
-    `AdminAccount` con `partner_id` de texto, `ClientAccount`, y esta), y unificarlas no es
+    **Sigue habiendo tres tablas de identidad** (`SuperAdminAccount` con `admin_id` entero,
+    `AdminAccount` con `partner_id` de texto, y esta; la cuarta, la de clientes de AutomatIA, no
+    la usaba nadie y se retiró en #249), y unificarlas no es
     trabajo de este prompt: `user_to_uuid` está en la propiedad de los workspaces de redacción,
     en los PAT y en las concesiones de módulo, y `es_propietario` ya acepta las dos formas en
     que quedó escrita la propiedad (SEC.8.1). Es una migración de datos con riesgo y merece

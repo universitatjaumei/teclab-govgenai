@@ -4,8 +4,6 @@ Seeds de multitenancy para desarrollo.
 Este módulo crea los datos iniciales necesarios para desarrollo:
 - SuperAdmin de desarrollo
 - Admin de desarrollo (ex-partner)
-- Cliente de desarrollo
-- Licencia de desarrollo con cuota amplia
 
 Credenciales de desarrollo:
   SuperAdmin: DEV_ADMIN_EMAIL (por omisión `admin@example.local`) / DEV_ADMIN_PASSWORD
@@ -14,34 +12,24 @@ Credenciales de desarrollo:
 **El login de administrador sí verifica la contraseña** desde SEC.1. Esta cabecera afirmaba lo
 contrario —que valía cualquiera— desde antes de que ese prompt existiera, y un comentario que
 describe un agujero ya cerrado hace perder el tiempo a quien audita el código.
-
-La clave de licencia de desarrollo es: DEV_LICENSE_KEY_12345
 """
 
-import hashlib
 import logging
 import os
-from datetime import datetime, timedelta
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from server.app.database.db import server_engine
 from server.app.database.models import (
     SuperAdminAccount,
     AdminAccount,
-    ClientAccount,
-    License,
 )
 from server.app.core.security import hash_password
-from automatia_shared.enums import LicenseStatus
 
 # Issue #18 — esto NO es una herramienta de consola aunque lo parezca por el prefijo «[SEED]»:
 # `main.py` lo llama en el arranque del servidor, asi que en produccion su salida iba a la
 # salida estandar sin nivel ni marca de tiempo. El prefijo lo pone ya el nombre del modulo.
 logger = logging.getLogger(__name__)
 
-
-# Constante para desarrollo - usar en tests y desarrollo local
-DEV_LICENSE_KEY = "DEV_LICENSE_KEY_12345"
 
 # AIS.2 — por entorno y con un valor neutro por omisión. Aquí había un correo real, el del
 # mantenedor del principal, así que **todo fork que arrancara en local creaba un
@@ -66,8 +54,6 @@ async def seed_multitenancy_defaults():
     Crea:
     - 1 SuperAdminAccount (DEV_ADMIN_EMAIL / DEV_ADMIN_PASSWORD)
     - 1 AdminAccount (partner_dev, ex-partner)
-    - 1 ClientAccount (client_dev)
-    - 1 License (lic_dev) con 10M tokens de cuota
 
     **Solo en desarrollo.** La credencial del SuperAdmin de desarrollo es pública
     (está en este mismo módulo), así que sembrarla en producción crearía una cuenta
@@ -78,7 +64,7 @@ async def seed_multitenancy_defaults():
     if os.getenv("ENVIRONMENT", "development") != "development":
         logger.info(
             "Entorno no-desarrollo: se omiten los datos de desarrollo "
-            "(SuperAdmin/admin/cliente/licencia de prueba). Provisiona el SuperAdmin "
+            "(SuperAdmin y admin de prueba). Provisiona el SuperAdmin "
             "con `python -m server.app.scripts.bootstrap`."
         )
         return
@@ -89,12 +75,6 @@ async def seed_multitenancy_defaults():
 
         # 1. Crear Admin de desarrollo (ex-partner)
         await _seed_dev_admin(session)
-
-        # 2. Crear Cliente de desarrollo
-        await _seed_dev_client(session)
-
-        # 3. Crear Licencia de desarrollo
-        await _seed_dev_license(session)
 
         await session.commit()
         logger.info("Multitenencia de desarrollo creada o verificada")
@@ -139,54 +119,6 @@ async def _seed_dev_admin(session: AsyncSession):
         logger.info("Admin de desarrollo creado: partner_dev")
     else:
         logger.debug("El admin de desarrollo ya existe")
-
-
-async def _seed_dev_client(session: AsyncSession):
-    """Crea el Cliente de desarrollo si no existe."""
-    result = await session.execute(
-        select(ClientAccount).where(ClientAccount.client_id == "client_dev")
-    )
-    existing = result.scalar_one_or_none()
-
-    if not existing:
-        # Hash de la license_key para almacenamiento seguro
-        license_key_hash = hashlib.sha256(DEV_LICENSE_KEY.encode()).hexdigest()
-
-        client = ClientAccount(
-            client_id="client_dev",
-            partner_id="partner_dev",
-            name="Cliente Desarrollo Local",
-            email="client@automatia.local",
-            license_key=license_key_hash,
-            is_active=True,
-        )
-        session.add(client)
-        logger.info("Cliente de desarrollo creado: client_dev")
-    else:
-        logger.debug("El cliente de desarrollo ya existe")
-
-
-async def _seed_dev_license(session: AsyncSession):
-    """Crea la Licencia de desarrollo si no existe."""
-    result = await session.execute(
-        select(License).where(License.license_id == "lic_dev")
-    )
-    existing = result.scalar_one_or_none()
-
-    if not existing:
-        license = License(
-            license_id="lic_dev",
-            client_id="client_dev",
-            quota_tokens=10000000,  # 10M tokens para desarrollo
-            consumed_tokens=0,
-            valid_until=datetime.utcnow() + timedelta(days=365),  # 1 año
-            status=LicenseStatus.ACTIVE.value,
-        )
-        session.add(license)
-        logger.info("Licencia de desarrollo creada: lic_dev")
-    else:
-        logger.debug("La licencia de desarrollo ya existe")
-
 
 
 async def seed_all():

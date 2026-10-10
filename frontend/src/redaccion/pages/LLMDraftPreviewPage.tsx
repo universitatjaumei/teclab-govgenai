@@ -188,10 +188,7 @@ export function LLMDraftPreviewPage() {
           {t('sample_label')}
         </label>
         <p className="text-xs text-muted-foreground">
-          {t(
-            'sample_help',
-            'Si lo aportas, la IA verá los nombres de las columnas y su tipo. Los valores se anonimizan antes de enviarse.',
-          )}
+          {t('sample_help')}
         </p>
         {/* La misma zona que la pantalla del informe (INF.8). Aqui se me habia colado un
             `<input type="file">` desnudo, o sea el navegador pintando su control **en su

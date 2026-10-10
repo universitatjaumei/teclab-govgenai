@@ -549,3 +549,115 @@ class TestElEndpointDeConsumo:
 
         respuesta = cliente.get(f"/api/v1/hub/usage/me?chatbot_id={chatbot.id}")
         assert respuesta.status_code == 403
+
+
+class TestLaIpNoSeGuardaEnClaro:
+    """#250 — el contador del anónimo del widget guardaba su IP tal cual, una fila por IP y día.
+
+    Una IP es dato personal, y para contar una cuota diaria no hace falta saber cuál es: basta
+    con reconocer la misma el mismo día. Así que el sujeto es una **huella con clave y con el
+    día dentro**: la misma IP da la misma huella todo el día y otra al siguiente, y sin el
+    secreto del servidor no se puede ir de la huella a la IP probando las cuatro mil millones
+    que hay.
+    """
+
+    def test_should_give_the_same_fingerprint_to_the_same_ip_on_the_same_day(self):
+        from datetime import datetime, timezone
+
+        from server.app.core.quotas import huella_de_ip
+
+        mañana = datetime(2026, 10, 9, 8, 0, tzinfo=timezone.utc)
+        noche = datetime(2026, 10, 9, 22, 0, tzinfo=timezone.utc)
+
+        assert huella_de_ip("1.2.3.4", mañana) == huella_de_ip("1.2.3.4", noche)
+        assert huella_de_ip("1.2.3.4", mañana) != huella_de_ip("1.2.3.5", mañana)
+
+    def test_should_change_the_fingerprint_from_one_day_to_the_next(self):
+        """Sin esto, la huella seguiría a la misma persona día tras día."""
+        from datetime import datetime, timezone
+
+        from server.app.core.quotas import huella_de_ip
+
+        hoy = datetime(2026, 10, 9, 12, 0, tzinfo=timezone.utc)
+        mañana = datetime(2026, 10, 10, 12, 0, tzinfo=timezone.utc)
+
+        assert huella_de_ip("1.2.3.4", hoy) != huella_de_ip("1.2.3.4", mañana)
+
+    def test_should_not_be_recoverable_without_the_server_secret(self):
+        """Un hash sin clave se deshace probando todas las IPv4: hacen falta minutos."""
+        import hashlib
+        from datetime import datetime, timezone
+
+        from server.app.core.quotas import huella_de_ip
+
+        dia = datetime(2026, 10, 9, tzinfo=timezone.utc)
+        huella = huella_de_ip("1.2.3.4", dia)
+
+        assert "1.2.3.4" not in huella
+        for sin_clave in ("1.2.3.4", "2026-10-09:1.2.3.4", "cuota-ip:2026-10-09:1.2.3.4"):
+            assert hashlib.sha256(sin_clave.encode()).hexdigest()[: len(huella)] != huella
+
+    def test_should_never_put_the_ip_in_the_limit_subject(self):
+        from server.app.core.quotas import limites_aplicables
+
+        limites = limites_aplicables(
+            None, _chatbot(anon_ip_daily_token_quota=1_000), _organizacion(), ip="1.2.3.4"
+        )
+        del_ip = [limite for limite in limites if limite.subject_type == "ip"]
+
+        assert del_ip and all("1.2.3.4" not in limite.subject_id for limite in del_ip)
+
+
+@pytest.mark.asyncio
+class TestLaIpNoSeGuardaEnClaroEnLaBase:
+    async def test_should_count_and_block_the_same_ip_without_storing_it(self, db_url):
+        """De punta a punta: se acumula, bloquea, y en la tabla no queda la IP."""
+        from sqlalchemy import select
+
+        from server.app.core.quotas import assert_within_quota, contabilizar_interaccion
+        from server.app.modules.agents_hub.database.connection import (
+            create_async_engine,
+            create_session_factory,
+        )
+        from server.app.modules.agents_hub.database.operational_models import HubUsageCounter
+
+        motor = create_async_engine(db_url)
+        factoria = create_session_factory(motor)
+        chatbot = _chatbot(anon_ip_daily_token_quota=100)
+        try:
+            async with factoria() as sesion:
+                await contabilizar_interaccion(sesion, None, chatbot, 150, ip="203.0.113.7")
+                await sesion.commit()
+
+                with pytest.raises(HTTPException) as agotada:
+                    await assert_within_quota(
+                        sesion, None, chatbot, _organizacion(), ip="203.0.113.7"
+                    )
+                assert agotada.value.detail["subject"] == "ip"
+
+                # Otra IP no hereda lo gastado por la primera.
+                await assert_within_quota(
+                    sesion, None, chatbot, _organizacion(), ip="203.0.113.8"
+                )
+
+                sujetos = (
+                    await sesion.execute(
+                        select(HubUsageCounter.subject_id).where(
+                            HubUsageCounter.subject_type == "ip"
+                        )
+                    )
+                ).scalars().all()
+                assert sujetos and not [s for s in sujetos if "203.0.113" in s]
+        finally:
+            await motor.dispose()
+
+
+def test_hay_una_migracion_que_borra_las_ips_ya_guardadas():
+    """El código nuevo no guarda IPs, pero las que ya estaban seguirían ahí sin plazo."""
+    from pathlib import Path
+
+    versiones = Path(__file__).resolve().parents[2] / "migrations" / "versions"
+    assert any(
+        "#250" in texto and "DELETE FROM hub_usage_counters WHERE subject_type = 'ip'" in texto
+        for texto in (f.read_text(encoding="utf-8") for f in versiones.glob("*.py"))
+    )

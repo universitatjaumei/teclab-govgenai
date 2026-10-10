@@ -19,14 +19,6 @@ class TaskStatus(str, Enum):
     FAILED = "failed"
 
 
-class LicenseStatus(str, Enum):
-    """Status states for client licenses."""
-    ACTIVE = "active"
-    SUSPENDED = "suspended"
-    EXPIRED = "expired"
-    PENDING = "pending"
-
-
 class ScriptStatus(str, Enum):
     """Status states for trusted scripts."""
     DRAFT = "draft"
@@ -96,7 +88,6 @@ class StepType(str, Enum):
     CONNECTION = "connection"  # Credenciales reutilizables
 
 
-
 class AtomCategory(str, Enum):
     """
     Categorías funcionales de átomos (5 capas).
@@ -123,29 +114,14 @@ class AutomationType(str, Enum):
 
 __all__ = [
     "TaskStatus",
-    "LicenseStatus",
     "ScriptStatus",
     "ExtractionPhase",
     "TriggerType",
     "StepType",
     "AtomCategory",
-    "ScreenshotPolicyEnum",
     "AutomationType",
     "InputType",
 ]
-
-
-class ScreenshotPolicyEnum(str, Enum):
-    """
-    Política de envío de capturas de pantalla al Brain.
-
-    - BLOCK: Prohibido enviar capturas (modo solo DOM)
-    - REVIEW: Requiere aprobación visual del usuario
-    - TRUSTED: Permitido sin confirmación (solo dominios whitelist)
-    """
-    BLOCK = "BLOCK"
-    REVIEW = "REVIEW"
-    TRUSTED = "TRUSTED"
 
 
 class InputType(str, Enum):

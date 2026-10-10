@@ -131,6 +131,11 @@ class _Sesion:
     async def flush(self) -> None:
         return None
 
+    # #247 — el job confirma a mitad de pasada (la nota antes de reingerir, cada página al
+    # procesarla), no sólo al final.
+    async def commit(self) -> None:
+        return None
+
 
 class _RepoDeSelecciones:
     async def list_by_site(self, site_id: uuid.UUID) -> list:

@@ -63,6 +63,8 @@ def _session_for_crud(org_obj=None):
     session = MagicMock()
     result = MagicMock()
     result.all.return_value = []
+    # #252 — borrar cuenta antes lo que le queda a la organización; vacía, cero de todo.
+    result.scalar_one.return_value = 0
     session.execute = AsyncMock(return_value=result)
     session.get = AsyncMock(return_value=org_obj)
     session.add = MagicMock()

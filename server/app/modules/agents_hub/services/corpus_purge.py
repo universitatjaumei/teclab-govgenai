@@ -9,6 +9,10 @@ Lo que sí cascadea es `hub_document_chunks → hub_documents` (`fk_chunk_docume
 así que basta con borrar los documentos: los fragmentos —y con ellos los embeddings, que es
 lo que ocupa— se van detrás.
 
+**Y sus trabajos de ingesta** (#253): `hub_ingestion_jobs.chatbot_id` tampoco tiene clave ajena. Las
+filas se van aquí, en la transacción; sus `.md` fuente, que viven en `ingestion/{chatbot}/`, los borra
+`borrar_fuentes_del_chatbot` **después** del commit, porque el almacenamiento no es transaccional.
+
 **Qué NO se borra: las interacciones.** Son el registro de lo que el asistente contestó, no
 su corpus, y desde REV.1 son además material de revisión. Borrar un chatbot no reescribe la
 historia de lo que dijo.
@@ -21,9 +25,11 @@ from dataclasses import dataclass
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from server.app.core.storage import StorageService
 from server.app.modules.agents_hub.database.operational_models import (
     HubDocument,
     HubDocumentChunk,
+    HubIngestionJob,
 )
 
 
@@ -33,6 +39,7 @@ class CorpusRetirado:
 
     documentos: int
     fragmentos: int
+    trabajos: int = 0
 
 
 async def purgar_corpus_del_chatbot(
@@ -73,5 +80,15 @@ async def purgar_corpus_del_chatbot(
         delete(HubDocumentChunk).where(HubDocumentChunk.chatbot_id == chatbot_id)
     )
     await session.execute(delete(HubDocument).where(HubDocument.chatbot_id == chatbot_id))
+    trabajos = (
+        await session.execute(
+            delete(HubIngestionJob).where(HubIngestionJob.chatbot_id == chatbot_id)
+        )
+    ).rowcount or 0
 
-    return CorpusRetirado(documentos=documentos, fragmentos=fragmentos)
+    return CorpusRetirado(documentos=documentos, fragmentos=fragmentos, trabajos=trabajos)
+
+
+async def borrar_fuentes_del_chatbot(storage: StorageService, chatbot_id: uuid.UUID) -> None:
+    """Los `.md` que guardaron sus trabajos de ingesta (#253). **Después del commit** del borrado."""
+    await storage.delete_prefix(f"ingestion/{chatbot_id}/")

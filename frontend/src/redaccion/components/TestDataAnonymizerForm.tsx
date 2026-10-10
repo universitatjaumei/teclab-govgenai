@@ -1,31 +1,30 @@
-import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-
-interface ColumnConfig {
-  name: string
-  fakerProvider: string
-}
+import type { ColumnInfo, ColumnSubstitution } from '@/shared/api/generated/model'
+import { ColumnSubstitutionFakerProvider } from '@/shared/api/generated/model'
+import { sustitutoDe } from './sustitutoDe'
 
 interface TestDataAnonymizerFormProps {
-  columns: string[]
-  onChange: (config: ColumnConfig[]) => void
+  /** Las columnas tal como las describió el servidor, con el sustituto que propone. */
+  columns: ColumnInfo[]
+  /** Lo que la persona ha elegido; lo que no está aquí sigue la propuesta del servidor. */
+  value: ColumnSubstitution[]
+  onChange: (sustituciones: ColumnSubstitution[]) => void
 }
 
-const FAKER_PROVIDERS = [
-  'name', 'email', 'phone_number', 'address', 'company',
-  'ssn', 'date_of_birth', 'credit_card_number', 'none',
-]
-
-export function TestDataAnonymizerForm({ columns, onChange }: TestDataAnonymizerFormProps) {
+/**
+ * #255 — una fila por columna, con el sustituto que el servidor propuso ya elegido. Antes este
+ * formulario recibía una lista vacía y tenía su propio catálogo de sustitutos, que no coincidía
+ * con el del servidor; los sustitutos salen ahora del contrato.
+ */
+export function TestDataAnonymizerForm({ columns, value, onChange }: TestDataAnonymizerFormProps) {
   const { t } = useTranslation('scripts')
-  const [config, setConfig] = useState<Record<string, string>>(
-    Object.fromEntries(columns.map(c => [c, 'none'])),
-  )
 
-  function handleChange(col: string, provider: string) {
-    const updated = { ...config, [col]: provider }
-    setConfig(updated)
-    onChange(columns.map(name => ({ name, fakerProvider: updated[name] ?? 'none' })))
+  function handleChange(columna: string, sustituto: string) {
+    const resto = value.filter(s => s.column_name !== columna)
+    onChange([
+      ...resto,
+      { column_name: columna, faker_provider: sustituto as ColumnSubstitution['faker_provider'] },
+    ])
   }
 
   if (columns.length === 0) {
@@ -44,15 +43,17 @@ export function TestDataAnonymizerForm({ columns, onChange }: TestDataAnonymizer
         </thead>
         <tbody>
           {columns.map(col => (
-            <tr key={col} className="border-t">
-              <td className="px-3 py-2 font-mono text-xs">{col}</td>
+            <tr key={col.name} className="border-t">
+              <td className="px-3 py-2 font-mono text-xs">{col.name}</td>
               <td className="px-3 py-2">
                 <select
-                  value={config[col] ?? 'none'}
-                  onChange={e => handleChange(col, e.target.value)}
+                  data-testid={`sustituto-${col.name}`}
+                  aria-label={`${t('anonymize.faker_provider')}: ${col.name}`}
+                  value={sustitutoDe(col, value)}
+                  onChange={e => handleChange(col.name, e.target.value)}
                   className="text-xs border rounded px-2 py-1 w-full"
                 >
-                  {FAKER_PROVIDERS.map(p => (
+                  {Object.values(ColumnSubstitutionFakerProvider).map(p => (
                     <option key={p} value={p}>{p}</option>
                   ))}
                 </select>

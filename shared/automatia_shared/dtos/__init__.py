@@ -137,40 +137,6 @@ class ScriptAuditResult(BaseModel):
     warnings: List[str] = Field(default_factory=list, description="Non-blocking warnings")
 
 
-class LicenseInfo(BaseModel):
-    """License information for a client."""
-    license_id: str
-    client_id: str
-    partner_id: str
-    quota_tokens: int
-    consumed_tokens: int
-    valid_until: datetime
-    status: str
-
-    @property
-    def remaining_tokens(self) -> int:
-        """Calcula el número de tokens restantes en la licencia."""
-        return max(0, self.quota_tokens - self.consumed_tokens)
-
-    @property
-    def usage_percentage(self) -> float:
-        """Calcula el porcentaje de uso de tokens."""
-        if self.quota_tokens == 0:
-            return 100.0
-        return (self.consumed_tokens / self.quota_tokens) * 100
-
-
-class BillingRecord(BaseModel):
-    """Record of token consumption for billing."""
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
-    client_id: str
-    partner_id: str
-    operation: str
-    tokens_used: int
-    model_id: str
-    cost_usd: float = Field(default=0.0)
-
-
 class AutomationBlueprintDTO(BaseModel):
     """Objeto de transferencia para la sincronización de automatizaciones (Blueprints)."""
     model_config = ConfigDict(use_enum_values=True)
@@ -221,8 +187,6 @@ __all__ = [
     "ExtractionResult",
     "ScriptContext",
     "ScriptAuditResult",
-    "LicenseInfo",
-    "BillingRecord",
     "AutomationBlueprintDTO",
     "AdminProfileDTO",
     "PartnerProfileDTO",

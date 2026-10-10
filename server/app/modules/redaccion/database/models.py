@@ -336,10 +336,11 @@ class HubScriptProposal(HubOperationalBase):
     test_data_is_anonymized: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False
     )
-    test_data_anonymization_map: Mapped[dict[str, Any] | None] = mapped_column(
+    test_data_kind: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    #: #255 — qué hizo la anonimización y qué quedó, sin valores (`InformeDeAnonimizacion`).
+    anonymization_report_json: Mapped[dict[str, Any] | None] = mapped_column(
         JSONB, nullable=True
     )
-    test_data_kind: Mapped[str | None] = mapped_column(String(20), nullable=True)
     test_result_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     test_result_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
     test_validated_by_proposer_at: Mapped[datetime | None] = mapped_column(

@@ -3,7 +3,7 @@
  * ScriptProposalWizardPage + AdminScriptReviewQueuePage
  */
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import i18n from '@/shared/i18n'
@@ -554,7 +554,6 @@ describe('ScriptProposalWizardPage', () => {
       mutate: vi.fn(),
       data: {
         synthetic_ref: { bucket: 'test-data', key: 'sintetico.xlsx' },
-        anonymization_map: {},
       },
       isPending: false,
       isSuccess: true,
@@ -574,6 +573,72 @@ describe('ScriptProposalWizardPage', () => {
     const enviado = mockTestScriptProposal.mock.calls[0][0]
     expect(enviado.data.test_data_ref.key).toBe('sintetico.xlsx')
     expect(enviado.data.use_real_data).toBe(false)
+  })
+
+  it('should_enviar_al_anonimizar_lo_que_propuso_el_servidor_y_lo_que_cambio_la_persona', () => {
+    // #255 — el paso 4 pintaba el formulario sin columnas y anonimizaba sin sustituciones: con
+    // Excel y CSV no se cambiaba nada y la propuesta quedaba como anonimizada. Ahora el
+    // formulario parte de lo que el servidor propuso al describir el fichero, y se manda.
+    _proposalListo()
+    _mockDescribe(vi.fn(), {
+      file_ref: { bucket: 'test-data', key: 'test-data/uploads/p1/f.xlsx' },
+      columns: [
+        { name: 'IBAN', inferred_faker_provider: 'iban' },
+        { name: 'Nombre', inferred_faker_provider: 'first_name' },
+      ],
+    })
+    const anonimizar = vi.fn()
+    vi.mocked(useAnonymizeTestData).mockReturnValue({
+      mutate: anonimizar,
+      data: undefined,
+      isPending: false,
+      isSuccess: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useAnonymizeTestData>)
+
+    wrap(<ScriptProposalWizardPage />)
+    fireEvent.click(screen.getByTestId('btn-next-step-2'))
+    fireEvent.change(screen.getByTestId('input-test-data-file'), {
+      target: { files: [new File(['x'], 'ejecucion.xlsx')] },
+    })
+    fireEvent.click(screen.getByTestId('btn-next-step-3'))
+
+    // Cada columna, con el sustituto que propuso el servidor ya elegido.
+    const iban = screen.getByTestId('sustituto-IBAN') as HTMLSelectElement
+    const nombre = screen.getByTestId('sustituto-Nombre') as HTMLSelectElement
+    expect(iban.value).toBe('iban')
+    expect(nombre.value).toBe('first_name')
+
+    // La persona decide que el nombre no hace falta cambiarlo.
+    fireEvent.change(nombre, { target: { value: 'keep' } })
+    fireEvent.click(screen.getByTestId('btn-next-step-4'))
+
+    expect(anonimizar).toHaveBeenCalledTimes(1)
+    expect(anonimizar.mock.calls[0][0].data.substitutions).toEqual([
+      { column_name: 'IBAN', faker_provider: 'iban' },
+      { column_name: 'Nombre', faker_provider: 'keep' },
+    ])
+  })
+
+  it('should_no_volver_a_subir_el_pdf_real_una_vez_anonimizado', () => {
+    // Auditoría de la PR #256 — la vista previa del paso 5 subía otra vez el PDF real, y deshacía
+    // el borrado de lo subido que hace anonimizar (#251). Con el sintético hecho, no se ofrece.
+    _proposalListo()
+    vi.mocked(useAnonymizeTestData).mockReturnValue({
+      mutate: vi.fn(),
+      data: { synthetic_ref: { bucket: 'test-data', key: 'test-data/s.md' }, informe: { tipo: 'pdf', restos: 0, requiere_aceptacion: false } },
+      isPending: false, isSuccess: true, isError: false,
+    } as unknown as ReturnType<typeof useAnonymizeTestData>)
+
+    wrap(<ScriptProposalWizardPage />)
+    fireEvent.click(screen.getByTestId('btn-next-step-2'))
+    fireEvent.change(screen.getByTestId('input-test-data-file'), {
+      target: { files: [new File(['%PDF'], 'expediente.pdf', { type: 'application/pdf' })] },
+    })
+    fireEvent.click(screen.getByTestId('btn-next-step-3'))
+    fireEvent.click(screen.getByTestId('btn-next-step-4'))
+
+    expect(screen.queryByTestId('btn-preview-pdf')).toBeNull()
   })
 
   it('should_block_save_button_until_test_validated', () => {
@@ -752,6 +817,61 @@ describe('ScriptProposalWizardPage', () => {
 
     expect(mockSubmitForReview).toHaveBeenCalledWith(
       expect.objectContaining({ proposalId: 'prop-2' }),
+      expect.anything(),
+    )
+  })
+
+  it('should_mostrar_el_informe_y_exigir_aceptar_lo_que_quedo_antes_de_pedir_revision', () => {
+    // #255 — la anonimización dejó una columna que parecía personal: el informe lo dice y, para
+    // pedir revisión de plantilla global, hay que aceptarlo. La aceptación viaja al servidor.
+    vi.mocked(useProposeScript).mockReturnValue({
+      mutate: mockProposeScript,
+      data: { ...SAMPLE_PROPOSE_APPROVED, proposal_id: 'prop-3' } as unknown as ReturnType<typeof useProposeScript>['data'],
+      isPending: false, isSuccess: true, isError: false, reset: vi.fn(),
+    } as unknown as ReturnType<typeof useProposeScript>)
+    vi.mocked(useTestScriptProposal).mockReturnValue({
+      mutate: mockTestScriptProposal,
+      data: { ...SAMPLE_TEST_RESULT, proposal_id: 'prop-3' } as unknown as ReturnType<typeof useTestScriptProposal>['data'],
+      isPending: false, isSuccess: true, isError: false,
+    } as unknown as ReturnType<typeof useTestScriptProposal>)
+    vi.mocked(useValidateTestResult).mockReturnValue({
+      mutate: mockValidateTestResult,
+      data: { proposal_id: 'prop-3', test_validated_by_proposer_at: '2026-10-10T10:00:00Z' } as unknown as ReturnType<typeof useValidateTestResult>['data'],
+      isPending: false, isSuccess: true, isError: false,
+    } as unknown as ReturnType<typeof useValidateTestResult>)
+    vi.mocked(useAnonymizeTestData).mockReturnValue({
+      mutate: vi.fn(),
+      data: {
+        synthetic_ref: { bucket: 'test-data', key: 'test-data/s.csv' },
+        informe: {
+          tipo: 'tabular',
+          sustituidas: [{ columna: 'IBAN', sustituto: 'iban' }],
+          mantenidas: [{ columna: 'Nombre', propuesta: 'first_name' }],
+          fragmentos: {},
+          rechazados: {},
+          restos: 0,
+          requiere_aceptacion: true,
+        },
+      },
+      isPending: false, isSuccess: true, isError: false,
+    } as unknown as ReturnType<typeof useAnonymizeTestData>)
+
+    wrap(<ScriptProposalWizardPage />, 'admin')
+    fireEvent.change(screen.getByTestId('select-target-owner-kind'), { target: { value: 'platform' } })
+    declararParaPoderCompartir()
+
+    const informe = screen.getByTestId('informe-anonimizacion')
+    expect(within(informe).getByText('IBAN')).toBeDefined()
+    expect(within(informe).getByTestId('mantenida-personal-Nombre')).toBeDefined()
+
+    const enviar = screen.getByTestId('btn-submit-for-review') as HTMLButtonElement
+    expect(enviar.disabled).toBe(true)
+    fireEvent.click(screen.getByTestId('acepto-restos'))
+    expect(enviar.disabled).toBe(false)
+    fireEvent.click(enviar)
+
+    expect(mockSubmitForReview).toHaveBeenCalledWith(
+      { proposalId: 'prop-3', data: { acepto_restos: true } },
       expect.anything(),
     )
   })

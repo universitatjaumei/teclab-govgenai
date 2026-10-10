@@ -6,7 +6,7 @@ This package contains pure, stateless code shared between server and client_app.
 
 __version__ = "0.1.0"
 
-from automatia_shared.enums import TaskStatus, LicenseStatus, ScriptStatus
+from automatia_shared.enums import TaskStatus, ScriptStatus
 from automatia_shared.dtos import FlowSpec, TaskSpec
 from automatia_shared.crypto_utils import (
     RSASigner,
@@ -17,7 +17,6 @@ from automatia_shared.crypto_utils import (
 
 __all__ = [
     "TaskStatus",
-    "LicenseStatus",
     "ScriptStatus",
     "FlowSpec",
     "TaskSpec",

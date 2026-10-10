@@ -127,6 +127,7 @@ vive en un documento no es un invariante: es una intención.
 | I15 | **El servidor sólo pide URL de la red pública, y lo comprueba en cada salto.** Una dirección privada, de *loopback* o de enlace local —el servidor de metadatos de la nube, los contenedores vecinos— no se pide, ni directamente ni **llegando a ella por una redirección**. La forma de la URL la validan los contratos de entrada (422 con motivo); el destino resuelto, cada petición. Hay una válvula de desarrollo, `CRAWLER_ALLOW_PRIVATE_TARGETS`, y **producción se niega a arrancar con ella puesta** | `core/red_publica.py` + `cliente_de_rastreo` en `modules/curation/spider.py`; los cuatro gates de `core/config.py`; `test_aper1_*` |
 | I16 | **Lo que corre dentro del servidor registra, no imprime.** Un `print()` en producción sale sin nivel, sin marca de tiempo y sin nombre de módulo: no se puede filtrar por severidad ni subir el detalle de un servicio sin subirlo de todos. Una herramienta de consola **sí** imprime —le habla a quien la acaba de ejecutar— y se distingue por serlo (`typer.Typer()`, `__main__`, `argparse`), no por declararlo | `configurar_logging` en `main.py` (nivel por `LOG_LEVEL`); `test_issue18_lo_que_corre_en_el_servidor_no_imprime.py` |
 | I17 | **La contraseña que pone otra persona vale una sola vez.** Restablecerla deja la cuenta marcada, y mientras la marca siga puesta el token que se emite **no sirve para nada más que cambiarla**: el resto de la API responde 403. Se hace cumplir en el servidor y no en el panel, porque un aviso en pantalla dejaría la contraseña viva para quien llame a la API a mano. Y queda dicho quién restableció y cuándo: sin la traza, un restablecimiento es indistinguible de un cambio propio | `api/deps.py` (`_exigir_el_cambio_pendiente`); `hub_users_router.set_usuario_password`; `test_issue94_la_contrasena_restablecida_es_de_un_solo_uso.py` |
+| I18 | **Una organización con datos no se borra; se desactiva.** Borrarla en cascada sería irreversible y alcanzaría ficheros del almacenamiento, así que mientras le queden sitios, informes, plantillas, funciones o sus artefactos, agentes de unidad o pares léxicos, el borrado es un 409 que dice qué le queda. La traza —registro de actividad, manifiestos, interacciones— no lo impide y sobrevive. Lo que sí cascadea, sus chatbots, se lleva su corpus y sus trabajos de ingesta en la misma transacción —y sus `.md` fuente después del commit—, porque nada de eso cuelga de ellos por clave foránea; es el mismo camino que borrar un chatbot | `hub_organizaciones_router.py` (`LO_QUE_BLOQUEA_EL_BORRADO`, `delete_organizacion`); `test_issue252_borrar_una_organizacion_purga_su_corpus.py` |
 
 **Cómo se usa esta tabla.** Al escribir código nuevo, si tocas algo que aparece en la columna
 derecha, el test correspondiente es el que te dirá si te has pasado. Si crees que un invariante
@@ -290,7 +291,8 @@ para que una persona decida qué entra al corpus.
 - **Quien cura propone qué páginas deberían alimentar un asistente** (2026-10-08): una marca por
   página, con quién y cuándo, independiente de cualquier asistente y que un nuevo rastreo no
   borra. Proponer sólo pide el módulo `curacion`; publicar sigue pidiendo además `chatbots`, y
-  Publicación filtra por lo propuesto.
+  Publicación filtra por lo propuesto. **Se puede proponer mientras se rastrea el sitio** (#247):
+  el rastreo confirma cada página al guardarla en vez de bloquearlas todas hasta el final.
 - Salvaguardas contra el vaciado: una pasada parcial no puede dar de baja el resto del portal.
 - **El rastreo no sale de la red pública** (I15). Quien da de alta un sitio decide a dónde pide
   el servidor, y basta tener el módulo de curación (antes, ser administrador): hasta APER.1 eso alcanzaba la red
@@ -331,6 +333,12 @@ a aprobación o edición humana.
   modelo lingüístico la anonimización sigue cogiendo identificadores estructurados y deja pasar
   los nombres dentro de la prosa, y el resumen saldría igual de saludable. Una capacidad que se
   elige tiene que poder distinguirse de una capacidad que no está (I12).
+- **Los datos de prueba anonimizados de un script se pueden comprobar.** La anonimización deja en
+  la propuesta un informe sin valores —qué columnas o fragmentos se sustituyeron, qué se mantuvo
+  aunque pareciera personal y cuántos valores originales siguen en el resultado—; lo ven quien
+  propone y quien revisa, junto con el sintético, que se puede bajar. Si quedó algo personal, la
+  revisión para plantilla global exige aceptarlo y queda quién y cuándo. Ni el mapa ficticio→real
+  ni lo subido sobreviven a la propuesta (#251, #255).
 
 **Superficie.** `modules/redaccion/` · `redaccion_*_router` (plantillas, workspaces, scripts,
 gráficos, manifiestos) · [`REDACCION_CONTRACT_FIRST.md`](REDACCION_CONTRACT_FIRST.md).
@@ -408,9 +416,9 @@ por `funcion_id@versión`.
   grupos en el claim), pero sin IdP configurado no se puede cerrar.
 - **Una persona administrando varias organizaciones** no es representable hoy: `organizacion_id`
   es una columna. El camino está escrito (tabla puente que la sustituya), y nadie lo pide aún.
-- **Cuatro tablas de identidad sin unificar** (`SuperAdminAccount`, `AdminAccount`,
-  `ClientAccount`, `HubUser`). Merece bloque propio con inventario delante; es la parte con riesgo
-  real.
+- **Tres tablas de identidad sin unificar** (`SuperAdminAccount`, `AdminAccount`, `HubUser`); la
+  cuarta, `ClientAccount`, no la usaba nadie y se retiró en #249. Merece bloque propio con
+  inventario delante; es la parte con riesgo real.
 
 ---
 
@@ -610,7 +618,13 @@ cambió y retira lo que desapareció.
 - **El censo se acota al ámbito rastreado.** Una pasada de sección compara contra las páginas de
   esa sección; fuera del ámbito no declara nada, ni baja ni cambio.
 - **Nada entra al corpus con hallazgos bloqueantes**: la automatización no tiene menos criterio
-  que el curador al que sustituye. La página bloqueada sigue siendo candidata.
+  que el curador al que sustituye. La página bloqueada sigue siendo candidata, y la pasada
+  siguiente la vuelve a considerar.
+- **Lo que el rastreo ve nuevo o cambiado no se pierde por una interrupción** (#247). La señal
+  vive en la página (`pendiente`) y sólo la quita el job cuando ha procesado la página; un
+  reinicio a mitad, un fallo de reingesta o una puerta de calidad la dejan para la pasada
+  siguiente. Antes dependía de la memoria del rastreo, y una página cambiada podía quedarse con
+  su copia vieja en el corpus sin ningún aviso.
 - **Ninguna retirada masiva silenciosa**: por encima del umbral del ámbito (30 % por defecto) no
   se retira nada y queda el aviso con las cifras.
 - **Todo lo que hace queda escrito** en un diario por pasada, con el ámbito que cubrió.

@@ -89,5 +89,20 @@
     "otra_categoria": "Another category, if it is not listed",
     "porque": "Saving this script shares it with your department: from then on someone else can use it in their reports. That is why you have to say what it is for and what data it handles — nobody reviews it beforehand, so the declaration is what makes reviewing it afterwards possible.",
     "titulo": "Responsible declaration"
+  },
+  "informe_anonimizacion": {
+    "aceptado": "Accepted by {{por}} on {{en}}.",
+    "acepto_restos": "I accept that the test data includes what the report flags as possibly personal.",
+    "descargar": "Download the anonymized test data",
+    "fallo_descarga": "The test data could not be downloaded.",
+    "fragmentos": "Replaced fragments, by type:",
+    "mantenidas_personales": "Columns that looked like personal data and were kept as they were:",
+    "proponia": "(“{{propuesta}}” was suggested)",
+    "rechazados": "Detected fragments that were left unreplaced, by type:",
+    "restos_one": "{{count}} original value remains in the result.",
+    "restos_other": "{{count}} original values remain in the result.",
+    "sin_restos": "No original value of what was replaced remains in the result.",
+    "sustituidas": "Columns replaced with made-up data:",
+    "titulo": "Anonymization report"
   }
 }
