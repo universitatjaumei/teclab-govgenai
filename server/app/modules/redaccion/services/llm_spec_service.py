@@ -315,7 +315,7 @@ def _contexto_de_la_muestra(muestra: "MuestraDeDatos") -> str:
 
     - **Las columnas listadas son las que existen.** Sin decirlo, el modelo completa con
       campos plausibles que no están en el fichero, y el informe falla al extraer.
-    - **El tipo importa.** Si `saldo` sale como `object`, los importes vienen como texto y hay
+    - **El tipo importa.** Si `saldo` sale como `str` (`object` antes de pandas 3), los importes vienen como texto y hay
       que convertirlos antes de sumar; el prompt del sistema ya avisa de que sumar texto da una
       cifra mal sin error.
     - **Los valores son de ejemplo y están anonimizados**, para que el modelo no los tome como

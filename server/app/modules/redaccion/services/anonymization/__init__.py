@@ -22,14 +22,10 @@ from server.app.modules.redaccion.services.anonymization.policies import (
     AnonymizerPolicy,
     Strategy,
 )
-from server.app.modules.redaccion.services.anonymization.service import (
-    AnonymizerService,
-)
 
 __all__ = [
     "AnonymizationContext",
     "AnonymizerPolicy",
-    "AnonymizerService",
     "ColumnInfo",
     "Entity",
     "FakerGenerator",

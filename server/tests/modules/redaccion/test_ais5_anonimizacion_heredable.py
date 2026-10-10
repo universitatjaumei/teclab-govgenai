@@ -147,11 +147,13 @@ class TestLaPromesaDeReplaceEstaAcotada:
         F2.A.4 (Vault Edge) **cuando haya quien la consuma**. Dejar los stubs invita a
         llamarlos y a creer que el mapa se guardó.
         """
-        from server.app.modules.redaccion.services.anonymization import service
+        # Vivían en `anonymization/service.py`, retirado entero en #262 por no usarlo nadie: se
+        # mira el paquete, para que no vuelvan por otro fichero.
+        from pathlib import Path
 
-        fuente = service.__file__
-        with open(fuente, encoding="utf-8") as fichero:
-            texto = fichero.read()
+        from server.app.modules.redaccion.services import anonymization
 
-        assert "async def save_state" not in texto
-        assert "async def load_state" not in texto
+        for fuente in Path(anonymization.__file__).parent.glob("*.py"):
+            texto = fuente.read_text(encoding="utf-8")
+            assert "async def save_state" not in texto, fuente.name
+            assert "async def load_state" not in texto, fuente.name
