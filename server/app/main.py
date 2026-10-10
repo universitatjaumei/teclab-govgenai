@@ -435,6 +435,12 @@ async def _arranque(app: FastAPI):
         bucle_de_caducados(AsyncSessionLocal, almacen=get_storage_service())
     )
 
+    # #254 — la limpieza de los PDF temporales del chat. Misma historia que la de arriba: existía
+    # y no la llamaba nada, así que se quedaban para siempre. Un test mira que esté aquí.
+    from server.app.modules.agents_hub.ingestion.watcher import bucle_de_temporales
+
+    temporales_task = asyncio.create_task(bucle_de_temporales(AsyncSessionLocal))
+
     # Content quality scheduler (9Q.5) — Deploy: edge
     quality_scheduler = _start_quality_scheduler()
 
@@ -442,6 +448,7 @@ async def _arranque(app: FastAPI):
 
     refresh_task.cancel()
     caducados_task.cancel()
+    temporales_task.cancel()
     if quality_scheduler is not None:
         quality_scheduler.shutdown(wait=False)
 
