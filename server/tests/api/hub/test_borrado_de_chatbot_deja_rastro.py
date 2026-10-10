@@ -32,6 +32,13 @@ class _SesionQueNoHaceNada:
         return None
 
 
+class _AlmacenQueNoHaceNada:
+    """#253 — borrar el chatbot borra después sus fuentes de ingesta; aquí no hay ninguna."""
+
+    async def delete_prefix(self, _prefijo):
+        return None
+
+
 async def test_el_borrado_registra_cuanto_corpus_se_llevo(monkeypatch, caplog):
     import server.app.routers.hub_chatbots_router as router_mod
 
@@ -51,6 +58,7 @@ async def test_el_borrado_registra_cuanto_corpus_se_llevo(monkeypatch, caplog):
             chatbot_id=chatbot_id,
             user=UserInfo(user_id="1", email="admin@example.local", role="superadmin"),
             session=_SesionQueNoHaceNada(),
+            storage=_AlmacenQueNoHaceNada(),
         )
 
     registro = "\n".join(caplog.messages)
@@ -77,6 +85,7 @@ async def test_el_rastro_dice_quien_lo_borro(monkeypatch, caplog):
             chatbot_id=uuid.uuid4(),
             user=UserInfo(user_id="42", email="gerencia@uji.es", role="admin"),
             session=_SesionQueNoHaceNada(),
+            storage=_AlmacenQueNoHaceNada(),
         )
 
     assert "gerencia@uji.es" in "\n".join(caplog.messages)
@@ -100,6 +109,7 @@ async def test_un_borrado_sin_corpus_tambien_deja_rastro(monkeypatch, caplog):
             chatbot_id=uuid.uuid4(),
             user=UserInfo(user_id="1", email="admin@example.local", role="superadmin"),
             session=_SesionQueNoHaceNada(),
+            storage=_AlmacenQueNoHaceNada(),
         )
 
     assert caplog.messages, "un borrado sin corpus no deja constancia de haber ocurrido"

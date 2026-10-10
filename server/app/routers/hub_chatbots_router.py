@@ -27,7 +27,11 @@ from server.app.modules.agents_hub.database.config_models import HubChatbot, Hub
 from server.app.modules.agents_hub.database.connection import get_async_session
 from server.app.modules.agents_hub.database.operational_models import HubDocument
 from server.app.modules.agents_hub.ingestion.watcher import IngestionWatcher
-from server.app.modules.agents_hub.services.corpus_purge import purgar_corpus_del_chatbot
+from server.app.core.storage import StorageService, get_storage_service
+from server.app.modules.agents_hub.services.corpus_purge import (
+    borrar_fuentes_del_chatbot,
+    purgar_corpus_del_chatbot,
+)
 from server.app.modules.agents_hub.services.corpus_recalculator import recalculate_corpus
 from server.app.modules.agents_hub.services.corpus_recommender import recommend_retrieval_mode
 from server.app.modules.agents_hub.ingestion.watcher import (
@@ -621,6 +625,7 @@ async def delete_chatbot(
     chatbot_id: uuid.UUID,
     user: UserInfo = Depends(_require_admin),
     session=Depends(get_async_session),
+    storage: StorageService = Depends(get_storage_service),
 ):
     await _get_chatbot_or_404(session, chatbot_id, user)
     # PIL.2: primero el corpus y luego el chatbot, en la MISMA transacción.
@@ -635,6 +640,7 @@ async def delete_chatbot(
     retirado = await purgar_corpus_del_chatbot(session, chatbot_id)
     await session.execute(sql_delete(HubChatbot).where(HubChatbot.id == chatbot_id))
     await session.commit()
+    await borrar_fuentes_del_chatbot(storage, chatbot_id)
 
     # Lo que se llevó por delante queda dicho. La purga siempre lo contaba y lo devolvía —su
     # docstring pedía «poder decirlo en voz alta»— y aquí se descartaba: un borrado
@@ -644,11 +650,13 @@ async def delete_chatbot(
     # Se registra después del commit, a propósito: antes se anunciaría un borrado que aún puede
     # no ocurrir.
     logger.info(
-        "Chatbot %s eliminado por %s; corpus retirado: %d documentos, %d fragmentos",
+        "Chatbot %s eliminado por %s; corpus retirado: %d documentos, %d fragmentos, "
+        "%d trabajos de ingesta",
         chatbot_id,
         user.email,
         retirado.documentos,
         retirado.fragmentos,
+        retirado.trabajos,
     )
 
 

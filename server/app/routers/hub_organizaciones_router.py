@@ -33,7 +33,11 @@ from server.app.modules.agents_hub.database.operational_models import (
     HubLexiconPair,
     HubWebSite,
 )
-from server.app.modules.agents_hub.services.corpus_purge import purgar_corpus_del_chatbot
+from server.app.core.storage import StorageService, get_storage_service
+from server.app.modules.agents_hub.services.corpus_purge import (
+    borrar_fuentes_del_chatbot,
+    purgar_corpus_del_chatbot,
+)
 from server.app.modules.redaccion.database.models import (
     HubFuncion,
     HubFuncionArtefacto,
@@ -382,6 +386,7 @@ async def delete_organizacion(
     user: UserInfo = Depends(_require_admin),
     session=Depends(get_async_session),
     _modulo=_de_plataforma,
+    storage: StorageService = Depends(get_storage_service),
 ):
     organizacion = await session.get(HubOrganizacion, organizacion_id)
     if not organizacion:
@@ -410,21 +415,25 @@ async def delete_organizacion(
             select(HubChatbot.id).where(HubChatbot.organizacion_id == organizacion_id)
         )
     ).scalars().all()
-    documentos = fragmentos = 0
+    documentos = fragmentos = trabajos = 0
     for chatbot_id in chatbots:
         retirado = await purgar_corpus_del_chatbot(session, chatbot_id)
         documentos += retirado.documentos
         fragmentos += retirado.fragmentos
+        trabajos += retirado.trabajos
     await session.execute(
         sql_delete(HubOrganizacion).where(HubOrganizacion.id == organizacion_id)
     )
     await session.commit()
+    for chatbot_id in chatbots:
+        await borrar_fuentes_del_chatbot(storage, chatbot_id)
     logger.info(
         "Organización %s eliminada por %s; %d chatbots, corpus retirado: %d documentos, "
-        "%d fragmentos",
+        "%d fragmentos, %d trabajos de ingesta",
         organizacion_id,
         user.email,
         len(chatbots),
         documentos,
         fragmentos,
+        trabajos,
     )
