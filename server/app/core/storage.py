@@ -26,6 +26,7 @@ class StorageService(Protocol):
     async def get(self, key: str) -> bytes: ...
     async def delete(self, key: str) -> None: ...
     async def delete_prefix(self, prefix: str) -> None: ...
+    async def listar(self, prefix: str) -> list[str]: ...
     async def exists(self, key: str) -> bool: ...
 
 
@@ -112,6 +113,19 @@ class FsspecStorageService:
     def _sync_delete_prefix(self, path: str) -> None:
         if self._fs.exists(path):
             self._fs.rm(path, recursive=True)
+
+    async def listar(self, prefix: str) -> list[str]:
+        """Los nombres de lo que cuelga directamente de `prefix`, o nada si no existe (#258)."""
+        path = self._full_path(prefix.rstrip("/"))
+        return await asyncio.to_thread(self._sync_listar, path)
+
+    def _sync_listar(self, path: str) -> list[str]:
+        if not self._fs.exists(path):
+            return []
+        return sorted(
+            str(hijo).replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
+            for hijo in self._fs.ls(path, detail=False)
+        )
 
     async def exists(self, key: str) -> bool:
         path = self._full_path(key)

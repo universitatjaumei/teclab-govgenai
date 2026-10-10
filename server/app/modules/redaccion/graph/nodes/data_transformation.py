@@ -44,11 +44,22 @@ def _df_de_contenido(contenido: dict) -> pd.DataFrame | None:
     return None
 
 
+def _filas_de(df: pd.DataFrame) -> list[dict]:
+    """Las filas del bloque, con lo vacío como `null` de JSON.
+
+    El contenido del bloque se guarda en JSONB, que rechaza `NaN`, y un `pd.NA` ni siquiera es
+    serializable. Con pandas 3 un nulo de texto también llega como `NaN` (auditoría de la PR #260).
+    """
+    return df.astype(object).where(df.notna(), None).to_dict(orient="records")
+
+
 def _tabla_de(nombre: str, df: pd.DataFrame) -> dict:
     return {
         "name": nombre,
         "headers": [str(c) for c in df.columns],
-        "rows": df.astype(str).values.tolist(),
+        # Lo vacío, como texto vacío. Con pandas 2 `astype(str)` lo convertía en «nan», que
+        # salía tal cual en la tabla; con pandas 3 sigue siendo `NaN`, que JSONB no admite.
+        "rows": df.astype(str).where(df.notna(), "").values.tolist(),
         "source_page": None,
     }
 
@@ -130,7 +141,7 @@ class DataTransformationNode:
                 })
                 continue
 
-            rows = result.dataframe.to_dict(orient="records")
+            rows = _filas_de(result.dataframe)
             content = {
                 "rows": rows,
                 # PRO.4 — la tabla, en la forma que el informe sabe pintar. El contenido era

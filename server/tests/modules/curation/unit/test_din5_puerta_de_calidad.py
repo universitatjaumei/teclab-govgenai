@@ -632,3 +632,31 @@ class TestLaMarcaDePendienteSoloLaQuitaLoProcesado:
         ).run_for_site(sitio.id)
 
         assert cambiada.pendiente == "cambiada"
+
+    @pytest.mark.asyncio
+    async def test_should_keep_a_new_page_that_also_changed_pending_if_its_ingestion_fails(self):
+        """#257 — una página nueva que además cambia llega en las dos listas. La reingesta no la
+        encuentra en el corpus y la daba por hecha, así que si después la auto-ingesta fallaba ya
+        no quedaba marca y la pasada siguiente no la volvía a entregar. De una página nueva se
+        encarga la auto-ingesta, y es ella quien la da por hecha."""
+
+        class _WatcherQueFalla(_Watcher):
+            async def process_source(self, source_url: str, chatbot_id: uuid.UUID, **kw: Any) -> Any:
+                raise RuntimeError("el servicio de embeddings no responde")
+
+        sitio = _Sitio()
+        nueva = _Pagina(url="https://www.uji.es/jornadas/nueva", pendiente="nueva")
+
+        await _job(
+            sesion=_Sesion(sitio, [nueva]),
+            resumen=_ResumenDeRastreo(
+                new_page_ids=[nueva.id], changed_page_ids=[nueva.id], pages_new=1
+            ),
+            hallazgos_del_detector=[],
+            selecciones=[_Seleccion(chatbot_id=uuid.uuid4(), site_id=sitio.id)],
+            watcher=_WatcherQueFalla(),
+            repo_de_hallazgos=_RepoDeHallazgos(),
+        ).run_for_site(sitio.id)
+
+        assert nueva.pendiente == "nueva"
+

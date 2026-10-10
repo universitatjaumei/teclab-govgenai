@@ -19,6 +19,7 @@ historia de lo que dijo.
 """
 from __future__ import annotations
 
+import logging
 import uuid
 from dataclasses import dataclass
 
@@ -26,6 +27,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.app.core.storage import StorageService
+from server.app.modules.agents_hub.database.config_models import HubChatbot
 from server.app.modules.agents_hub.database.operational_models import (
     HubDocument,
     HubDocumentChunk,
@@ -89,6 +91,48 @@ async def purgar_corpus_del_chatbot(
     return CorpusRetirado(documentos=documentos, fragmentos=fragmentos, trabajos=trabajos)
 
 
+_log = logging.getLogger(__name__)
+
+
 async def borrar_fuentes_del_chatbot(storage: StorageService, chatbot_id: uuid.UUID) -> None:
-    """Los `.md` que guardaron sus trabajos de ingesta (#253). **Después del commit** del borrado."""
-    await storage.delete_prefix(f"ingestion/{chatbot_id}/")
+    """Los `.md` que guardaron sus trabajos de ingesta (#253). **Después del commit** del borrado.
+
+    #258 — si el almacenamiento falla, el chatbot ya está borrado: se registra y no se lanza, porque
+    un 500 diría que no se hizo algo que sí se hizo. Lo que quede lo recoge
+    `barrer_fuentes_huerfanas`.
+    """
+    try:
+        await storage.delete_prefix(f"ingestion/{chatbot_id}/")
+    except Exception:  # noqa: BLE001 — se registra; el barrido lo recoge
+        _log.warning(
+            "No se pudo borrar las fuentes de ingesta del chatbot %s; lo recogerá el barrido",
+            chatbot_id,
+            exc_info=True,
+        )
+
+
+async def barrer_fuentes_huerfanas(session: AsyncSession, storage: StorageService) -> int:
+    """Borra `ingestion/{chatbot}/` de los chatbots que ya no existen (#258). Devuelve cuántos.
+
+    Es lo que dejó un borrado de fuentes que falló después del commit. Lo que no es un uuid no lo
+    toca: no sabe de quién es.
+    """
+    candidatos: dict[uuid.UUID, str] = {}
+    for nombre in await storage.listar("ingestion/"):
+        try:
+            candidatos[uuid.UUID(nombre)] = nombre
+        except ValueError:
+            continue
+    if not candidatos:
+        return 0
+    vivos = set(
+        (
+            await session.execute(select(HubChatbot.id).where(HubChatbot.id.in_(list(candidatos))))
+        ).scalars()
+    )
+    huerfanos = [nombre for chatbot_id, nombre in candidatos.items() if chatbot_id not in vivos]
+    for nombre in huerfanos:
+        await storage.delete_prefix(f"ingestion/{nombre}/")
+    if huerfanos:
+        _log.info("Fuentes de ingesta huérfanas borradas: %d chatbots", len(huerfanos))
+    return len(huerfanos)
