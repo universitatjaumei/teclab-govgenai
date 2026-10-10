@@ -298,7 +298,7 @@ class DeterministicETLService:
                 raise TransformacionImposibleError(
                     f"to_number: no se ha podido convertir ni un valor de {col!r} con "
                     f"decimal={op.decimal_separator!r} y millares={op.thousands_separator!r}. "
-                    f"Ejemplo del contenido: {texto.iloc[0]!r}"
+                    f"Ejemplo del contenido: {texto.dropna().iloc[0]!r}"
                 )
             salida[col] = convertida
         return salida

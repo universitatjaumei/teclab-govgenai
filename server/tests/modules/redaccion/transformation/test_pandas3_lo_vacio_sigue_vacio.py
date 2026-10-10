@@ -33,6 +33,21 @@ def test_una_tabla_del_informe_lleva_lo_vacio_como_texto_vacio_y_es_json_valido(
     json.dumps(tabla, allow_nan=False)  # JSONB no admite NaN
 
 
+def test_las_filas_del_bloque_llevan_lo_vacio_como_nulo_json():
+    """Auditoría de la PR #260 — `rows` va en el mismo contenido que `tables` y se guarda en JSONB,
+    que rechaza `NaN` («Token "NaN" is invalid»). Con pandas 3 un nulo de texto también llega como
+    `NaN`; y un `pd.NA` de una columna entera nullable ni siquiera es serializable."""
+    from server.app.modules.redaccion.graph.nodes.data_transformation import _filas_de
+
+    df = pd.DataFrame({"a": ["x", None], "b": [1.5, None]})
+    df["c"] = pd.array([1, None], dtype="Int64")
+
+    filas = _filas_de(df)
+
+    assert filas == [{"a": "x", "b": 1.5, "c": 1}, {"a": None, "b": None, "c": None}]
+    json.dumps(filas, allow_nan=False)
+
+
 def test_to_number_no_cuenta_una_celda_vacia_como_dato():
     salida = _aplicar(
         pd.DataFrame({"importe": ["1.234,50", None, "10,00"]}),
