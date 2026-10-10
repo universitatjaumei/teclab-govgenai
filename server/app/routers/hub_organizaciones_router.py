@@ -15,6 +15,7 @@ consume otro módulo:
   `/hub`, que es coherente.
 """
 
+import logging
 import uuid
 from datetime import datetime, timezone
 
@@ -27,6 +28,7 @@ from server.app.core.auth.models import UserInfo
 from server.app.core.auth.tenancy import assert_org_access, scope_query_to_orgs
 from server.app.modules.agents_hub.database.connection import get_async_session
 from server.app.modules.agents_hub.database.config_models import HubChatbot, HubOrganizacion
+from server.app.modules.agents_hub.services.corpus_purge import purgar_corpus_del_chatbot
 from server.app.modules.agents_hub.agent.public_graphs.validacion import (
     validar_estrategias,
     validar_modo,
@@ -40,6 +42,8 @@ _require_admin = require_role("superadmin", "admin")
 # se puede derivar del token porque ROL.1 retiró la dimensión de *partner* del principal.
 _require_superadmin = require_role("superadmin")
 #: Administrar la plataforma: crear, renombrar y borrar organizaciones.
+logger = logging.getLogger(__name__)
+
 _de_plataforma = Depends(require_module("plataforma"))
 #: Configuración del módulo Chatbots aplicada a una organización (PLAT.3).
 _de_chatbots = Depends(require_module("chatbots"))
@@ -344,7 +348,30 @@ async def delete_organizacion(
     # El borrado arrastra los chatbots por CASCADE: sin esta línea, un admin destruye los
     # datos de otra administración con un solo DELETE.
     assert_org_access(user, organizacion.id)
+    # #252 — la cascada llega a los chatbots y no a su corpus, que no cuelga de ellos por clave
+    # foránea. Mismo camino que `delete_chatbot` (PIL.2) y en la misma transacción: borrar la
+    # organización dejaba documentos y embeddings sin dueño. Las interacciones se quedan, como
+    # al borrar un chatbot.
+    chatbots = (
+        await session.execute(
+            select(HubChatbot.id).where(HubChatbot.organizacion_id == organizacion_id)
+        )
+    ).scalars().all()
+    documentos = fragmentos = 0
+    for chatbot_id in chatbots:
+        retirado = await purgar_corpus_del_chatbot(session, chatbot_id)
+        documentos += retirado.documentos
+        fragmentos += retirado.fragmentos
     await session.execute(
         sql_delete(HubOrganizacion).where(HubOrganizacion.id == organizacion_id)
     )
     await session.commit()
+    logger.info(
+        "Organización %s eliminada por %s; %d chatbots, corpus retirado: %d documentos, "
+        "%d fragmentos",
+        organizacion_id,
+        user.email,
+        len(chatbots),
+        documentos,
+        fragmentos,
+    )
