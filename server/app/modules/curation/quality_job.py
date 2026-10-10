@@ -253,7 +253,12 @@ class SiteQualityAnalysisJob:
             # Un asistente puede tener la página una vez; varios pueden tenerla cada uno.
             chatbots = {doc.chatbot_id for doc in documentos}
             if not chatbots:
-                await self._ya_procesada(session, page)
+                # #257 — una página nueva que además cambió llega también aquí, y no está en el
+                # corpus porque todavía no se ha ingerido. De ella se encarga la auto-ingesta, que
+                # es quien la da por hecha: si se diera aquí y luego la ingesta fallara, se quedaría
+                # sin marca y nada la volvería a entregar.
+                if getattr(page, "pendiente", None) != "nueva":
+                    await self._ya_procesada(session, page)
                 continue
 
             actualizados = 0
