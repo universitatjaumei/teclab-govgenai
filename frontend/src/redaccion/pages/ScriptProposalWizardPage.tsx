@@ -387,8 +387,9 @@ export function ScriptProposalWizardPage() {
           </p>
           <div className="flex gap-2">
             {/* El botón sólo existe con un PDF delante: mandaba un blob vacío, y con un
-                fichero tabular no hay nada que previsualizar. */}
-            {pdfElegido && (
+                fichero tabular no hay nada que previsualizar. Y no una vez anonimizado: volvía
+                a subir el PDF real y deshacía el borrado de lo subido (auditoría de la PR #256). */}
+            {pdfElegido && !anonimizado && (
               <button
                 type="button"
                 data-testid="btn-preview-pdf"

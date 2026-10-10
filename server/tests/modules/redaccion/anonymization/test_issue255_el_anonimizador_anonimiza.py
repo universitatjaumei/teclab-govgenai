@@ -255,6 +255,7 @@ def test_el_sintetico_se_descarga_por_quien_propone_y_por_un_admin_y_nadie_mas(t
         return UserInfo(user_id=str(uuid.uuid4()), email="a@t.com", role="admin")
 
     client.app.dependency_overrides[get_current_user] = _admin
+    proposal.status = "pending_review"  # quien revisa, cuando hay algo que revisar
     assert client.get(url).status_code == 200
 
 
@@ -268,3 +269,64 @@ def test_lo_que_no_esta_anonimizado_no_se_descarga(test_app):
 
     respuesta = client.get(f"/api/v1/redaccion/scripts/{proposal.id}/test-data")
     assert respuesta.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Auditoría independiente de la PR #256 (2026-10-10)
+# ---------------------------------------------------------------------------
+
+
+def test_no_se_anonimiza_un_fichero_que_no_se_subio_para_esta_propuesta(test_app):
+    """`file_ref` lo manda el cliente. Sin comprobarlo, con `keep` en todas las columnas el
+    «sintético» era una copia de cualquier clave del almacenamiento —de otra propuesta, de otra
+    organización—, y la descarga nueva se la servía a quien la pidió."""
+    client, state, storage, _ = test_app
+    ajena = "test-data/uploads/otra-propuesta/fichero.csv"
+    asyncio.run(storage.put(ajena, CSV))
+    user_uuid = uuid.uuid4()
+    _como(client, user_uuid)
+    proposal = _seed_proposal(state, user_uuid)
+
+    respuesta = client.post(
+        f"/api/v1/redaccion/scripts/{proposal.id}/anonymize-test-data",
+        json={
+            "file_ref": {"bucket": "test-data", "key": ajena},
+            "kind": "csv",
+            "substitutions": [
+                {"column_name": c, "faker_provider": "keep"} for c in ("Nombre", "IBAN", "Importe")
+            ],
+        },
+    )
+
+    assert respuesta.status_code == 404, respuesta.text
+    assert not state["proposals"][str(proposal.id)].test_data_is_anonymized
+
+
+def test_un_admin_que_no_propuso_solo_lo_baja_si_esta_pendiente_de_revision(test_app):
+    """La cola de revisión es el único motivo para que otra persona lo vea. Una propuesta privada,
+    que nunca pasa por la cola, no se la baja ningún administrador."""
+    client, _, proposal, _ = _anonimizar_entero(test_app)
+    url = f"/api/v1/redaccion/scripts/{proposal.id}/test-data"
+
+    from server.app.api.deps import get_current_user
+    from server.app.core.auth.models import UserInfo
+
+    async def _admin():
+        return UserInfo(user_id=str(uuid.uuid4()), email="a@t.com", role="admin")
+
+    client.app.dependency_overrides[get_current_user] = _admin
+    assert client.get(url).status_code == 404
+
+    proposal.status = "pending_review"
+    assert client.get(url).status_code == 200
+
+
+def test_si_el_fichero_ya_no_esta_es_un_404_y_no_un_500(test_app):
+    client, state, storage, _ = test_app
+    user_uuid = uuid.uuid4()
+    _como(client, user_uuid)
+    proposal = _seed_proposal(state, user_uuid)
+    proposal.test_data_is_anonymized = True
+    proposal.test_data_ref = {"bucket": "test-data", "key": "test-data/no-existe.csv"}
+
+    assert client.get(f"/api/v1/redaccion/scripts/{proposal.id}/test-data").status_code == 404

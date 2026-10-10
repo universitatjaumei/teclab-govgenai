@@ -467,6 +467,11 @@ async def anonymize_test_data(
     proposal = await _load_proposal(proposal_id, session)
     if proposal.proposer_user_id != _user_to_uuid(user.user_id):
         raise HTTPException(status_code=403, detail="Not the proposer of this proposal")
+    # Auditoría de la PR #256 — `file_ref` lo manda el cliente: sin esto se anonimizaba cualquier
+    # clave del almacenamiento, y con `keep` en todo el «sintético» era una copia que la descarga
+    # servía. Sólo vale lo que se subió para esta propuesta; lo demás no existe para ella (404).
+    if not body.file_ref.key.startswith(f"test-data/uploads/{proposal_id}/"):
+        raise HTTPException(status_code=404, detail="Fichero de prueba no encontrado")
 
     if body.kind in ("xlsx", "csv"):
         result: AnonymizedTabularResult = await anonymizer.anonymize_tabular(
@@ -1111,19 +1116,29 @@ async def download_test_data(
 ) -> Response:
     """El sintético con el que se probó el script, para comprobar a ojo que no lleva nada real.
 
-    Lo pueden bajar quien propone y quien revisa. **Sólo el sintético**: lo subido sin anonimizar
+    Lo pueden bajar quien propone y, mientras está pendiente de revisión, quien revisa. **Sólo el sintético**: lo subido sin anonimizar
     son datos reales y no se sirven, ni siquiera a quien los subió, que ya los tiene.
     """
     proposal = await _load_proposal(proposal_id, session)
     es_quien_propone = proposal.proposer_user_id == _user_to_uuid(user.user_id)
     if not es_quien_propone:
         _require_admin(user)
+        # Auditoría de la PR #256 — `_require_admin` mira el rol y no la organización, así que
+        # otra persona sólo lo ve cuando hay algo que revisar: una propuesta privada, que nunca
+        # pasa por la cola, no se la baja ningún administrador. 404 y no 403: no se cuenta que
+        # existe.
+        if proposal.status != "pending_review":
+            raise HTTPException(status_code=404, detail="Sin datos de prueba anonimizados")
     clave = (proposal.test_data_ref or {}).get("key")
     if not proposal.test_data_is_anonymized or not clave:
         raise HTTPException(status_code=404, detail="Sin datos de prueba anonimizados")
+    try:
+        contenido = await storage.get(clave)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Sin datos de prueba anonimizados") from None
     extension = clave.rsplit(".", 1)[-1] if "." in clave else "bin"
     return Response(
-        content=await storage.get(clave),
+        content=contenido,
         media_type="application/octet-stream",
         headers={
             "Content-Disposition": f'attachment; filename="datos_de_prueba_anonimizados.{extension}"'

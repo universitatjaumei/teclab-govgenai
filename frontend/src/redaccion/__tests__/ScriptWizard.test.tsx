@@ -620,6 +620,27 @@ describe('ScriptProposalWizardPage', () => {
     ])
   })
 
+  it('should_no_volver_a_subir_el_pdf_real_una_vez_anonimizado', () => {
+    // Auditoría de la PR #256 — la vista previa del paso 5 subía otra vez el PDF real, y deshacía
+    // el borrado de lo subido que hace anonimizar (#251). Con el sintético hecho, no se ofrece.
+    _proposalListo()
+    vi.mocked(useAnonymizeTestData).mockReturnValue({
+      mutate: vi.fn(),
+      data: { synthetic_ref: { bucket: 'test-data', key: 'test-data/s.md' }, informe: { tipo: 'pdf', restos: 0, requiere_aceptacion: false } },
+      isPending: false, isSuccess: true, isError: false,
+    } as unknown as ReturnType<typeof useAnonymizeTestData>)
+
+    wrap(<ScriptProposalWizardPage />)
+    fireEvent.click(screen.getByTestId('btn-next-step-2'))
+    fireEvent.change(screen.getByTestId('input-test-data-file'), {
+      target: { files: [new File(['%PDF'], 'expediente.pdf', { type: 'application/pdf' })] },
+    })
+    fireEvent.click(screen.getByTestId('btn-next-step-3'))
+    fireEvent.click(screen.getByTestId('btn-next-step-4'))
+
+    expect(screen.queryByTestId('btn-preview-pdf')).toBeNull()
+  })
+
   it('should_block_save_button_until_test_validated', () => {
     vi.mocked(useProposeScript).mockReturnValue({
       mutate: mockProposeScript,
