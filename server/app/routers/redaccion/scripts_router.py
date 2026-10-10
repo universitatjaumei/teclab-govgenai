@@ -12,7 +12,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -62,6 +62,7 @@ from server.app.modules.redaccion.services.test_data_anonymizer import (
     AnonymizedPdfResult,
     AnonymizedTabularResult,
     ColumnSubstitution,
+    InformeDeAnonimizacion,
     SpanOverride,
     TestDataAnonymizerService,
 )
@@ -216,6 +217,8 @@ class AnonymizeTestDataResponse(BaseModel):
     nadie —el reintento del administrador trabaja sobre el sintético—."""
 
     synthetic_ref: StorageRef
+    #: #255 — qué se sustituyó y qué quedó, sin valores: es lo que permite comprobar que funcionó.
+    informe: InformeDeAnonimizacion
 
 
 class TestProposalRequest(BaseModel):
@@ -264,6 +267,12 @@ class SaveToPrivateTemplateResponse(BaseModel):
     funcion_version: int | None = None
 
 
+class SubmitForReviewRequest(BaseModel):
+    """#255 — si la anonimización dejó algo personal, pedir revisión exige aceptarlo."""
+
+    acepto_restos: bool = False
+
+
 class SubmitForReviewResponse(BaseModel):
     proposal_id: uuid.UUID
     status: str
@@ -281,6 +290,8 @@ class PendingProposalOut(BaseModel):
     model_review: RevisionDelModelo | None = None
     test_result_hash: str | None = None
     test_data_ref: dict[str, Any] | None = None
+    #: #255 — quien revisa ve qué se anonimizó, qué quedó y si quien propone lo aceptó.
+    informe_anonimizacion: InformeDeAnonimizacion | None = None
 
 
 class AdminRetestResponse(BaseModel):
@@ -462,21 +473,24 @@ async def anonymize_test_data(
             body.file_ref, body.substitutions or []
         )
         synthetic_ref = result.synthetic_ref
+        informe = result.informe
     elif body.kind == "pdf_text":
         result_pdf: AnonymizedPdfResult = await anonymizer.anonymize_pdf_to_text(
             body.file_ref, body.span_overrides
         )
         synthetic_ref = result_pdf.synthetic_ref
+        informe = result_pdf.informe
     else:
         raise HTTPException(status_code=422, detail="Unsupported kind")
 
     proposal.test_data_ref = synthetic_ref.model_dump()
     proposal.test_data_kind = body.kind
     proposal.test_data_is_anonymized = True
+    proposal.anonymization_report_json = informe.model_dump(mode="json")
     await session.commit()
     await _borrar_lo_subido(storage, proposal_id)
 
-    return AnonymizeTestDataResponse(synthetic_ref=synthetic_ref)
+    return AnonymizeTestDataResponse(synthetic_ref=synthetic_ref, informe=informe)
 
 
 async def _borrar_lo_subido(storage: StorageService, proposal_id: uuid.UUID) -> None:
@@ -991,6 +1005,7 @@ async def save_to_private_template(
 )
 async def submit_for_review(
     proposal_id: uuid.UUID,
+    body: SubmitForReviewRequest | None = None,
     user: UserInfo = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> SubmitForReviewResponse:
@@ -1016,6 +1031,22 @@ async def submit_for_review(
             status_code=422,
             detail={"code": "NOT_ANONYMIZED", "message": "Los datos de test deben estar anonimizados para target=platform."},
         )
+    informe = proposal.anonymization_report_json or {}
+    if informe.get("requiere_aceptacion"):
+        if not (body and body.acepto_restos):
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "RESTOS_SIN_ACEPTAR",
+                    "message": "La anonimización dejó datos que parecían personales: acéptalo para pedir revisión.",
+                },
+            )
+        # Un dict nuevo y no mutar el guardado: JSONB no avisa de cambios dentro del objeto.
+        proposal.anonymization_report_json = {
+            **informe,
+            "aceptado_por": user.user_id,
+            "aceptado_en": datetime.now(timezone.utc).isoformat(),
+        }
 
     proposal.status = "pending_review"
     await session.commit()
@@ -1053,9 +1084,51 @@ async def list_pending_scripts(
             ),
             test_result_hash=p.test_result_hash,
             test_data_ref=p.test_data_ref,
+            informe_anonimizacion=(
+                InformeDeAnonimizacion.model_validate(p.anonymization_report_json)
+                if p.anonymization_report_json
+                else None
+            ),
         )
         for p in proposals
     ]
+
+
+# ---------------------------------------------------------------------------
+# GET /{id}/test-data  (#255)
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/{proposal_id}/test-data",
+    operation_id="downloadScriptTestData",
+    response_class=Response,
+)
+async def download_test_data(
+    proposal_id: uuid.UUID,
+    user: UserInfo = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+    storage: StorageService = Depends(get_storage_service),
+) -> Response:
+    """El sintético con el que se probó el script, para comprobar a ojo que no lleva nada real.
+
+    Lo pueden bajar quien propone y quien revisa. **Sólo el sintético**: lo subido sin anonimizar
+    son datos reales y no se sirven, ni siquiera a quien los subió, que ya los tiene.
+    """
+    proposal = await _load_proposal(proposal_id, session)
+    es_quien_propone = proposal.proposer_user_id == _user_to_uuid(user.user_id)
+    if not es_quien_propone:
+        _require_admin(user)
+    clave = (proposal.test_data_ref or {}).get("key")
+    if not proposal.test_data_is_anonymized or not clave:
+        raise HTTPException(status_code=404, detail="Sin datos de prueba anonimizados")
+    extension = clave.rsplit(".", 1)[-1] if "." in clave else "bin"
+    return Response(
+        content=await storage.get(clave),
+        media_type="application/octet-stream",
+        headers={
+            "Content-Disposition": f'attachment; filename="datos_de_prueba_anonimizados.{extension}"'
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
