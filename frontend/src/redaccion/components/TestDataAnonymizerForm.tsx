@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import type { ColumnInfo, ColumnSubstitution } from '@/shared/api/generated/model'
 import { ColumnSubstitutionFakerProvider } from '@/shared/api/generated/model'
+import { sustitutoDe } from './sustitutoDe'
 
 interface TestDataAnonymizerFormProps {
   /** Las columnas tal como las describió el servidor, con el sustituto que propone. */
@@ -8,15 +9,6 @@ interface TestDataAnonymizerFormProps {
   /** Lo que la persona ha elegido; lo que no está aquí sigue la propuesta del servidor. */
   value: ColumnSubstitution[]
   onChange: (sustituciones: ColumnSubstitution[]) => void
-}
-
-/** Lo elegido para una columna, o lo que propuso el servidor si nadie lo ha cambiado. */
-export function sustitutoDe(columna: ColumnInfo, elegidas: ColumnSubstitution[]): string {
-  return (
-    elegidas.find(s => s.column_name === columna.name)?.faker_provider
-    ?? columna.inferred_faker_provider
-    ?? ColumnSubstitutionFakerProvider.keep
-  )
 }
 
 /**

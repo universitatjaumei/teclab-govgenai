@@ -104,4 +104,33 @@ describe('AdminScriptReviewQueuePage', () => {
       })
     ))
   })
+
+  it('should_show_the_anonymization_report_and_let_download_the_synthetic', async () => {
+    // #255 — quien revisa ve qué se anonimizó, qué quedó y quién lo aceptó.
+    vi.mocked(useListPendingScripts).mockReturnValue({
+      data: [{
+        ...PROPUESTA,
+        informe_anonimizacion: {
+          tipo: 'tabular',
+          sustituidas: [{ columna: 'IBAN', sustituto: 'iban' }],
+          mantenidas: [{ columna: 'Nombre', propuesta: 'first_name' }],
+          fragmentos: {},
+          rechazados: {},
+          restos: 0,
+          requiere_aceptacion: true,
+          aceptado_por: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+          aceptado_en: '2026-10-10T10:00:00Z',
+        },
+      }],
+      isLoading: false,
+    } as any)
+    renderPage()
+
+    const informe = await screen.findByTestId('informe-anonimizacion')
+    expect(informe.textContent).toContain('IBAN')
+    expect(screen.getByTestId('mantenida-personal-Nombre')).toBeDefined()
+    expect(screen.getByTestId('informe-aceptado')).toBeDefined()
+    expect(screen.getByTestId('btn-descargar-sintetico')).toBeDefined()
+  })
 })
+

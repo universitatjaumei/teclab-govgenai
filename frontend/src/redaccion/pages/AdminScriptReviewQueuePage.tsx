@@ -15,6 +15,7 @@ import type {
 } from '@/shared/api/generated/model'
 import { useAuth } from '@/shared/auth'
 import { ModelAuditVerdict } from '../components/ModelAuditVerdict'
+import { InformeAnonimizacion } from '../components/InformeAnonimizacion'
 
 interface ProposalCardProps {
   proposal: PendingProposalOut
@@ -69,6 +70,9 @@ function ProposalCard({ proposal }: ProposalCardProps) {
       {/* PRO.2 — lo que el modelo auditor vio y el AST no puede ver. Va antes del re-test:
           es lo que ayuda a decidir si merece la pena volver a ejecutarlo. */}
       {proposal.model_review && <ModelAuditVerdict revision={proposal.model_review} />}
+      {proposal.informe_anonimizacion && (
+        <InformeAnonimizacion informe={proposal.informe_anonimizacion} proposalId={proposal.proposal_id} />
+      )}
 
       {/* Retest result */}
       {retestResult && (

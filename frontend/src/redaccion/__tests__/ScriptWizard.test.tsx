@@ -3,7 +3,7 @@
  * ScriptProposalWizardPage + AdminScriptReviewQueuePage
  */
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import i18n from '@/shared/i18n'
@@ -796,6 +796,61 @@ describe('ScriptProposalWizardPage', () => {
 
     expect(mockSubmitForReview).toHaveBeenCalledWith(
       expect.objectContaining({ proposalId: 'prop-2' }),
+      expect.anything(),
+    )
+  })
+
+  it('should_mostrar_el_informe_y_exigir_aceptar_lo_que_quedo_antes_de_pedir_revision', () => {
+    // #255 — la anonimización dejó una columna que parecía personal: el informe lo dice y, para
+    // pedir revisión de plantilla global, hay que aceptarlo. La aceptación viaja al servidor.
+    vi.mocked(useProposeScript).mockReturnValue({
+      mutate: mockProposeScript,
+      data: { ...SAMPLE_PROPOSE_APPROVED, proposal_id: 'prop-3' } as unknown as ReturnType<typeof useProposeScript>['data'],
+      isPending: false, isSuccess: true, isError: false, reset: vi.fn(),
+    } as unknown as ReturnType<typeof useProposeScript>)
+    vi.mocked(useTestScriptProposal).mockReturnValue({
+      mutate: mockTestScriptProposal,
+      data: { ...SAMPLE_TEST_RESULT, proposal_id: 'prop-3' } as unknown as ReturnType<typeof useTestScriptProposal>['data'],
+      isPending: false, isSuccess: true, isError: false,
+    } as unknown as ReturnType<typeof useTestScriptProposal>)
+    vi.mocked(useValidateTestResult).mockReturnValue({
+      mutate: mockValidateTestResult,
+      data: { proposal_id: 'prop-3', test_validated_by_proposer_at: '2026-10-10T10:00:00Z' } as unknown as ReturnType<typeof useValidateTestResult>['data'],
+      isPending: false, isSuccess: true, isError: false,
+    } as unknown as ReturnType<typeof useValidateTestResult>)
+    vi.mocked(useAnonymizeTestData).mockReturnValue({
+      mutate: vi.fn(),
+      data: {
+        synthetic_ref: { bucket: 'test-data', key: 'test-data/s.csv' },
+        informe: {
+          tipo: 'tabular',
+          sustituidas: [{ columna: 'IBAN', sustituto: 'iban' }],
+          mantenidas: [{ columna: 'Nombre', propuesta: 'first_name' }],
+          fragmentos: {},
+          rechazados: {},
+          restos: 0,
+          requiere_aceptacion: true,
+        },
+      },
+      isPending: false, isSuccess: true, isError: false,
+    } as unknown as ReturnType<typeof useAnonymizeTestData>)
+
+    wrap(<ScriptProposalWizardPage />, 'admin')
+    fireEvent.change(screen.getByTestId('select-target-owner-kind'), { target: { value: 'platform' } })
+    declararParaPoderCompartir()
+
+    const informe = screen.getByTestId('informe-anonimizacion')
+    expect(within(informe).getByText('IBAN')).toBeDefined()
+    expect(within(informe).getByTestId('mantenida-personal-Nombre')).toBeDefined()
+
+    const enviar = screen.getByTestId('btn-submit-for-review') as HTMLButtonElement
+    expect(enviar.disabled).toBe(true)
+    fireEvent.click(screen.getByTestId('acepto-restos'))
+    expect(enviar.disabled).toBe(false)
+    fireEvent.click(enviar)
+
+    expect(mockSubmitForReview).toHaveBeenCalledWith(
+      { proposalId: 'prop-3', data: { acepto_restos: true } },
       expect.anything(),
     )
   })

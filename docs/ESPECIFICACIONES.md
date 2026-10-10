@@ -333,6 +333,12 @@ a aprobación o edición humana.
   modelo lingüístico la anonimización sigue cogiendo identificadores estructurados y deja pasar
   los nombres dentro de la prosa, y el resumen saldría igual de saludable. Una capacidad que se
   elige tiene que poder distinguirse de una capacidad que no está (I12).
+- **Los datos de prueba anonimizados de un script se pueden comprobar.** La anonimización deja en
+  la propuesta un informe sin valores —qué columnas o fragmentos se sustituyeron, qué se mantuvo
+  aunque pareciera personal y cuántos valores originales siguen en el resultado—; lo ven quien
+  propone y quien revisa, junto con el sintético, que se puede bajar. Si quedó algo personal, la
+  revisión para plantilla global exige aceptarlo y queda quién y cuándo. Ni el mapa ficticio→real
+  ni lo subido sobreviven a la propuesta (#251, #255).
 
 **Superficie.** `modules/redaccion/` · `redaccion_*_router` (plantillas, workspaces, scripts,
 gráficos, manifiestos) · [`REDACCION_CONTRACT_FIRST.md`](REDACCION_CONTRACT_FIRST.md).

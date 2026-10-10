@@ -22,8 +22,10 @@ import type {
 } from '@/shared/api/generated/model'
 import { ScriptCodePreview } from '../components/ScriptCodePreview'
 import { ModelAuditVerdict } from '../components/ModelAuditVerdict'
-import { TestDataAnonymizerForm, sustitutoDe } from '../components/TestDataAnonymizerForm'
+import { TestDataAnonymizerForm } from '../components/TestDataAnonymizerForm'
+import { sustitutoDe } from '../components/sustitutoDe'
 import { SandboxTestResultViewer } from '../components/SandboxTestResultViewer'
+import { InformeAnonimizacion } from '../components/InformeAnonimizacion'
 
 type TargetOwnerKind = 'user' | 'platform'
 type WizardStep = 1 | 2 | 3 | 4 | 5 | 6 | 7
@@ -70,6 +72,9 @@ export function ScriptProposalWizardPage() {
   // #255 — lo que la persona cambia en el paso 4; el resto de columnas sigue la propuesta del
   // servidor, y al anonimizar se mandan todas, que es lo que la pantalla enseña.
   const [sustituciones, setSustituciones] = useState<ColumnSubstitution[]>([])
+  // #255 — si la anonimización dejó algo personal, pedir revisión de plantilla global exige
+  // aceptarlo; lo decide el informe del servidor, no esta pantalla.
+  const [aceptoRestos, setAceptoRestos] = useState(false)
   // La declaración responsable (Instrucció 02/2026 §8.2). Vive aquí y no en la propuesta porque
   // declarar es el acto de compartir: mientras el script es una propuesta sigue en el nivel 1,
   // que es libre y no se declara. Sin esto, `save-to-private-template` respondía **422
@@ -109,6 +114,7 @@ export function ScriptProposalWizardPage() {
   const refOriginal: StorageRef | undefined = subida?.file_ref ?? spansPdf?.file_ref
   const refDePrueba: StorageRef | undefined = anonimizado?.synthetic_ref ?? refOriginal
   const hayFicheroDePrueba = !!refDePrueba?.key
+  const pideAceptarRestos = anonimizado?.informe?.requiere_aceptacion === true
 
   const auditPassed = proposal?.audit_result?.approved === true
   // **La declaración es parte de poder guardar**, no una validación de formulario: el servidor
@@ -202,7 +208,7 @@ export function ScriptProposalWizardPage() {
 
   function handleSubmitForReview() {
     if (!activeProposalId || !canSave) return
-    submitHook.mutate({ proposalId: activeProposalId }, {})
+    submitHook.mutate({ proposalId: activeProposalId, data: { acepto_restos: aceptoRestos } }, {})
   }
 
   return (
@@ -367,6 +373,10 @@ export function ScriptProposalWizardPage() {
             </button>
           </div>
         </div>
+      )}
+
+      {step >= 5 && activeProposalId && anonimizado?.informe && (
+        <InformeAnonimizacion informe={anonimizado.informe} proposalId={activeProposalId} />
       )}
 
       {/* Step 5: PDF preview (optional) */}
@@ -550,12 +560,24 @@ export function ScriptProposalWizardPage() {
             </button>
           )}
 
+          {targetOwnerKind === 'platform' && pideAceptarRestos && (
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                data-testid="acepto-restos"
+                checked={aceptoRestos}
+                onChange={e => setAceptoRestos(e.target.checked)}
+              />
+              <span>{t('informe_anonimizacion.acepto_restos')}</span>
+            </label>
+          )}
+
           {targetOwnerKind === 'platform' && (
             <button
               type="button"
               data-testid="btn-submit-for-review"
-              aria-disabled={!canSave}
-              disabled={!canSave || submitHook.isPending}
+              aria-disabled={!canSave || (pideAceptarRestos && !aceptoRestos)}
+              disabled={!canSave || (pideAceptarRestos && !aceptoRestos) || submitHook.isPending}
               onClick={handleSubmitForReview}
               className="px-4 py-2 text-sm bg-blue-600 text-white rounded disabled:opacity-50"
             >
