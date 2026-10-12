@@ -28,6 +28,7 @@ import { IngestionJobsPanel } from '@/admin/documents/IngestionJobsPanel'
 import { RechunkConfirmDialog, RechunkControls, RechunkStatus } from '@/admin/documents/RechunkControls'
 import { RetrievalBanner } from '@/admin/documents/RetrievalBanner'
 import { UploadDropzone } from '@/admin/documents/UploadDropzone'
+import { motivoDelRechazo } from '@/admin/documents/motivoDelRechazo'
 import { useBorradoDeDocumento } from '@/admin/documents/useBorradoDeDocumento'
 import { useChatbotsDeLaOrganizacion } from '@/shared/organizacion/useChatbotsDeLaOrganizacion'
 import { useSeleccionValida } from '@/shared/organizacion/useSeleccionValida'
@@ -134,7 +135,7 @@ export function DocumentsPage() {
         setUploadError('')
         setSubstituteDoc(null)
       },
-      onError: (err: Error) => setUploadError(err.message),
+      onError: (err: Error) => setUploadError(motivoDelRechazo(err, t)),
     },
   })
 

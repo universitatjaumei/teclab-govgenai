@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { DocumentsPage } from '../DocumentsPage'
 import {
@@ -389,5 +389,52 @@ describe('DocumentsPage', () => {
     expect(screen.queryByText('Fuentes web')).not.toBeInTheDocument()
     expect(screen.queryByText('Añadir fuente web')).not.toBeInTheDocument()
     expect(screen.queryByText('Asistente')).not.toBeInTheDocument()
+  })
+
+  describe('una subida rechazada dice por qué', () => {
+    // El servidor manda el motivo en `detail` y la página enseñaba el mensaje genérico de la
+    // petición («Request failed with status code 422»): quien subió un documento mal
+    // preparado no sabía qué corregir.
+    /** Falla la subida como lo hace el cliente generado: un error con `response.data`. */
+    async function rechazarSubida(status: number, detail: unknown) {
+      render(<DocumentsPage />, { wrapper: createWrapper() })
+      await screen.findByText('Normativa Española')
+      const { mutation } = vi.mocked(useUploadDocumentApiV1HubIngestionUploadPost).mock.calls.at(-1)![0] as any
+      const fallo = Object.assign(new Error(`Request failed with status code ${status}`), {
+        response: { status, data: { detail } },
+      })
+      act(() => mutation.onError(fallo))
+    }
+
+    it('nombra el contrato y los campos que fallan', async () => {
+      await rechazarSubida(422, {
+        code: 'CORPUS_CONTRACT_VIOLATION',
+        message: 'El front-matter no cumple el contrato del corpus.',
+        problemas: [
+          { campo: 'title', problema: 'Field required' },
+          { campo: 'estat_vigencia', problema: 'Input should be vigent or derogat' },
+        ],
+      })
+
+      const aviso = await screen.findByText(/no cumple el contrato del corpus/)
+      expect(aviso.textContent).toContain('title: Field required')
+      expect(aviso.textContent).toContain('estat_vigencia: Input should be vigent or derogat')
+      expect(screen.queryByText(/Request failed/)).not.toBeInTheDocument()
+    })
+
+    it('con un código sin traducir enseña el mensaje del servidor', async () => {
+      await rechazarSubida(422, {
+        code: 'FAQ_FORMAT_INVALID',
+        message: 'La pregunta 3 no lleva respuesta.',
+      })
+
+      expect(await screen.findByText('La pregunta 3 no lleva respuesta.')).toBeInTheDocument()
+    })
+
+    it('sin detalle reconocible se queda el mensaje de la petición', async () => {
+      await rechazarSubida(500, undefined)
+
+      expect(await screen.findByText('Request failed with status code 500')).toBeInTheDocument()
+    })
   })
 })
