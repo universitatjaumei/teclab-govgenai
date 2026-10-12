@@ -28,6 +28,16 @@ CONTENIDO = (
     "Este es el mismo contenido en las dos subidas, para que el `content_hash` coincida.\n"
 )
 
+#: Lo que sube el panel: el mismo cuerpo, con el front-matter que exige el contrato.
+SUBIDO = "---\nlanguage: va\ntitle: Norma de prova\nus_assistents: si\n---\n\n" + CONTENIDO
+
+
+class _Almacen:
+    """`run_job` lee el `.md` subido del almacén por su clave (#265)."""
+
+    async def get(self, key: str) -> bytes:
+        return SUBIDO.encode("utf-8")
+
 
 class _EmbeddingFalso:
     model_name = "BAAI/bge-m3"
@@ -50,7 +60,10 @@ def _watcher(session):
     # no el embebido.
     proveedor.get_retrieval_mode = AsyncMock(return_value="MD_LONG_CONTEXT")
     return IngestionWatcher(
-        session=session, embedding_service=_EmbeddingFalso(), chatbot_provider=proveedor
+        session=session,
+        embedding_service=_EmbeddingFalso(),
+        chatbot_provider=proveedor,
+        storage=_Almacen(),
     )
 
 
@@ -61,7 +74,8 @@ async def _job(session, chatbot_id: uuid.UUID):
     job = HubIngestionJob(
         chatbot_id=chatbot_id,
         status="pending",
-        source_url="https://uji.es/norma-repetida",
+        source_url=f"ingestion/{chatbot_id}/{uuid.uuid4()}.md",
+        original_filename="norma-repetida.md",
         canonical_url="https://uji.es/norma-repetida",
         language="ca",
     )
@@ -87,12 +101,12 @@ class TestElTrabajoDeIngestaConDuplicado:
         watcher = _watcher(db_session)
 
         primero = await _job(db_session, chatbot)
-        await watcher.run_job(primero.id, prefetched_content=CONTENIDO)
+        await watcher.run_job(primero.id)
         await db_session.refresh(primero)
         assert primero.status == "completed"
 
         segundo = await _job(db_session, chatbot)
-        await watcher.run_job(segundo.id, prefetched_content=CONTENIDO)
+        await watcher.run_job(segundo.id)
         await db_session.refresh(segundo)
 
         assert segundo.status == "completed", (
@@ -130,7 +144,7 @@ class TestDosTrabajosALaVez:
             async def subir() -> str:
                 async with factory() as sesion:
                     job = await _job(sesion, chatbot)
-                    await _watcher(sesion).run_job(job.id, prefetched_content=CONTENIDO)
+                    await _watcher(sesion).run_job(job.id)
                     await sesion.refresh(job)
                     return job.status or ""
 

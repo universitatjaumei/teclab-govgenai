@@ -1,21 +1,21 @@
 """Tests de integración del flujo de ingestión con StorageService.
 
 Verifica que:
-  - IngestionWatcher descarga de storage cuando source_url no es HTTP
   - El endpoint /upload persiste el documento vía StorageService (no en /tmp)
   - El job.source_url apunta a la clave de storage
   - El documento permanece en storage tras el procesamiento (no se borra)
   - El endpoint /delete borra de storage para claves de storage
 
 **EXT.1**: lo que sube y se almacena es un `.md` conforme al contrato del corpus, no un PDF.
-La conversión vive fuera, en el pipeline de curación. El cambio se nota aquí en dos sitios:
-la clave termina en `.md`, y `run_job` ya no escribe un fichero temporal para que un
-conversor lo abra — lee el contenido del almacén y lo pasa como texto.
+La conversión vive fuera, en el pipeline de curación, así que la clave termina en `.md`.
+
+Lo que hace `run_job` con ese `.md` —leerlo del almacén por su clave y pasarlo por el
+reconciliador del corpus— se prueba contra BD real en
+`integration/test_issue265_la_subida_aplica_el_contrato.py`.
 """
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 
 # SEC.2: el chat y la ingesta exigen que el principal gestione la organizacion del
 # chatbot. Estos tests prueban otra cosa, asi que doble y token comparten organizacion;
@@ -92,198 +92,6 @@ def _build_upload_app(mock_session, mock_storage):
 
 
 # ── IngestionWatcher + StorageService ────────────────────────────────────────
-
-class TestWatcherStorageIntegration:
-
-    @pytest.mark.asyncio
-    async def test_run_job_downloads_pdf_from_storage_for_storage_key(self) -> None:
-        """run_job descarga desde storage cuando source_url es una clave (no HTTP)."""
-        from server.app.modules.agents_hub.ingestion.watcher import IngestionWatcher
-
-        storage_key = "ingestion/chatbot-1/job-1.md"
-        job = _make_job(source_url=storage_key)
-        pdf_bytes = b"%PDF-1.4 test content"
-
-        mock_storage = AsyncMock()
-        mock_storage.get = AsyncMock(return_value=pdf_bytes)
-
-        mock_session = AsyncMock()
-        mock_session.get = AsyncMock(return_value=job)
-        # Issue #159: `run_job` empieza tomando el job con un `UPDATE ... WHERE status IN (...)`
-        # y se va si no se lo queda. Un `AsyncMock` devuelve un `Mock` por `rowcount`, que no
-        # es 1: sin esto el doble finge que otro se lo llevo y el test deja de ejercitar la
-        # ingesta — incluido el que comprueba que NO se llama al almacen, que pasaria en verde
-        # sin haber entrado en el metodo.
-        mock_session.execute.return_value.rowcount = 1
-
-        watcher = IngestionWatcher(
-            session=mock_session,
-            embedding_service=AsyncMock(embed=AsyncMock(return_value=[0.1] * 1024)),
-            storage=mock_storage,
-        )
-
-        with patch.object(watcher, "process_source", new_callable=AsyncMock) as mock_process:
-            mock_process.return_value = (MagicMock(), 0)
-            await watcher.run_job(job.id)
-
-        mock_storage.get.assert_called_once_with(storage_key)
-
-    @pytest.mark.asyncio
-    async def test_run_job_passes_local_path_to_process_source_not_storage_key(self) -> None:
-        """EXT.1: lo que llega a process_source es el CONTENIDO del `.md`, no una ruta que abrir."""
-        from server.app.modules.agents_hub.ingestion.watcher import IngestionWatcher
-
-        storage_key = "ingestion/chatbot-1/job-1.md"
-        job = _make_job(source_url=storage_key)
-
-        mock_storage = AsyncMock()
-        mock_storage.get = AsyncMock(return_value=b"# Norma de prueba\n")
-
-        mock_session = AsyncMock()
-        mock_session.get = AsyncMock(return_value=job)
-        # Issue #159: `run_job` empieza tomando el job con un `UPDATE ... WHERE status IN (...)`
-        # y se va si no se lo queda. Un `AsyncMock` devuelve un `Mock` por `rowcount`, que no
-        # es 1: sin esto el doble finge que otro se lo llevo y el test deja de ejercitar la
-        # ingesta — incluido el que comprueba que NO se llama al almacen, que pasaria en verde
-        # sin haber entrado en el metodo.
-        mock_session.execute.return_value.rowcount = 1
-
-        watcher = IngestionWatcher(
-            session=mock_session,
-            embedding_service=AsyncMock(embed=AsyncMock(return_value=[0.1] * 1024)),
-            storage=mock_storage,
-        )
-
-        capturado = {}
-
-        async def capture_source(*args, **kwargs):
-            capturado["source_url"] = kwargs.get("source_url") or args[0]
-            capturado["prefetched_content"] = kwargs.get("prefetched_content")
-            return (MagicMock(), 0)
-
-        with patch.object(watcher, "process_source", side_effect=capture_source):
-            await watcher.run_job(job.id)
-
-        # EXT.1: ya no se escribe un fichero temporal para que un conversor lo abra. Lo que
-        # hay en el almacén es el `.md` que produjo el pipeline de curación, así que se lee
-        # como texto y se pasa como contenido — la conversión no ocurre aquí.
-        assert capturado["prefetched_content"] == "# Norma de prueba\n"
-        # Y la clave de almacenamiento sigue siendo el identificador canónico, no una ruta
-        # local que dejaría de existir en cuanto terminara el job.
-        assert capturado["source_url"] == storage_key
-
-    @pytest.mark.asyncio
-    async def test_run_job_skips_storage_download_for_http_url(self) -> None:
-        """run_job NO llama storage.get cuando source_url es una URL HTTP."""
-        from server.app.modules.agents_hub.ingestion.watcher import IngestionWatcher
-
-        job = _make_job(source_url="https://example.com/doc.pdf")
-
-        mock_storage = AsyncMock()
-        mock_storage.get = AsyncMock()
-
-        mock_session = AsyncMock()
-        mock_session.get = AsyncMock(return_value=job)
-        # Issue #159: `run_job` empieza tomando el job con un `UPDATE ... WHERE status IN (...)`
-        # y se va si no se lo queda. Un `AsyncMock` devuelve un `Mock` por `rowcount`, que no
-        # es 1: sin esto el doble finge que otro se lo llevo y el test deja de ejercitar la
-        # ingesta — incluido el que comprueba que NO se llama al almacen, que pasaria en verde
-        # sin haber entrado en el metodo.
-        mock_session.execute.return_value.rowcount = 1
-
-        watcher = IngestionWatcher(
-            session=mock_session,
-            embedding_service=AsyncMock(embed=AsyncMock(return_value=[0.1] * 1024)),
-            storage=mock_storage,
-        )
-
-        with patch.object(watcher, "process_source", new_callable=AsyncMock) as mock_process:
-            mock_process.return_value = (MagicMock(), 0)
-            await watcher.run_job(job.id)
-
-        mock_storage.get.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_run_job_cleans_tempfile_even_when_process_source_raises(self) -> None:
-        """El fichero temporal se elimina aunque process_source lance una excepción."""
-        import os
-        from server.app.modules.agents_hub.ingestion.watcher import IngestionWatcher
-
-        storage_key = "ingestion/chatbot-1/job-1.md"
-        job = _make_job(source_url=storage_key)
-
-        mock_storage = AsyncMock()
-        mock_storage.get = AsyncMock(return_value=b"# Norma de prueba\n")
-
-        mock_session = AsyncMock()
-        mock_session.get = AsyncMock(return_value=job)
-        # Issue #159: `run_job` empieza tomando el job con un `UPDATE ... WHERE status IN (...)`
-        # y se va si no se lo queda. Un `AsyncMock` devuelve un `Mock` por `rowcount`, que no
-        # es 1: sin esto el doble finge que otro se lo llevo y el test deja de ejercitar la
-        # ingesta — incluido el que comprueba que NO se llama al almacen, que pasaria en verde
-        # sin haber entrado en el metodo.
-        mock_session.execute.return_value.rowcount = 1
-
-        watcher = IngestionWatcher(
-            session=mock_session,
-            embedding_service=AsyncMock(),
-            storage=mock_storage,
-        )
-
-        created_tmp_paths = []
-
-        async def process_and_capture(source_url, *args, **kwargs):
-            created_tmp_paths.append(source_url)
-            raise RuntimeError("Fallo simulado en Docling")
-
-        with patch.object(watcher, "process_source", side_effect=process_and_capture):
-            await watcher.run_job(job.id)  # No debe propagar la excepción
-
-        # El job debe quedar en estado "failed"
-        assert job.status == "failed"
-        # El fichero temporal ya no debe existir
-        for tmp_path in created_tmp_paths:
-            assert not os.path.exists(tmp_path), f"Fichero temporal no limpiado: {tmp_path}"
-
-    @pytest.mark.asyncio
-    async def test_run_job_uses_storage_key_as_citation_when_no_canonical_url(self) -> None:
-        """Cuando no hay canonical_url, la storage key se pasa como citation_url a process_source."""
-        from server.app.modules.agents_hub.ingestion.watcher import IngestionWatcher
-
-        storage_key = "ingestion/chatbot-1/job-1.md"
-        job = _make_job(source_url=storage_key)  # canonical_url = None
-
-        mock_storage = AsyncMock()
-        mock_storage.get = AsyncMock(return_value=b"# Norma de prueba\n")
-
-        mock_session = AsyncMock()
-        mock_session.get = AsyncMock(return_value=job)
-        # Issue #159: `run_job` empieza tomando el job con un `UPDATE ... WHERE status IN (...)`
-        # y se va si no se lo queda. Un `AsyncMock` devuelve un `Mock` por `rowcount`, que no
-        # es 1: sin esto el doble finge que otro se lo llevo y el test deja de ejercitar la
-        # ingesta — incluido el que comprueba que NO se llama al almacen, que pasaria en verde
-        # sin haber entrado en el metodo.
-        mock_session.execute.return_value.rowcount = 1
-
-        watcher = IngestionWatcher(
-            session=mock_session,
-            embedding_service=AsyncMock(embed=AsyncMock(return_value=[0.1] * 1024)),
-            storage=mock_storage,
-        )
-
-        captured_kwargs = {}
-
-        async def capture(*args, **kwargs):
-            captured_kwargs.update(kwargs)
-            return (MagicMock(), 0)
-
-        with patch.object(watcher, "process_source", side_effect=capture):
-            await watcher.run_job(job.id)
-
-        assert captured_kwargs.get("citation_url") == storage_key
-
-
-# ── Upload endpoint + StorageService ─────────────────────────────────────────
 
 class TestUploadEndpointStorageIntegration:
 

@@ -42,9 +42,19 @@ class _Provider:
 
 
 DOCUMENTO_LARGO = "\n\n".join(
-    ["# Reglament\n"]
+    ["---\nlanguage: va\ntitle: Reglament\nus_assistents: si\n---\n\n# Reglament\n"]
     + [f"##### Article {i}. Objecte {{#art-{i}}}\n\n" + ("text " * 120) for i in range(1, 9)]
 )
+
+
+class _Almacen:
+    """El `.md` que subió el panel: `run_job` lo lee del almacén por su clave (#265)."""
+
+    async def get(self, key: str) -> bytes:
+        return DOCUMENTO_LARGO.encode("utf-8")
+
+
+_ALMACEN = _Almacen()
 
 
 async def _job(session, chatbot_id: uuid.UUID):
@@ -52,7 +62,8 @@ async def _job(session, chatbot_id: uuid.UUID):
 
     job = HubIngestionJob(
         chatbot_id=chatbot_id,
-        source_url=f"https://www.uji.es/{uuid.uuid4().hex[:8]}",
+        source_url=f"ingestion/{chatbot_id}/{uuid.uuid4()}.md",
+        original_filename="reglament.md",
         language="ca",
     )
     session.add(job)
@@ -95,10 +106,9 @@ class TestProgresoDuranteElJob:
 
         vistos: list[tuple[int, int | None, str]] = []
 
-        watcher = IngestionWatcher(db_session, _Embedding(), chatbot_provider=_Provider())
+        watcher = IngestionWatcher(db_session, _Embedding(), chatbot_provider=_Provider(), storage=_ALMACEN)
         await watcher.run_job(
             job.id,
-            prefetched_content=DOCUMENTO_LARGO,
             progress_callback=lambda c, t, m: vistos.append((c, t, m)),
         )
 
@@ -123,10 +133,9 @@ class TestProgresoDuranteElJob:
         await db_session.commit()
 
         escrituras: list[str] = []
-        watcher = IngestionWatcher(db_session, _Embedding(), chatbot_provider=_Provider())
+        watcher = IngestionWatcher(db_session, _Embedding(), chatbot_provider=_Provider(), storage=_ALMACEN)
         await watcher.run_job(
             job.id,
-            prefetched_content=DOCUMENTO_LARGO,
             progress_callback=lambda c, t, m: escrituras.append(m),
         )
 
@@ -145,8 +154,8 @@ class TestProgresoDuranteElJob:
         job = await _job(db_session, uuid.uuid4())
         await db_session.commit()
 
-        watcher = IngestionWatcher(db_session, _Embedding(), chatbot_provider=_Provider())
-        await watcher.run_job(job.id, prefetched_content=DOCUMENTO_LARGO)
+        watcher = IngestionWatcher(db_session, _Embedding(), chatbot_provider=_Provider(), storage=_ALMACEN)
+        await watcher.run_job(job.id)
 
         await db_session.refresh(job)
         stats = job.processing_stats
@@ -175,9 +184,9 @@ class TestProgresoDuranteElJob:
                 raise RuntimeError("el proveedor de embeddings devuelve 500")
 
         watcher = IngestionWatcher(
-            db_session, _EmbeddingQueRevienta(), chatbot_provider=_Provider()
+            db_session, _EmbeddingQueRevienta(), chatbot_provider=_Provider(), storage=_ALMACEN
         )
-        await watcher.run_job(job.id, prefetched_content=DOCUMENTO_LARGO)
+        await watcher.run_job(job.id)
 
         await db_session.refresh(job)
         assert job.status == "failed"
@@ -195,8 +204,8 @@ class TestProgresoDuranteElJob:
         job = await _job(db_session, uuid.uuid4())
         await db_session.commit()
 
-        watcher = IngestionWatcher(db_session, _Embedding(), chatbot_provider=_Provider())
-        await watcher.run_job(job.id, prefetched_content=DOCUMENTO_LARGO)
+        watcher = IngestionWatcher(db_session, _Embedding(), chatbot_provider=_Provider(), storage=_ALMACEN)
+        await watcher.run_job(job.id)
 
         await db_session.refresh(job)
         assert job.status == "completed"

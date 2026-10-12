@@ -16,7 +16,6 @@ from pathlib import Path
 from typing import Protocol, runtime_checkable
 
 from server.app.modules.agents_hub.ingestion.corpus.faq import (
-    FaqFormatoInvalido,
     assert_formato_faq,
     debe_validarse_como_faq,
 )
@@ -30,6 +29,30 @@ from server.app.modules.agents_hub.ingestion.corpus.manifest import (
 )
 
 EXTENSIONES = (".md", ".markdown")
+
+
+def _entrada(
+    ruta: str,
+    texto: str,
+    *,
+    url_por_defecto: str = "",
+    base: CorpusDocumentEntry | None = None,
+) -> CorpusDocumentEntry:
+    """La entrada de un `.md`: su front-matter, sobre la del manifiesto si la hay.
+
+    FAQ.1: una FAQ mal formateada se ingiere sin protestar y responde peor a partir de
+    entonces, así que se comprueba aquí, con el resto del contrato.
+    """
+    metadata, cuerpo = parse_frontmatter(texto)
+    if debe_validarse_como_faq(metadata):
+        assert_formato_faq(cuerpo)
+    if base is not None:
+        return merge_frontmatter(base, metadata)
+    return entry_from_frontmatter(
+        metadata,
+        relative_path=ruta,
+        source_url=metadata.get("url_oficial") or url_por_defecto or ruta,
+    )
 
 
 @runtime_checkable
@@ -104,36 +127,16 @@ class LocalDirectorySource:
             if not fichero.is_file():
                 errores.append(f"  {ruta}: el manifiesto lo declara y no existe")
                 continue
-            metadata, cuerpo = parse_frontmatter(
-                fichero.read_text(encoding="utf-8-sig", errors="replace")
-            )
-
-            # FAQ.1: una FAQ mal formateada se ingiere sin protestar y responde peor a
-            # partir de entonces. Se comprueba aquí, con el resto del contrato, para que el
-            # paquete falle ENTERO y con la lista completa de lo que hay que corregir —el
-            # mismo criterio que el resto de este método.
-            if debe_validarse_como_faq(metadata):
-                try:
-                    assert_formato_faq(cuerpo)
-                except FaqFormatoInvalido as mal_formada:
-                    errores.append(f"  {ruta}: {mal_formada}")
-                    continue
-
             try:
-                base = del_manifiesto.get(ruta)
-                if base is not None:
-                    entradas.append(merge_frontmatter(base, metadata))
-                else:
-                    entradas.append(
-                        entry_from_frontmatter(
-                            metadata,
-                            relative_path=ruta,
-                            source_url=metadata.get("url_oficial")
-                            or self.default_source_url
-                            or ruta,
-                        )
+                entradas.append(
+                    _entrada(
+                        ruta,
+                        fichero.read_text(encoding="utf-8-sig", errors="replace"),
+                        url_por_defecto=self.default_source_url,
+                        base=del_manifiesto.get(ruta),
                     )
-            except Exception as exc:  # ValidationError y CorpusValidationError
+                )
+            except Exception as exc:  # FAQ, ValidationError y CorpusValidationError
                 errores.append(f"  {ruta}: {exc}")
 
         if errores:
@@ -148,3 +151,43 @@ class LocalDirectorySource:
             self._ruta(entry).read_text(encoding="utf-8-sig", errors="replace")
         )
         return body
+
+
+class MarkdownSubido:
+    """Un `.md` subido por el panel (#265): entra por el reconciliador, como el de consola.
+
+    Lo único que añade el panel son la URL y el idioma del formulario, que mandan cuando la
+    persona los rellena —«Sustituir documento» los rellena con los del documento sustituido,
+    y sin eso el reconciliador no lo encontraría—. Y `source_kind` sigue siendo `upload` si el
+    front-matter no dice otra cosa: es lo que la tabla del panel enseña como origen.
+
+    No es un censo: un fichero suelto no dice nada de los que no están.
+    """
+
+    def __init__(
+        self,
+        nombre: str,
+        texto: str,
+        *,
+        canonical_url: str | None = None,
+        language: str | None = None,
+    ) -> None:
+        self._nombre = nombre
+        self._texto = texto
+        self._canonical_url = canonical_url
+        self._language = language
+
+    def is_census(self) -> bool:
+        return False
+
+    async def list_entries(self) -> list[CorpusDocumentEntry]:
+        entrada = _entrada(self._nombre, self._texto)
+        cambios: dict = {"extra": {"source_kind": "upload", **entrada.extra}}
+        if self._canonical_url:
+            cambios["source_url"] = self._canonical_url
+        if self._language:
+            cambios["language"] = self._language
+        return [entrada.model_copy(update=cambios)]
+
+    async def read_body(self, entry: CorpusDocumentEntry) -> str:
+        return parse_frontmatter(self._texto)[1]
