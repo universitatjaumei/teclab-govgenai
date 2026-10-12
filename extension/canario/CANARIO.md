@@ -34,6 +34,10 @@ Variables: `API=https://normativa.uji.es`, `PAT=$(cat _local/canario/token)`.
    y se activa **«Conversación temporal»** antes de escribir nada: no deja historial. La pestaña
    tiene que quedar **visible** durante toda la prueba, porque con la pestaña oculta Gemini no
    termina de pintar la respuesta.
+   **Antes de nada, la cuenta.** Si Gemini pide «Iniciar sesión», o la cuenta activa (el avatar
+   arriba a la derecha) no es la institucional que indica quien lanza el canario, se para aquí:
+   no se ha probado ningún selector y Gemini no ha cambiado. La línea final empieza entonces por
+   `FALLO SESION`, y dice qué cuenta había.
 3. **Los selectores, antes de enviar.** Se inyectan `extension/canario/canario.js` y
    `extension/asistente.js` en la página y se ejecuta `comprobarSelectores(selectores, false)`.
 4. **Insertar.** `const previas = contarRespuestas(selectores)` y
@@ -111,6 +115,11 @@ Claude. Tres reglas:
 - **El canario no avisa: informa.** Su última línea empieza por `OK` o por `FALLO`, y es el guion
   —no Claude— el que decide. Todo lo que no empiece por `OK` es un fallo, también que Chrome
   estuviera cerrado o que no haya salida.
+- **El asunto dice de quién es el arreglo.** Si la línea empieza por `FALLO SESION`, el asunto
+  pide iniciar sesión en Gemini con la cuenta institucional; si no, dice que la integración ha
+  fallado. Lo primero lo arregla quien tiene el canario en su equipo; lo segundo, el adaptador.
+  Se separó el 2026-10-12, cuando un día sin sesión llegó con el mismo asunto que un cambio de
+  Gemini.
 - **El correo lo manda otra ejecución**, con `--allowedTools mcp__claude_ai_Gmail__send_message` y
   nada más, el destinatario fijo en el guion y la línea del fallo como cuerpo. La ejecución que
   acaba de leer la página de Gemini no puede escribir a nadie: el texto de una página ajena no
