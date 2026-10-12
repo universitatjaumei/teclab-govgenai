@@ -15,7 +15,7 @@
 # Comprobado construyendo y arrancando: Python 3.13.15, y `/mcp` responde **421** igual que
 # con la 3.12 —el guardián de host, o sea la aplicación en pie—. No es un cambio a ciegas
 # porque el job `imagen` de CI **construye esta imagen y no la arranca**.
-FROM python:3.13-slim
+FROM python:3.14-slim
 
 WORKDIR /srv/mcp
 

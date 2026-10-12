@@ -1,5 +1,5 @@
 # Stage 1: Builder — instala dependencias con uv
-FROM python:3.13-slim AS builder
+FROM python:3.14-slim AS builder
 
 WORKDIR /app
 
@@ -59,7 +59,7 @@ RUN uv sync --frozen --no-dev --no-editable ${EXTRAS_APP}
 
 
 # Stage 2: Runtime — imagen mínima sin herramientas de build
-FROM python:3.13-slim AS runtime
+FROM python:3.14-slim AS runtime
 
 WORKDIR /app
 
