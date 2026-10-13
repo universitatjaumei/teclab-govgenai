@@ -105,6 +105,13 @@ claude.cmd -p --chrome --model sonnet `
 - **La tarea, sólo con la sesión de Windows iniciada** (`LogonType Interactive`): necesita el Chrome
   de esa persona.
 - **`sonnet`** porque el procedimiento es mecánico, y corre cada día.
+- **Abre Chrome y reintenta si la extensión no conecta.** Un portátil que «se apaga» suele
+  suspenderse, y la tarea atrasada (`StartWhenAvailable`) arranca a los pocos minutos de
+  despertar, antes de que Chrome esté abierto o la extensión haya conectado. El guion abre Chrome
+  en el perfil de la extensión si no está abierto y, si la línea empieza por `FALLO NAVEGADOR`,
+  reintenta cada 15 minutos hasta cuatro veces antes de avisar; por eso la tarea admite dos horas.
+  Se añadió el 2026-10-13, tras tres días seguidos de avisos que sólo decían que el equipo acababa
+  de despertar.
 - El guion y su registro van en `_local/canario/`, que es de cada equipo. Al cerrar, la sesión del
   canario también queda en el registro de actividad IA si el equipo tiene instalado el hook de #230.
 
