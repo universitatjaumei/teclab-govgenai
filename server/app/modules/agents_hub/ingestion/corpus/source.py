@@ -162,6 +162,11 @@ class MarkdownSubido:
     front-matter no dice otra cosa: es lo que la tabla del panel enseña como origen.
 
     No es un censo: un fichero suelto no dice nada de los que no están.
+
+    Sin URL en el formulario ni `url_oficial` en el front-matter, la URL es `url_por_defecto`
+    —la clave de almacenamiento del trabajo, que es única— y no el nombre del fichero: el
+    reconciliador identifica por URL y lengua, y dos documentos distintos subidos con el mismo
+    nombre se sustituían entre sí (#265b).
     """
 
     def __init__(
@@ -169,10 +174,12 @@ class MarkdownSubido:
         nombre: str,
         texto: str,
         *,
+        url_por_defecto: str = "",
         canonical_url: str | None = None,
         language: str | None = None,
     ) -> None:
         self._nombre = nombre
+        self._url_por_defecto = url_por_defecto
         self._texto = texto
         self._canonical_url = canonical_url
         self._language = language
@@ -181,13 +188,15 @@ class MarkdownSubido:
         return False
 
     async def list_entries(self) -> list[CorpusDocumentEntry]:
-        entrada = _entrada(self._nombre, self._texto)
+        entrada = _entrada(self._nombre, self._texto, url_por_defecto=self._url_por_defecto)
         cambios: dict = {"extra": {"source_kind": "upload", **entrada.extra}}
         if self._canonical_url:
             cambios["source_url"] = self._canonical_url
         if self._language:
             cambios["language"] = self._language
-        return [entrada.model_copy(update=cambios)]
+        # `model_validate` y no `model_copy`: `model_copy` no pasa por los validadores, y el `ca`
+        # del selector del panel se quedaba sin normalizar a `val` (#265b).
+        return [type(entrada).model_validate({**entrada.model_dump(), **cambios})]
 
     async def read_body(self, entry: CorpusDocumentEntry) -> str:
         return parse_frontmatter(self._texto)[1]

@@ -492,6 +492,7 @@ class IngestionWatcher:
                 MarkdownSubido(
                     job.original_filename or Path(job.source_url).name,
                     texto,
+                    url_por_defecto=job.source_url,
                     canonical_url=job.canonical_url,
                     language=job.language,
                 ),

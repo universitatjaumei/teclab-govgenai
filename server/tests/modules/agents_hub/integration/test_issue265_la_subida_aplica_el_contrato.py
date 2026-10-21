@@ -187,3 +187,41 @@ class TestLoQueRellenaLaPersonaManda:
         assert doc.title == "Reglament de prova, versió nova"
         assert doc.id_publicacio == "REG-265"
         assert doc.canonical_url == "https://www.uji.es/la-del-panel"
+
+
+class TestLaSubidaNoPierdeLaIdentidadDelDocumento:
+    """#265b — dos regresiones del propio arreglo de #265, de la revisión de la PR #283."""
+
+    @pytest.mark.asyncio
+    async def test_should_keep_two_different_uploads_with_the_same_filename_and_no_url(
+        self, db_session
+    ):
+        # Sin URL en el formulario ni `url_oficial`, la URL era el nombre del fichero, y el
+        # segundo documento sustituía al primero. `_subir` usa siempre el mismo nombre.
+        chatbot_id = uuid.uuid4()
+        sin_url = {k: v for k, v in NORMA.items() if k != "url_oficial"}
+        primero = await _subir(db_session, chatbot_id, _md(**sin_url))
+        segundo = await _subir(
+            db_session,
+            chatbot_id,
+            _md(**{**sin_url, "id_publicacio": "REG-265-B", "title": "Un altre reglament"}),
+        )
+
+        assert primero.status == "completed", primero.error_message
+        assert segundo.status == "completed", segundo.error_message
+        documentos = await _documentos(db_session, chatbot_id)
+        assert sorted(d.title for d in documentos) == [
+            "Reglament de prova del 265",
+            "Un altre reglament",
+        ]
+        assert {d.canonical_url for d in documentos} == {primero.source_url, segundo.source_url}
+
+    @pytest.mark.asyncio
+    async def test_should_store_the_form_language_as_the_corpus_code(self, db_session):
+        # El selector del panel manda `ca`; el corpus escribe `val`.
+        chatbot_id = uuid.uuid4()
+        job = await _subir(db_session, chatbot_id, _md(**NORMA), language="ca")
+
+        assert job.status == "completed", job.error_message
+        [doc] = await _documentos(db_session, chatbot_id)
+        assert doc.language == "val"
