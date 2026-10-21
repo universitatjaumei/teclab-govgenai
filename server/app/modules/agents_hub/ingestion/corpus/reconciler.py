@@ -126,6 +126,8 @@ class ReconcileReport:
     rechazados: int = 0
     retirados: int = 0
     poda_omitida_por_no_censo: bool = False
+    #: Fragmentos creados al ingerir: lo que un job de subida (#265) anota como suyos.
+    fragmentos: int = 0
     motivos_omision: list[str] = field(default_factory=list)
     #: ACT.6 — los cambios que alteran QUE se recupera, uno a uno, para poder confirmarlos.
     cambios_de_estado: list[str] = field(default_factory=list)
@@ -402,7 +404,11 @@ class CorpusReconciler:
         prune: bool = False,
         force_prune: bool = False,
         prune_threshold: float = UMBRAL_PODA_POR_DEFECTO,
+        seguimiento=None,
+        anotar_trabajo: bool = True,
     ) -> ReconcileReport:
+        """`seguimiento` y `anotar_trabajo=False` son de la subida del panel (#265): ella ya
+        tiene su job, que es quien lleva las etapas y el resultado."""
         informe = ReconcileReport()
 
         # list_entries() valida el paquete y aborta ENTERO si algo no cumple el contrato:
@@ -477,7 +483,9 @@ class CorpusReconciler:
                 informe.ingeridos += 1
                 informe.detalle.append(f"+ {entry.relative_path}")
                 if not dry_run:
-                    doc = await self._ingerir(entry, chatbot_id, body, title, url)
+                    doc = await self._ingerir(
+                        entry, chatbot_id, body, title, url, informe, seguimiento
+                    )
                     emparejados.add(doc.id)
                     if entry.versio_idiomatica_de:
                         pendientes_de_enlazar.append((doc, entry.versio_idiomatica_de))
@@ -489,7 +497,9 @@ class CorpusReconciler:
                 informe.reingeridos += 1
                 informe.detalle.append(f"~ {entry.relative_path} (contenido)")
                 if not dry_run:
-                    doc = await self._ingerir(entry, chatbot_id, body, title, url)
+                    doc = await self._ingerir(
+                        entry, chatbot_id, body, title, url, informe, seguimiento
+                    )
                     emparejados.add(doc.id)
                     if entry.versio_idiomatica_de:
                         pendientes_de_enlazar.append((doc, entry.versio_idiomatica_de))
@@ -535,7 +545,7 @@ class CorpusReconciler:
                 prune_threshold, source,
             )
 
-        if not dry_run:
+        if not dry_run and anotar_trabajo:
             self._session.add(
                 HubIngestionJob(
                     chatbot_id=chatbot_id,
@@ -683,16 +693,20 @@ class CorpusReconciler:
         body: str,
         title: str,
         url: str,
+        informe: ReconcileReport,
+        seguimiento=None,
     ) -> HubDocument:
         """Passthrough: el cuerpo ya viene sin front-matter y NO se llama a Docling."""
-        doc, _ = await self._watcher.process_source(
+        doc, fragmentos = await self._watcher.process_source(
             source_url=url,
             chatbot_id=chatbot_id,
             language=entry.language,
             citation_url=url,
             prefetched_content=body,
             title=title,
+            seguimiento=seguimiento,
         )
+        informe.fragmentos += fragmentos
         # Los metadatos se aplican aquí y no en el watcher: el watcher es la tubería
         # compartida con el crawler y no tiene por qué conocer el contrato del corpus.
         _aplicar(doc, entry, title)

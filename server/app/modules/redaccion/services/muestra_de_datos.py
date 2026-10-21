@@ -46,7 +46,7 @@ class MuestraDeDatos(BaseModel):
 
     nombre_del_fichero: str
     columnas: list[str]
-    #: Tipo inferido por columna, en texto. Que `saldo` salga como `object` es información:
+    #: Tipo inferido por columna, en texto. Que `saldo` salga como `str` (`object` antes de pandas 3) es información:
     #: significa que los importes vienen como texto y que hay que convertirlos antes de sumar.
     tipos: dict[str, str] = Field(default_factory=dict)
     filas_totales: int = 0

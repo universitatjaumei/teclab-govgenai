@@ -321,7 +321,6 @@ Migrado de `client_app/app/modules/privacy/` (1011 LOC). Adaptaciones duras:
 | `faker_generator.py` | Generación determinista de valores sintéticos con cache. |
 | `pii_detector.py` | Wrapper ligero: `scan_dataframe()`, `detect_spans()`, `ColumnInfo`, `PiiSpan`. |
 | `policies.py` | `AnonymizerPolicy` + lista de `Strategy` predefinidas. |
-| `service.py` | `AnonymizerService` — alto nivel async sobre archivos en storage. |
 
 ### Tipos PII reconocidos
 

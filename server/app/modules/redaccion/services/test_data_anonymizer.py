@@ -6,11 +6,13 @@ por Docling (opción 1 confirmada en el prompt 9R.5.5): no se regenera el PDF.
 """
 from __future__ import annotations
 
+import io
 import uuid
 from collections import Counter
 from datetime import datetime
 from typing import Literal
 
+import pandas as pd
 from pydantic import BaseModel, Field
 
 from server.app.core.storage import StorageService
@@ -27,16 +29,46 @@ from server.app.modules.redaccion.services.anonymization.pii_detector import (
     PiiDetector,
     PiiSpan,
 )
-from server.app.modules.redaccion.services.anonymization.service import (
-    _read_dataframe,
-    _suffix_from_key,
-    _write_dataframe,
-)
 
 
 # ---------------------------------------------------------------------------
 # Contratos públicos
 # ---------------------------------------------------------------------------
+
+# Leer y escribir el fichero tabular. Vivían en `anonymization/service.py`, que se retiró en
+# #262 por no usarlo nadie; este anonimizador era su único consumidor.
+
+
+def _suffix_from_key(key: str) -> str:
+    return key.rsplit(".", 1)[-1].lower() if "." in key else ""
+
+
+def _read_dataframe(data: bytes, suffix: str) -> pd.DataFrame:
+    if suffix == "csv":
+        return pd.read_csv(io.BytesIO(data))
+    if suffix in ("xlsx", "xls"):
+        return pd.read_excel(io.BytesIO(data), engine="openpyxl")
+    if suffix == "json":
+        return pd.read_json(io.BytesIO(data))
+    if suffix == "parquet":
+        return pd.read_parquet(io.BytesIO(data))
+    raise ValueError(f"Unsupported tabular format: .{suffix}")
+
+
+def _write_dataframe(df: pd.DataFrame, suffix: str) -> bytes:
+    buffer = io.BytesIO()
+    if suffix == "csv":
+        df.to_csv(buffer, index=False)
+    elif suffix in ("xlsx", "xls"):
+        df.to_excel(buffer, index=False, engine="openpyxl")
+    elif suffix == "json":
+        buffer.write(df.to_json(orient="records", force_ascii=False).encode("utf-8"))
+    elif suffix == "parquet":
+        df.to_parquet(buffer, index=False)
+    else:
+        raise ValueError(f"Unsupported tabular format: .{suffix}")
+    return buffer.getvalue()
+
 
 class ColumnSubstitution(BaseModel):
     """Configuración de sustitución por columna que envía el cliente."""

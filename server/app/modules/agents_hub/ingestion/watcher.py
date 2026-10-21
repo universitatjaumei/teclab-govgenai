@@ -14,7 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from server.app.core.lengua_del_corpus import codi_del_corpus
 from server.app.modules.agents_hub.services.language_detector import detect_language
 from server.app.modules.agents_hub.ingestion.bilingual_bridge import terminos_bilingues
-from server.app.modules.agents_hub.ingestion.corpus.frontmatter import parse_frontmatter
+from server.app.modules.agents_hub.ingestion.corpus.reconciler import CorpusReconciler
+from server.app.modules.agents_hub.ingestion.corpus.source import MarkdownSubido
 from server.app.modules.agents_hub.database.operational_models import (
     HubDocument,
     HubDocumentChunk,
@@ -454,16 +455,21 @@ class IngestionWatcher:
     async def run_job(
         self,
         job_id: uuid.UUID,
-        prefetched_content: str | None = None,
         progress_callback: ProgressCallback | None = None,
     ) -> None:
-        """Ejecuta un job de ingestión, anotando progreso y tiempos por etapa (RAG.12).
+        """Ejecuta el job de un `.md` subido por el panel, anotando progreso y tiempos por
+        etapa (RAG.12).
+
+        EXT.1: lo que hay en el almacén ya lo convirtió el pipeline de curación, así que aquí
+        no se convierte nada. #265: entra por el mismo reconciliador que la consola, que es
+        quien aplica el contrato —título, `id_publicacio`, vigencia, `us_assistents`— y lo
+        empareja con lo que ya hay.
 
         **Límite conocido**: la fila se actualiza en la misma transacción que la ingesta, así
         que el progreso intermedio no es visible desde fuera hasta que el job cierra. Hacerlo
         visible en vivo exige una transacción autónoma —una segunda sesión—, y comprometerse
         a eso por una barra de progreso no sale a cuenta hoy. El consumidor en vivo es
-        `progress_callback`, que es por donde informa la carga masiva por consola.
+        `progress_callback`.
         """
         # Issue #159 — el candado va ANTES de nada, y decide en una sola operación.
         if not await tomar_job(self._session, job_id):
@@ -478,55 +484,31 @@ class IngestionWatcher:
 
         seguimiento = SeguimientoDeJob(self._anotar_progreso(job, progress_callback))
 
-        tmp_path: str | None = None
         error: Exception | None = None
         try:
-            fuente = job.source_url
-            citation_url = job.canonical_url
-            cuerpo = prefetched_content
-
-            if self._storage and not job.source_url.startswith(("http://", "https://")):
-                # EXT.1: lo que hay en el almacén es el `.md` que subió el panel, ya
-                # convertido por el pipeline de curación. Se lee como texto y se pasa como
-                # contenido: por aquí ya no se convierte nada, así que no hay fichero
-                # temporal que escribir ni conversor al que llamar.
-                crudo = await self._storage.get(job.source_url)
-                cuerpo = crudo.decode("utf-8") if isinstance(crudo, bytes) else crudo
-                if not citation_url:
-                    citation_url = job.source_url  # storage key como identificador canónico
-
-            # El CLI de curación (`corpus/source.py`) separa front-matter y cuerpo con
-            # `parse_frontmatter` antes de ingerir; esta vía leía el fichero entero y lo
-            # pasaba tal cual, así que el bloque YAML se troceaba y se embebía como si fuera
-            # contenido (CLAUDE.md §5) y el `language:` declarado nunca llegaba a leerse. Es
-            # no-op si no hay front-matter: `parse_frontmatter` devuelve `({}, texto)`. Solo
-            # se toca si hay `cuerpo`: `None` sigue cayendo en el `ValueError` explícito de
-            # `process_source` en vez de convertirse en una cadena vacía silenciosa.
-            metadatos_frontmatter: dict = {}
-            if cuerpo is not None:
-                metadatos_frontmatter, cuerpo = parse_frontmatter(cuerpo)
-            idioma_efectivo = job.language or metadatos_frontmatter.get("language")
-
-            filename_hint = Path(job.original_filename).stem if job.original_filename else None
-            doc, n_chunks = await self.process_source(
-                fuente,
+            crudo = await self._storage.get(job.source_url)
+            texto = crudo.decode("utf-8") if isinstance(crudo, bytes) else crudo
+            informe = await CorpusReconciler(self._session, self).reconcile(
+                MarkdownSubido(
+                    job.original_filename or Path(job.source_url).name,
+                    texto,
+                    url_por_defecto=job.source_url,
+                    canonical_url=job.canonical_url,
+                    language=job.language,
+                ),
                 job.chatbot_id,
-                citation_url=citation_url,
-                prefetched_content=cuerpo,
-                language=idioma_efectivo,
-                title=filename_hint,
                 seguimiento=seguimiento,
+                anotar_trabajo=False,
             )
             job.status = "completed"
-            job.chunks_processed = n_chunks
+            job.chunks_processed = informe.fragmentos
+            # Lo que no se ingirió, y por qué: `us_assistents: no` se omite sin error.
+            job.error_message = "; ".join(informe.motivos_omision) or None
             job.processing_stats = seguimiento.resumen()
             job.processing_completed_at = datetime.now(timezone.utc)
         except Exception as e:
             logger.error("Job %s falló: %s", job_id, e, exc_info=True)
             error = e
-        finally:
-            if tmp_path:
-                Path(tmp_path).unlink(missing_ok=True)
 
         if error is not None:
             try:

@@ -285,6 +285,10 @@
     "subnav_aria": "Navegación del Hub",
     "substitute_doc": "Sustituir documento",
     "substituting": "Sustituyendo",
+    "upload_rechazo": {
+      "CORPUS_CONTRACT_VIOLATION": "El documento no cumple el contrato del corpus. Regenéralo con el pipeline de curación y vuelve a subirlo.",
+      "CORPUS_ACCEPTS_MARKDOWN_ONLY": "Al corpus solo entra Markdown (.md). Convierte antes el original en el pipeline de curación y sube su salida."
+    },
     "test_scenarios": {
       "title": "Escenarios de prueba",
       "subtitle": "Consultas guardadas para revisar a mano lo que responde el chatbot.",
