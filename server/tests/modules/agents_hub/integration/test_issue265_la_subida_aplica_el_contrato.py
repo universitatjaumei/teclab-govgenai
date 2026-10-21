@@ -204,7 +204,11 @@ class TestLaSubidaNoPierdeLaIdentidadDelDocumento:
         segundo = await _subir(
             db_session,
             chatbot_id,
-            _md(**{**sin_url, "id_publicacio": "REG-265-B", "title": "Un altre reglament"}),
+            # Otro cuerpo: con el mismo, `uq_document_chatbot_hash` lo trataría con razón como
+            # el mismo texto, y el test no distinguiría eso de la colisión por URL.
+            _md(
+                **{**sin_url, "id_publicacio": "REG-265-B", "title": "Un altre reglament"}
+            ).replace("regula la prova", "regula una altra cosa"),
         )
 
         assert primero.status == "completed", primero.error_message
@@ -217,11 +221,25 @@ class TestLaSubidaNoPierdeLaIdentidadDelDocumento:
         assert {d.canonical_url for d in documentos} == {primero.source_url, segundo.source_url}
 
     @pytest.mark.asyncio
-    async def test_should_store_the_form_language_as_the_corpus_code(self, db_session):
-        # El selector del panel manda `ca`; el corpus escribe `val`.
+    async def test_should_replace_and_not_duplicate_when_the_form_says_ca(self, db_session):
+        # «Sustituir documento» rellena URL e idioma con los del documento sustituido, y el
+        # selector del panel dice `ca` donde el corpus guarda `val`. Sin `id_publicacio` el
+        # reconciliador busca por URL e idioma: con `ca` sin normalizar no lo encontraba y
+        # dejaba los dos documentos vivos.
         chatbot_id = uuid.uuid4()
-        job = await _subir(db_session, chatbot_id, _md(**NORMA), language="ca")
+        sin_id = {k: v for k, v in NORMA.items() if k not in ("id_publicacio", "url_oficial")}
+        sin_id["language"] = "val"
+        url = "https://www.uji.es/reg-265-sense-id"
+        primero = await _subir(db_session, chatbot_id, _md(**sin_id), canonical_url=url)
+        segundo = await _subir(
+            db_session,
+            chatbot_id,
+            _md(**sin_id).replace("regula la prova", "regula la prova, versio nova"),
+            canonical_url=url,
+            language="ca",
+        )
 
-        assert job.status == "completed", job.error_message
+        assert primero.status == "completed", primero.error_message
+        assert segundo.status == "completed", segundo.error_message
         [doc] = await _documentos(db_session, chatbot_id)
         assert doc.language == "val"
