@@ -41,9 +41,9 @@ equipo decidir qué adoptar tal cual y qué tratar como hipótesis.
 
 | Término | Qué significa aquí |
 |---|---|
-| **Prompt** | Una instrucción de trabajo para el agente, escrita con sus tests y su criterio de cierre. Es la unidad mínima del plan; en el trabajo nuevo ese papel lo hace una *issue*, y los dos conviven (§4.7) |
+| **Prompt** | Una instrucción de trabajo para el agente, escrita con sus tests y su criterio de cierre. Es la unidad mínima del plan; hoy se escribe en el cuerpo de una *issue* (§4.7) |
 | **Bloque** | Un conjunto de pasos que entrega algo utilizable. Es la unidad de interacción con el humano, y lo sigue siendo con *issues* |
-| **Cursor** | El documento que dice en qué bloque y en qué paso está el desarrollo ahora mismo |
+| **Estado** | Lo que sitúa el desarrollo dentro del conjunto del plan: qué está hecho, qué está en curso y qué falta. El método estándar son las *issues* y los hitos de la forja; este proyecto empezó con un documento de planificación con un **cursor**, que sólo funciona con un único escritor (§4.4) |
 | **Guardarraíl** | Un test de la suite que falla cuando un documento del proyecto deja de ser verdad |
 
 ---
@@ -283,15 +283,15 @@ camino para conseguir el mismo efecto no es eficiencia: es violar el método.
 
 ## 4. Los documentos que rigen el desarrollo
 
-Siete documentos, y cada uno contesta **una** pregunta. La disciplina está en no dejar que uno
+Siete piezas, y cada una contesta **una** pregunta. La disciplina está en no dejar que uno
 conteste la de otro (P4).
 
 | Documento | Contesta | Cambia |
 |---|---|---|
 | **Reglas** (`AGENTS.md`) | ¿Cómo se trabaja aquí? ¿Qué está prohibido? | Rara vez |
 | **Especificaciones** | ¿Qué **garantiza** el sistema? ¿Qué no puedo romper? | Cuando cambia una garantía |
-| **Plan** (prompts TDD, o *issues*) | ¿Qué falta, y en qué orden? | Al planificar |
-| **Cursor** | ¿Dónde estamos ahora mismo? | En cada paso |
+| **Plan** (*issues* agrupadas en hitos; al principio, prompts TDD en ficheros) | ¿Qué falta, y en qué orden? | Al planificar |
+| **Estado** (el de las *issues* y los hitos; al principio, un cursor) | ¿Dónde estamos dentro del plan? | Al abrir y al cerrar cada paso |
 | **Historial** | ¿Por qué esto está así? ¿Qué se midió? | En cada paso, añadiendo |
 | **Registro de decisiones** | ¿Por qué no se hizo de la otra manera? | Cuando se descarta una alternativa |
 | **Contribución** | ¿Cómo aporto desde fuera? | Rara vez |
@@ -408,9 +408,30 @@ Tres detalles marcan la diferencia. **[n=1]**
 puede revisar en una *pull request* ni comentar por línea, y crece hasta que nadie lo lee de
 principio a fin. La unidad de fichero es la misma que la de ejecución: el bloque.
 
-### 4.4 El cursor y el historial
+### 4.4 El estado y el historial
 
-**El cursor** dice dónde estamos: qué bloque, qué paso, qué quedó cerrado. Se actualiza siempre.
+**El estado** sitúa el desarrollo dentro del conjunto de la planificación: qué está hecho, qué está
+en curso, qué falta y en qué orden. Sin él, cada sesión empieza preguntando por dónde iba la
+anterior, y la respuesta depende de la memoria de alguien.
+
+**El método estándar son las *issues* y los hitos de la forja** —GitHub, GitLab o la que se use—.
+**[Convención]** Cada unidad de trabajo es una *issue*, un bloque es un hito, y el estado no se
+escribe a mano: se lee del propio sistema. Una *issue* está abierta o cerrada, tiene responsable,
+se enlaza con el commit que la resuelve y se cierra sola al mezclar si el commit lo dice. Admite
+varios escritores a la vez —personas y agentes—, permite trabajar en paralelo y es lo que ya
+conoce quien llega de fuera. La hoja de ruta pública agrupa los hitos por temas.
+
+**El cursor, que es como empezó este proyecto.** Es un documento de planificación con una marca de
+«estamos aquí» que el agente mueve al cerrar cada paso. **Sólo tiene sentido cuando hay un único
+escritor**: una persona dirigiendo un agente, sin nadie más tocando el plan. Con dos ya es un
+cuello de botella. Dos sesiones editan el mismo fichero, nadie puede asignarse un paso, y el
+fichero se queda atrás del código sin que nada lo avise. Aquí pasó tal cual: el cursor dejó de
+actualizarse el 2026-09-26, mientras el trabajo seguía, y desde entonces el estado real está en
+las *issues*. **[n=1]**
+
+**La recomendación**: un proyecto nuevo sigue su estado con *issues* desde el primer bloque. El
+cursor queda para quien desarrolla en solitario y sin forja, y aun así conviene saber que habrá que
+migrar el día que llegue la segunda persona (§4.7).
 
 **El historial** es una fila por paso cerrado, añadida arriba, con lo que solo se sabe después de
 hacer el trabajo: la cifra que salió, el test que mentía, la alternativa que no funcionó. Es el
@@ -427,19 +448,19 @@ Un ejemplo de fila real, traducido a lenguaje llano. Lo valioso es la parte nega
 > protección, así que fallaba en silencio. Era la tercera vez que el mismo problema mordía en un
 > sitio distinto.
 
-**El historial y el cursor son ficheros distintos.** El cursor se lee entero al arrancar cada
-sesión y tiene que caber en dos pantallas; el historial crece una fila por paso y no tiene techo.
-Juntarlos hace que la lectura del cursor pague el peso del historial.
+**El historial y el estado son cosas distintas.** El estado se consulta al arrancar cada sesión y
+tiene que poder leerse de un vistazo; el historial crece una fila por paso y no tiene techo. Cuando
+el estado era un cursor en un fichero, este proyecto los tuvo juntos, y la lectura del cursor
+pagaba el peso del historial.
 
-#### El plan puede vivir en los *issues*; el historial no
+#### El plan y el estado viven en las *issues*; el historial no
 
 La primera revisión externa (equipo Teclab, 2026-09-10) objetó que ellos gestionan plan e
 historial con los *issues* del repositorio, y que así hay más paralelismo y un control más
-flexible. **Para el plan y el cursor tienen razón**, y este documento no debe insinuar lo
-contrario: un fichero de plan es un cuello de botella de un solo escritor, mientras que los
-*issues* permiten varios actores a la vez —personas y modelo— asignación, y trabajo en paralelo.
-Quien prefiera esa vía no está incumpliendo el marco: el cursor pasa a ser una vista (un tablero,
-un hito) en vez de un fichero.
+flexible. **Para el plan y el estado tenían razón**, y el proyecto acabó haciéndolo así: un fichero
+de plan es un cuello de botella de un solo escritor, mientras que las *issues* permiten varios
+actores a la vez —personas y modelo—, asignación y trabajo en paralelo. El cursor deja de ser un
+fichero y pasa a ser una vista: el estado de las *issues* de un hito.
 
 **El historial y las decisiones son otra cosa, y sí van en el repositorio.** Cuatro razones, en
 orden de peso:
@@ -455,8 +476,8 @@ orden de peso:
    cerrarlo en el acto es un cuaderno de laboratorio disfrazado de *issue*.
 3. **El conocimiento negativo no tiene ciclo de vida.** Un *issue* nace abierto y muere cerrado;
    «probamos X y no funcionó» no tiene cierre, y cerrarlo lo entierra.
-4. **El agente lee ficheros gratis.** El cursor entra en el contexto al arrancar; meter *issues*
-   cuesta llamadas y se pierde por el camino.
+4. **El agente lee ficheros gratis.** Un fichero entra entero en el contexto; reconstruir lo
+   aprendido a partir de cientos de *issues* cerradas cuesta llamadas y se pierde por el camino.
 
 **El puente entre las dos cosas**: al cerrar un *issue*, el modelo escribe la fila del historial.
 El *issue* dice **qué se pretendía**; la fila dice **qué se aprendió**. Son preguntas distintas,
@@ -491,7 +512,7 @@ consideró.
 | Principios no negociables | `constitution.md` | `AGENTS.md` |
 | Qué construir | `spec.md` | Plan por prompts |
 | Plan técnico | `plan.md` | Dentro de cada prompt |
-| Tareas ordenadas | `tasks.md` | Cursor |
+| Tareas ordenadas | `tasks.md` | *Issues* e hitos (al principio, un cursor) |
 | **Qué garantiza el sistema** | — | **Especificaciones** |
 | **Por qué se hizo así** | — | **Historial + ADR** |
 | **TDD obligatorio** | — | **Sí** |
@@ -502,23 +523,23 @@ La forma coincide: hay convergencia real en la industria hacia «principios → 
 conviene defender ante otro equipo es **TDD obligatorio**, porque es la que hace que el resto sea
 comprobable y no una declaración de intenciones.
 
-### 4.7 El plan está cambiando de forma: de lista de prompts a *issues*
+### 4.7 El plan cambió de forma: de lista de prompts con cursor a *issues*
 
-Este apartado existe porque el documento describiría un método que el proyecto ya no sigue del
-todo. Y porque **la transición es probablemente lo más útil que hay aquí para otro equipo**: no la
+Este apartado existe porque el documento describiría un método que el proyecto ya no sigue. Y porque **la transición es probablemente lo más útil que hay aquí para otro equipo**: no la
 foto final, sino qué la disparó y qué se conservó al cruzarla. **[n=1]**
 
-**Y está a medias, a propósito**, que es el dato que más conviene no maquillar:
+**Se hizo por partes, a propósito**, que es el dato que más conviene no maquillar:
 
-| Plan | Estado a 2026-09-23 |
+| Plan | Estado a 2026-10-22 |
 |---|---|
-| `Plan_TDD_Fase1.md` | **Sigue en prompts**, y es el único cursor vivo del proyecto |
+| `Plan_TDD_Fase1.md` | El último plan escrito en prompts. Su cursor dejó de actualizarse el 2026-09-26; lo que quede pendiente de él se abre como *issue* cuando se retoma |
 | `Plan_Contrato_OpenAPI.md` | Completo; no tiene cursor |
 | Fases 2 y 3 | **Cerradas y sustituidas** por `ROADMAP.md` y los hitos de *issues*. No se ejecutarán como estaban escritas |
 
-Así que lo honesto no es «migramos», sino **«migramos lo que aún no estaba en marcha, y dejamos
-correr lo que sí»**. Reescribir la Fase 1 en *issues* sólo por uniformidad habría costado trabajo
-sin comprar garantía, que es la misma razón por la que §11.3 dice qué no copiar.
+Así que lo honesto no es «migramos», sino **«migramos lo que aún no estaba en marcha, dejamos
+correr lo que sí, y el cursor se quedó atrás solo»**. Reescribir la Fase 1 en *issues* sólo por
+uniformidad habría costado trabajo sin comprar garantía, que es la misma razón por la que §11.3
+dice qué no copiar.
 
 **Lo que había.** Un documento de planificación por fase, partido en un fichero por bloque, con los
 prompts TDD que describe §4.3. El cursor decía en qué prompt estábamos. Funcionó durante meses y
@@ -544,6 +565,9 @@ cierra la *issue* en vez de mover un cursor.
 3. **Llegó gente de fuera.** Un plan en un fichero no se comenta por línea, no se asigna, no se
    cierra solo al desplegar y no lo entiende quien llega. Las *issues* son el estándar que esa
    gente ya conoce, y el coste de no usarlo lo paga siempre el que llega.
+4. **Dejó de haber un solo escritor.** En cuanto trabajaron a la vez dos sesiones de agente sobre
+   el mismo repositorio, el cursor se convirtió en un fichero que las dos tenían que editar. Es
+   el límite que §4.4 describe, y fue el último empujón.
 
 **Qué se conservó, que es la parte que importa.** Nada de lo que da garantías dependía del formato
 del plan:
@@ -557,7 +581,7 @@ del plan:
 | Los **guardarraíles** (§6) | — |
 | El **historial** (§4.4) | — |
 | El **registro de decisiones** (§4.5) | — |
-| El **cursor** (§4.4) | Sigue vivo para la Fase 1; para lo nuevo, su papel lo hacen el estado de las *issues* y los hitos |
+| El **estado** (§4.4) | Lo daba el cursor; ahora lo da el de las *issues* y los hitos. El cursor de la Fase 1 queda como registro |
 
 **La lección, dicha como hipótesis y no como resultado.** El andamiaje que necesita quien empieza
 —prompts escritos con sus tests enumerados— **no es el mismo que necesita a los seis meses**, y
@@ -580,9 +604,9 @@ solo**.
 
 ### 5.1 El bloque es la unidad de interacción
 
-Un bloque es un conjunto de pasos que entrega algo utilizable —prompts en la Fase 1, *issues* de un
-hito en lo nuevo (§4.7); el concepto no cambia con el artefacto—. Una vez arrancado, el agente **no
-informa hasta cerrarlo** y no pide confirmación entre pasos.
+Un bloque es un conjunto de pasos que entrega algo utilizable: las *issues* de un hito, o en la
+Fase 1 prompts con su cursor (§4.7). El concepto no cambia con el artefacto. Una vez arrancado, el
+agente **no informa hasta cerrarlo** y no pide confirmación entre pasos.
 
 Esto es lo que hace rentable el método, y encaja con el reparto que mide Anthropic: el humano en la
 planificación, el agente en la ejecución. **[Evidencia]** Confirmar cada paso convierte al humano en
@@ -591,8 +615,11 @@ un cuello de botella que, además, deja de leer.
 ### 5.2 El bucle por paso
 
 ```
-RED → GREEN → REFACTOR → verificaciones de cierre → actualizar el cursor → un commit firmado
+RED → GREEN → REFACTOR → verificaciones de cierre → actualizar el estado → un commit firmado
 ```
+
+**Actualizar el estado** es que el commit cierre su *issue* —`Closes #N` en el cuerpo— y escribir
+la fila del historial. Con un cursor era mover la marca al paso siguiente.
 
 **Un commit por paso, firmado.** Es lo que hace reversible un bloque largo: si el paso 5 rompe lo
 que hizo el 3, hay un punto exacto al que volver. Sin eso, un bloque de siete pasos es un solo
@@ -1030,8 +1057,8 @@ copia** y no con el original. Un guardarraíl también puede estar vigilando la 
 ### 9.6 Un documento con estado incrustado envejece
 
 El documento de «leer primero» de este proyecto llevaba una sección de estado fechada, y tres
-bloques después mentía. **El estado va en un solo sitio**, el cursor, y los demás documentos
-apuntan a él. Es P4 aplicado a lo que más tienta romperlo.
+bloques después mentía. **El estado va en un solo sitio** —las *issues* y los hitos; al principio,
+el cursor—, y los demás documentos apuntan a él. Es P4 aplicado a lo que más tienta romperlo.
 
 ### 9.7 El mismo problema muerde tres veces
 
@@ -1090,8 +1117,8 @@ entienda el repositorio.
 estabilidad, la velocidad es caos acelerado. **[Evidencia]**
 
 **Y qué no hacer**: adoptar una herramienta de orquestación para obtener lo que ya se tiene. Si un
-equipo ya tiene plan, cursor e historial funcionando, migrarlos al formato de un marco cuesta la
-reescritura entera y devuelve lo mismo.
+equipo ya tiene plan, seguimiento del estado e historial funcionando, migrarlos al formato de un
+marco cuesta la reescritura entera y devuelve lo mismo.
 
 ---
 
@@ -1107,8 +1134,8 @@ que tirar:
 | 1 | **Permisos y guarda, con sus tests** | Antes de que el agente ejecute nada |
 | 2 | **`AGENTS.md` mínimo**: reglas duras, comandos del proyecto, prohibiciones | Es lo que el agente lee antes de escribir |
 | 3 | **Integración continua con lint, tests y *lock* verificado** | Sin esto, TDD es una intención |
-| 4 | **El primer bloque**, como prompts TDD | Un bloque pequeño, para calibrar el método. Ver abajo por qué prompts y no *issues* al empezar |
-| 5 | **Cursor e historial** | En cuanto haya dos bloques |
+| 4 | **El primer bloque**, como un hito con sus *issues*, y cada *issue* escrita como un prompt TDD | Un bloque pequeño, para calibrar el método. Ver abajo por qué el contenido de prompt importa al empezar |
+| 5 | **Historial** | En cuanto haya dos bloques |
 | 6 | **Registro de decisiones** | A la primera alternativa descartada |
 | 7 | **Especificaciones** | Cuando haya capacidades que garanticen algo |
 | 8 | **Guardarraíles** | La primera vez que un documento se queda viejo |
@@ -1118,15 +1145,18 @@ que tirar:
 que garantizar produce un documento que hay que reescribir entero al segundo bloque. Primero se
 construye; cuando algo garantiza algo, se escribe.
 
-**Y el paso 4 va en prompts aunque acabes en *issues*** (§4.7). Parece un rodeo —¿por qué no
-empezar ya con el estándar?— y la razón es que los dos artefactos no sirven para lo mismo al
-principio: un prompt con sus tests enumerados **obliga a decidir por adelantado qué tiene que ser
-cierto**, y esa es la decisión que no se puede delegar en el agente. Una *issue* admite quedarse en
-«arregla esto», que es exactamente lo que produce tests que confirman lo que el código ya hace.
+**El estado va en *issues* desde el principio, pero el contenido del paso 4 es el de un prompt**
+(§4.7). Son dos cosas distintas. Dónde se sigue el estado no admite discusión: con *issues* lo
+sigue cualquiera, y un cursor sólo funciona mientras trabaja una persona (§4.4). Lo que importa al
+empezar es **qué se escribe dentro**: un prompt con sus tests enumerados **obliga a decidir por
+adelantado qué tiene que ser cierto**, y esa es la decisión que no se puede delegar en el agente.
+Una *issue* que se queda en «arregla esto» produce tests que confirman lo que el código ya hace.
+Así que, al principio, cada *issue* lleva en su cuerpo el prompt entero.
 
 El cambio llega solo, y con señal: cuando la pregunta deja de ser «¿qué falta construir?» y pasa a
-ser «¿qué ha aparecido que arreglar?», el plan escrito por adelantado estorba. Ahí se migra — y se
-comprueba que ninguna salvaguarda se quedó por el camino.
+ser «¿qué ha aparecido que arreglar?», escribir los tests de cada *issue* por adelantado estorba,
+y basta con una *issue* bien escrita. Ahí se afloja — y se comprueba que ninguna salvaguarda se
+quedó por el camino.
 
 ### 11.2 El prompt de arranque
 
@@ -1160,12 +1190,13 @@ QUÉ QUIERO QUE HAGAS, EN ESTE ORDEN, PARANDO DONDE SE INDICA:
 3. Integración continua según §7.1, con las puertas que apliquen a mi stack. Lint antes de
    tests. Lock verificado.
 
-4. El primer bloque de prompts TDD según §4.3, para «lo primero que hay que construir»:
-   entre 3 y 7 prompts, cada uno con sus tests ENUMERADOS y su verificación de cierre con
-   evidencia concreta. Un fichero por bloque desde el principio.
+4. El primer bloque según §4.3, para «lo primero que hay que construir»: un hito con entre 3
+   y 7 issues, cada una con el prompt en su cuerpo, sus tests ENUMERADOS y su verificación de
+   cierre con evidencia concreta. Si no tengo forja, escríbelo en un fichero por bloque con un
+   cursor, y dime que habrá que migrarlo cuando haya una segunda persona.
    **PARA y enséñame el bloque antes de ejecutar nada.**
 
-5. Cursor e historial vacíos, con su cabecera explicando qué va en cada uno.
+5. El historial vacío, con su cabecera explicando qué va en él.
 
 6. Plantillas: registro de decisiones, issue de fallo, issue de propuesta (con la pregunta de
    §8.3), plantilla de pull request, y el fichero de la licencia elegida.
@@ -1291,7 +1322,7 @@ PERMISOS            permitir: leer, escribir, git, tests, paquetes, contenedores
                     denegar: lo que no tiene caso legítimo nunca
                     + guarda con tests propios
 
-DOCUMENTOS          reglas · especificaciones · plan · cursor
+DOCUMENTOS          reglas · especificaciones · plan · estado (issues e hitos)
                     historial · decisiones · contribución
 
 CICLO               bloque = unidad de interacción

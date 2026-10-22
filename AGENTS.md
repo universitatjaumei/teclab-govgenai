@@ -17,27 +17,32 @@ Gov Gen AI Platform es el resultado de integrar **AI Agents Hub** (chatbots RAG,
 
 ## Ejecución agéntica por bloques
 
-El desarrollo se ejecuta **de forma autónoma y secuencial, por bloques de prompts**. Un bloque es
-una fila de la tabla de planes activos de `planificacion/PROJECT_STATE.md`; sus prompts viven en
-`planificacion/fase1/`.
+El desarrollo se ejecuta **de forma autónoma y secuencial, por bloques**. Un bloque es un **hito de
+GitHub con sus *issues***, y el alcance de cada paso está en el cuerpo de su *issue*. El estado
+del desarrollo se lee de ahí, no de un fichero. La Fase 1 se escribió como prompts en
+`planificacion/fase1/`, con un cursor en `planificacion/PROJECT_STATE.md` que ya no se actualiza.
 
 **El bloque es la unidad de interacción: una vez arrancado, no informes hasta cerrarlo.** No pidas
-confirmación entre prompts. El protocolo completo —qué es un bloque, cómo se arranca, el informe de
+confirmación entre pasos. El protocolo completo —qué es un bloque, cómo se arranca, el informe de
 cierre— está en `docs/METODOLOGIA_AGENTICA.md`.
 
-### El bucle por prompt
+### El bucle por paso
 
 ```
-RED → GREEN → REFACTOR → verificaciones de cierre → actualizar el cursor → un commit firmado
+RED → GREEN → REFACTOR → verificaciones de cierre → actualizar el estado → un commit firmado
 ```
+
+**Actualizar el estado** es que el commit cierre su *issue* y escribir la fila del historial: ver
+«Seguimiento del estado del proyecto», más abajo.
 
 Las **verificaciones de cierre** son: suite verde en los directorios tocados, migración aplicada,
 contrato regenerado si cambió la API, retirada del legacy comprobada con `grep -r` a cero, y
 verificación en navegador si toca UI.
 
-**Un commit Conventional por prompt**, con el identificador del prompt en el asunto, **firmado**
-(`git commit -s`), sin `Co-Authored-By` y **sin push**. Es lo que hace reversible un bloque largo:
-si el prompt 5 rompe lo que hizo el 3, hay un punto exacto al que volver.
+**Un commit Conventional por paso**, con el número de la *issue* en el asunto —o el identificador
+del prompt en la Fase 1—, **firmado** (`git commit -s`), sin `Co-Authored-By` y **sin push**. Es lo
+que hace reversible un bloque largo: si el paso 5 rompe lo que hizo el 3, hay un punto exacto al
+que volver.
 
 **Si el commit resuelve una issue, lleva `Closes #N`** en su cuerpo o en el de la PR. Un asunto
 `fix(#92):` no cierra nada, y se acumulan resueltas y abiertas: pasó con once. Lo comprueba CI.
@@ -116,9 +121,8 @@ por todo, y la supervisión se degrada a aprobación automática.
 
 ### Al arrancar y al cerrar
 
-- **Al arrancar**: lee el cursor de `planificacion/PROJECT_STATE.md`, lee los prompts verbatim, y
-  si algún prompt del bloque sugiere un modelo más capaz que el de la sesión, dilo **una sola vez
-  antes de empezar**.
+- **Al arrancar**: lee las *issues* del hito verbatim (`gh issue list --milestone`), y si alguna
+  sugiere un modelo más capaz que el de la sesión, dilo **una sola vez antes de empezar**.
 - **Al cerrar**: un solo informe con los ocho puntos de `docs/METODOLOGIA_AGENTICA.md` §7 —el
   octavo es la línea sobre `docs/ESPECIFICACIONES.md`—. Después **espera**: el siguiente bloque no
   arranca solo.
@@ -555,18 +559,17 @@ reales. Lo que pesa hoy es `torch`, no la extracción, y el razonamiento con las
 
 ## Modelo por prompt
 
-Cada prompt de `planificacion/fase1/` lleva bajo el título `**Modelo sugerido**: Opus | Sonnet —
-<razón corta>`. Es **una recomendación, no un requisito**: el modelo lo elige el usuario, por
-coste y disponibilidad. Hay una referencia rápida en la columna «Modelo sugerido siguiente» de
-`planificacion/PROJECT_STATE.md`.
+Un prompt o una *issue* puede llevar `**Modelo sugerido**: Opus | Sonnet — <razón corta>`; los de
+`planificacion/fase1/` lo llevan bajo el título. Es **una recomendación, no un requisito**: el
+modelo lo elige el usuario, por coste y disponibilidad.
 
 Tres reglas al abrir sesión:
 
 1. **Si el modelo de la sesión no coincide con el sugerido, dilo en una línea y espera** — «el
-   cursor sugiere Opus y estoy en Sonnet, ¿continúo?».
+   bloque sugiere Opus y estoy en Sonnet, ¿continúo?».
 2. **No intentes cambiar de modelo por tu cuenta.** La elección es del usuario.
 3. **En ejecución por bloques la comprobación se hace una sola vez**, al arrancar, sobre el
-   conjunto de prompts del bloque. Dentro del bloque no se vuelve a interrumpir por esto.
+   conjunto de pasos del bloque. Dentro del bloque no se vuelve a interrumpir por esto.
 
 **Delegar a un sub-agente con otro modelo** vale para tareas autocontenidas —auditar un diff, una
 búsqueda compleja, una revisión de seguridad— y **no** para un prompt entero de implementación:
@@ -576,31 +579,37 @@ pierde el hilo conversacional y no puede pedir clarificaciones.
 
 ## Seguimiento del estado del proyecto
 
-El archivo `planificacion/PROJECT_STATE.md` es la fuente de verdad del progreso de los planes de desarrollo.
+**El estado del desarrollo está en las *issues* y los hitos de GitHub**, y `ROADMAP.md` los agrupa
+por temas hacia fuera. Es el método estándar y el que admite varios escritores a la vez: personas
+y sesiones de agente en paralelo. Razón completa en `docs/MARCO_DESARROLLO_AGENTICO.md` §4.4.
 
-### Regla obligatoria: actualizar planificacion/PROJECT_STATE.md al terminar cada prompt
+**El proyecto empezó con un cursor**: `planificacion/PROJECT_STATE.md`, un fichero que el agente
+actualizaba al cerrar cada prompt. Sólo funciona con un único escritor, y dejó de actualizarse el
+2026-09-26. Se conserva como registro de la Fase 1. **No lo actualices**, y si retomas algo que
+quedó pendiente en él, ábrelo antes como *issue*.
 
-**Al finalizar cualquier prompt que implemente o avance un paso de un plan de desarrollo**
-(`planificacion/Plan_TDD_Fase1.md`, `Plan_Contrato_OpenAPI.md`, `planificacion/Plan_TDD_Fase2.md`, `planificacion/Plan_TDD_Fase3.md`
-o cualquier plan futuro), actualiza `planificacion/PROJECT_STATE.md` antes de cerrar la respuesta:
+### Regla obligatoria: al cerrar cada paso
 
-1. **Marca el paso completado** con ✅ y mueve el cursor al siguiente.
-2. **Si el paso es parcial** (p. ej. RED escrito pero GREEN pendiente), márcalo con ▶ y anota qué falta.
-3. **Añade una fila arriba de la tabla de `planificacion/HISTORIAL.md`** con la fecha de hoy, el identificador del prompt y una descripción de una línea. El historial se separó de `planificacion/PROJECT_STATE.md` el 2026-08-21: eran 535 de sus 626 KB, y este fichero se lee entero al arrancar cada sesión.
-4. **Si un bloque entero queda completo**, actualiza la columna Estado del bloque a ✅ Completo.
+1. **El commit cierra su *issue***: `Closes #N` en el cuerpo del commit o de la PR. Un asunto
+   `fix(#N):` no cierra nada, y lo comprueba CI.
+2. **Si el paso es parcial**, la *issue* se retitula por lo que queda y lo hecho va arriba de su
+   cuerpo (ver «Ejecución agéntica por bloques»).
+3. **Añade una fila arriba de la tabla de `planificacion/HISTORIAL.md`** con la fecha de hoy, el
+   identificador del paso —el número de la *issue*— y una descripción de una línea. La *issue*
+   dice qué se pretendía; la fila, qué se aprendió.
+4. **Si un tema del roadmap cambia de estado**, actualiza su fila en `ROADMAP.md`.
 
-Esta actualización es **obligatoria** incluso en prompts pequeños o de corrección.
-No omitirla aunque el cambio sea un fix puntual que avanza el cursor.
+Es **obligatorio** incluso en pasos pequeños o de corrección.
 
-### Cuándo NO actualizar planificacion/PROJECT_STATE.md
+### Cuándo NO hace falta
 
-- Prompts de configuración de herramientas (permisos, settings, hooks).
-- Prompts de consulta o explicación sin cambios de código.
-- Refactors internos sin relación con un paso numerado de un plan.
+- Cambios de configuración de herramientas (permisos, settings, hooks).
+- Consultas o explicaciones sin cambios de código.
+- Refactors internos sin *issue* ni relación con el plan.
 
 ### Regla: actualizar `docs/ESPECIFICACIONES.md` al cerrar un bloque, si cambió una garantía
 
-`PROJECT_STATE.md` se actualiza **siempre**, por prompt. La especificación **sólo** cuando el
+El estado se actualiza **siempre**, por paso. La especificación **sólo** cuando el
 bloque cambia lo que el sistema garantiza, y entonces **en el mismo commit que lo cambia**.
 
 **Por qué hace falta la regla si ya hay un test.** `test_especificaciones_no_miente.py` caza la
@@ -627,7 +636,7 @@ cambió dónde se sirven las cosas— pero decirlo es lo que impide saltárselo 
 criterio que se aplica a las cifras de tests: si no se ha medido, no se reporta como medida.
 
 **Lo que NO va en la especificación**: el estado del desarrollo, qué prompt viene, qué se midió en
-un barrido. Eso es `PROJECT_STATE.md` y `HISTORIAL.md`. Un documento que repita el estado divergirá
+un barrido. Eso son las *issues* y `HISTORIAL.md`. Un documento que repita el estado divergirá
 en semanas y mentirá con autoridad, que es peor que no tenerlo.
 
 ---

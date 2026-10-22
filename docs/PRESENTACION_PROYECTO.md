@@ -557,7 +557,7 @@ la norma aplicable ha sido desplazada— sin pedirle a nadie que se fíe.
 | `docs/SANDBOX_SECURITY.md` | Aislamiento de la ejecución de código |
 | `docs/REDACCION_CONTRACT_FIRST.md` | Contrato del módulo de informes |
 | `docs/A11Y_CHECKLIST.md` | Verificación de accesibilidad |
-| `planificacion/PROJECT_STATE.md` | Estado vivo del desarrollo, al día |
+| *Issues* e hitos de GitHub | Estado vivo del desarrollo, al día. `planificacion/PROJECT_STATE.md` es el cursor de la Fase 1, que ya no se actualiza |
 | `planificacion/HISTORIAL.md` | Por qué cada cosa se hizo como se hizo: desviaciones, defectos encontrados al verificar y decisiones con su razón |
 
 ---
