@@ -41,7 +41,7 @@ pisa uno que ya exista** salvo con `--force`. Tiene dos modos: `--mode local` (p
 todo funcionando sin servicios de pago —Ollama para el modelo y MinIO para el almacenamiento—, y
 `--mode cloud` deja preparadas y comentadas las opciones de Vertex AI y GCS.
 
-**`setup.sh`** hace cinco pasos: comprueba requisitos (Docker, y los puertos **80, 443 y 5432**
+**`setup.sh`** hace cinco pasos: comprueba requisitos (Docker, y los puertos **80 y 443**
 libres), pide las credenciales del superadministrador, levanta `docker-compose.prod.yml`, aplica
 las migraciones y siembra. **Es idempotente de extremo a extremo**: ejecutarlo dos veces no
 duplica nada ni rehashea la contraseña que ya pusiste.
@@ -235,6 +235,10 @@ Y en el navegador: entra en `http://localhost:5173` (desarrollo) o en el puerto 
 inicia sesión con la cuenta que creaste, y comprueba que aterrizas en un módulo. Si ves
 «sin acceso», el rol está bien pero **falta la concesión de módulo** —§1 de
 [`GUIA_DE_USO.md`](GUIA_DE_USO.md)—.
+
+En producción **sólo el panel escucha hacia fuera**. La API (8000), la consola de MinIO (9000 y
+9001), Langfuse (3000) y Ollama (11434) escuchan en `127.0.0.1`: el `curl` de arriba funciona en
+la propia máquina, y desde otra se llega con un túnel SSH (`ssh -L 9001:127.0.0.1:9001 …`).
 
 ---
 
