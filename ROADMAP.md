@@ -42,6 +42,11 @@ de este documento: la revisión humana de las respuestas ([#8](https://github.co
 el orden vigencia→lengua y el aviso de traducción ([#9](https://github.com/universitatjaumei/teclab-govgenai/issues/9)),
 y el reordenador por API medido en valenciano ([#10](https://github.com/universitatjaumei/teclab-govgenai/issues/10)).
 
+El hito [Asistentes 2 — declinar lo que no se sostiene, con una rúbrica validada](https://github.com/universitatjaumei/teclab-govgenai/milestone/21)
+recoge lo que el bloque de madurez dejó aplazado: que el contrato de citas compruebe que lo citado
+sostiene la respuesta, y no sólo que se cite ([#291](https://github.com/universitatjaumei/teclab-govgenai/issues/291)), y la calibración de la
+rúbrica con dos informadores, **bloqueada** hasta que los haya ([#292](https://github.com/universitatjaumei/teclab-govgenai/issues/292)).
+
 ### 2. Corpus normativo y curación de portales — En producción
 
 El corpus entra como Markdown conforme a contrato, con vocabulario versionado como dato y
@@ -179,8 +184,15 @@ chatbot. Detalle en [`docs/MULTITENENCIA.md`](docs/MULTITENENCIA.md).
 
 El hito [Bloque 1 — dar de alta a una persona](https://github.com/universitatjaumei/teclab-govgenai/milestone/5)
 está cerrado ([#100](https://github.com/universitatjaumei/teclab-govgenai/issues/100), [#97](https://github.com/universitatjaumei/teclab-govgenai/issues/97), [#96](https://github.com/universitatjaumei/teclab-govgenai/issues/96)), y también el selector de organización que acota todos
-los listados ([#11](https://github.com/universitatjaumei/teclab-govgenai/issues/11)). Abierto: un token de alcance estrecho puede usar los endpoints que no piden
+los listados ([#11](https://github.com/universitatjaumei/teclab-govgenai/issues/11)). Cerrado también que un token de alcance estrecho pudiera usar los endpoints que no piden
 alcance ([#214](https://github.com/universitatjaumei/teclab-govgenai/issues/214)).
+
+El hito [Multitenencia 2 — la vista y los permisos, tras el piloto](https://github.com/universitatjaumei/teclab-govgenai/milestone/20) recoge la
+segunda fase del aislamiento por organización: la administración delegada ([#287](https://github.com/universitatjaumei/teclab-govgenai/issues/287)),
+las credenciales de proveedor por organización sin guardar el secreto en la base ([#288](https://github.com/universitatjaumei/teclab-govgenai/issues/288)),
+el nivel de organización en la interfaz ([#289](https://github.com/universitatjaumei/teclab-govgenai/issues/289)) y la reutilización de configuración
+entre organizaciones e instalaciones ([#290](https://github.com/universitatjaumei/teclab-govgenai/issues/290)). Su forma depende de cuántas
+organizaciones y administradores delegados tenga cada instalación.
 
 ### 7. Operación, despliegue y apertura del repositorio — En curso
 
