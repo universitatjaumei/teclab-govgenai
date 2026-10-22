@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { useGetPageContent } from '@/shared/api/generated/hub-sites/hub-sites'
+import { enlaceExterno } from '@/shared/enlaces/enlaceExterno'
 
 interface Props {
   pageId: string
@@ -70,7 +71,7 @@ export function PageContentDialog({ pageId, onClose }: Props) {
               {/* Enlace a la original para poder comparar: lo de abajo es lo guardado. */}
               <a
                 data-testid="enlace-pagina-original"
-                href={pagina.url}
+                href={enlaceExterno(pagina.url)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs text-primary underline break-all"

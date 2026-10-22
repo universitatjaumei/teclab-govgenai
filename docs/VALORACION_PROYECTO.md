@@ -213,7 +213,7 @@ Ninguna es bloqueante por sí sola para un piloto, pero conviene tenerlas a la v
 | — | Widget: bearer privilegiado en `data-token` | **Resuelto** | `HubWidgetKey` con SHA-256, revocable, scope `public_anon`, atada al chatbot de la ruta. |
 | — | Temas sin auth + path traversal con `unlink` | **Resuelto** | Temas en BD; desapareció el almacén de ficheros y todo `unlink`. `theme_id` validado como UUID. |
 | — | Uploads sin magic bytes ni límite | **Parcial** | `core/uploads.py` con magic bytes, corte en streaming, anti-traversal. Falta un endpoint — ver NUEVO-5. |
-| — | Docs FastAPI + cabeceras de seguridad | **Resuelto** | Docs off en producción; HSTS/CSP/X-Frame-Options/nosniff, también en errores. |
+| — | Docs FastAPI + cabeceras de seguridad | **Resuelto** | Docs off en producción; HSTS/CSP/X-Frame-Options/nosniff, también en errores, **en la API**. El HTML del panel y del sitio no las llevaba: lo sirven nginx y el bucket, y se corrigió el 2026-10-22. |
 | — | JWT + placeholder SAML | **Resuelto** | Sin default inseguro (rechaza valores de ejemplo y <32 car.); SAML con `wantAssertionsSigned` + `validate_cert`. |
 | — | Sandbox de scripts (gate prod + auditor AST) | **Parcial** | Ambos existen. El gate se salta con `TESTING=1` — ver NUEVO-7. |
 | — | Sembrado de desarrollo (`admin1234`) | **Resuelto** | Solo se siembra si `ENVIRONMENT=development`; bootstrap de producción aparte. |

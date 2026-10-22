@@ -324,6 +324,15 @@ a aprobación o edición humana.
   sus datos parece fundamentada y no lo está. Y lo transitorio se reintenta —un *timeout* no deja
   el apartado caído para siempre—, con la cuenta de intentos en el estado del bloque.
 - Ningún script se ejecuta sin **auditoría AST + sandbox + aprobación** (I13).
+- **Quien propone un script puede también aprobarlo** (decisión del 2026-10-22). No hay
+  separación entre proponente y revisor, y es a propósito: con un solo superadministrador, o un
+  solo administrador por organización, exigirla bloquearía el flujo. Lo que sí se exige es que
+  quien aprueba pueda revisar la propuesta —de su organización, o superadministrador para las que
+  no tienen— y tenga poder sobre la plantilla de destino.
+- **Una ejecución del sandbox no ve otra** (2026-10-22): se ejecutan de una en una y al acabar se
+  mata todo lo que el guion lanzó, así que mientras corre un guion no existen los ficheros de otra
+  organización. La auditoría por nombres no es la frontera —se saltaba con `sys.modules`—, y por
+  eso esta garantía no depende de ella. Lo abierto está en `SANDBOX_SECURITY.md` §3.
 - El formulario de un script se pinta desde un `ui_contract` que manda el servidor: el frontend no
   conoce los campos a priori (I6).
 - Toda ejecución deja `RunManifest`: qué se ejecutó, con qué versión y con qué datos.
@@ -391,6 +400,16 @@ por `funcion_id@versión`.
   recibe 403 `PAT_NO_PERMITIDO`, **sea cual sea el rol de su dueño**. Antes, un endpoint que no
   decía nada aceptaba cualquier token, y un token de superadministrador emitido sólo para anotar
   usos podía conceder módulos. Un endpoint nuevo que no declare nada es de sesión, no de máquina.
+- **Un PAT vale lo que vale hoy su dueño** (2026-10-22). `PatService.verify` comprueba en cada
+  petición que la persona existe, está activa y **conserva el rol con el que lo emitió**: los
+  alcances se validaron contra el techo de ese rol, así que con otro no se reinterpretan. Antes el
+  principal salía del rol guardado en la fila, y desactivar, borrar o rebajar a alguien no tocaba
+  sus tokens. **Un PAT caduca siempre**: a los 90 días si no se dice, y nunca más allá de un año.
+  Un superadministrador revoca el de cualquiera.
+- **La sesión de navegador no se revoca**: el JWT vale hasta que caduca (`JWT_EXPIRATION_MINUTES`,
+  60 en producción) y lleva dentro el rol y las organizaciones. Desactivar a una persona corta sus
+  PAT en la siguiente petición, pero **su sesión abierta dura hasta esa caducidad**. Es una
+  decisión: comprobar la persona en cada petición de sesión costaría una consulta por petición.
 - **Un PAT se puede acotar a una organización al emitirlo** (#230), y **acota, nunca amplía**:
   quien no es superadmin sólo elige una de las suyas. El de un superadministrador acotado **actúa
   como administrador de esa organización** (#238, 2026-10-07): conservar el rol dejaba pasar al

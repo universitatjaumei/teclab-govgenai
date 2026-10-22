@@ -442,7 +442,10 @@ def test_approve_rechaza_un_hallazgo_critico(approval_app) -> None:
     from server.app.core.auth.models import UserInfo
 
     admin_uuid = uuid.uuid4()
-    user_holder["user"] = UserInfo(user_id=str(admin_uuid), email="admin@t.com", role="admin")
+    # Revisar e incrustar en una plantilla de plataforma es del superadministrador desde que la
+    # revisión se acota a la organización; el camino del administrador de organización lo prueba
+    # `test_el_administrador_se_queda_en_su_organizacion.py`.
+    user_holder["user"] = UserInfo(user_id=str(admin_uuid), email="admin@t.com", role="superadmin")
 
     template, _ = _seed_template_and_version(state, admin_uuid, is_global=True)
 
@@ -478,7 +481,10 @@ def test_get_pending_returns_only_pending_review_status(approval_app, monkeypatc
     from server.app.modules.redaccion.database.repos import ScriptProposalRepo
 
     admin_uuid = uuid.uuid4()
-    user_holder["user"] = UserInfo(user_id=str(admin_uuid), email="admin@t.com", role="admin")
+    # Revisar e incrustar en una plantilla de plataforma es del superadministrador desde que la
+    # revisión se acota a la organización; el camino del administrador de organización lo prueba
+    # `test_el_administrador_se_queda_en_su_organizacion.py`.
+    user_holder["user"] = UserInfo(user_id=str(admin_uuid), email="admin@t.com", role="superadmin")
 
     owner = uuid.uuid4()
     p_pending = _seed_proposal(state, owner, status="pending_review", target_owner_kind="platform")
@@ -536,7 +542,10 @@ def test_admin_retest_returns_hash_match_flag(approval_app) -> None:
     from server.app.core.auth.models import UserInfo
 
     admin_uuid = uuid.uuid4()
-    user_holder["user"] = UserInfo(user_id=str(admin_uuid), email="admin@t.com", role="admin")
+    # Revisar e incrustar en una plantilla de plataforma es del superadministrador desde que la
+    # revisión se acota a la organización; el camino del administrador de organización lo prueba
+    # `test_el_administrador_se_queda_en_su_organizacion.py`.
+    user_holder["user"] = UserInfo(user_id=str(admin_uuid), email="admin@t.com", role="superadmin")
 
     owner_uuid = uuid.uuid4()
     # test_result_hash seeded con valor conocidamente distinto al que producirá el sandbox
@@ -576,7 +585,10 @@ def test_approve_requires_recent_hash_match(approval_app) -> None:
     from server.app.core.auth.models import UserInfo
 
     admin_uuid = uuid.uuid4()
-    user_holder["user"] = UserInfo(user_id=str(admin_uuid), email="admin@t.com", role="admin")
+    # Revisar e incrustar en una plantilla de plataforma es del superadministrador desde que la
+    # revisión se acota a la organización; el camino del administrador de organización lo prueba
+    # `test_el_administrador_se_queda_en_su_organizacion.py`.
+    user_holder["user"] = UserInfo(user_id=str(admin_uuid), email="admin@t.com", role="superadmin")
 
     template, _ = _seed_template_and_version(state, admin_uuid, is_global=True)
 
@@ -601,7 +613,10 @@ def test_approve_creates_new_global_template_version(approval_app) -> None:
     from server.app.core.auth.models import UserInfo
 
     admin_uuid = uuid.uuid4()
-    user_holder["user"] = UserInfo(user_id=str(admin_uuid), email="admin@t.com", role="admin")
+    # Revisar e incrustar en una plantilla de plataforma es del superadministrador desde que la
+    # revisión se acota a la organización; el camino del administrador de organización lo prueba
+    # `test_el_administrador_se_queda_en_su_organizacion.py`.
+    user_holder["user"] = UserInfo(user_id=str(admin_uuid), email="admin@t.com", role="superadmin")
 
     template, _ = _seed_template_and_version(state, admin_uuid, is_global=True)
 
@@ -645,7 +660,10 @@ def test_reject_records_note_and_blocks_further_changes(approval_app) -> None:
     from server.app.core.auth.models import UserInfo
 
     admin_uuid = uuid.uuid4()
-    user_holder["user"] = UserInfo(user_id=str(admin_uuid), email="admin@t.com", role="admin")
+    # Revisar e incrustar en una plantilla de plataforma es del superadministrador desde que la
+    # revisión se acota a la organización; el camino del administrador de organización lo prueba
+    # `test_el_administrador_se_queda_en_su_organizacion.py`.
+    user_holder["user"] = UserInfo(user_id=str(admin_uuid), email="admin@t.com", role="superadmin")
 
     template, _ = _seed_template_and_version(state, admin_uuid, is_global=True)
 

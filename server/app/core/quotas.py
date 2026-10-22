@@ -104,8 +104,12 @@ def limites_aplicables(actor, chatbot, organizacion, *, ip: str | None = None) -
         limites.append(Limite(subject_type, str(subject_id), ventana, int(valor)))
 
     actor_id = getattr(actor, "subject_id", None) if actor else None
+    # La cuota de usuario es de las personas. El público anónimo del widget comparte un mismo
+    # sujeto por chatbot (`actor_anonimo_de_widget`), así que con ella un solo visitante agotaba
+    # la de todos; a ese público lo limitan su IP, el chatbot y la organización.
+    es_persona = bool(actor_id) and getattr(actor, "role", None) != "anonymous"
 
-    if actor_id:
+    if es_persona:
         _añadir(
             SUJETO_USUARIO,
             actor_id,

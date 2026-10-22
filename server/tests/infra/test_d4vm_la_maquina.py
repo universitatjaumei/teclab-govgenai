@@ -215,12 +215,21 @@ def test_el_sandbox_conserva_las_capas_que_ya_tenia() -> None:
 
 
 def test_el_proxy_no_repite_las_cabeceras_de_seguridad_de_la_aplicacion() -> None:
+    """Donde la aplicación pone las cabeceras, el proxy no las repite.
+
+    **Salvo en la ruta del bucket** (2026-10-22): el sitio del corpus no pasa por la aplicación,
+    así que ahí nadie más las pone, y la ruta lleva `nosniff` y `Referrer-Policy`. Hasta esa
+    fecha este test suponía que la aplicación cubría todo lo que sirve el proxy, y no era así.
+    """
     texto = _texto(CADDYFILE)
+    inicio = texto.index("# Todo lo demás, el sitio del corpus publicado en el bucket.")
+    fin = texto.index("reverse_proxy https://{$CORPUS_BUCKET}", inicio)
+    fuera_del_bucket = texto[:inicio] + texto[fin:]
     for cabecera in ("X-Frame-Options", "Strict-Transport-Security",
                      "X-Content-Type-Options", "Referrer-Policy"):
         # Se permite nombrarla en un comentario que explica por qué NO se pone.
         activas = [
-            linea for linea in texto.splitlines()
+            linea for linea in fuera_del_bucket.splitlines()
             if cabecera in linea and not linea.strip().startswith("#")
         ]
         assert not activas, (

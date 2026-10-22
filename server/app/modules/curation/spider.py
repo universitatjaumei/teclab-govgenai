@@ -14,6 +14,8 @@ from enum import Enum
 from typing import Any, Awaitable, Callable, Protocol
 from urllib.parse import parse_qsl, urlencode, urljoin, urlparse
 
+import regex as _regex
+
 from server.app.modules.curation.cortesia import (
     PRESUPUESTO_POR_DEFECTO_SEGUNDOS,
     CortesiaDeRastreo,
@@ -21,7 +23,7 @@ from server.app.modules.curation.cortesia import (
     clasificar_fallo,
     cortesia_desde_config,
 )
-from server.app.modules.curation.secciones import predicado_de_ambito
+from server.app.modules.curation.secciones import busca_con_tope, predicado_de_ambito
 
 
 #: Tope de páginas que se guardan en memoria para no volver a pedirlas. Con ~50 KB de HTML por
@@ -330,7 +332,11 @@ class GenericSpider:
         self.configurar_cortesia(config)
         empezado = self._cortesia._reloj()
 
-        regex = re.compile(url_regex_filter) if url_regex_filter else None
+        # Se compila sólo para fallar en alto si no es válido, como antes; la búsqueda va por
+        # `busca_con_tope`, con tiempo máximo: el patrón lo escribe un administrador y se aplica
+        # a cada URL dentro del bucle de eventos.
+        if url_regex_filter:
+            _regex.compile(url_regex_filter)
         # DIN.2 — el apartado dentro de la valla. El filtro del sitio acota el dominio y este
         # acota la sección **dentro** de él: se aplican los dos, no uno en lugar del otro. Sin
         # ámbito declarado esto es siempre cierto, que es el rastreo de siempre.
@@ -433,7 +439,7 @@ class GenericSpider:
                     continue
                 if urlparse(link).netloc != base_netloc:
                     continue
-                if regex and not regex.search(link):
+                if url_regex_filter and not busca_con_tope(url_regex_filter, link):
                     continue
                 if not en_ambito(link):
                     continue

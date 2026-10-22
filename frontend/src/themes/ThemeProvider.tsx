@@ -146,18 +146,22 @@ export function injectThemeCSS(theme: ThemeConfig): void {
 interface ThemeProviderProps {
   children: ReactNode;
   initialTheme?: ThemeConfig;
-  themeUrl?: string;
 }
 
-/** Trae un tema de una URL, lo funde con el de por defecto y lo valida.
+/** Trae un tema de una URL **del propio origen**, lo funde con el de por defecto y lo valida.
  *
- * Fuera del componente y sin tocar estado: asi la usan **los dos** consumidores —`loadTheme`,
- * que es API del contexto, y el efecto que reacciona a `themeUrl`— sin duplicar el cuerpo ni
- * obligar al efecto a llamar a un `setState` sincrono.
+ * Un tema lleva CSS que se inyecta en la pagina —variables y `customCSS`—, asi que de otro
+ * origen seria CSS de un tercero dentro del panel. Por eso se rechaza antes de pedirlo. Hasta el
+ * 2026-10-22 el panel lo leia ademas de `?theme=<url>` en la direccion, con cualquier origen, y
+ * no lo usaba nada.
  *
- * Lanza si la respuesta no es 200; quien llama decide que hacer con el fallo.
+ * Lanza si el origen es otro, si la respuesta no es 200 o si el tema tiene errores de
+ * validacion: un tema que no valida no se aplica. Quien llama decide que hacer con el fallo.
  */
 async function traerTema(url: string): Promise<{ tema: ThemeConfig; avisos: string[] }> {
+  if (new URL(url, window.location.href).origin !== window.location.origin) {
+    throw new Error('A theme can only be loaded from this site');
+  }
   const respuesta = await fetch(url);
   if (!respuesta.ok) {
     throw new Error(`Failed to load theme: ${respuesta.statusText}`);
@@ -165,13 +169,16 @@ async function traerTema(url: string): Promise<{ tema: ThemeConfig; avisos: stri
   const parcial = await respuesta.json();
   const fundido = mergeThemes(DEFAULT_THEME, parcial);
   const validacion = validateTheme(fundido);
-  return { tema: fundido, avisos: [...validacion.errors, ...validacion.warnings] };
+  const avisos = [...validacion.errors, ...validacion.warnings];
+  if (validacion.errors.length > 0) {
+    throw Object.assign(new Error('The theme does not validate'), { avisos });
+  }
+  return { tema: fundido, avisos };
 }
 
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({
   children,
   initialTheme,
-  themeUrl,
 }) => {
   const [theme, setThemeState] = useState<ThemeConfig>(() => {
     try {
@@ -186,10 +193,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
     return initialTheme || DEFAULT_THEME;
   });
 
-  // Nace en `true` cuando hay un tema que traer. Antes nacia en `false` y el efecto lo subia
-  // despues, asi que el primer render decia «no estoy cargando» mientras iba a descargar — un
-  // parpadeo, y ademas el `setState` sincrono dentro del efecto que el linter senala.
-  const [isLoading, setIsLoading] = useState(Boolean(themeUrl));
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [validationWarnings, setValidationWarnings] = useState<string[]>([]);
 
@@ -223,7 +227,9 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
     } catch (e) {
       const err = e instanceof Error ? e : new Error('Unknown error loading theme');
       setError(err);
-      // Fall back to default on network/HTTP error
+      const avisos = (err as Error & { avisos?: string[] }).avisos;
+      if (avisos) setValidationWarnings(avisos);
+      // Fall back to default on network/HTTP error, foreign origin or invalid theme
       setThemeState(DEFAULT_THEME);
       console.error('Failed to load theme:', err);
     } finally {
@@ -244,36 +250,6 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
     setTheme(DEFAULT_THEME);
     localStorage.removeItem(STORAGE_KEY);
   }, [setTheme]);
-
-  // El tema que llega por `themeUrl`. Llamaba a `loadTheme`, que hace `setIsLoading(true)` de
-  // forma sincrona: de ahi el aviso del linter. Pero el defecto de verdad era otro y no lo
-  // senalaba nadie: **no habia cancelacion**. Si `themeUrl` cambiaba, las dos descargas
-  // competian y ganaba la que tardara mas, dejando aplicado el tema equivocado.
-  useEffect(() => {
-    if (!themeUrl) return;
-    let vigente = true;
-
-    traerTema(themeUrl)
-      .then(({ tema, avisos }) => {
-        if (!vigente) return;
-        setValidationWarnings(avisos);
-        setThemeState(tema);
-      })
-      .catch((e: unknown) => {
-        if (!vigente) return;
-        const err = e instanceof Error ? e : new Error('Unknown error loading theme');
-        setError(err);
-        setThemeState(DEFAULT_THEME);
-        console.error('Failed to load theme:', err);
-      })
-      .finally(() => {
-        if (vigente) setIsLoading(false);
-      });
-
-    return () => {
-      vigente = false;
-    };
-  }, [themeUrl]);
 
   const availableThemes = useMemo(() => Object.keys(PRESET_THEMES), []);
 

@@ -89,11 +89,6 @@ const queryClient = new QueryClient({
 // permitidas, listados. Con `staleTime` de cinco minutos se seguía pintando.
 const vaciarCacheDeConsultas = () => queryClient.clear()
 
-const getThemeUrl = (): string | undefined => {
-  const params = new URLSearchParams(window.location.search)
-  return params.get('theme') ?? undefined
-}
-
 /**
  * Espera mientras llega el trozo de la ruta.
  *
@@ -112,7 +107,7 @@ function CargandoRuta() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider themeUrl={getThemeUrl()}>
+      <ThemeProvider>
       {/* DOM.2 — el panel se sirve bajo `/panel/` en la imagen y en la raíz en desarrollo, y
           el prefijo viene de `base` de Vite por `import.meta.env.BASE_URL`. Escrito a mano,
           los tests —que montan en la raíz— dejarían de encontrar sus rutas, y el día que el

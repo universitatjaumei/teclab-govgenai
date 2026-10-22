@@ -32,7 +32,16 @@ _NOMBRES_PROHIBIDOS: frozenset[str] = frozenset({
     "__builtins__", "__globals__", "__subclasses__", "__bases__", "__class__",
     "__mro__", "__code__", "__closure__", "__dict__", "__loader__", "__module__",
     "globals", "locals", "vars", "getattr", "setattr", "delattr",
+    "sys", "builtins", "modules",
 })
+# 2026-10-22 — `sys`, `builtins` y `.modules`. El envoltorio importaba `sys` en nombre del
+# guion, y `sys.modules['os']` o `sys.modules['builtins'].eval` llegaban a lo que el resto de
+# esta lista prohíbe sin nombrarlo. El envoltorio ya no lo importa, pero la regla va aquí
+# también: un guion no tiene por qué nombrar ninguno de los tres.
+
+# Lo único de `io` que un guion necesita: un fichero en memoria. `io` está en la lista blanca, y
+# entero trae `io.open`, que es `open` con otro nombre.
+_IO_PERMITIDO: frozenset[str] = frozenset({"BytesIO", "StringIO"})
 
 # Módulos permitidos (lista blanca). Debe contener TODO lo que los wrappers
 # del sandbox importan al ejecutar scripts de usuario; cualquier módulo fuera
@@ -122,6 +131,16 @@ class ScriptSecurityAuditor:
                 findings.append(
                     f"CRITICO (línea {linea}): acceso a '.{node.attr}', "
                     "que da alcance al intérprete"
+                )
+            if (
+                isinstance(node, ast.Attribute)
+                and isinstance(node.value, ast.Name)
+                and node.value.id == "io"
+                and node.attr not in _IO_PERMITIDO
+            ):
+                findings.append(
+                    f"CRITICO (línea {linea}): 'io.{node.attr}' — de `io` sólo se usan "
+                    "BytesIO y StringIO"
                 )
 
             if isinstance(node, ast.Import):

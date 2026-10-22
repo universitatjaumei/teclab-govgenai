@@ -28,7 +28,11 @@ def build_extraction_wrapper(
     incomodidad, es lo que mantiene acotado qué puede aparecer ahí.
     """
     return f"""\
-import sys, json, math, re, datetime, collections, typing, io
+import json, math, re, datetime, collections, typing
+import io as _io_completo
+from types import SimpleNamespace as _Espacio
+io = _Espacio(BytesIO=_io_completo.BytesIO, StringIO=_io_completo.StringIO)
+del _io_completo, _Espacio
 
 try:
     import pandas
@@ -63,7 +67,11 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
-import io, math, re
+import math, re
+import io as _io_completo
+from types import SimpleNamespace as _Espacio
+io = _Espacio(BytesIO=_io_completo.BytesIO, StringIO=_io_completo.StringIO)
+del _io_completo, _Espacio
 
 df = pd.read_csv({csv_path!r})
 
@@ -88,7 +96,6 @@ def build_etl_wrapper(
     `ETL_NO_TRANSFORM`.
     """
     return f"""\
-import sys
 import pandas as pd
 
 df = pd.read_csv({in_csv_path!r})
@@ -97,10 +104,12 @@ df = pd.read_csv({in_csv_path!r})
 {code}
 # --- end user code ---
 
+import sys as _sys
+
 _transform = globals().get("transform")
 if not callable(_transform):
-    print("ETL_TRANSFORM_UNDEFINED", file=sys.stderr)
-    sys.exit(7)
+    print("ETL_TRANSFORM_UNDEFINED", file=_sys.stderr)
+    _sys.exit(7)
 
 _out = _transform(df.copy())
 _out.to_csv({out_csv_path!r}, index=False)

@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import { useTranslation } from 'react-i18next'
 import { useChat, type SourceRef } from '../hooks/useChat'
 import { EnlaceAlFuente } from '@/shared/licencia/EnlaceAlFuente'
+import { enlaceExterno } from '@/shared/enlaces/enlaceExterno'
 
 // Identidad del proyecto (UX.2). Los mismos valores que usa el resto de la plataforma;
 // `--color-primary` los pisa cuando el chatbot trae tema propio (SEC.8.6).
@@ -59,7 +60,7 @@ function SourcePills({ sources }: SourcePillsProps) {
       {sources.map(src => (
         <a
           key={src.document_id}
-          href={src.url}
+          href={enlaceExterno(src.url)}
           target="_blank"
           rel="noopener noreferrer"
           style={{

@@ -133,13 +133,24 @@ def _state_valido(cliente) -> str:
     return parse_qs(urlparse(resp.headers["location"]).query)["state"][0]
 
 
+def _con_nonce(claims: dict, state: str) -> dict:
+    """Las claims con el `nonce` de este login, que el ID token tiene que devolver.
+
+    Sin él la vuelta se rechaza antes de mirar el dominio, y estos tests dejarían de probar el
+    dominio para probar el `nonce` (`test_el_login_con_google_esta_ligado_al_navegador.py`).
+    """
+    import jwt as pyjwt
+
+    return {**claims, "nonce": pyjwt.decode(state, options={"verify_signature": False})["nonce"]}
+
+
 class TestElDominioEsLaAutorizacion:
     def test_una_cuenta_de_otro_dominio_no_entra(self, cliente, configurado) -> None:
         """El caso que, sin la comprobación, deja entrar a cualquiera."""
         state = _state_valido(cliente)
         ajenas = {**_CLAIMS_BUENAS, "email": "cualquiera@gmail.com", "hd": "gmail.com"}
 
-        with _con_claims(ajenas):
+        with _con_claims(_con_nonce(ajenas, state)):
             resp = cliente.get(
                 _CALLBACK, params={"code": "x", "state": state}, follow_redirects=False
             )
@@ -152,7 +163,7 @@ class TestElDominioEsLaAutorizacion:
         state = _state_valido(cliente)
         sin_hd = {k: v for k, v in _CLAIMS_BUENAS.items() if k != "hd"}
 
-        with _con_claims(sin_hd):
+        with _con_claims(_con_nonce(sin_hd, state)):
             resp = cliente.get(
                 _CALLBACK, params={"code": "x", "state": state}, follow_redirects=False
             )
@@ -171,7 +182,7 @@ class TestElDominioEsLaAutorizacion:
         state = _state_valido(cliente)
         disfrazada = {**_CLAIMS_BUENAS, "email": "persona@uji.es", "hd": "otra-org.example"}
 
-        with _con_claims(disfrazada):
+        with _con_claims(_con_nonce(disfrazada, state)):
             resp = cliente.get(
                 _CALLBACK, params={"code": "x", "state": state}, follow_redirects=False
             )
@@ -184,7 +195,7 @@ class TestElDominioEsLaAutorizacion:
     def test_un_correo_sin_verificar_no_entra(self, cliente, configurado) -> None:
         state = _state_valido(cliente)
 
-        with _con_claims({**_CLAIMS_BUENAS, "email_verified": False}):
+        with _con_claims(_con_nonce({**_CLAIMS_BUENAS, "email_verified": False}, state)):
             resp = cliente.get(
                 _CALLBACK, params={"code": "x", "state": state}, follow_redirects=False
             )

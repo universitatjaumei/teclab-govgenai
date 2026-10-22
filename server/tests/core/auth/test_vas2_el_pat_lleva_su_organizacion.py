@@ -133,6 +133,14 @@ class TestElPatLlevaSuOrganizacion:
         from server.app.core.auth.pat.service import PatService
 
         partner = f"partner-{uuid.uuid4().hex[:6]}"
+        # El dueño tiene que existir y estar activo: la cuenta del partner. La base de test se
+        # monta con los metadatos del hub, y `adminaccount` es de los heredados (SQLModel).
+        from server.app.database.models import AdminAccount
+
+        conexion = await db_session.connection()
+        await conexion.run_sync(lambda c: AdminAccount.__table__.create(c, checkfirst=True))
+        db_session.add(AdminAccount(partner_id=partner, name="Partner", email=f"{partner}@uji.es"))
+        await db_session.flush()
         primera = await _organizacion(db_session, partner_id=partner)
         segunda = await _organizacion(db_session, partner_id=partner)
 
@@ -153,11 +161,12 @@ class TestElPatLlevaSuOrganizacion:
         La corrección no puede convertir el comodín en «ninguna»: son el mismo valor con dos
         significados según el rol, y ésa es la asimetría que `UserInfo` documenta.
         """
-        from server.app.core.auth.models import UserInfo
         from server.app.core.auth.pat.service import PatService
 
+        from server.tests.core.auth._duenos import persona_real
+
         _fila, plano = await PatService(db_session).create(
-            owner=UserInfo(user_id=str(uuid.uuid4()), email="s@uji.es", role="superadmin"),
+            owner=await persona_real(db_session, "superadmin"),
             name="del-super",
             scopes=["verificaciones:use"],
         )

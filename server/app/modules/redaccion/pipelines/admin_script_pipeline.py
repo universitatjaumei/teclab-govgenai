@@ -27,6 +27,9 @@ from server.app.modules.redaccion.services.script_auditor import ScriptSecurityA
 
 _AUDITOR = ScriptSecurityAuditor()
 _DEFAULT_TIMEOUT_SECONDS = 30
+#: El techo del sandbox (`TIEMPO_MAXIMO_SEGUNDOS` en su contrato). El tiempo lo pone el contrato
+#: de la plantilla, y pedir más daría un 422 del sandbox en vez de una ejecución recortada.
+_TIEMPO_MAXIMO_SEGUNDOS = 300
 
 
 class AdminScriptExtractionPipeline:
@@ -45,7 +48,10 @@ class AdminScriptExtractionPipeline:
     async def extract_async(self, inp: ExtractionInput) -> ExtractionResult:
         code: str = inp.options.get("code", "")
         approved: bool = inp.options.get("approved", False)
-        timeout: int = int(inp.options.get("timeout_seconds", _DEFAULT_TIMEOUT_SECONDS))
+        timeout: int = max(
+            1,
+            min(int(inp.options.get("timeout_seconds", _DEFAULT_TIMEOUT_SECONDS)), _TIEMPO_MAXIMO_SEGUNDOS),
+        )
 
         if not approved:
             return ExtractionResult(

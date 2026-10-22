@@ -459,7 +459,13 @@ con `pdfplumber`, esa pregunta no llega a plantearse.
   `codeop`, `dis`, `marshal`, `pickle`, `shelve`, `gc`, `types`, `traceback`, y los atributos de
   introspección (`__class__`, `__globals__`, `__code__`, `__bases__`, `__mro__`,
   `__subclasses__`, `__builtins__`, `__dict__`, `__closure__`, `__loader__`, `__module__`).
-  Sin esta familia, la lista de módulos no serviría de nada: se saltaría en una línea.
+  Sin esta familia, la lista de módulos no serviría de nada: se saltaría en una línea. Tampoco
+  se nombran `sys` ni `modules`, y de `io` sólo se usan `BytesIO` y `StringIO`: con
+  `sys.modules['os']` o `io.open` se llegaba a lo prohibido sin nombrarlo (2026-10-22).
+* **La lista no es la frontera.** Un auditor por nombres siempre tiene huecos. Lo que impide que
+  un guion vea los datos de otra organización es que el sandbox **ejecuta uno a la vez** —
+  mientras corre un guion no existen los ficheros de otro— y mata al acabar todo lo que el guion
+  lanzó.
 * **Rutas absolutas**: un script que escribe en `C:\...` o `/var/...` funciona en el portátil de
   quien lo escribió y no en el despliegue, donde el almacenamiento es un servicio.
 

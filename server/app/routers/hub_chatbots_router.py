@@ -281,6 +281,25 @@ class RecalculateCorpusOut(BaseModel):
     chunks_deleted: int
 
 
+async def _exigir_configuracion_utilizable(
+    session, llm_config_id: uuid.UUID, organizacion_id: uuid.UUID | None
+) -> None:
+    """Un chatbot usa una configuración de LLM de plataforma o de su organización, no de otra.
+
+    404 también para la de otra organización, como si no existiera: usarla es gastar su
+    credencial, y decir que existe ya es contar algo de ella. FIX.1 comprobaba sólo la
+    existencia, para dar un 404 claro en vez de un 500 de clave ajena.
+    """
+    config = await session.get(HubLLMConfig, llm_config_id)
+    if config is None or (
+        config.organizacion_id is not None and str(config.organizacion_id) != str(organizacion_id)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"LLM config {llm_config_id} not found",
+        )
+
+
 async def _get_chatbot_or_404(session, chatbot_id: uuid.UUID, principal=None) -> HubChatbot:
     """Único punto de lectura de un chatbot, y por eso el único sitio donde comprobar.
 
@@ -486,6 +505,7 @@ async def create_chatbot(
     # comprobación de embeddings: a quien no gestiona la organización no se le contesta
     # con el estado del servicio de embeddings, que es información de la instalación.
     assert_org_access(user, body.organizacion_id)
+    await _exigir_configuracion_utilizable(session, body.llm_config_id, body.organizacion_id)
 
     # PLG.1: perfil y modo se validan contra los registros VIVOS, no contra un `Literal` del
     # DTO. El `Literal` cerraba el vocabulario en el código —un modo de un paquete instalado no
@@ -587,11 +607,9 @@ async def update_chatbot(
     # FIX.1: se comprueba que la configuración existe antes de asignarla. Dejar que reviente
     # la FK daría un 500 opaco a mitad de la petición en vez de decir qué falta.
     if "llm_config_id" in payload:
-        if await session.get(HubLLMConfig, payload["llm_config_id"]) is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"LLM config {payload['llm_config_id']} not found",
-            )
+        await _exigir_configuracion_utilizable(
+            session, payload["llm_config_id"], chatbot.organizacion_id
+        )
 
     next_mode = payload.get("retrieval_mode", chatbot.retrieval_mode)
 

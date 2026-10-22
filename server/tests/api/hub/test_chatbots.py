@@ -151,6 +151,10 @@ class TestCreateChatbot:
             obj.updated_at = created.updated_at
 
         session.refresh = _refresh
+        # Crear comprueba que la configuración de LLM es de plataforma o de la organización.
+        from types import SimpleNamespace
+
+        session.get = AsyncMock(return_value=SimpleNamespace(id=DEV_LLM_ID, organizacion_id=None))
         app.dependency_overrides[get_async_session] = _override_session(session)
         # RAG.9: crear un chatbot RAG comprueba antes que el servicio de embeddings responde
         # —fallar aquí es barato, fallar a mitad de una ingesta no—, así que un test que crea

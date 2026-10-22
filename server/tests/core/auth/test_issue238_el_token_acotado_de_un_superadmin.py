@@ -40,9 +40,11 @@ async def _organizacion(db) -> str:
 async def _token(db, organizacion_id: str | None, scopes=("actividad:write",)) -> str:
     from server.app.core.auth.pat.service import PatService
 
+    from server.tests.core.auth._duenos import persona_real
+
     async with AsyncSession(db.engine) as s:
         _fila, plano = await PatService(s).create(
-            owner=_superadmin(),
+            owner=await persona_real(s, "superadmin"),
             name="acotado",
             scopes=list(scopes),
             organizacion_id=uuid.UUID(organizacion_id) if organizacion_id else None,

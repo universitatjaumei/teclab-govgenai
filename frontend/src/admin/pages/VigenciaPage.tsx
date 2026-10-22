@@ -11,20 +11,9 @@ import {
 import type { ChatbotRead, DocumentVigenciaOut } from '@/shared/api/generated/model'
 import { useChatbotsDeLaOrganizacion } from '@/shared/organizacion/useChatbotsDeLaOrganizacion'
 import { useSeleccionValida } from '@/shared/organizacion/useSeleccionValida'
+import { esEnlaceExterno } from '@/shared/enlaces/enlaceExterno'
 
 const MOTIU_ESTAT_NO_VIGENT = 'estat_no_vigent'
-
-/**
- * Si `canonical_url` es de verdad una dirección a la que ir (REV.5).
- *
- * Para los documentos del corpus normativo cargados desde carpeta, `canonical_url` es el nombre
- * del fichero —`20260203_UJI_REC_Resolucio_assimilacio_carrecs.md`—, no una URL. Sólo `http` y
- * `https`: un `javascript:` o un `data:` en ese campo se convertiría en un enlace ejecutable
- * servido desde nuestro propio origen.
- */
-function esEnlaceExterno(url: string | null | undefined): url is string {
-  return typeof url === 'string' && /^https?:\/\//i.test(url)
-}
 
 /**
  * Cola de validación de vigencia del corpus (A7).

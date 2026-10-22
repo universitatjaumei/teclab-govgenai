@@ -149,7 +149,9 @@ class TestAlCerrar:
         from server.app.core.auth.models import UserInfo
 
         admin_uuid = uuid.uuid4()
-        holder["user"] = UserInfo(user_id=str(admin_uuid), email="a@t.com", role="admin")
+        # Plantilla de plataforma: la revisa un superadministrador (ver
+        # `test_el_administrador_se_queda_en_su_organizacion.py`).
+        holder["user"] = UserInfo(user_id=str(admin_uuid), email="a@t.com", role="superadmin")
         template, _ = _seed_template_and_version(state, admin_uuid, is_global=True)
         proposal = _seed_cerrable(
             state,

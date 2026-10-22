@@ -661,3 +661,35 @@ def test_hay_una_migracion_que_borra_las_ips_ya_guardadas():
         "#250" in texto and "DELETE FROM hub_usage_counters WHERE subject_type = 'ip'" in texto
         for texto in (f.read_text(encoding="utf-8") for f in versiones.glob("*.py"))
     )
+
+
+class TestElPublicoDelWidgetNoEsUnaPersona:
+    """El visitante anónimo del widget no comparte una cuota «por usuario» con todos los demás.
+
+    `actor_anonimo_de_widget` da a todo el público de un chatbot el mismo sujeto, `widget:<id>`.
+    Con cuota por usuario configurada, esa cuota pasaba a ser de todos los visitantes a la vez: uno
+    solo la agotaba y dejaba sin servicio al resto. Al público anónimo lo limitan su IP, el chatbot
+    y la organización; la cuota de usuario es de las personas.
+    """
+
+    def test_should_not_apply_the_user_quota_to_the_anonymous_public(self):
+        from server.app.core.auth.widget_key import actor_anonimo_de_widget
+        from server.app.core.quotas import limites_aplicables
+
+        chatbot = _chatbot(user_daily_token_quota=100, anon_ip_daily_token_quota=50)
+        limites = limites_aplicables(
+            actor_anonimo_de_widget(chatbot.id),
+            chatbot,
+            _organizacion(default_user_monthly_token_quota=1_000),
+            ip="203.0.113.7",
+        )
+
+        assert not [limite for limite in limites if limite.subject_type == "user"], limites
+        assert [limite for limite in limites if limite.subject_type == "ip"], limites
+
+    def test_should_still_apply_it_to_a_person(self):
+        from server.app.core.quotas import limites_aplicables
+
+        limites = limites_aplicables(_actor(), _chatbot(user_daily_token_quota=100), _organizacion())
+
+        assert [limite for limite in limites if limite.subject_type == "user"]

@@ -86,12 +86,17 @@ async def test_y_el_token_queda_acotado_a_ella(db):
     from server.app.core.auth.pat.service import PatService
     from sqlmodel.ext.asyncio.session import AsyncSession
 
+    from server.app.core.auth import create_token
+    from server.tests.core.auth._duenos import persona_real
+
     org = await _organizacion(db)
+    # El token vale lo que vale hoy su dueño, así que quien lo emite tiene que existir.
+    dueno = await persona_real(db.session, "superadmin")
     async with _client(_app(db)) as client:
         creado = await client.post(
             "/api/v1/auth/pats",
             json={"name": "hook", "scopes": ["actividad:write"], "organizacion_id": org},
-            headers=_headers("superadmin"),
+            headers={"Authorization": f"Bearer {create_token(dueno)}"},
         )
     async with AsyncSession(db.engine) as s:
         principal = await PatService(s).verify(creado.json()["token"])

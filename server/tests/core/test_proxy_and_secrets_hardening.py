@@ -72,6 +72,32 @@ class TestIpDeConfianza:
         )
         assert ip == "192.0.2.5"
 
+    def test_should_ignore_forwarded_for_from_outside_the_proxy_network(self, monkeypatch):
+        """Desde la red del sandbox se llega a la API sin pasar por el proxy.
+
+        Ahí la cabecera la escribe un guion, y cambiándola en cada petición el límite de
+        fuerza bruta del login no se aplicaría nunca. Sólo se cree si quien la manda es el
+        proxy, y el proxy es lo que dice `FORWARDED_ALLOW_IPS`, la misma lista que uvicorn.
+        """
+        from server.app.core import rate_limit
+
+        monkeypatch.setenv("TRUSTED_PROXY_HOPS", "1")
+        monkeypatch.setenv("FORWARDED_ALLOW_IPS", "172.28.0.0/24")
+
+        ip = rate_limit.ip_de(_request_con({"X-Forwarded-For": "1.2.3.4"}, host="172.29.0.5"))
+
+        assert ip == "172.29.0.5"
+
+    def test_should_still_trust_the_proxy_network(self, monkeypatch):
+        from server.app.core import rate_limit
+
+        monkeypatch.setenv("TRUSTED_PROXY_HOPS", "1")
+        monkeypatch.setenv("FORWARDED_ALLOW_IPS", "172.28.0.0/24")
+
+        ip = rate_limit.ip_de(_request_con({"X-Forwarded-For": "203.0.113.7"}, host="172.28.0.4"))
+
+        assert ip == "203.0.113.7"
+
 
 class TestSecretoDeProduccion:
 

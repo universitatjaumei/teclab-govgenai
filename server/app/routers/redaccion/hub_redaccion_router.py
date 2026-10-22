@@ -188,7 +188,10 @@ class TemplateCreateIn(BaseModel):
     name: str
     description: str | None = None
     report_profile: str = "GENERIC_REPORT"
-    owner_kind: str = "platform"
+    #: Sin valor, lo decide el servidor por el rol: plataforma para un superadministrador y
+    #: organización para un administrador. El panel no lo envía, y con `"platform"` por
+    #: omisión cada plantilla creada por un administrador salía para todas las organizaciones.
+    owner_kind: str | None = None
     spec_json: dict = Field(default_factory=dict)
 
 
@@ -528,18 +531,42 @@ async def create_template(
     if user.role not in ("superadmin", "admin"):
         raise HTTPException(status_code=403, detail="Only admin can create templates")
 
+    owner_kind = body.owner_kind or (
+        "platform" if user.role == "superadmin" else OWNER_ORGANIZACION
+    )
+    # El nivel de plataforma es de quien administra la plataforma: es el mismo criterio que #90
+    # fijó al aprobar un borrador como plantilla, y el que aplica `_exigir_poder_sobre` al editar.
+    if owner_kind in ("platform", "superadmin") and user.role != "superadmin":
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "PLANTILLA_DE_PLATAFORMA",
+                "message": (
+                    "Las plantillas de plataforma las comparten todas las organizaciones y sólo "
+                    "las crea un superadministrador. Crea una de tu organización."
+                ),
+            },
+        )
+    organizacion_id = organizacion_unica_de(user) if owner_kind == OWNER_ORGANIZACION else None
+    if owner_kind == OWNER_ORGANIZACION and organizacion_id is None:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "ORGANIZACION_NO_DETERMINADA",
+                "message": "Una plantilla de organización necesita que pertenezcas a una sola.",
+            },
+        )
+
     template = HubReportTemplate(
         name=body.name,
         description=body.description,
         report_profile=body.report_profile,
-        owner_kind=body.owner_kind,
+        owner_kind=owner_kind,
         owner_id=user_to_uuid(user.user_id),
         # MT.4 — `organizacion_id` sólo cuando el nivel es de organización, que es lo que exige
         # el CHECK. En los demás niveles nulo: una de plataforma no es de ninguna, y una
         # personal se identifica por su dueño.
-        organizacion_id=(
-            organizacion_unica_de(user) if body.owner_kind == OWNER_ORGANIZACION else None
-        ),
+        organizacion_id=organizacion_id,
     )
     template_repo = ReportTemplateRepo(session)
     template = await template_repo.save(template)

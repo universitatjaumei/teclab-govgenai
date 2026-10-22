@@ -42,6 +42,8 @@ clasificación nueva entra etiquetada aparte.
 """
 from __future__ import annotations
 
+import re
+
 import json
 import uuid
 from datetime import date, datetime, timezone
@@ -132,6 +134,20 @@ class CorpusDocumentEntry(BaseModel):
         escrito con el otro de los dos codigos de la misma lengua.
         """
         return codi_del_corpus(valor)  # type: ignore[return-value]
+
+    @field_validator("source_url")
+    @classmethod
+    def _una_direccion_web_o_una_clave(cls, valor: str) -> str:
+        """`http`, `https` o algo sin esquema —el nombre del fichero, una clave de almacenamiento—.
+
+        La URL acaba en el `href` de las fuentes que cita el asistente, también en el widget que
+        se embebe en webs ajenas, y un `javascript:` ahí se ejecuta al pulsarlo. El esquema exige
+        dos letras o más para no confundir la letra de unidad de una ruta de Windows (`C:/…`).
+        """
+        esquema = re.match(r"^\s*([A-Za-z][A-Za-z0-9+.-]+):", valor or "")
+        if esquema and esquema.group(1).lower() not in ("http", "https"):
+            raise ValueError(f"source_url con un esquema que no es web: {esquema.group(1)}")
+        return valor
 
     @field_validator("relative_path")
     @classmethod

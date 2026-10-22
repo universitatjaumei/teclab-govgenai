@@ -11,9 +11,10 @@ por dónde entrar. No es que oculte una vulnerabilidad: es que no hay razón par
 
 - `X-Content-Type-Options: nosniff` — que el navegador no adivine el tipo de un fichero
   subido y acabe ejecutando como script algo que se guardó como texto.
-- `X-Frame-Options: DENY` + `frame-ancestors 'none'` — clickjacking sobre el panel. El
-  widget embebible **no** se sirve desde aquí; cuando llegue (D.1) tendrá su propia política
-  con los dominios de cada organización, que es justo lo que no se puede poner de oficio.
+- `X-Frame-Options: DENY` + `frame-ancestors 'none'` — que una respuesta de la API no se
+  enmarque. **Esto no protege el panel**: este middleware sólo envuelve lo que sirve FastAPI, y
+  el documento del panel lo sirve el nginx de la imagen del frontend, que pone sus propias
+  cabeceras (`frontend/nginx.conf`, desde el 2026-10-22; antes no ponía ninguna).
 - `Referrer-Policy: strict-origin-when-cross-origin` — que un enlace saliente no se lleve la
   ruta completa, que en un panel de administración lleva identificadores dentro.
 - `Strict-Transport-Security` **solo en producción**: enviarlo en desarrollo obligaría al

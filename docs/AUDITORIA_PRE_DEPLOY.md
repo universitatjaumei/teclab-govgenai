@@ -220,7 +220,9 @@ anti-enumeración y mensaje uniforme (`auth_router.py`); identidad delegada solo
 `websearch_to_tsquery` y `cosine_distance` como bind params; cuotas con UPSERT atómico
 (`quotas.py`); subidas correctas en `hub_ingestion_router.py:329-350` y `api/v1/ingestion.py`;
 CORS sin `*` en producción y `allow_credentials=False`; cabeceras nosniff/X-Frame-Options
-DENY/CSP `frame-ancestors 'none'`/HSTS/docs off en producción; dependencias sin CVEs críticos
+DENY/CSP `frame-ancestors 'none'`/HSTS/docs off en producción **en las respuestas de la API**
+(el HTML del panel y del sitio se servía sin ellas hasta el 2026-10-22: lo sirven nginx y el
+bucket, no la aplicación); dependencias sin CVEs críticos
 conocidos (pyjwt 2.10.1, python-multipart 0.0.21, cryptography 46.0.3; no se usa python-jose).
 
 ---

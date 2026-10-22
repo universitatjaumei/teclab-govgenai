@@ -13,6 +13,7 @@ incompatible con el primero, y como el coseno no da error, nadie se entera.
 from __future__ import annotations
 
 import uuid
+from types import SimpleNamespace
 
 import pytest
 
@@ -369,6 +370,8 @@ class TestValidacionAlCrearChatbot:
         from server.app.modules.agents_hub.database.connection import get_async_session
 
         session = MagicMock()
+        # Crear comprueba que la configuración de LLM es de plataforma o de la organización.
+        session.get = AsyncMock(return_value=SimpleNamespace(organizacion_id=None))
         session.add = MagicMock()
         session.commit = AsyncMock()
         session.refresh = AsyncMock()
@@ -419,6 +422,8 @@ class TestValidacionAlCrearChatbot:
         from server.app.modules.agents_hub.database.connection import get_async_session
 
         session = MagicMock()
+        # Crear comprueba que la configuración de LLM es de plataforma o de la organización.
+        session.get = AsyncMock(return_value=SimpleNamespace(organizacion_id=None))
         session.add = MagicMock()
         session.commit = AsyncMock()
 

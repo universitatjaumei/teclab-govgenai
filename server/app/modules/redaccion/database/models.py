@@ -320,6 +320,13 @@ class HubScriptProposal(HubOperationalBase):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     proposer_user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    #: La organización de quien propone: acota quién ve y revisa la propuesta. **Nulo = sólo la
+    #: revisa un superadministrador**, que es lo que les toca a las propuestas anteriores a esta
+    #: columna y a las de quien no pertenece a una sola organización. No se rellena hacia atrás:
+    #: `proposer_user_id` es un uuid derivado del sujeto y no lleva a una persona con organización.
+    organizacion_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True, index=True
+    )
     target_owner_kind: Mapped[str] = mapped_column(String(20), nullable=False)
     target_template_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), nullable=True, index=True
