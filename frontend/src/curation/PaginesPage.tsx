@@ -11,6 +11,7 @@ import {
 import type { PageView } from '@/shared/api/generated/model'
 import { mensajeDelFallo } from '@/utilidades/mensajeDelFallo'
 import { PageContentDialog } from './PageContentDialog'
+import { enlaceExterno } from '@/shared/enlaces/enlaceExterno'
 
 /**
  * Las páginas de un sitio, para proponer las que deberían alimentar un asistente (2026-10-08).
@@ -117,7 +118,7 @@ export function PaginesPage() {
               <tr key={p.id} data-testid={`pagina-${p.id}`} className="border-b align-top">
                 <td className="py-2 pr-4">
                   <div className="font-medium">{p.title ?? p.url}</div>
-                  <a href={p.url} target="_blank" rel="noreferrer" className="break-all text-xs text-muted-foreground underline">
+                  <a href={enlaceExterno(p.url)} target="_blank" rel="noreferrer" className="break-all text-xs text-muted-foreground underline">
                     {p.url}
                   </a>
                 </td>

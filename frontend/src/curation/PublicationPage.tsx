@@ -18,6 +18,7 @@ import type { CandidatePageView, SiteView } from '@/shared/api/generated/model'
 import { PageContentDialog } from './PageContentDialog'
 import { useChatbotsDeLaOrganizacion } from '@/shared/organizacion/useChatbotsDeLaOrganizacion'
 import { useSeleccionValida } from '@/shared/organizacion/useSeleccionValida'
+import { enlaceExterno } from '@/shared/enlaces/enlaceExterno'
 
 const selSchema = z.object({
   rule_type: z.enum(['path_prefix', 'sitemap_section', 'manual']).default('path_prefix'),
@@ -321,7 +322,7 @@ export function PublicationPage() {
                       <td className="py-1 pr-2 max-w-xs">
                         <a
                           data-testid={`enlace-candidata-${c.page_id}`}
-                          href={c.url}
+                          href={enlaceExterno(c.url)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-primary underline break-all"

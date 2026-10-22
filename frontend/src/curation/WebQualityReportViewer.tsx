@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useGetSiteQualityReport } from '@/shared/api/generated/hub-content-quality/hub-content-quality'
 import type { WebQualityReport, FindingTypeSection } from '@/shared/api/generated/model'
 import { descargarConAutorizacion } from '@/shared/api/download'
+import { enlaceExterno } from '@/shared/enlaces/enlaceExterno'
 
 interface Props {
   siteId: string
@@ -134,7 +135,7 @@ export function WebQualityReportViewer({ siteId }: Props) {
                   <li key={String(f.id)} className="flex gap-2 flex-wrap">
                     {f.page_url ? (
                       <a
-                        href={f.page_url}
+                        href={enlaceExterno(f.page_url)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-primary underline break-all"
@@ -148,7 +149,7 @@ export function WebQualityReportViewer({ siteId }: Props) {
                       <span className="text-muted-foreground">
                         →{' '}
                         <a
-                          href={f.related_page_url}
+                          href={enlaceExterno(f.related_page_url)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-primary underline break-all"

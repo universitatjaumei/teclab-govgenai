@@ -11,6 +11,7 @@ import type { SiteView } from '@/shared/api/generated/model'
 import { ContentGapsPanel } from './ContentGapsPanel'
 import { PageContentDialog } from './PageContentDialog'
 import { razonDelHallazgo, urlRelacionada } from './razonDelHallazgo'
+import { enlaceExterno } from '@/shared/enlaces/enlaceExterno'
 
 type Severity = 'critical' | 'warning' | 'info'
 
@@ -193,7 +194,7 @@ export function FindingsPage() {
                               {versionesDe(f).map((v) => (
                                 <li key={v.url} className="text-xs">
                                   <a
-                                    href={v.url}
+                                    href={enlaceExterno(v.url)}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="text-primary underline break-all"
@@ -227,7 +228,7 @@ export function FindingsPage() {
                       {f.source_url ? (
                         <a
                           data-testid={`enlace-${f.id}`}
-                          href={f.source_url}
+                          href={enlaceExterno(f.source_url)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-primary underline break-all"
@@ -253,7 +254,7 @@ export function FindingsPage() {
                         <div className="mt-1 pl-2 border-l-2 border-muted">
                           <a
                             data-testid={`enlace-relacionada-${f.id}`}
-                            href={urlRelacionada(f) ?? ''}
+                            href={enlaceExterno(urlRelacionada(f))}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-primary underline break-all"

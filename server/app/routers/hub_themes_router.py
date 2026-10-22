@@ -772,8 +772,19 @@ async def get_theme_logo(
             status_code=status.HTTP_404_NOT_FOUND, detail="Este tema no tiene logotipo"
         ) from None
 
+    # El tipo sale de los bytes, no de `branding.logoContentType`: ese campo llega en el cuerpo
+    # de la edición del tema, y usarlo como tipo de una respuesta pública dejaba servir un PNG
+    # con HTML detrás como `text/html` desde el origen de la API. Lo que no es PNG ni JPEG —los
+    # dos formatos que admite la subida— no se sirve.
+    from server.app.core.uploads import tipo_de_imagen
+
+    tipo = tipo_de_imagen(contenido)
+    if tipo is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Este tema no tiene logotipo"
+        )
     return Response(
         content=contenido,
-        media_type=branding.get("logoContentType") or "application/octet-stream",
+        media_type=tipo,
         headers={"Cache-Control": "public, max-age=300"},
     )

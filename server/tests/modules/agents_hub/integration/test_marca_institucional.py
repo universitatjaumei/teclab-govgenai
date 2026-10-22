@@ -589,3 +589,39 @@ class TestLaMarcaSigueALaOrganizacionElegida:
 
         assert respuesta.status_code == 200, respuesta.text
         assert respuesta.json()["config"]["branding"]["logoAlt"] == "La mía"
+
+
+class TestElLogoSeSirveComoLoQueEs:
+    """El tipo con el que se sirve el logo sale de sus bytes, no de la configuración del tema.
+
+    `branding.logoContentType` se aceptaba del cuerpo de la edición del tema y se usaba como
+    tipo de la respuesta de un endpoint **sin autenticación**: un PNG con HTML detrás servido
+    como `text/html` desde el origen de la API.
+    """
+
+    async def test_should_serve_a_png_as_png_whatever_the_config_says(self, db_session):
+        tema = await _tema(
+            db_session,
+            config={"branding": {"logoUrl": "/api/v1/hub/themes/x/logo", "logoContentType": "text/html"}},
+        )
+        almacen = AlmacenFalso()
+        almacen.objetos[f"branding/{tema.id}/logo"] = PNG
+
+        async with _cliente(db_session, None, almacen) as cliente:
+            respuesta = await cliente.get(f"/api/v1/hub/themes/{tema.id}/logo")
+
+        assert respuesta.status_code == 200
+        assert respuesta.headers["content-type"] == "image/png"
+
+    async def test_should_not_serve_what_is_not_an_image(self, db_session):
+        tema = await _tema(
+            db_session,
+            config={"branding": {"logoUrl": "/api/v1/hub/themes/x/logo", "logoContentType": "image/png"}},
+        )
+        almacen = AlmacenFalso()
+        almacen.objetos[f"branding/{tema.id}/logo"] = b"<html><script>alert(1)</script></html>"
+
+        async with _cliente(db_session, None, almacen) as cliente:
+            respuesta = await cliente.get(f"/api/v1/hub/themes/{tema.id}/logo")
+
+        assert respuesta.status_code == 404

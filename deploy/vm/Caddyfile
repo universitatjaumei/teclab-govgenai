@@ -85,6 +85,14 @@
 
 	# Todo lo demás, el sitio del corpus publicado en el bucket.
 	handle {
+		# El sitio no pasa por la aplicación, así que nadie más le pone cabeceras. Sólo las dos
+		# que no pueden romper nada: sin CSP a propósito, porque sus páginas se generan en otro
+		# repositorio y una política escrita a ciegas las dejaría sin estilos o sin el widget.
+		header {
+			X-Content-Type-Options "nosniff"
+			Referrer-Policy "strict-origin-when-cross-origin"
+		}
+
 		# La raíz del bucket **no** es su `index.html`: devuelve 200 con `ListBucketResult`,
 		# el inventario de todos sus objetos. GCS sólo mapea `/` a `index.html` con la
 		# configuración de *sitio web*, y eso exige el balanceador HTTPS que este bloque
@@ -159,12 +167,14 @@
 	# aplicación, y duplicar la regla en el proxy daría la impresión de que la protección es
 	# del proxy. Si algún día el proxy dejara de estar, la aplicación sigue cerrada.
 
-	# **Las cabeceras de seguridad NO se ponen aquí.** Las pone la aplicación
-	# (`server/app/core/security_headers.py`): `X-Content-Type-Options`, `X-Frame-Options: DENY`,
-	# `Referrer-Policy`, CSP y —sólo en producción— HSTS. Repetirlas en el proxy crearía dos
-	# fuentes de verdad para la misma cabecera, y la primera versión de este fichero ya lo
-	# demostró: escribí `SAMEORIGIN` donde la aplicación dice `DENY`, o sea que la copia del
-	# proxy era la débil. Si algún día el proxy desaparece, la protección sigue puesta.
+	# **Las cabeceras de seguridad no se ponen aquí de forma general**, y cada origen pone las
+	# suyas: la API, la aplicación (`server/app/core/security_headers.py`, con HSTS en
+	# producción); el HTML del panel, el nginx de su imagen (`frontend/nginx.conf`); y el sitio
+	# del corpus, la ruta del bucket de arriba. Hasta el 2026-10-22 este comentario decía que
+	# las ponía la aplicación para todo, y no era así: sólo cubría `/api/*`, y el panel y el
+	# sitio se servían sin ninguna. Repetirlas aquí para todo crearía dos fuentes de verdad para
+	# la misma cabecera, y la primera versión de este fichero ya lo demostró: escribí
+	# `SAMEORIGIN` donde la aplicación dice `DENY`.
 	header {
 		-Server
 	}

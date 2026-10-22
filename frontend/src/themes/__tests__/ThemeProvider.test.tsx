@@ -102,8 +102,23 @@ describe('ThemeProvider', () => {
         await result.current.loadTheme('/api/themes/invalid');
       });
 
-      // Should have validation warning but still use merged theme
+      // Los errores se cuentan, y un tema con errores **no se aplica**: antes se aplicaba igual.
       expect(result.current.validationWarnings.length).toBeGreaterThan(0);
+      expect(result.current.theme.colors.primary).not.toBe('invalid-color');
+      expect(result.current.error).not.toBeNull();
+    });
+
+    it('should not fetch a theme from another origin', async () => {
+      // Un tema trae CSS que se inyecta en la página: de otro origen sería CSS de un tercero.
+      const { result } = renderHook(() => useTheme(), { wrapper });
+
+      await act(async () => {
+        await result.current.loadTheme('https://ajeno.example/tema.json');
+      });
+
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(result.current.error).not.toBeNull();
+      expect(result.current.theme).toEqual(DEFAULT_THEME);
     });
   });
 

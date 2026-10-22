@@ -18,6 +18,7 @@ import {
 import type { RunRead, ScenarioRead } from '@/shared/api/generated/model'
 import { useChatbotsDeLaOrganizacion } from '@/shared/organizacion/useChatbotsDeLaOrganizacion'
 import { useSeleccionValida } from '@/shared/organizacion/useSeleccionValida'
+import { enlaceExterno } from '@/shared/enlaces/enlaceExterno'
 
 /**
  * RAG.13 — escenarios de prueba y veredicto humano.
@@ -371,7 +372,7 @@ function Run({
             return (
               <a
                 key={i}
-                href={f.url ?? undefined}
+                href={enlaceExterno(f.url)}
                 className="underline mr-2"
                 target="_blank"
                 rel="noreferrer"

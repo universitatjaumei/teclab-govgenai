@@ -8,6 +8,7 @@ import {
 import type { ConsultaLengua, RespuestaDeConsulta } from '@/shared/api/generated/model'
 import { mensajeDelFallo } from '@/utilidades/mensajeDelFallo'
 import { ConexionesDeLaExtension } from './ConexionesDeLaExtension'
+import { enlaceExterno } from '@/shared/enlaces/enlaceExterno'
 
 /**
  * Consultar un agente de unidad y copiar el prompt (#175; decisión del usuario, 2026-10-02).
@@ -315,7 +316,7 @@ export function ConsultarAgentesPage() {
             <ul className="space-y-1 text-sm">
               {respuesta.documentos.map((d) => (
                 <li key={d.url}>
-                  <a href={d.url} target="_blank" rel="noreferrer" className="underline">
+                  <a href={enlaceExterno(d.url)} target="_blank" rel="noreferrer" className="underline">
                     {d.titulo}
                   </a>
                   {d.revision_vencida && (

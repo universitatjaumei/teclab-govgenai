@@ -5,6 +5,7 @@ import { Eye, FileUp, Link, Loader2, Trash2 } from 'lucide-react'
 import type { HubDocumentOut } from '@/shared/api/generated/model'
 import { LanguageBadge, SourceKindBadge, SourceKindIcon } from './DocumentBadges'
 import { formatTokens } from './format'
+import { esEnlaceExterno } from '@/shared/enlaces/enlaceExterno'
 
 /** Filas por página.
  *
@@ -121,7 +122,7 @@ export function DocumentsTable({
                       <SourceKindIcon kind={doc.source_kind} />
                       <span className="truncate font-medium" title={doc.title}>{doc.title}</span>
                     </div>
-                    {doc.canonical_url?.startsWith('http') && (
+                    {esEnlaceExterno(doc.canonical_url) && (
                       <a
                         href={doc.canonical_url}
                         target="_blank"

@@ -21,6 +21,7 @@ import { ActualizacionDelIndice } from './ActualizacionDelIndice'
 import { CalidadDelAgente } from './CalidadDelAgente'
 import { mensajeDelFallo } from '@/utilidades/mensajeDelFallo'
 import { useOrganizacionElegida } from '@/shared/organizacion/useOrganizacionElegida'
+import { enlaceExterno } from '@/shared/enlaces/enlaceExterno'
 
 /**
  * Los agentes de unidad (#172): publicar, versionar, revisar, suspender y retirar.
@@ -829,7 +830,7 @@ function IndiceDelAgente({ agenteId }: { agenteId: string }) {
     <ul className="space-y-1 border-l-2 pl-3 text-sm" data-testid="indice">
       {(fichas ?? []).map((f) => (
         <li key={f.url} className="flex flex-wrap items-center gap-2">
-          <a href={f.url} target="_blank" rel="noreferrer" className="underline">
+          <a href={enlaceExterno(f.url)} target="_blank" rel="noreferrer" className="underline">
             {f.titulo}
           </a>
           {!f.vigente && (

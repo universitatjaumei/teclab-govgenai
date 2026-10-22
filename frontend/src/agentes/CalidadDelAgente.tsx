@@ -8,6 +8,7 @@ import {
 } from '@/shared/api/generated/agentes/agentes'
 import type { ConversacionDelAgente } from '@/shared/api/generated/model'
 import { mensajeDelFallo } from '@/utilidades/mensajeDelFallo'
+import { enlaceExterno } from '@/shared/enlaces/enlaceExterno'
 
 /**
  * La calidad de un agente (#217): sus conversaciones e informes, y el veredicto de quien revisa.
@@ -166,7 +167,7 @@ function Conversacion({
         <ul className="ml-4 list-disc">
           {c.documentos.map((d) => (
             <li key={d.url}>
-              <a href={d.url} target="_blank" rel="noreferrer" className="underline">{d.titulo ?? d.url}</a> ({d.score.toFixed(2)})
+              <a href={enlaceExterno(d.url)} target="_blank" rel="noreferrer" className="underline">{d.titulo ?? d.url}</a> ({d.score.toFixed(2)})
             </li>
           ))}
         </ul>
