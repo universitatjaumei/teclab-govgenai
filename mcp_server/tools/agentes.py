@@ -21,15 +21,19 @@ token no publica nada, y consta quién publica.
 """
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Annotated, Any, Callable
 
+from api_client import ApiClient
 from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 
-from api_client import ApiClient
+from tools._ficheros import fichero_local
 
 CATALOGO_PATH = "/api/v1/agentes/catalogo"
+#: Lo que el servidor interpreta como hoja del índice, y su tope (`MAXIMO_BYTES_DE_LA_HOJA` de
+#: `agentes_router`; aquí no se puede importar `server/app`).
+EXTENSIONES_DE_LA_HOJA = (".csv", ".xlsx", ".xlsm")
+MAXIMO_BYTES_DE_LA_HOJA = 10 * 1024 * 1024
 
 ClientProvider = Callable[[], ApiClient]
 
@@ -93,7 +97,9 @@ async def run_cargar_indice_core(
         # La subida de la hoja no lo recibe: descartarlo en silencio sería mentir sobre lo cargado.
         raise ValueError("Con una hoja no se puede indicar `documentos_en_carpeta`: manda las fichas.")
     if ruta_hoja is not None:
-        hoja = Path(ruta_hoja).expanduser()
+        hoja = fichero_local(
+            ruta_hoja, extensiones=EXTENSIONES_DE_LA_HOJA, maximo_bytes=MAXIMO_BYTES_DE_LA_HOJA
+        )
         return await client.post(
             f"{indice_path(agente_id)}/hoja", files={"file": (hoja.name, hoja.read_bytes())}
         )

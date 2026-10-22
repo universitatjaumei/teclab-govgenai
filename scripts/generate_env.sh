@@ -234,7 +234,11 @@ write_if_absent() {
     echo "Ya existe, se conserva (usa --force para regenerar): $target"
     return 0
   fi
-  render_env > "$target"
+  # #270 — lleva la contraseña de Postgres, el secreto JWT y la clave privada RSA: sólo su
+  # dueño lo lee. `umask` cubre el fichero nuevo; `chmod`, el que ya existía y se regenera con
+  # `--force`, porque redirigir a un fichero existente conserva sus permisos.
+  (umask 077; render_env > "$target")
+  chmod 600 "$target"
   echo "Generado: $target"
 }
 

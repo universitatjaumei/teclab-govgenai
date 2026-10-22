@@ -151,9 +151,8 @@ inactivo como banco: hoy «(proves)» describe lo que es.
 createdb piloto
 DATABASE_URL_SYNC=... uv run alembic upgrade head
 
-# 2. El catálogo del producto
-uv run python -m server.app.scripts.bootstrap \
-    --superadmin-email <correo> --superadmin-password <clave> --con-demo
+# 2. El catálogo del producto (la contraseña la pide por teclado; nunca como argumento)
+uv run python -m server.app.scripts.bootstrap --superadmin-email <correo> --con-demo
 
 # 3. Los datos operativos
 psql "$DSN" -f piloto.sql

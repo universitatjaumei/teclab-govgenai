@@ -18,15 +18,18 @@ corrió (`docs/REGISTRO_ACTIVIDAD_IA.md` §4.2.bis).
 """
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Annotated, Any, Callable
 
+from api_client import ApiClient
 from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 
-from api_client import ApiClient
+from tools._ficheros import fichero_local
 
 EXTERNAS_PATH = "/api/v1/funciones/externas"
+#: Lo que el servidor registra como función externa: un cuaderno o un script.
+EXTENSIONES_DEL_CUADERNO = (".ipynb", ".py")
+MAXIMO_BYTES_DEL_CUADERNO = 10 * 1024 * 1024
 CATALOGO_PATH = "/api/v1/funciones"
 
 ClientProvider = Callable[[], ApiClient]
@@ -43,7 +46,13 @@ async def run_registrar_cuaderno_core(
     """El fichero entero —su hash es la versión— y la declaración responsable."""
     if (contenido is None) == (ruta is None):
         raise ValueError("Pasa el contenido del cuaderno o su ruta, una de las dos.")
-    fichero = contenido if ruta is None else Path(ruta).expanduser().read_text(encoding="utf-8")
+    fichero = (
+        contenido
+        if ruta is None
+        else fichero_local(
+            ruta, extensiones=EXTENSIONES_DEL_CUADERNO, maximo_bytes=MAXIMO_BYTES_DEL_CUADERNO
+        ).read_text(encoding="utf-8")
+    )
     cuerpo: dict[str, Any] = {**declaracion, "fichero": fichero, "autoria": "ia"}
     if funcion_id is not None:
         cuerpo["funcion_id"] = funcion_id

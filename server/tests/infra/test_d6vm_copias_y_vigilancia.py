@@ -81,7 +81,9 @@ def test_el_guion_mira_la_respuesta_de_lo_que_crea() -> None:
     """
     texto = _texto(VIGILANCIA)
     assert "crear()" in texto, "Falta la función que comprueba la respuesta al crear."
-    assert '"error"' in texto, "La función tiene que detectar un error en la respuesta."
+    # Por el código HTTP desde #270, no buscando `"error"` en el cuerpo; el comportamiento lo
+    # prueba `test_la_vigilancia_no_deja_el_token_a_la_vista.py` con un `curl` falso.
+    assert "%{http_code}" in texto, "La función tiene que mirar el código de la respuesta."
 
     # Ningún POST puede ir a /dev/null: ahí es donde se pierde el motivo del fallo.
     perdidos = [

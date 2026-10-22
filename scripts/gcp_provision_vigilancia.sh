@@ -75,19 +75,38 @@ fi
 command -v gcloud >/dev/null 2>&1 || { echo "ERROR: gcloud no está en el PATH." >&2; exit 3; }
 command -v curl >/dev/null 2>&1 || { echo "ERROR: curl no está en el PATH." >&2; exit 3; }
 
-limpiar() { tr -d '\r\n'; }
-TOKEN="$(gcloud auth print-access-token | limpiar)"
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
 
+limpiar() { tr -d '\r\n'; }
+# #270 — el token va en un fichero que sólo lee quien ejecuta, y `curl` lo lee con `-H @…`.
+# Como argumento se veía con `ps` mientras duraba cada llamada. `printf` es un builtin, así que
+# tampoco aparece en la línea de órdenes de ningún proceso.
+CABECERA="$TMP/cabecera"
+(umask 077; printf 'Authorization: Bearer %s\n' "$(gcloud auth print-access-token | limpiar)" > "$CABECERA")
+
+# Escribe el cuerpo en la salida y deja el código HTTP en "$TMP/codigo".
 llamar() { # método ruta [fichero_json]
   local metodo="$1" ruta="$2" cuerpo="${3:-}"
+  local opciones=(-sS -X "$metodo" "$ruta" -H "@$CABECERA" -o "$TMP/cuerpo" -w '%{http_code}')
   if [ -n "$cuerpo" ]; then
-    curl -sS -X "$metodo" "$ruta" \
-      -H "Authorization: Bearer $TOKEN" \
-      -H "Content-Type: application/json" \
-      --data-binary "@$cuerpo"
-  else
-    curl -sS -X "$metodo" "$ruta" -H "Authorization: Bearer $TOKEN"
+    opciones+=(-H "Content-Type: application/json" --data-binary "@$cuerpo")
   fi
+  curl "${opciones[@]}" > "$TMP/codigo"
+  cat "$TMP/cuerpo"
+}
+
+# Para meter el correo en la URL del filtro: `+` y `@` tienen significado ahí.
+codificar() {
+  local LC_ALL=C texto="$1" i c salida=""
+  for ((i = 0; i < ${#texto}; i++)); do
+    c="${texto:i:1}"
+    case "$c" in
+      [a-zA-Z0-9.~_-]) salida+="$c" ;;
+      *) printf -v c '%%%02X' "'$c"; salida+="$c" ;;
+    esac
+  done
+  printf '%s' "$salida"
 }
 
 # Como `llamar`, pero **mira la respuesta**. La primera versión de este guion canalizaba los
@@ -96,19 +115,20 @@ llamar() { # método ruta [fichero_json]
 # perdió, el guion dijo que la había creado y la alerta de caída quedó **inerte** —no puede
 # dispararse sin la comprobación que la alimenta— sin que nada lo delatara. Es el mismo defecto
 # que un `tail` comiéndose un código de salida: no basta con actuar, hay que leer el resultado.
+#
+# #270 — se mira el **código HTTP**, no si el cuerpo contiene `"error"`: un cuerpo bueno puede
+# contener la palabra —una alerta que se llame así— y uno malo puede no traerla.
 crear() { # ruta fichero_json etiqueta
-  local ruta="$1" cuerpo="$2" etiqueta="$3" respuesta
+  local ruta="$1" cuerpo="$2" etiqueta="$3" respuesta codigo
   respuesta="$(llamar POST "$ruta" "$cuerpo")"
-  if printf '%s' "$respuesta" | grep -q '"error"'; then
-    echo "  [ERROR]     $etiqueta:" >&2
+  codigo="$(cat "$TMP/codigo")"
+  if [ "${codigo:0:1}" != "2" ]; then
+    echo "  [ERROR]     $etiqueta (HTTP $codigo):" >&2
     printf '%s' "$respuesta" | tr ',' '\n' | grep -E '"message"|"status"' | head -2 >&2
     return 1
   fi
   printf '  [creada]    %s\n' "$etiqueta"
 }
-
-TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
 
 # ---------------------------------------------------------------------------
 # 1. Canal de avisos
@@ -119,7 +139,7 @@ echo "== 1. Canal de avisos =="
 # máquina de quien despliega, y en Git Bash de Windows no hay `python3` — la primera versión
 # lo usaba para leer el JSON y se rompió con un «curl: Failed writing body» que no señalaba
 # a la causa.
-FILTRO="filter=labels.email_address%3D%22$CORREO%22"
+FILTRO="filter=labels.email_address%3D%22$(codificar "$CORREO")%22"
 canal_existente() {
   llamar GET "$API/notificationChannels?$FILTRO" \
     | tr -d ' \n' | grep -o '"name":"[^"]*"' | head -1 | cut -d'"' -f4

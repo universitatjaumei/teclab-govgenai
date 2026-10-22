@@ -5,10 +5,12 @@ no toca el .env real del repo. No requiere Docker ni servicios levantados.
 """
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 from pathlib import Path
 
+import pytest
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
 
 _ROOT = Path(__file__).parent.parent.parent.parent
@@ -138,3 +140,29 @@ def test_should_generate_matching_root_and_server_env(tmp_path: Path) -> None:
 
     assert root_values["JWT_SECRET_KEY"] == server_values["JWT_SECRET_KEY"]
     assert root_values["DATABASE_URL"] == server_values["DATABASE_URL"]
+
+
+_POSIX = pytest.mark.skipif(os.name != "posix", reason="los permisos de fichero sólo se ven en POSIX")
+
+
+@_POSIX
+def test_los_env_con_secretos_solo_los_lee_su_dueno(tmp_path: Path) -> None:
+    """#270 — llevan la contraseña de Postgres, el secreto JWT y la clave privada RSA."""
+    assert _run("--output-dir", str(tmp_path)).returncode == 0
+
+    for env in (tmp_path / ".env", tmp_path / "server" / ".env"):
+        assert env.stat().st_mode & 0o077 == 0, f"{env}: {oct(env.stat().st_mode)}"
+
+
+@_POSIX
+def test_regenerar_con_force_tambien_cierra_los_permisos(tmp_path: Path) -> None:
+    """`umask` no toca un fichero que ya existe: un `.env` viejo con 644 seguiría legible."""
+    (tmp_path / "server").mkdir()
+    for env in (tmp_path / ".env", tmp_path / "server" / ".env"):
+        env.write_text("VIEJO=1\n", encoding="utf-8")
+        env.chmod(0o644)
+
+    assert _run("--output-dir", str(tmp_path), "--force").returncode == 0
+
+    for env in (tmp_path / ".env", tmp_path / "server" / ".env"):
+        assert env.stat().st_mode & 0o077 == 0, f"{env}: {oct(env.stat().st_mode)}"

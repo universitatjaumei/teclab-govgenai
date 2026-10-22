@@ -9,7 +9,10 @@ que ejecutarlo dos veces no duplica nada ni pisa lo que el administrador haya
 cambiado después (en particular, no rehashea la contraseña del SuperAdmin).
 
 Ejecutar con:
-    uv run python -m server.app.scripts.bootstrap --superadmin-email ... --superadmin-password ...
+    SUPERADMIN_PASSWORD=... uv run python -m server.app.scripts.bootstrap --superadmin-email ...
+
+La contraseña llega por `SUPERADMIN_PASSWORD` o por la entrada estándar, **nunca como
+argumento** (#270): un argumento se ve en `ps` y se queda en el historial del shell.
 
 Lo invoca `scripts/setup.sh`; también sirve suelto para reparar una instalación.
 """
@@ -17,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import getpass
 import json
 import os
 import sys
@@ -371,9 +375,6 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--superadmin-email", default=os.environ.get("SUPERADMIN_EMAIL", ""))
     parser.add_argument(
-        "--superadmin-password", default=os.environ.get("SUPERADMIN_PASSWORD", "")
-    )
-    parser.add_argument(
         "--superadmin-name", default=os.environ.get("SUPERADMIN_NAME", "Superadministrador")
     )
     parser.add_argument(
@@ -411,8 +412,23 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def _contrasena_del_superadmin() -> str:
+    """Del entorno o de la entrada estándar; nunca de un argumento (#270)."""
+    contrasena = os.environ.get("SUPERADMIN_PASSWORD", "")
+    if contrasena or sys.stdin is None:
+        return contrasena
+    if sys.stdin.isatty():
+        return getpass.getpass("Contraseña del superadministrador: ")
+    return sys.stdin.readline().rstrip("\r\n")
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
+    # La contraseña se pide sólo si hay a quién ponérsela: sin correo no se espera a nadie en
+    # la terminal para acabar diciendo que falta el correo.
+    contrasena = (
+        _contrasena_del_superadmin() if not args.solo_demo and args.superadmin_email else ""
+    )
 
     # Con `--solo-demo` **no se piden credenciales**, y ésa es toda la gracia: el catálogo se
     # firma con `AUTOR_DEL_SEMBRADO` y no con la cuenta del superadministrador, así que pedirlas
@@ -424,12 +440,12 @@ def main(argv: list[str] | None = None) -> int:
             nombre
             for nombre, valor in (
                 ("--superadmin-email", args.superadmin_email),
-                ("--superadmin-password", args.superadmin_password),
+                ("SUPERADMIN_PASSWORD o la entrada estándar", contrasena),
             )
             if not valor
         ]
         if faltan:
-            print(f"ERROR: faltan argumentos obligatorios: {', '.join(faltan)}", file=sys.stderr)
+            print(f"ERROR: faltan datos obligatorios: {', '.join(faltan)}", file=sys.stderr)
             return 2
 
     print("Sembrando el catálogo..." if args.solo_demo else "Sembrando la instalación...")
@@ -437,7 +453,7 @@ def main(argv: list[str] | None = None) -> int:
         informe = asyncio.run(
             _sembrar(
                 email=args.superadmin_email,
-                password=args.superadmin_password,
+                password=contrasena,
                 nombre=args.superadmin_name,
                 url=args.database_url,
                 con_demo=args.con_demo or args.solo_demo,

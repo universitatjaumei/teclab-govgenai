@@ -49,6 +49,9 @@ done
 
 [ -n "$ORGANIZACION" ] || { echo "ERROR: falta --organizacion." >&2; uso; exit 2; }
 [ -n "$SALIDA" ]       || { echo "ERROR: falta --salida." >&2; uso; exit 2; }
+# #270 — se interpola en `sed` y en SQL, así que sólo se admite lo que es: un UUID.
+[[ "$ORGANIZACION" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]] \
+  || { echo "ERROR: --organizacion tiene que ser un UUID: «$ORGANIZACION»." >&2; uso; exit 2; }
 
 # ---------------------------------------------------------------------------
 # LO QUE VIAJA — lista explícita, y el porqué de cada tabla.
