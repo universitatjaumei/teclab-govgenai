@@ -19,12 +19,14 @@ from __future__ import annotations
 
 import base64
 import binascii
+import functools
 import hashlib
 import json
 import mimetypes
 import os
 import sys
 import tempfile
+import threading
 from pathlib import Path
 
 from fastapi import FastAPI, Response
@@ -44,6 +46,25 @@ from sandbox.wrappers import (
 )
 
 app = FastAPI(title="script-sandbox", version="0.1.0")
+
+#: **Una ejecución a la vez.** Los endpoints son `def` síncronos y FastAPI los corre en un
+#: threadpool, así que corrían en paralelo con el mismo uid y el mismo directorio temporal: un
+#: guion leía los ficheros de entrada de otra organización mientras se ejecutaban. Con una a la
+#: vez, mientras corre un guion no existen los ficheros de ningún otro —se borran al acabar cada
+#: ejecución—, y el grupo de procesos del guion muere antes de soltar el cerrojo
+#: (`runner._matar_el_grupo`). Cuesta rendimiento: las ejecuciones esperan en cola.
+_UNA_A_LA_VEZ = threading.Lock()
+
+
+def _en_exclusiva(endpoint):
+    """Envuelve un endpoint para que corra con el cerrojo. `wraps` conserva la firma para FastAPI."""
+
+    @functools.wraps(endpoint)
+    def _envuelto(*args, **kwargs):
+        with _UNA_A_LA_VEZ:
+            return endpoint(*args, **kwargs)
+
+    return _envuelto
 _AUDITOR = ScriptSecurityAuditor()
 
 # Directorio para ficheros temporales del sandbox. En producción se monta como
@@ -99,6 +120,7 @@ def health() -> dict:
 
 
 @app.post("/execute-extraction")
+@_en_exclusiva
 def execute_extraction(req: ExecuteExtractionRequest):
     if (err := _audit_or_error(req.code)) is not None:
         return err
@@ -307,6 +329,7 @@ def _ejecutar_extraccion(
 
 
 @app.post("/execute-chart")
+@_en_exclusiva
 def execute_chart(req: ExecuteChartRequest):
     if (err := _audit_or_error(req.code)) is not None:
         return err
@@ -348,6 +371,7 @@ def execute_chart(req: ExecuteChartRequest):
 
 
 @app.post("/execute-etl")
+@_en_exclusiva
 def execute_etl(req: ExecuteEtlRequest):
     if (err := _audit_or_error(req.code)) is not None:
         return err

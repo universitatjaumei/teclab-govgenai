@@ -19,6 +19,7 @@ y se recogen al consultarlas.
 """
 from __future__ import annotations
 
+import ipaddress
 import os
 import time
 from collections import defaultdict, deque
@@ -79,6 +80,27 @@ class LimitadorEnMemoria:
 limitador = LimitadorEnMemoria()
 
 
+def _es_proxy_de_confianza(ip: str) -> bool:
+    """¿Está `ip` en `FORWARDED_ALLOW_IPS`? Redes o direcciones separadas por comas; `*` es todas."""
+    declarado = os.getenv("FORWARDED_ALLOW_IPS", "").strip()
+    if not declarado or declarado == "*":
+        return True
+    try:
+        direccion = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    for trozo in declarado.split(","):
+        trozo = trozo.strip()
+        if not trozo:
+            continue
+        try:
+            if direccion in ipaddress.ip_network(trozo, strict=False):
+                return True
+        except ValueError:
+            continue
+    return False
+
+
 def ip_de(request: Request) -> str:
     """La IP del cliente, contando desde el proxy y no desde el cliente (SEC.8.4).
 
@@ -100,6 +122,12 @@ def ip_de(request: Request) -> str:
 
     socket = getattr(getattr(request, "client", None), "host", None) or "desconocida"
     if saltos <= 0:
+        return socket
+    # La cabecera sólo vale si la manda el proxy. Desde la red del sandbox se llega a la API sin
+    # pasar por él, y ahí la escribe un guion: cambiándola en cada petición el límite del login
+    # dejaba de aplicarse. Quién es el proxy lo dice `FORWARDED_ALLOW_IPS`, la misma lista con la
+    # que uvicorn decide si reescribe la IP del cliente. Sin la variable, como hasta ahora.
+    if not _es_proxy_de_confianza(socket):
         return socket
 
     reenviada = request.headers.get("X-Forwarded-For")

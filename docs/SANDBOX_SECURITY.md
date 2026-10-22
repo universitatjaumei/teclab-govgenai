@@ -91,11 +91,20 @@ El contenedor no puede:
 
 Cada petición al sandbox lanza un **nuevo subproceso Python** (`subprocess.Popen`) que:
 
-- Ejecuta solo el script del usuario, sin estado compartido entre peticiones.
-- Muere tras la ejecución (o tras timeout con `proc.kill()`).
+- Ejecuta solo el script del usuario.
+- Arranca en **su propia sesión**, y al terminar —bien, mal o por tiempo— se mata **su grupo de
+  procesos entero** (`runner._matar_el_grupo`): lo que el guion haya lanzado no sobrevive.
 - No tiene acceso al entorno del proceso padre del sandbox.
 
-Un script que "infecte" el subproceso no afecta a la siguiente petición.
+**Y las peticiones se ejecutan de una en una** (`main._UNA_A_LA_VEZ`). Hasta el 2026-10-22 esta
+capa decía «sin estado compartido entre peticiones», y no era cierto: los endpoints son `def`
+síncronos que FastAPI corre en paralelo, todas las ejecuciones comparten uid y `/tmp/sandbox`, y
+un guion que saltara la auditoría leía los ficheros de entrada de otra organización mientras se
+ejecutaba. Con una a la vez, mientras corre un guion no existen los ficheros de ningún otro —se
+borran al acabar cada ejecución— y nada del anterior sigue vivo. Es la garantía real frente a la
+lectura entre organizaciones; la auditoría sólo la hace difícil. Cuesta rendimiento: las
+ejecuciones esperan en cola, y `timeout_seconds` tiene un techo de 300 para que ninguna bloquee
+la cola indefinidamente. Lo prueba `services/script_sandbox/tests/test_una_ejecucion_no_ve_otra.py`.
 
 ### Capa 7 — Límites de recursos Docker
 
@@ -164,6 +173,7 @@ docker compose exec script-sandbox dmesg | grep -i gvisor
 |---------|--------|
 | Exploits del kernel del host | Mitigado parcialmente por gVisor (capa 8), **si el aprovisionamiento lo configuró**: lo dice la comprobación de esa capa, no la suposición |
 | Side-channel attacks entre tenants | Fuera de alcance MVP |
+| Un guion que salte la auditoría puede **señalizar al servidor del sandbox** (mismo uid) y tumbarlo hasta que Docker lo reinicie, o **pedir a la API** desde `sandbox-net` lo que pediría un anónimo | Abierto. Separarlo exige otro uid por ejecución o una regla de salida de red, y ninguno de los dos cabe en un contenedor sin capacidades. El límite de intentos del login sí está cubierto: desde esa red no se cree `X-Forwarded-For` |
 | Inyección de prompts maliciosos al LLM que generan bypass | Mitigado por capas 1, 2 y 5 |
 | Ataques de timing para inferir datos de otros tenants | Fuera de alcance MVP |
 

@@ -324,6 +324,10 @@ a aprobación o edición humana.
   sus datos parece fundamentada y no lo está. Y lo transitorio se reintenta —un *timeout* no deja
   el apartado caído para siempre—, con la cuenta de intentos en el estado del bloque.
 - Ningún script se ejecuta sin **auditoría AST + sandbox + aprobación** (I13).
+- **Una ejecución del sandbox no ve otra** (2026-10-22): se ejecutan de una en una y al acabar se
+  mata todo lo que el guion lanzó, así que mientras corre un guion no existen los ficheros de otra
+  organización. La auditoría por nombres no es la frontera —se saltaba con `sys.modules`—, y por
+  eso esta garantía no depende de ella. Lo abierto está en `SANDBOX_SECURITY.md` §3.
 - El formulario de un script se pinta desde un `ui_contract` que manda el servidor: el frontend no
   conoce los campos a priori (I6).
 - Toda ejecución deja `RunManifest`: qué se ejecutó, con qué versión y con qué datos.

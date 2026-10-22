@@ -887,7 +887,11 @@ def _build_local_extraction_wrapper(
     son el mismo protocolo escrito dos veces, y un guardarraíl comprueba que no divergen.
     """
     return f"""\
-import sys, json, math, re, datetime, collections, typing, io
+import json, math, re, datetime, collections, typing
+import io as _io_completo
+from types import SimpleNamespace as _Espacio
+io = _Espacio(BytesIO=_io_completo.BytesIO, StringIO=_io_completo.StringIO)
+del _io_completo, _Espacio
 try:
     import pandas
 except ImportError:

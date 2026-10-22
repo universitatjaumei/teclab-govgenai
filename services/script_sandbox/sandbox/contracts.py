@@ -6,6 +6,10 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 
+
+#: Lo más que puede durar una ejecución.
+TIEMPO_MAXIMO_SEGUNDOS = 300
+
 class FicheroDeEntrada(BaseModel):
     """Un fichero de entrada con su nombre (issue #194).
 
@@ -22,7 +26,9 @@ class ExecuteExtractionRequest(BaseModel):
     file_path: str = ""
     raw_text: str = ""
     options: dict[str, Any] = Field(default_factory=dict)
-    timeout_seconds: int = 30
+    #: Con techo: el tiempo lo decide quien llama, y una ejecución larga ocupa el sandbox entero
+    #: —corre una a la vez—, así que sin límite un contrato de plantilla podía bloquearlo.
+    timeout_seconds: int = Field(default=30, ge=1, le=TIEMPO_MAXIMO_SEGUNDOS)
     # PRO.2 — el contenido del fichero, no su ruta.
     #
     # `file_path` era una ruta del host de la API, y dentro de este contenedor no existe
@@ -90,10 +96,14 @@ class ExecuteChartRequest(BaseModel):
     code: str
     data_csv: str
     output_format: Literal["png", "svg"] = "png"
-    timeout_seconds: int = 30
+    #: Con techo: el tiempo lo decide quien llama, y una ejecución larga ocupa el sandbox entero
+    #: —corre una a la vez—, así que sin límite un contrato de plantilla podía bloquearlo.
+    timeout_seconds: int = Field(default=30, ge=1, le=TIEMPO_MAXIMO_SEGUNDOS)
 
 
 class ExecuteEtlRequest(BaseModel):
     code: str
     data_csv: str
-    timeout_seconds: int = 30
+    #: Con techo: el tiempo lo decide quien llama, y una ejecución larga ocupa el sandbox entero
+    #: —corre una a la vez—, así que sin límite un contrato de plantilla podía bloquearlo.
+    timeout_seconds: int = Field(default=30, ge=1, le=TIEMPO_MAXIMO_SEGUNDOS)
