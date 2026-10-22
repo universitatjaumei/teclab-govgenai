@@ -305,6 +305,27 @@ async def update_organizacion(
         )
     assert_org_access(user, organizacion.id)
 
+    # `partner_id` decide quién ve la organización (ver `create_organizacion`): cambiarlo es
+    # entregarla a otro, y eso no lo decide quien la administra sino quien administra la
+    # plataforma. Al crear ya lo pone el token; al editar faltaba esta guarda. Se mira si
+    # **cambia** y no si viene: el formulario del panel lo envía siempre, y renombrar la
+    # organización no puede costar un 403.
+    if (
+        "partner_id" in body.model_fields_set
+        and body.partner_id != organizacion.partner_id
+        and user.role != "superadmin"
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "PARTNER_SOLO_SUPERADMIN",
+                "message": (
+                    "El partner de una organización decide quién la administra y sólo lo cambia "
+                    "un superadministrador."
+                ),
+            },
+        )
+
     # `exclude_unset` y no `exclude_none`: distingue «no lo mandé» de «mándalo a null».
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(organizacion, field, value)
