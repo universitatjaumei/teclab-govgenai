@@ -17,6 +17,7 @@ import langchain_text_splitters  # noqa: F401  ← debe ir primero
 
 import base64
 import datetime as dt
+import uuid
 from types import SimpleNamespace
 
 import pytest
@@ -104,7 +105,7 @@ def _build_signed_response(
     not_after_off: int = 600,
     attributes: dict | None = None,
     in_response_to: str | None = None,
-    assertion_id: str = "_assert_id_12345",
+    assertion_id: str | None = None,
 ) -> str:
     """Construye una Response SAML, firma el root y la devuelve en base64.
 
@@ -113,6 +114,9 @@ def _build_signed_response(
     """
     if attributes is None:
         attributes = {"mail": [email]}
+    # Un ID por aserción, como hace un IdP de verdad: el SP recuerda las ya usadas, y con un ID
+    # fijo el segundo test del mismo proceso vería la suya como reutilizada.
+    assertion_id = assertion_id or f"_a_{uuid.uuid4().hex}"
     respuesta_a = f' InResponseTo="{in_response_to}"' if in_response_to else ""
     attr_xml = "".join(_attribute(n, *vs) for n, vs in attributes.items())
 
