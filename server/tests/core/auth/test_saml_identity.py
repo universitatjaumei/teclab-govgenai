@@ -213,8 +213,15 @@ def test_acs_issues_jwt_and_redirects(saml_ctx, db, db_url):
     app.include_router(router, prefix="/api/v1")
     client = TestClient(app, base_url=saml_ctx.base_url)
 
+    # El SP sólo acepta la respuesta a una petición suya hecha desde este navegador: primero el
+    # login, que deja el ID de la petición en una cookie, y la respuesta contesta a ese ID.
+    assert client.get("/api/v1/auth/saml/login", follow_redirects=False).status_code == 302
+    peticion = client.cookies.get("govgenai_saml_peticion")
+
     saml_response = saml_ctx.make_response(
-        email=email, attributes={"mail": [email], "displayName": ["Ada Lovelace"]}
+        email=email,
+        attributes={"mail": [email], "displayName": ["Ada Lovelace"]},
+        in_response_to=peticion,
     )
     resp = client.post(
         "/api/v1/auth/saml/acs",

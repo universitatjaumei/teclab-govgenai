@@ -6,6 +6,9 @@ consume la respuesta firmada (ACS) y publica la metadata del SP. La emisión del
 de sesión y el provisioning de la identidad llegan en AUTH.2.
 """
 
+import threading
+import time
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse, Response
 
@@ -28,6 +31,32 @@ from server.app.core.config import get_settings
 
 router = APIRouter(prefix="/auth/saml", tags=["auth-saml"])
 
+#: El ID del `AuthnRequest`, en el navegador que empezó el login. La vuelta del IdP es un POST
+#: desde otro sitio, así que en producción la cookie va con `SameSite=None` (y por tanto `Secure`):
+#: con `Lax` el navegador no la mandaría y ningún login funcionaría.
+COOKIE_DE_LA_PETICION = "govgenai_saml_peticion"
+_RUTA_DE_LA_COOKIE = "/api/v1/auth/saml"
+
+#: Aserciones ya consumidas, hasta su `NotOnOrAfter`: una capturada no vale otra vez. En memoria
+#: del proceso, que basta con una sola instancia de la aplicación; con varias, cada una tendría la
+#: suya y habría que llevarlo a un almacén compartido.
+_ASERCIONES_USADAS: dict[str, float] = {}
+_CERROJO_DE_ASERCIONES = threading.Lock()
+
+
+def _ya_se_uso(id_asercion: str | None, caduca_en: float | None) -> bool:
+    """Anota la aserción y dice si ya estaba. Sin ID no se puede comprobar: se trata como usada."""
+    if not id_asercion:
+        return True
+    ahora = time.time()
+    with _CERROJO_DE_ASERCIONES:
+        for viejo in [k for k, v in _ASERCIONES_USADAS.items() if v < ahora]:
+            del _ASERCIONES_USADAS[viejo]
+        if id_asercion in _ASERCIONES_USADAS:
+            return True
+        _ASERCIONES_USADAS[id_asercion] = caduca_en or (ahora + 600)
+        return False
+
 
 def _ensure_enabled() -> None:
     if not get_settings().saml_enabled:
@@ -47,7 +76,18 @@ async def saml_login(request: Request, relay_state: str | None = None):
     """Redirige (302) al IdP con el AuthnRequest."""
     _ensure_enabled()
     auth = await _build_auth(request)
-    return RedirectResponse(url=auth.login(return_to=relay_state), status_code=302)
+    respuesta = RedirectResponse(url=auth.login(return_to=relay_state), status_code=302)
+    produccion = get_settings().environment == "production"
+    respuesta.set_cookie(
+        COOKIE_DE_LA_PETICION,
+        auth.get_last_request_id(),
+        max_age=600,
+        path=_RUTA_DE_LA_COOKIE,
+        httponly=True,
+        samesite="none" if produccion else "lax",
+        secure=produccion,
+    )
+    return respuesta
 
 
 @router.post("/acs")
@@ -55,9 +95,11 @@ async def saml_acs(request: Request, session=Depends(get_session)):
     """Assertion Consumer Service: valida la aserción, resuelve la identidad y emite JWT."""
     _ensure_enabled()
     auth = await _build_auth(request)
+    peticion = request.cookies.get(COOKIE_DE_LA_PETICION)
 
     try:
-        auth.process_response()
+        # Con el ID de la petición python3-saml compara `InResponseTo`; sin él, no compara nada.
+        auth.process_response(request_id=peticion)
     except Exception as exc:  # noqa: BLE001 — cualquier fallo de parseo => 401
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -78,6 +120,18 @@ async def saml_acs(request: Request, session=Depends(get_session)):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"code": "SAML_NOT_AUTHENTICATED"},
+        )
+    # Una respuesta que no contesta a una petición de este navegador no se acepta, aunque esté
+    # bien firmada: es como alguien termina en otro navegador un login que empezó él.
+    if not peticion or auth.get_last_response_in_response_to() != peticion:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "SAML_NO_SOLICITADA"},
+        )
+    if _ya_se_uso(auth.get_last_assertion_id(), auth.get_last_assertion_not_on_or_after()):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "SAML_REUTILIZADA"},
         )
 
     identity = SamlIdentityService(session)
@@ -108,7 +162,9 @@ async def saml_acs(request: Request, session=Depends(get_session)):
             "user": user_info.to_dict(),
         }
     # El token viaja en el fragment para no quedar registrado en logs de servidor/proxy.
-    return RedirectResponse(url=f"{return_url}#token={token}", status_code=302)
+    respuesta = RedirectResponse(url=f"{return_url}#token={token}", status_code=302)
+    respuesta.delete_cookie(COOKIE_DE_LA_PETICION, path=_RUTA_DE_LA_COOKIE)
+    return respuesta
 
 
 @router.get("/metadata")

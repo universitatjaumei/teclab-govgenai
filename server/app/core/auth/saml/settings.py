@@ -53,6 +53,11 @@ def _security_settings() -> dict:
     # exigir firma solo en el mensaje deja sin verificar la pieza que porta la identidad.
     # Y aceptar respuestas no solicitadas —sin `InResponseTo` que casar con una petición
     # nuestra— convierte una aserción capturada en reutilizable.
+    #
+    # **Este ajuste solo no lo impide**, y el comentario de arriba lo daba por hecho hasta el
+    # 2026-10-22: python3-saml sólo compara `InResponseTo` si se le pasa el ID de la petición, y
+    # el ACS no se lo pasaba. Lo cierran `saml_auth_router`: el ID va en una cookie desde
+    # `/login`, el ACS exige que la respuesta conteste a él y recuerda las aserciones usadas.
     return {
         "wantMessagesSigned": True,
         "wantAssertionsSigned": True,

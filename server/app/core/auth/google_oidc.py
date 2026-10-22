@@ -24,6 +24,8 @@ delega a una casilla.
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -65,29 +67,46 @@ def _secreto() -> str:
     return secreto
 
 
-def crear_state() -> str:
-    """Un `state` firmado y de vida corta, sin estado en el servidor.
+#: La cookie que liga el `state` al navegador que empezó el login.
+COOKIE_DEL_VINCULO = "govgenai_google_vinculo"
+
+
+def _huella(vinculo: str) -> str:
+    return hashlib.sha256(vinculo.encode("utf-8")).hexdigest()
+
+
+def crear_state() -> tuple[str, str, str]:
+    """`(state, vinculo, nonce)`: un `state` firmado, de vida corta y **ligado a un navegador**.
 
     Se firma con `JWT_SECRET_KEY` y PyJWT, que es la forma que este proyecto ya usa para un valor
     corto que viaja por un canal que no controla (`delegated_actor.py`, SEC.2.1). Sin almacén de
     sesiones a propósito: el contenedor puede destruirse entre la ida y la vuelta, y un `state`
     guardado en memoria lo convertiría en un login que falla al azar.
+
+    **El `vinculo` va en una cookie y su huella dentro del `state`** (2026-10-22). Sin eso el
+    `state` sólo probaba que lo habíamos emitido nosotros, no a quién: cualquiera pedía uno,
+    completaba el login con su cuenta y mandaba a otra persona el enlace de vuelta, que acababa
+    con la sesión del atacante. El `nonce` va a Google y tiene que volver en el ID token.
     """
     ahora = datetime.now(timezone.utc)
-    return pyjwt.encode(
+    vinculo = secrets.token_urlsafe(32)
+    nonce = secrets.token_urlsafe(16)
+    state = pyjwt.encode(
         {
             "uso": "google-oauth-state",
-            "nonce": secrets.token_urlsafe(16),
+            "nonce": nonce,
+            "vinculo": _huella(vinculo),
             "iat": ahora,
             "exp": ahora + _VIDA_DEL_STATE,
         },
         _secreto(),
         algorithm=_ALGORITMO,
     )
+    return state, vinculo, nonce
 
 
-def validar_state(state: str | None) -> None:
-    """Levanta si el `state` no lo emitimos nosotros o ya caducó."""
+def validar_state(state: str | None, vinculo: str | None) -> str:
+    """El `nonce` del `state` si lo emitimos nosotros, no ha caducado y viene del mismo navegador."""
     if not state:
         raise ErrorDeIdentidad("sin `state`")
     try:
@@ -98,9 +117,20 @@ def validar_state(state: str | None) -> None:
     # ejemplo un token de sesión, que también está firmado con `JWT_SECRET_KEY`.
     if datos.get("uso") != "google-oauth-state":
         raise ErrorDeIdentidad("`state` emitido para otro uso")
+    if not vinculo or not hmac.compare_digest(datos.get("vinculo", ""), _huella(vinculo)):
+        raise ErrorDeIdentidad("el login no se empezó en este navegador")
+    return str(datos.get("nonce", ""))
 
 
-def url_de_autorizacion(*, client_id: str, redirect_uri: str, dominio: str, state: str) -> str:
+def comprobar_nonce(claims: dict, nonce: str) -> None:
+    """El ID token tiene que traer el `nonce` que mandamos a Google."""
+    if not nonce or not hmac.compare_digest(str(claims.get("nonce", "")), nonce):
+        raise ErrorDeIdentidad("el ID token no trae el `nonce` de este login")
+
+
+def url_de_autorizacion(
+    *, client_id: str, redirect_uri: str, dominio: str, state: str, nonce: str
+) -> str:
     """A dónde se manda a quien entra."""
     return f"{URL_AUTORIZACION}?" + urlencode(
         {
@@ -109,6 +139,7 @@ def url_de_autorizacion(*, client_id: str, redirect_uri: str, dominio: str, stat
             "response_type": "code",
             "scope": " ".join(AMBITOS),
             "state": state,
+            "nonce": nonce,
             # `hd` aquí es **una pista de interfaz**: hace que Google enseñe directamente las
             # cuentas de la organización. No es la autorización — ésa la decide
             # `identidad_de_las_claims` sobre lo que Google responda.

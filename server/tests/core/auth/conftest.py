@@ -103,10 +103,17 @@ def _build_signed_response(
     not_before_off: int = -300,
     not_after_off: int = 600,
     attributes: dict | None = None,
+    in_response_to: str | None = None,
+    assertion_id: str = "_assert_id_12345",
 ) -> str:
-    """Construye una Response SAML, firma el root y la devuelve en base64."""
+    """Construye una Response SAML, firma el root y la devuelve en base64.
+
+    `in_response_to` es el ID del `AuthnRequest` al que contesta: el SP sólo acepta respuestas a
+    una petición suya hecha desde el mismo navegador (2026-10-22).
+    """
     if attributes is None:
         attributes = {"mail": [email]}
+    respuesta_a = f' InResponseTo="{in_response_to}"' if in_response_to else ""
     attr_xml = "".join(_attribute(n, *vs) for n, vs in attributes.items())
 
     # SEC.8.4: el SP exige ahora `wantAssertionsSigned`, así que la aserción se firma
@@ -115,7 +122,7 @@ def _build_signed_response(
     # HTTP-POST la identidad viaja en la aserción, y sin firma propia no se verifica.
     assertion_xml = (
         '<saml:Assertion xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" '
-        'ID="_assert_id_12345" Version="2.0" '
+        f'ID="{assertion_id}" Version="2.0" '
         f'IssueInstant="{_saml_time()}">'
         f"<saml:Issuer>{IDP_ENTITY_ID}</saml:Issuer>"
         "<saml:Subject>"
@@ -123,7 +130,7 @@ def _build_signed_response(
         f"{email}</saml:NameID>"
         '<saml:SubjectConfirmation Method="urn:oasis:names:tc:SAML:2.0:cm:bearer">'
         f'<saml:SubjectConfirmationData NotOnOrAfter="{_saml_time(not_after_off)}" '
-        f'Recipient="{destination}"/>'
+        f'Recipient="{destination}"{respuesta_a}/>'
         "</saml:SubjectConfirmation></saml:Subject>"
         f'<saml:Conditions NotBefore="{_saml_time(not_before_off)}" '
         f'NotOnOrAfter="{_saml_time(not_after_off)}">'
@@ -144,7 +151,7 @@ def _build_signed_response(
         '<samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol" '
         'xmlns:saml="urn:oasis:names:tc:SAML:2.0:assertion" '
         'ID="_resp_id_12345" Version="2.0" '
-        f'IssueInstant="{_saml_time()}" Destination="{destination}">'
+        f'IssueInstant="{_saml_time()}" Destination="{destination}"{respuesta_a}>'
         f"<saml:Issuer>{IDP_ENTITY_ID}</saml:Issuer>"
         "<samlp:Status><samlp:StatusCode "
         'Value="urn:oasis:names:tc:SAML:2.0:status:Success"/></samlp:Status>'
