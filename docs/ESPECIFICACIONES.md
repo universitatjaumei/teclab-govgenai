@@ -324,6 +324,11 @@ a aprobación o edición humana.
   sus datos parece fundamentada y no lo está. Y lo transitorio se reintenta —un *timeout* no deja
   el apartado caído para siempre—, con la cuenta de intentos en el estado del bloque.
 - Ningún script se ejecuta sin **auditoría AST + sandbox + aprobación** (I13).
+- **Quien propone un script puede también aprobarlo** (decisión del 2026-10-22). No hay
+  separación entre proponente y revisor, y es a propósito: con un solo superadministrador, o un
+  solo administrador por organización, exigirla bloquearía el flujo. Lo que sí se exige es que
+  quien aprueba pueda revisar la propuesta —de su organización, o superadministrador para las que
+  no tienen— y tenga poder sobre la plantilla de destino.
 - **Una ejecución del sandbox no ve otra** (2026-10-22): se ejecutan de una en una y al acabar se
   mata todo lo que el guion lanzó, así que mientras corre un guion no existen los ficheros de otra
   organización. La auditoría por nombres no es la frontera —se saltaba con `sys.modules`—, y por
