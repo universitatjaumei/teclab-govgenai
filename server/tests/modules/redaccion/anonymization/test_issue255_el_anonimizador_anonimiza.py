@@ -21,6 +21,8 @@ from server.tests.modules.redaccion.anonymization import (
     test_script_proposal_workflow as _propuesta,
 )
 
+_ORG = uuid.UUID("00000000-0000-0000-0000-0000000000a1")
+
 test_app = _propuesta.test_app
 _seed_proposal = _propuesta._seed_proposal
 
@@ -224,8 +226,11 @@ def test_la_cola_de_revision_trae_el_informe(approval_app, monkeypatch):
     from server.app.core.auth.models import UserInfo
     from server.app.modules.redaccion.database.repos import ScriptProposalRepo
 
-    holder["user"] = UserInfo(user_id=str(uuid.uuid4()), email="a@t.com", role="admin")
+    holder["user"] = UserInfo(
+        user_id=str(uuid.uuid4()), email="a@t.com", role="admin", organizacion_ids=(str(_ORG),)
+    )
     p = _seed_cerrable(state, uuid.uuid4(), status="pending_review", target_owner_kind="platform")
+    p.organizacion_id = _ORG  # la cola de un administrador es la de su organización
     p.anonymization_report_json = dict(_INFORME_CON_RESTOS)
 
     async def _por_estado(self, status):
@@ -252,7 +257,11 @@ def test_el_sintetico_se_descarga_por_quien_propone_y_por_un_admin_y_nadie_mas(t
     from server.app.core.auth.models import UserInfo
 
     async def _admin():
-        return UserInfo(user_id=str(uuid.uuid4()), email="a@t.com", role="admin")
+        return UserInfo(
+            user_id=str(uuid.uuid4()), email="a@t.com", role="admin", organizacion_ids=(str(_ORG),)
+        )
+
+    proposal.organizacion_id = _ORG  # un administrador revisa lo de su organización
 
     client.app.dependency_overrides[get_current_user] = _admin
     proposal.status = "pending_review"  # quien revisa, cuando hay algo que revisar
@@ -312,7 +321,11 @@ def test_un_admin_que_no_propuso_solo_lo_baja_si_esta_pendiente_de_revision(test
     from server.app.core.auth.models import UserInfo
 
     async def _admin():
-        return UserInfo(user_id=str(uuid.uuid4()), email="a@t.com", role="admin")
+        return UserInfo(
+            user_id=str(uuid.uuid4()), email="a@t.com", role="admin", organizacion_ids=(str(_ORG),)
+        )
+
+    proposal.organizacion_id = _ORG  # un administrador revisa lo de su organización
 
     client.app.dependency_overrides[get_current_user] = _admin
     assert client.get(url).status_code == 404

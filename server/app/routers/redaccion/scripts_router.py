@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.app.api.deps import get_current_user, get_session, require_module
 from server.app.core.auth.models import UserInfo
-from server.app.core.auth.tenancy import organizacion_unica_de
+from server.app.core.auth.tenancy import organizacion_unica_de, puede_acceder
 from server.app.modules.agents_hub.services.config_provider import LocalConfigProvider
 from server.app.modules.agents_hub.services.model_factory import get_model_for_tier
 from server.app.modules.redaccion.services.actividades_llm import (
@@ -347,6 +347,7 @@ async def propose_script(
     proposal = HubScriptProposal(
         id=proposal_id,
         proposer_user_id=_user_to_uuid(user.user_id),
+        organizacion_id=organizacion_unica_de(user),
         target_owner_kind=body.target_owner_kind,
         target_template_id=body.target_template_id,
         prompt_nl=body.prompt_nl,
@@ -526,6 +527,23 @@ async def _borrar_lo_subido(storage: StorageService, proposal_id: uuid.UUID) -> 
 def _require_admin(user: UserInfo) -> None:
     if user.role not in ("superadmin", "admin"):
         raise HTTPException(status_code=403, detail="Admin access required")
+
+
+def _revisable_por(user: UserInfo, proposal: HubScriptProposal) -> bool:
+    """¿Puede esta persona revisar esta propuesta? El rol no basta: tiene que ser de su organización.
+
+    Una propuesta **sin organización** —las anteriores a la columna, o las de quien no pertenece
+    a una sola— sólo la revisa un superadministrador.
+    """
+    if user.role == "superadmin":
+        return True
+    return proposal.organizacion_id is not None and puede_acceder(user, proposal.organizacion_id)
+
+
+def _exigir_revisable_por(user: UserInfo, proposal: HubScriptProposal) -> None:
+    """404 y no 403, como en el resto de Informes: no se cuenta que la propuesta existe."""
+    if not _revisable_por(user, proposal):
+        raise HTTPException(status_code=404, detail="Script proposal not found")
 
 
 def _require_revisable(proposal: HubScriptProposal) -> None:
@@ -1086,7 +1104,11 @@ async def list_pending_scripts(
 ) -> list[PendingProposalOut]:
     """Lista propuestas en status=pending_review. Solo admin/superadmin."""
     _require_admin(user)
-    proposals = await ScriptProposalRepo(session).list_by_status("pending_review")
+    proposals = [
+        p
+        for p in await ScriptProposalRepo(session).list_by_status("pending_review")
+        if _revisable_por(user, p)
+    ]
     return [
         PendingProposalOut(
             proposal_id=p.id,
@@ -1135,6 +1157,7 @@ async def download_test_data(
     es_quien_propone = proposal.proposer_user_id == _user_to_uuid(user.user_id)
     if not es_quien_propone:
         _require_admin(user)
+        _exigir_revisable_por(user, proposal)
         # Auditoría de la PR #256 — `_require_admin` mira el rol y no la organización, así que
         # otra persona sólo lo ve cuando hay algo que revisar: una propuesta privada, que nunca
         # pasa por la cola, no se la baja ningún administrador. 404 y no 403: no se cuenta que
@@ -1177,6 +1200,7 @@ async def admin_retest(
     """El admin re-ejecuta el script contra el mismo test_data_ref y verifica el hash."""
     _require_admin(user)
     proposal = await _load_proposal(proposal_id, session)
+    _exigir_revisable_por(user, proposal)
 
     test_data = proposal.test_data_ref or {}
     file_ref = StorageRef(
@@ -1231,12 +1255,23 @@ async def approve_script_proposal(
     """El admin aprueba la propuesta e incrusta el script en la plantilla global."""
     _require_admin(user)
     proposal = await _load_proposal(proposal_id, session)
+    _exigir_revisable_por(user, proposal)
 
     if proposal.status != "pending_review":
         raise HTTPException(
             status_code=422,
             detail={"code": "WRONG_STATUS", "message": f"La propuesta está en status='{proposal.status}', no en 'pending_review'."},
         )
+
+    template: HubReportTemplate | None = await session.get(HubReportTemplate, body.target_global_template_id)
+    if template is None:
+        raise HTTPException(status_code=404, detail="Target global template not found")
+    # Antes que el estado del re-test: a quien no puede aprobar no se le cuenta cómo está.
+    # Incrustar un script es cambiar la plantilla, así que exige el mismo poder que editarla: la
+    # de plataforma sólo un superadministrador, la de una organización su administrador.
+    from server.app.routers.redaccion.hub_redaccion_router import _exigir_poder_sobre
+
+    _exigir_poder_sobre(user, template)
 
     # Un crítico no lo puede aprobar nadie, ni un admin con la nota más razonada del mundo.
     _require_revisable(proposal)
@@ -1247,10 +1282,6 @@ async def approve_script_proposal(
             status_code=422,
             detail={"code": "HASH_MISMATCH", "message": "Se requiere un admin-retest reciente con hash_matches=True."},
         )
-
-    template: HubReportTemplate | None = await session.get(HubReportTemplate, body.target_global_template_id)
-    if template is None:
-        raise HTTPException(status_code=404, detail="Target global template not found")
 
     admin_uuid = _user_to_uuid(user.user_id)
     funcion_ref = await _registrar_en_el_catalogo(
@@ -1304,6 +1335,7 @@ async def reject_script_proposal(
     """El admin rechaza la propuesta y registra la nota de revisión."""
     _require_admin(user)
     proposal = await _load_proposal(proposal_id, session)
+    _exigir_revisable_por(user, proposal)
 
     if proposal.status != "pending_review":
         raise HTTPException(

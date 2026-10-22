@@ -25,7 +25,12 @@ from server.app.routers.redaccion import hub_redaccion_router as router_module
 
 # user_id no-UUID: SuperAdminAccount.admin_id es int, AdminAccount.partner_id es texto libre
 _SUPERADMIN_NON_UUID = UserInfo(user_id="42", email="root@test.com", role="superadmin")
-_ADMIN_NON_UUID = UserInfo(user_id="org-uji", email="admin@test.com", role="admin")
+_ADMIN_NON_UUID = UserInfo(
+    user_id="org-uji",
+    email="admin@test.com",
+    role="admin",
+    organizacion_ids=("00000000-0000-0000-0000-0000000000a1",),
+)
 
 
 def _plantilla_viva():

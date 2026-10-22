@@ -98,7 +98,7 @@ las fichas del índice (#173) y las consultas (#175)— y lo comprueba `test_agu
 | `hub_workspace_blocks` | `workspace_id` → informe |
 | `hub_workspace_audit_events` | `workspace_id` → informe |
 | `hub_run_manifests` | `workspace_id` → informe |
-| `hub_script_proposals` | por su informe |
+| `hub_script_proposals` | `organizacion_id`, la de quien propone: acota la cola y la revisión. **Nulo = sólo la revisa un superadministrador** (las anteriores a la columna y las de quien no pertenece a una sola) |
 | `hub_usage_counters` | `subject_type='organizacion'` desde SEC.4 |
 | `hub_actividad_ia` | `organizacion_id`, la del dueño del token que registra (REG.1) |
 | `hub_agentes_unidad` | `organizacion_id`, **siempre** (#172): un agente es de una organización y no hay agentes de plataforma |
