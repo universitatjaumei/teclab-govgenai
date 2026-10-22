@@ -32,7 +32,7 @@ COPY pyproject.toml uv.lock ./
 #
 # Es además el flag que ya usaban CI y el despliegue, así que las imágenes comprobaban menos
 # que quien las construye.
-RUN pip install --no-cache-dir uv && uv sync --locked --no-dev
+RUN pip install --no-cache-dir uv==0.12.24 && uv sync --locked --no-dev
 
 COPY config.py api_client.py errors.py resources.py server.py http_server.py ./
 COPY tools/ ./tools/

@@ -3,7 +3,7 @@ FROM python:3.13-slim AS builder
 
 WORKDIR /app
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.12.24 /uv /usr/local/bin/uv
 
 # El paquete compartido debe copiarse antes de instalar server/
 COPY shared/ ./shared/

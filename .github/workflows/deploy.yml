@@ -75,7 +75,7 @@ jobs:
       # versiones de la misma acción según el workflow, y la que se quedó atrás era la del
       # despliegue — la que menos corre y la que más cuesta depurar. Lo vigila
       # `tests/infra/test_las_acciones_no_van_a_dos_versiones.py`.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Etiqueta a desplegar
         id: etiqueta
@@ -91,7 +91,7 @@ jobs:
         # `backoff`, `backoff_limit` y `retries`, y aquí no se pasa ninguno. Las dos
         # entradas que sí se usan —`workload_identity_provider` y `service_account`— siguen
         # existiendo. El cambio de fondo es el runtime, de node20 a node24.
-        uses: google-github-actions/auth@v3
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_DEPLOY_SA }}
@@ -99,7 +99,7 @@ jobs:
       # v3 (PR #56). Comparados los dos `action.yml`: retira `skip_tool_cache` y añade
       # `cache`, y este paso **no pasa ninguna entrada**, así que nada de lo que cambia le
       # afecta. Como en `auth`, el cambio de fondo es el runtime: node20 a node24.
-      - uses: google-github-actions/setup-gcloud@v3
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
 
       - name: Configurar Docker para Artifact Registry
         run: gcloud auth configure-docker ${{ vars.GCP_REGION }}-docker.pkg.dev --quiet
@@ -118,12 +118,12 @@ jobs:
       # porque son workflows distintos; si algún día divergen, el síntoma es este mismo error.
       # ---------------------------------------------------------------------
       - name: Instalar uv
-        uses: astral-sh/setup-uv@v10.1.0
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
-          version: "latest"
+          version: "0.12.24"
 
       - name: Python 3.13
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.13"
 
@@ -136,7 +136,7 @@ jobs:
         run: uv run python export_openapi.py
 
       - name: Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24"
           cache: "npm"

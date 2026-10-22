@@ -32,7 +32,8 @@ CONFIG = RAIZ / ".github" / "dependabot.yml"
 #: está para cazar un typo (`github_actions` por `github-actions`), no para ser exhaustiva: un
 #: nombre que GitHub no reconoce deja su entrada sin efecto **y no avisa**, que es el modo de
 #: fallo del §9.8 del marco. La fecha está para saber contra qué documentación se comparó.
-ECOSISTEMAS_CONOCIDOS = {"uv", "pip", "npm", "github-actions", "docker"}
+#: `docker-compose` se añadió con #268: el ecosistema `docker` sólo lee los Dockerfile.
+ECOSISTEMAS_CONOCIDOS = {"uv", "pip", "npm", "github-actions", "docker", "docker-compose"}
 
 #: Qué fichero tiene que haber en la ruta para que vigilarla signifique algo.
 MANIFIESTO_DE = {
@@ -40,6 +41,7 @@ MANIFIESTO_DE = {
     "pip": ("pyproject.toml",),
     "npm": ("package.json",),
     "docker": ("Dockerfile",),
+    "docker-compose": ("docker-compose.yml", "docker-compose.vm.yml"),
     "github-actions": (".github/workflows",),
 }
 
