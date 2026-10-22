@@ -391,6 +391,16 @@ por `funcion_id@versión`.
   recibe 403 `PAT_NO_PERMITIDO`, **sea cual sea el rol de su dueño**. Antes, un endpoint que no
   decía nada aceptaba cualquier token, y un token de superadministrador emitido sólo para anotar
   usos podía conceder módulos. Un endpoint nuevo que no declare nada es de sesión, no de máquina.
+- **Un PAT vale lo que vale hoy su dueño** (2026-10-22). `PatService.verify` comprueba en cada
+  petición que la persona existe, está activa y **conserva el rol con el que lo emitió**: los
+  alcances se validaron contra el techo de ese rol, así que con otro no se reinterpretan. Antes el
+  principal salía del rol guardado en la fila, y desactivar, borrar o rebajar a alguien no tocaba
+  sus tokens. **Un PAT caduca siempre**: a los 90 días si no se dice, y nunca más allá de un año.
+  Un superadministrador revoca el de cualquiera.
+- **La sesión de navegador no se revoca**: el JWT vale hasta que caduca (`JWT_EXPIRATION_MINUTES`,
+  60 en producción) y lleva dentro el rol y las organizaciones. Desactivar a una persona corta sus
+  PAT en la siguiente petición, pero **su sesión abierta dura hasta esa caducidad**. Es una
+  decisión: comprobar la persona en cada petición de sesión costaría una consulta por petición.
 - **Un PAT se puede acotar a una organización al emitirlo** (#230), y **acota, nunca amplía**:
   quien no es superadmin sólo elige una de las suyas. El de un superadministrador acotado **actúa
   como administrador de esa organización** (#238, 2026-10-07): conservar el rol dejaba pasar al

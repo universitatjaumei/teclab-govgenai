@@ -204,6 +204,7 @@ export function AccessTokensPage() {
                 <label htmlFor="pat-expiry" className="text-sm font-medium">{t('pat_field_expiry')}</label>
                 <input id="pat-expiry" {...register('expires_at')} type="date"
                   className="w-full border rounded px-2 py-1.5 text-sm mt-1" />
+                <p className="text-xs text-muted-foreground mt-0.5">{t('pat_field_expiry_ayuda')}</p>
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button type="button" onClick={() => { setDialogOpen(false); reset() }} className="px-3 py-1.5 rounded border text-sm">{tc('cancel')}</button>

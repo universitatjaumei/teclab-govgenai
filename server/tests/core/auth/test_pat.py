@@ -13,6 +13,8 @@ import httpx
 import pytest
 from fastapi import Depends, FastAPI
 
+from server.tests.core.auth._duenos import persona_real
+
 
 def _uid() -> str:
     return uuid.uuid4().hex[:12]
@@ -47,7 +49,7 @@ async def test_create_returns_plaintext_and_stores_hash(db):
 async def test_verify_valid_returns_principal_and_updates_last_used(db):
     from server.app.core.auth.pat.service import PatService
 
-    owner = _admin()
+    owner = await persona_real(db.session, "admin")
     db.track(owner.email)
     service = PatService(db.session)
     _, token = await service.create(
@@ -189,7 +191,7 @@ def _client(app):
 async def test_dependency_pat_with_scope_allows(db):
     from server.app.core.auth.pat.service import PatService
 
-    owner = _admin()
+    owner = await persona_real(db.session, "admin")
     db.track(owner.email)
     _, token = await PatService(db.session).create(
         owner, name="mcp", scopes=["redaccion:templates:read"]
@@ -206,7 +208,7 @@ async def test_dependency_pat_with_scope_allows(db):
 async def test_dependency_pat_missing_scope_403(db):
     from server.app.core.auth.pat.service import PatService
 
-    owner = _admin()
+    owner = await persona_real(db.session, "admin")
     db.track(owner.email)
     _, token = await PatService(db.session).create(
         owner, name="mcp", scopes=["chatbots:read"]  # falta templates:read

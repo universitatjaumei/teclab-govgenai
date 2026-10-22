@@ -5,7 +5,7 @@ import hmac
 import secrets
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 
@@ -55,6 +55,13 @@ def _parse_prefix(token: str) -> str | None:
     return parts[1]
 
 
+#: Un token caduca siempre. Sin fecha, a los 90 días; con fecha, nunca más allá de un año. Un
+#: token sin caducidad es una credencial que sobrevive a quien la emitió y a lo que se decidió
+#: al emitirla, y nadie se acuerda de revocarla.
+CADUCIDAD_POR_OMISION = timedelta(days=90)
+CADUCIDAD_MAXIMA = timedelta(days=365)
+
+
 class PatService:
     """Gestiona el ciclo de vida de los PAT."""
 
@@ -94,6 +101,12 @@ class PatService:
             )
         if organizacion_id is not None:
             await self._comprueba_organizacion(owner, organizacion_id)
+
+        ahora = datetime.now(timezone.utc)
+        if expires_at is None:
+            expires_at = ahora + CADUCIDAD_POR_OMISION
+        elif expires_at - ahora > CADUCIDAD_MAXIMA:
+            raise PatForbiddenError("Un token no puede valer más de un año")
 
         prefix = secrets.token_hex(_PREFIX_BYTES)
         secret = secrets.token_urlsafe(_SECRET_BYTES)
@@ -147,6 +160,11 @@ class PatService:
             raise PatInvalidError("Access token has been revoked")
         if pat.expires_at is not None and pat.expires_at <= datetime.now(timezone.utc):
             raise PatInvalidError("Access token has expired")
+        # El token vale lo que vale **hoy** su dueño. Antes se construía el principal con el rol
+        # guardado en la fila y no se miraba a la persona: desactivarla, borrarla o rebajarla no
+        # tocaba los tokens que ya había emitido.
+        if not await self._dueno_vigente(pat.owner_id, pat.owner_role):
+            raise PatInvalidError("The owner of this access token no longer has that access")
 
         # Capturar los valores ANTES del commit: expire_on_commit los invalidaría y un
         # acceso posterior dispararía un lazy-load síncrono (MissingGreenlet).
@@ -173,6 +191,45 @@ class PatService:
         pat.last_used_at = datetime.now(timezone.utc)
         await self.session.commit()
         return principal
+
+    async def _dueno_vigente(self, owner_id: str, owner_role: str) -> bool:
+        """¿Sigue existiendo el dueño, activo y con el rol con el que emitió el token?
+
+        **Con el mismo rol, no con uno cualquiera**: los alcances se validaron contra el techo de
+        ese rol al emitirlo, así que con otro rol no se reinterpretan —se emite un token nuevo—.
+
+        Tres formas de dueño, las mismas que distingue `_orgs_del_dueno` y una más: una persona
+        (`HubUser`, por su uuid), una cuenta de partner (`AdminAccount`, por su código) y una
+        cuenta de superadministrador (`SuperAdminAccount`, por su número). Si no aparece en
+        ninguna, el dueño ya no existe.
+        """
+        from sqlalchemy import select as sa_select
+
+        from server.app.database.models import AdminAccount, SuperAdminAccount
+        from server.app.modules.agents_hub.database.config_models import HubUser
+
+        try:
+            como_uuid = uuid.UUID(str(owner_id))
+        except (ValueError, AttributeError, TypeError):
+            como_uuid = None
+        if como_uuid is not None:
+            persona = await self.session.get(HubUser, como_uuid)
+            if persona is not None:
+                return bool(persona.is_active) and persona.role == owner_role
+            return False
+
+        if owner_role == "superadmin" and str(owner_id).isdigit():
+            cuenta = await self.session.get(SuperAdminAccount, int(owner_id))
+            return cuenta is not None and bool(cuenta.is_active)
+
+        if owner_role == "admin":
+            fila = await self.session.execute(
+                sa_select(AdminAccount.is_active).where(AdminAccount.partner_id == str(owner_id))
+            )
+            activa = fila.scalars().first()
+            return bool(activa)
+
+        return False
 
     async def _orgs_del_dueno(self, owner_role: str, owner_id: str) -> tuple[str, ...]:
         """Organizaciones del dueño del PAT. Vacío en superadmin: ahí es el comodín.
@@ -239,15 +296,15 @@ class PatService:
         )
 
     async def revoke(self, owner: UserInfo, pat_id) -> None:
-        """Revoca un PAT del owner. Lanza ``PatInvalidError`` si no es suyo."""
-        pat = (
-            await self.session.execute(
-                select(HubPersonalAccessToken).where(
-                    HubPersonalAccessToken.id == pat_id,
-                    HubPersonalAccessToken.owner_id == owner.user_id,
-                )
-            )
-        ).scalars().first()
+        """Revoca un PAT. Lanza ``PatInvalidError`` si no es suyo.
+
+        Un superadministrador revoca el de cualquiera: es quien tiene que poder cortar el acceso
+        de alguien que ya no debe tenerlo, sin pedírselo a esa persona.
+        """
+        consulta = select(HubPersonalAccessToken).where(HubPersonalAccessToken.id == pat_id)
+        if not owner.is_superadmin:
+            consulta = consulta.where(HubPersonalAccessToken.owner_id == owner.user_id)
+        pat = (await self.session.execute(consulta)).scalars().first()
         if pat is None:
             raise PatInvalidError("Access token not found")
         if pat.revoked_at is None:
