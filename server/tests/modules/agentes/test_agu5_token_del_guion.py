@@ -72,6 +72,19 @@ class TestElTecho:
 class TestLaPantallaDelToken:
 
     @pytest.mark.asyncio
+    async def test_el_token_del_guion_dura_el_maximo_y_no_los_90_dias(self, http, db_session):
+        """Revisión de la PR #294: el guion corre programado y nadie mira cuándo caduca."""
+        from datetime import datetime, timezone
+
+        from server.app.modules.agents_hub.database.config_models import HubPersonalAccessToken
+
+        c, _ = http
+        r = await c.post("/api/v1/agentes/tokens", json={"nombre": "guion"})
+        fila = await db_session.get(HubPersonalAccessToken, uuid.UUID(r.json()["id"]))
+
+        assert (fila.expires_at - datetime.now(timezone.utc)).days >= 364
+
+    @pytest.mark.asyncio
     async def test_se_emite_con_un_solo_alcance_y_el_texto_se_ve_una_vez(self, http):
         c, _ = http
         r = await c.post("/api/v1/agentes/tokens", json={"nombre": "Guion de Contratación"})

@@ -31,7 +31,13 @@ from server.app.core.auth.pat.service import PatForbiddenError, PatInvalidError,
 
 @pytest.fixture
 async def sesion(db_url):
+    from server.app.database.models import AdminAccount
+
     engine = create_async_engine(db_url)
+    # La plantilla de tests sólo lleva las tablas del hub; la de cuentas de partner hace falta
+    # porque un dueño con forma de uuid que no es persona se busca también ahí.
+    async with engine.begin() as conexion:
+        await conexion.run_sync(AdminAccount.__table__.create, checkfirst=True)  # type: ignore[attr-defined]
     try:
         async with AsyncSession(engine, expire_on_commit=False) as session:
             yield session
@@ -141,3 +147,33 @@ class TestUnSuperadministradorRevocaElDeCualquiera:
 
         with pytest.raises(PatInvalidError):
             await PatService(sesion).revoke(otro, fila.id)
+
+
+class TestCadaFormaDeDuenoSeReconoce:
+    """Revisión de la PR #294: el `partner_id` de una cuenta de partner es texto libre."""
+
+    async def test_should_accept_a_partner_admin_whose_code_looks_like_a_uuid(self, sesion):
+        from server.app.database.models import AdminAccount
+
+        codigo = str(uuid.uuid4())
+        sesion.add(AdminAccount(partner_id=codigo, name="Partner", email=f"p.{codigo[:8]}@uji.es"))
+        await sesion.commit()
+        principal = UserInfo(user_id=codigo, email="p@uji.es", role="admin")
+        _, token = await PatService(sesion).create(principal, "t", ["actividad:write"])
+
+        verificado = await PatService(sesion).verify(token)
+
+        assert verificado.user_info.user_id == codigo
+
+
+class TestUnaFechaSinZonaSeLeeEnUTC:
+
+    async def test_should_take_a_naive_expiry_as_utc_instead_of_failing(self, sesion):
+        _, principal = await _persona(sesion)
+        sin_zona = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=30)
+
+        fila, _ = await PatService(sesion).create(
+            principal, "t", ["actividad:write"], expires_at=sin_zona
+        )
+
+        assert 29 <= (fila.expires_at - datetime.now(timezone.utc)).days <= 30

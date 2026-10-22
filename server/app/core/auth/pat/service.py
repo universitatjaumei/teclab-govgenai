@@ -105,7 +105,10 @@ class PatService:
         ahora = datetime.now(timezone.utc)
         if expires_at is None:
             expires_at = ahora + CADUCIDAD_POR_OMISION
-        elif expires_at - ahora > CADUCIDAD_MAXIMA:
+        elif expires_at.tzinfo is None:
+            # Un integrador que manda la fecha sin zona no recibe un 500: se lee en UTC.
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at - ahora > CADUCIDAD_MAXIMA:
             raise PatForbiddenError("Un token no puede valer más de un año")
 
         prefix = secrets.token_hex(_PREFIX_BYTES)
@@ -216,7 +219,8 @@ class PatService:
             persona = await self.session.get(HubUser, como_uuid)
             if persona is not None:
                 return bool(persona.is_active) and persona.role == owner_role
-            return False
+            # Sin persona se sigue mirando: el código de una cuenta de partner es texto libre y
+            # puede tener forma de uuid.
 
         if owner_role == "superadmin" and str(owner_id).isdigit():
             cuenta = await self.session.get(SuperAdminAccount, int(owner_id))
@@ -224,10 +228,10 @@ class PatService:
 
         if owner_role == "admin":
             fila = await self.session.execute(
-                sa_select(AdminAccount.is_active).where(AdminAccount.partner_id == str(owner_id))
+                sa_select(AdminAccount).filter_by(partner_id=str(owner_id))
             )
-            activa = fila.scalars().first()
-            return bool(activa)
+            cuenta_admin = fila.scalars().first()
+            return cuenta_admin is not None and bool(cuenta_admin.is_active)
 
         return False
 

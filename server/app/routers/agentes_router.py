@@ -42,7 +42,12 @@ from server.app.api.deps import (
     require_superadmin,
 )
 from server.app.api.deps import modulos_concedidos
-from server.app.core.auth.pat.service import PatForbiddenError, PatInvalidError, PatService
+from server.app.core.auth.pat.service import (
+    CADUCIDAD_MAXIMA,
+    PatForbiddenError,
+    PatInvalidError,
+    PatService,
+)
 from server.app.core.auth.models import UserInfo
 from server.app.core.auth.tenancy import organizacion_para_operar
 from server.app.core.config import get_settings
@@ -1106,7 +1111,12 @@ async def emitir_token_del_guion(
     """
     try:
         pat, token = await PatService(session).create(
-            owner=user, name=body.nombre, scopes=[AGENTES_INDICE_WRITE], modulos=modulos
+            owner=user,
+            name=body.nombre,
+            scopes=[AGENTES_INDICE_WRITE],
+            modulos=modulos,
+            # El guion corre programado y nadie mira cuándo caduca: dura el máximo.
+            expires_at=datetime.now(timezone.utc) + CADUCIDAD_MAXIMA,
         )
     except PatForbiddenError as fallo:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(fallo)) from fallo
