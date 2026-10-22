@@ -187,6 +187,11 @@ class AnalyzeHtmlOut(BaseModel):
 
 router = APIRouter(prefix="/hub/ingestion", tags=["hub-ingestion"])
 
+# Escribir en el corpus —subir, sustituir, borrar, vaciar— y pedir al modelo que analice un HTML
+# es administración. Pertenecer a la organización basta para leer, no para esto: una cuenta
+# institucional se aprovisiona como `user` al entrar por primera vez.
+_ESCRIBE_EN_EL_CORPUS = require_role("superadmin", "admin")
+
 
 async def _get_llm_service(
     session: AsyncSession = Depends(get_async_session),
@@ -213,7 +218,7 @@ async def _get_llm_service(
 @router.post("/analyze-html", status_code=status.HTTP_200_OK, response_model=AnalyzeHtmlOut)
 async def analyze_html(
     body: AnalyzeHtmlRequest,
-    current_user: UserInfo = Depends(get_current_user),
+    current_user: UserInfo = Depends(_ESCRIBE_EN_EL_CORPUS),
     llm_service=Depends(_get_llm_service),
 ):
     """Propone selectores CSS para el contenido principal de un HTML institucional.
@@ -407,9 +412,8 @@ async def validar_vigencia(
     de ella: el botón parecería roto. Y lo que pide no es revisarlo, es retirarlo o corregir el
     estado. De ahí el 409 en vez de un sellado que no serviría de nada.
 
-    **Reservado a administración**, a diferencia del resto de este router, que sólo exige sesión
-    y organización porque es anterior: esto no es una lectura, es un acto editorial que queda
-    firmado con un nombre en `revisat_per`.
+    **Reservado a administración**, como las escrituras de este router: esto no es una lectura,
+    es un acto editorial que queda firmado con un nombre en `revisat_per`.
 
     Deploy: edge.
     """
@@ -559,7 +563,7 @@ async def delete_document(
         ),
     ),
     session: AsyncSession = Depends(get_async_session),
-    current_user: UserInfo = Depends(get_current_user),
+    current_user: UserInfo = Depends(_ESCRIBE_EN_EL_CORPUS),
 ):
     """Elimina un documento ingestado y todos sus chunks.
 
@@ -701,7 +705,7 @@ async def upload_document(
     canonical_url: str | None = Form(None),
     language: str | None = Form(None),
     session: AsyncSession = Depends(get_async_session),
-    current_user: UserInfo = Depends(get_current_user),
+    current_user: UserInfo = Depends(_ESCRIBE_EN_EL_CORPUS),
     storage: FsspecStorageService = Depends(get_storage_service),
 ):
     """Sube al corpus un `.md` conforme al contrato y lanza su ingestión en background.
@@ -799,7 +803,7 @@ async def delete_ingestion_job(
     chatbot_id: uuid.UUID,
     job_id: uuid.UUID,
     session: AsyncSession = Depends(get_async_session),
-    current_user: UserInfo = Depends(get_current_user),
+    current_user: UserInfo = Depends(_ESCRIBE_EN_EL_CORPUS),
     storage: FsspecStorageService = Depends(get_storage_service),
 ):
     """Elimina un job de ingestión y todos sus chunks asociados."""
@@ -854,7 +858,7 @@ async def delete_ingestion_job(
 async def clear_chatbot_collection(
     chatbot_id: uuid.UUID,
     session: AsyncSession = Depends(get_async_session),
-    current_user: UserInfo = Depends(get_current_user),
+    current_user: UserInfo = Depends(_ESCRIBE_EN_EL_CORPUS),
     storage: FsspecStorageService = Depends(get_storage_service),
 ):
     """Elimina todos los documentos, chunks y jobs de un chatbot."""
