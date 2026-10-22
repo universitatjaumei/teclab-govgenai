@@ -1,16 +1,17 @@
 """Runner de subprocesos con timeout y kill explícito.
 
 REGLA DURA: no confiar en `subprocess.run(timeout=)` por sí solo. Implementamos
-`Popen` + `communicate(timeout=)` y, ante un `TimeoutExpired`, llamamos
-explícitamente a `proc.kill()` y drenamos los pipes en otra llamada a
-`communicate()` para evitar zombies. La excepción `SubprocessTimeoutError`
-carga el `Popen` ya terminado para que el caller pueda verificar `poll() != None`.
+`Popen` + `wait(timeout=)` con los pipes leídos en hilos y, ante un `TimeoutExpired`,
+llamamos explícitamente a `proc.kill()`, matamos el grupo y esperamos para que no quede
+zombie. La excepción `SubprocessTimeoutError` carga el `Popen` ya terminado para que el
+caller pueda verificar `poll() != None`.
 """
 from __future__ import annotations
 
 import os
 import signal
 import subprocess
+import threading
 from dataclasses import dataclass
 from typing import Sequence
 
@@ -50,6 +51,10 @@ def _matar_el_grupo(proc: subprocess.Popen) -> None:
         pass
 
 
+def _lee(pipe, destino: list[str]) -> None:
+    destino.append(pipe.read())
+
+
 def run_subprocess(
     args: Sequence[str],
     timeout: int,
@@ -69,18 +74,34 @@ def run_subprocess(
         # Su propia sesión y su propio grupo, para poder matar después **todo** lo que lance.
         start_new_session=True,
     )
+    # Los pipes se leen en hilos y se espera **al proceso**, no al fin de los pipes, que es lo
+    # que hace `communicate`. Un hijo que el guion deja corriendo hereda el stdout: con
+    # `communicate` la ejecución esperaba a ese hijo hasta el timeout y devolvía un 504 en vez
+    # del resultado. Ahora, en cuanto el guion acaba, se mata el grupo, los pipes se cierran y
+    # los hilos terminan de leer.
+    salida: list[str] = []
+    errores: list[str] = []
+    lectores = [
+        threading.Thread(target=_lee, args=(proc.stdout, salida), daemon=True),
+        threading.Thread(target=_lee, args=(proc.stderr, errores), daemon=True),
+    ]
+    for lector in lectores:
+        lector.start()
     try:
-        stdout, stderr = proc.communicate(timeout=timeout)
+        proc.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
         proc.kill()
-        try:
-            # Drena los pipes para que el proceso muerto sea reapado y no quede zombie.
-            proc.communicate(timeout=2)
-        except subprocess.TimeoutExpired:
-            pass
+        _matar_el_grupo(proc)
+        proc.wait(timeout=2)
+        for lector in lectores:
+            lector.join(timeout=2)
         raise SubprocessTimeoutError(proc)
     finally:
         _matar_el_grupo(proc)
+    for lector in lectores:
+        lector.join(timeout=2)
+    stdout = "".join(salida)
+    stderr = "".join(errores)
 
     truncated = False
     if stdout is not None and len(stdout) > stdout_cap_bytes:
