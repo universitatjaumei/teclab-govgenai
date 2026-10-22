@@ -8,7 +8,7 @@ humano o agente de IA.
 > - `planificacion/PLAN_DESARROLLO.md` — **cuándo y en qué orden** se construye (3 Fases Funcionales, calendario).
 > - `planificacion/Plan_TDD_Fase1.md` / `planificacion/Plan_TDD_Fase2.md` / `planificacion/Plan_TDD_Fase3.md` — **cómo** se construye cada pieza (prompts TDD Red/Green).
 > - `AGENTS.md` — **reglas operativas** para agentes de programación, cualquiera que uses (retirada de legacy, frontera edge/cloud, portabilidad, shell, migraciones). En caso de conflicto, **AGENTS.md manda**. El `CLAUDE.md` de la raíz solo lo importa, porque Claude Code busca ese nombre.
-> - `planificacion/PROJECT_STATE.md` — estado actual y cursor de cada plan.
+> - Las *issues* y los hitos de GitHub — el estado del desarrollo: qué está hecho, en curso y pendiente.
 
 ---
 
@@ -178,11 +178,11 @@ que hoy no existe, no la revisión.
 
 ## 🤖 1. Reglas para agentes de IA
 
-- **Análisis previo obligatorio**: antes de proponer cambios, lee `docs/Arquitectura.md` (soberanía del dato, jerarquía de servicios, frontera Cloud/Edge) y `AGENTS.md` (reglas duras). Localiza el cursor en `planificacion/PROJECT_STATE.md`.
+- **Análisis previo obligatorio**: antes de proponer cambios, lee `docs/Arquitectura.md` (soberanía del dato, jerarquía de servicios, frontera Cloud/Edge) y `AGENTS.md` (reglas duras). Localiza la *issue* y su hito.
 - **Inyección de dependencias, no instanciación manual**: en el servidor FastAPI usa `Depends`. **No** instancies servicios a mano ni accedas a sus métodos privados a través de la frontera HTTP.
 - **Autonomía con responsabilidad**: ejecuta cambios alineados con la arquitectura y reporta tras la ejecución. Si detectas código que viola los estándares, propón la refactorización.
 - **Divide y vencerás**: descompón tareas complejas en pasos pequeños y verificables.
-- **Actualiza `planificacion/PROJECT_STATE.md`** al cerrar cualquier prompt que avance un paso de un plan.
+- **Cierra la *issue* desde el commit o la PR** (`Closes #N`) al terminar el paso que resuelve.
 
 ---
 
@@ -264,14 +264,19 @@ programación y para que un humano pueda auditar lo que hizo. No hay que adoptar
 contribuir —al final de esta sección se dice qué parte no se te pide— pero sí conviene entenderlo,
 porque explica la forma de los ficheros que vas a encontrar.
 
-### Las cuatro piezas
+### Las tres piezas, y una cuarta del principio
 
 | Pieza | Qué es | Se lee cuando |
 |---|---|---|
-| **Planificación por prompts** (`planificacion/Plan_TDD_*.md`) | El trabajo pendiente escrito como instrucciones ejecutables, agrupadas en **bloques**. Cada prompt lleva su objetivo, sus tests mínimos y su verificación | Vas a implementar algo que ya está planificado |
-| **El cursor** (`planificacion/PROJECT_STATE.md`) | La fuente de verdad del progreso: qué bloque está en curso, qué prompt viene, qué quedó cerrado | Empiezas a trabajar |
-| **El historial** (`planificacion/HISTORIAL.md`) | Una fila por prompt cerrado, con **qué se midió, qué se desvió del plan y qué defecto apareció al verificar** | Quieres saber por qué algo está así antes de cambiarlo |
+| **Las *issues* y los hitos** (GitHub, ordenados por temas en [`ROADMAP.md`](ROADMAP.md)) | El trabajo pendiente y su estado. Cada *issue* es un paso, con su alcance, sus tests y su verificación; un hito agrupa los de un **bloque** | Vas a implementar algo, o quieres saber dónde está el desarrollo |
+| **El historial** (`planificacion/HISTORIAL.md`) | Una fila por paso cerrado, con **qué se midió, qué se desvió del plan y qué defecto apareció al verificar** | Quieres saber por qué algo está así antes de cambiarlo |
 | **Las especificaciones** ([`docs/ESPECIFICACIONES.md`](docs/ESPECIFICACIONES.md)) | Qué **garantiza** el sistema, capacidad por capacidad, con sus invariantes y dónde se hacen cumplir | Vas a tocar código y no quieres romper una garantía |
+
+**La cuarta pieza es histórica.** La Fase 1 se planificó como prompts en ficheros
+(`planificacion/Plan_TDD_Fase1.md` y `planificacion/fase1/`), con un **cursor** en
+`planificacion/PROJECT_STATE.md` que el agente movía al cerrar cada prompt. Es un sistema que sólo
+funciona cuando trabaja una persona; con más de un escritor se queda atrás, y eso pasó. Ya no se
+actualiza: lo que quede pendiente de él se abre como *issue* cuando se retoma.
 
 La distinción que más se confunde: **un plan dice «haz X»; una especificación dice «el sistema
 garantiza Y»**. Para saber qué puedes cambiar sin romper nada, la especificación; para saber qué
@@ -279,18 +284,20 @@ falta y en qué orden, el plan.
 
 ### El bucle, y por qué es así
 
-Un bloque se ejecuta prompt a prompt, y cada prompt cierra igual:
+Un bloque se ejecuta paso a paso, y cada paso cierra igual:
 
 ```
-RED → GREEN → REFACTOR → verificaciones de cierre → actualizar el cursor → un commit firmado
+RED → GREEN → REFACTOR → verificaciones de cierre → actualizar el estado → un commit firmado
 ```
+
+Actualizar el estado es que el commit cierre su *issue* y que quede la fila del historial.
 
 Tres cosas de ese bucle no son ceremonia:
 
-- **Un commit por prompt, firmado.** Es lo que hace reversible un bloque largo: si el prompt 5
+- **Un commit por paso, firmado.** Es lo que hace reversible un bloque largo: si el paso 5
   rompe lo que hizo el 3, hay un punto exacto al que volver. Sin eso, un bloque de siete pasos es
   un solo commit gigante que no se puede revertir a medias.
-- **Los tests escalonados.** Durante el prompt, sólo el fichero que estás escribiendo; al cerrarlo,
+- **Los tests escalonados.** Durante el paso, sólo el fichero que estás escribiendo; al cerrarlo,
   los directorios que toca; al cerrar el bloque, la suite entera. Correr la suite completa después
   de cada cambio cuesta más de una hora y no aporta información nueva.
 - **El historial se escribe al cerrar, no al planificar.** Lo que vale de él es lo que sólo se sabe
@@ -307,16 +314,16 @@ sospechoso, primero se comprueba el medidor.
 **Deja escrito el por qué, no el qué.** El *qué* está en el diff. Lo que se pierde es por qué se
 descartó la otra opción, y eso se paga cuando alguien la reimplementa de buena fe dos meses
 después. En este proyecto va en tres sitios según su alcance: en el **docstring** si es local, en
-`HISTORIAL.md` si es del prompt, y en una **decisión de arquitectura** si condiciona al resto —ver
+`HISTORIAL.md` si es del paso, y en una **decisión de arquitectura** si condiciona al resto —ver
 [`docs/DECISIONES.md`](docs/DECISIONES.md), que dice cuándo hace falta una y cuándo basta una fila
 del historial—.
 
 ### Qué NO se te pide como contribuidor externo
 
-- **No tienes que planificar por prompts.** Eso es la herramienta del mantenedor para dirigir a un
-  agente. Tu contribución puede ser un PR normal.
-- **No tienes que actualizar el cursor** (`PROJECT_STATE.md`) salvo que estés cerrando un prompt
-  planificado. Si tu cambio no corresponde a un paso del plan, no lo toques.
+- **No tienes que escribir tus *issues* como prompts.** Enumerar los tests en el cuerpo es la
+  herramienta del mantenedor para dirigir a un agente. Tu contribución puede ser un PR normal.
+- **No toques `PROJECT_STATE.md`.** Es el cursor de la Fase 1 y ya no se actualiza. Si tu PR
+  resuelve una *issue*, basta con `Closes #N`.
 - **No tienes que escribir en `HISTORIAL.md`.** Lo relevante de tu cambio va en el PR; el
   mantenedor lo integra donde toque.
 

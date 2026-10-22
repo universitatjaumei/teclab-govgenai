@@ -1,7 +1,9 @@
-# `planificacion/` — el plan, el cursor y el historial
+# `planificacion/` — el plan de la Fase 1, su cursor y el historial
 
-Estos documentos no describen el producto: **lo dirigen**. Son los instrumentos con los que se
-ejecuta el desarrollo, y cambian a diario. La documentación estable —arquitectura, decisiones,
+Estos documentos no describen el producto: **lo dirigieron**. **El estado del desarrollo ya no está
+aquí**: está en las *issues* y los hitos de GitHub, ordenados por temas en
+[`../ROADMAP.md`](../ROADMAP.md). Esta carpeta guarda el plan de la Fase 1, escrito como prompts, y
+el historial, que sigue creciendo. La documentación estable —arquitectura, decisiones,
 manuales— vive en `docs/`.
 
 > **Si lo que buscas es qué garantiza el sistema, esto no es.** Un plan dice «haz X»; lo que
@@ -11,11 +13,11 @@ manuales— vive en `docs/`.
 
 | Fichero | Para qué |
 |---|---|
-| `PROJECT_STATE.md` | **La fuente de verdad del progreso.** Cursor actual, planes activos, modelo sugerido para el próximo prompt y los bloques cerrados recientes. Se lee al arrancar cada sesión. |
-| `HISTORIAL.md` | El archivo: una fila por prompt cerrado, con qué se desvió del plan y qué defecto apareció al verificar. Se consulta para saber **por qué** algo se hizo así. |
+| `PROJECT_STATE.md` | **El cursor de la Fase 1**, con sus bloques y el modelo sugerido de cada prompt. Fue la fuente de verdad del progreso mientras el desarrollo tuvo un solo escritor; dejó de actualizarse el 2026-09-26 y se conserva como registro. Lo que quede pendiente en él se abre como *issue* cuando se retoma. |
+| `HISTORIAL.md` | El archivo: una fila por paso cerrado —prompt o *issue*—, con qué se desvió del plan y qué defecto apareció al verificar. Se consulta para saber **por qué** algo se hizo así. |
 | `PLAN_DESARROLLO.md` | El plan a alto nivel: fases, subfases y qué entrega cada una. |
 | `PLAN_TDD_DETALLADO.md` | Prompts detallados de las fases iniciales. |
-| `Plan_TDD_Fase1.md` | **El índice** de la Fase 1 — hub informativo, personalización y redacción. Es el plan en curso. Eran 27.449 líneas en un fichero; ahora cada bloque y cada fase viven en `fase1/`, con su número de orden delante. |
+| `Plan_TDD_Fase1.md` | **El índice** de la Fase 1 — hub informativo, personalización y redacción. Eran 27.449 líneas en un fichero; ahora cada bloque y cada fase viven en `fase1/`, con su número de orden delante. Fue el último plan escrito como prompts. |
 | `fase1/` | Un fichero por bloque o fase: los prompts, sus tests mínimos y su verificación. Es lo que se lee para implementar, y lo que se puede revisar en un *pull request*. |
 | `Plan_TDD_Fase2.md`, `Plan_TDD_Fase3.md` | **Cerrados el 2026-09-23 y no se van a ejecutar.** Los sustituyen los temas 4 («automatización gobernada») y 8 («trámites asistidos con IA») de [`../ROADMAP.md`](../ROADMAP.md), cada uno con cuatro hitos en GitHub. Se conservan como historia: la cabecera de cada uno dice qué cayó, qué se hizo bajo otro nombre y qué sobrevive. |
 

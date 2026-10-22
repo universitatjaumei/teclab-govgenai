@@ -4,8 +4,8 @@
 > este documento desarrolla en detalle la sección "Ejecución agéntica por bloques".
 > Adoptada el 2026-07-27.
 
-El agente ejecuta los prompts del plan de desarrollo **de forma autónoma y secuencial,
-por bloques**, sin pedir confirmación entre prompts. La interacción humana se concentra
+El agente ejecuta los pasos del plan de desarrollo **de forma autónoma y secuencial,
+por bloques**, sin pedir confirmación entre pasos. La interacción humana se concentra
 en tres momentos: el arranque del bloque, las decisiones de criterio, y el cierre del
 bloque con sus pruebas manuales.
 
@@ -13,68 +13,77 @@ bloque con sus pruebas manuales.
 
 ## 1. Qué es un bloque
 
-Un bloque es el grupo de prompts numerados que `planificacion/PROJECT_STATE.md` presenta como una fila
-de la tabla de planes activos. Ejemplos reales:
+Un bloque es un **hito de GitHub con sus *issues***: cada *issue* es un paso, y su cuerpo dice el
+alcance, los tests y la verificación de cierre. El estado del bloque es el de sus *issues*.
 
-| Bloque | Prompts |
+**Así se sigue hoy, y no fue así al principio.** La Fase 1 se escribió como prompts numerados en
+`planificacion/fase1/`, y un bloque era una fila de la tabla de planes activos de
+`planificacion/PROJECT_STATE.md`, con un cursor que el agente movía al cerrar cada prompt. Ese
+sistema sólo funciona con un único escritor: con varias sesiones de agente a la vez se convierte
+en un fichero que todas tienen que editar. El cursor dejó de actualizarse el 2026-09-26 y se
+conserva como registro. La razón completa está en `MARCO_DESARROLLO_AGENTICO.md` §4.4 y §4.7.
+
+Ejemplos reales de bloques, de las dos épocas:
+
+| Bloque | Pasos |
 |---|---|
-| Fase 11 — Autoinstalación | 11.1 → 11.3 |
-| Bloque SEC — Endurecimiento de seguridad | SEC.1 → SEC.7 |
-| Bloque ING.0 — Ingesta de corpus curado | ING.0.1 → ING.0.2 |
-| Bloque RAG — Refuerzo del retrieval | RAG.1 → RAG.14 |
-| Bloque CAL — Deuda de calidad | CAL.1 → CAL.5 |
+| Bloque SEC — Endurecimiento de seguridad (Fase 1, prompts) | SEC.1 → SEC.7 |
+| Bloque RAG — Refuerzo del retrieval (Fase 1, prompts) | RAG.1 → RAG.14 |
+| Automatización gobernada 5 — agentes de unidad (hito 17) | #172 → #176 |
+| Endurecimiento y calidad — auditoría del 2026-10-21 (hito 19) | #268 → #285 |
 
 **El bloque es la unidad de interacción.** Una vez arrancado, el agente no informa hasta
 cerrarlo (salvo criterios de parada del §3).
 
-Cuando un bloque es muy largo (RAG tiene 14 prompts), el agente puede proponer al
+Cuando un bloque es muy largo (RAG tenía 14 prompts), el agente puede proponer al
 arrancar partirlo en tandas coherentes — p. ej. `RAG.1→RAG.6` (dataset + retrieval) y
 `RAG.7→RAG.14` — para que las pruebas manuales lleguen antes. La decisión es del usuario;
 si no dice nada, se ejecuta el bloque completo.
 
 ### Cómo se arranca
 
-El usuario escribe algo como *"ejecuta el bloque SEC"* o *"continúa con el bloque en curso"*.
+El usuario escribe algo como *"ejecuta el hito 19"* o *"continúa con el bloque en curso"*.
 El agente entonces:
 
-1. Lee `planificacion/PROJECT_STATE.md`, localiza el cursor y el bloque.
-2. Lee **verbatim** los prompts del bloque en el plan correspondiente
-   (`planificacion/Plan_TDD_Fase1.md`, `planificacion/Plan_TDD_Fase2.md`, ...).
-3. Comprueba el **modelo sugerido** de cada prompt del bloque. Si alguno sugiere un modelo
+1. Localiza el hito y lista sus *issues* abiertas (`gh issue list --milestone "<hito>"`).
+2. Lee **verbatim** el cuerpo de cada *issue* del bloque.
+3. Comprueba el **modelo sugerido** de cada paso del bloque. Si alguno sugiere un modelo
    más capaz que el de la sesión, lo dice **una sola vez, antes de empezar**, y espera
    decisión. No vuelve a interrumpir por este motivo dentro del bloque.
 4. Comprueba los prerrequisitos externos del bloque (BD arrancada, corpus entregado,
    credenciales). Si falta alguno, para antes de empezar.
-5. Ejecuta el bucle del §2 sobre cada prompt, en orden.
+5. Ejecuta el bucle del §2 sobre cada paso, en orden.
 
 ---
 
-## 2. Bucle por prompt (interno, sin interacción)
+## 2. Bucle por paso (interno, sin interacción)
 
-Para cada prompt del bloque, en este orden:
+Para cada paso del bloque, en este orden:
 
-1. **Leer el prompt verbatim** del plan. No reinterpretar el alcance ni añadir features
+1. **Leer la *issue* verbatim**. No reinterpretar el alcance ni añadir features
    no pedidas.
-2. **RED** — escribir los tests enumerados en el prompt y verificar que fallan por la
+2. **RED** — escribir los tests enumerados en la *issue* y verificar que fallan por la
    razón correcta (no por error de import o de fixture).
 3. **GREEN** — implementación mínima que los pone en verde.
 4. **REFACTOR** — limpieza manteniendo el verde.
-5. **Verificaciones de cierre** (todas las que apliquen al prompt):
+5. **Verificaciones de cierre** (todas las que apliquen al paso):
    - Suite completa del ámbito tocado en verde (`pytest`, `vitest`, `tsc -b`).
    - Migración Alembic **aplicada** (`uv run alembic upgrade <rev>` + `alembic current`).
    - Contrato regenerado si cambió la API (`export_openapi` + `npm run generate:api`).
 - Retirada del legacy según el checklist de `AGENTS.md`: se borra del árbol, y el historial de git es la referencia.
      y `grep -r` de referencias a cero.
-   - Verificación en navegador si el prompt toca UI (§4).
-6. **Actualizar `planificacion/PROJECT_STATE.md`**: marcar el paso ✅, mover el cursor, añadir fila al
-   historial reciente.
-7. **Commit** — un commit Conventional por prompt, con el identificador del prompt en el
-   asunto (p. ej. `feat(sec): SEC.2 aislamiento multi-tenant por organizacion_id`).
-   Sin `Co-Authored-By`. **Sin push.** El commit por prompt es lo que hace reversible un
-   bloque largo: si el prompt 5 rompe el 3, hay un punto exacto al que volver.
-8. **Siguiente prompt**, sin informar.
+   - Verificación en navegador si el paso toca UI (§4).
+6. **Actualizar el estado**: el commit lleva `Closes #N` para que la *issue* se cierre al
+   mezclar, y se añade una fila arriba de `planificacion/HISTORIAL.md` con lo que se aprendió.
+   Si el paso queda a medias, la *issue* se retitula por lo que falta y lo hecho va arriba de su
+   cuerpo.
+7. **Commit** — un commit Conventional por paso, con el número de la *issue* en el asunto
+   (p. ej. `fix(#265): una subida sin URL no pisa a otra del mismo nombre`).
+   Sin `Co-Authored-By`. **Sin push.** El commit por paso es lo que hace reversible un
+   bloque largo: si el paso 5 rompe el 3, hay un punto exacto al que volver.
+8. **Siguiente paso**, sin informar.
 
-Los fallos **preexistentes** ajenos al prompt (ver `planificacion/PROJECT_STATE.md` y la memoria de
+Los fallos **preexistentes** ajenos al paso (ver las *issues* abiertas y la memoria de
 gaps del suite) no bloquean el avance: se anotan y se sigue.
 
 ---
@@ -99,8 +108,8 @@ El agente rompe la autonomía **solo** por estas causas:
 
 - **Desviaciones entre el plan y el código real.** El agente aplica la interpretación más
   fiel al espíritu del prompt, sin inventar infraestructura que no existe ni añadir
-  features no pedidas, lo registra como *"Desviación documentada"* en la fila de historial
-  de `planificacion/PROJECT_STATE.md`, y sigue. Todas las desviaciones se resumen en el informe de cierre.
+  features no pedidas, lo registra como *"Desviación documentada"* en la fila de
+  `planificacion/HISTORIAL.md`, y sigue. Todas las desviaciones se resumen en el informe de cierre.
 - Fallos de test preexistentes ya inventariados.
 - Dudas de estilo, nombres o estructura interna resolubles con las reglas de `AGENTS.md`.
 
@@ -214,7 +223,7 @@ Para desactivar la autonomía temporalmente: `/hooks` y deshabilitar los dos hoo
 
 Al cerrar el bloque, el agente entrega **un solo mensaje** con:
 
-1. **Prompts cerrados** — identificador, una línea cada uno, y el commit.
+1. **Pasos cerrados** — número de la *issue*, una línea cada uno, y el commit.
 2. **Tests** — cifras reales por suite (backend, frontend, a11y, contract) y cualquier
    rojo preexistente que siga ahí.
 3. **Migraciones** — revisiones aplicadas y `alembic current`.

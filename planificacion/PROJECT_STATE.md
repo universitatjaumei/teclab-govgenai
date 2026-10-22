@@ -1,7 +1,9 @@
 # Estado del Proyecto — Gov Gen AI Platform
 
-> Actualizado automáticamente al final de cada prompt de desarrollo.
-> Fuente de verdad para saber en qué paso está cada plan activo.
+> **Este cursor ya no se actualiza.** Lo fue al final de cada prompt mientras el desarrollo tuvo un
+> solo escritor, y se dejó de mover el 2026-09-26. El estado del desarrollo está en las *issues* y
+> los hitos de GitHub. Se conserva como registro de la Fase 1: lo que quede pendiente aquí se abre
+> como *issue* cuando se retoma. Razón en `docs/MARCO_DESARROLLO_AGENTICO.md` §4.4.
 
 ---
 

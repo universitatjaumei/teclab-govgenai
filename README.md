@@ -24,17 +24,34 @@ contrato. El desarrollo del principio y su encaje normativo —Reglamento (UE) 2
 39/2015 y 40/2015, Esquema Nacional de Seguridad— está en `docs/PRESENTACION_PROYECTO.md` y
 `docs/MARCO_GOBERNANZA_IA.md`.
 
-Lo que hace, sobre una misma base:
+La plataforma se publicó con **tres módulos** —asistentes sobre normativa propia, redacción
+asistida de informes y curación del portal— y se ha ido ampliando con servicios de automatización
+y de gobernanza. Todo funciona sobre la misma base: las mismas organizaciones, los mismos módulos
+concedidos y el mismo registro.
+
+**Los tres módulos de partida**
 
 | Área | Qué hace |
 |---|---|
 | **Chatbots** | Asistentes con recuperación sobre corpus normativo propio (RAG en tres niveles), publicables como widget embebible o como agente identificado. |
 | **Informes** | Redacción asistida de informes: extracción determinista de PDF y hojas de cálculo, transformación declarativa de los datos, gráficos, y valoración escrita por el modelo y **aprobada o editada por una persona** antes de exportar. Cuando un documento es tan irregular que hay que programar su lectura, el código se audita y se ejecuta en un sandbox sin red. |
+| **Curación** | Rastreo del portal institucional, detección de contenido caducado o contradictorio, y selección de lo que entra al corpus. Un apartado que cambia a menudo —jornadas, becas, eventos— se parametriza una vez y la plataforma lo mantiene al día. |
+
+**Lo que se ha añadido después**
+
+| Área | Qué hace |
+|---|---|
 | **Automatización** | El catálogo de funciones: código determinista con contrato declarado, versionado e inmutable, que se registra sin aprobación previa y se revisa después. También **registra lo que corre fuera** —un cuaderno se da de alta por su hash, sin ejecutarlo— para que la institución sepa qué automatizaciones circulan. |
 | **Agentes de unidad** | Una unidad publica un agente —un prompt, una carpeta de documentos y un índice— que ejecuta el asistente general que la organización ya tiene (hoy, Gemini). La plataforma elige los documentos de cada consulta, compone el prompt con sus enlaces y registra el uso; una extensión de Chrome lo inserta al lado del asistente. |
-| **Curación** | Rastreo del portal institucional, detección de contenido caducado o contradictorio, y selección de lo que entra al corpus. |
-| **Registro de actividad IA** | El sitio donde las herramientas, también las de fuera (por API o MCP), declaran sus usos de IA: metadatos, nunca contenido. |
+| **Registro de actividad IA** | El sitio donde las herramientas, también las de fuera, declaran sus usos de IA: metadatos, nunca contenido. Sirve al registro que piden el Reglamento de IA y el RGPD. |
+| **Verificaciones como servicio** | Tres comprobaciones que la plataforma se aplica a sí misma, ofrecidas a quien desarrolla fuera: el contrato de citas, la vigencia de un documento del corpus y la auditoría estática de código. |
 | **Utilidades** | Unir, dividir y optimizar PDF y anonimizar una hoja de cálculo sin subirlos a webs que no aseguran el RGPD. |
+
+**Cómo se conecta con lo de fuera.** Además del panel y del widget, la plataforma se usa desde
+otras herramientas por tres vías: una **API con tokens personales** que sólo entran donde el
+endpoint declara el alcance que aceptan, un **servidor MCP** —local o remoto— para asistentes y
+agentes de código, y la **extensión de Chrome** de los agentes de unidad. Se entra con contraseña,
+con **Google** acotado al dominio de la institución o con **SAML**.
 
 Cada área se abre con un **módulo concedido**, no con un rol; el detalle, en
 `docs/ESPECIFICACIONES.md` §5.6.
@@ -162,7 +179,7 @@ mcp_server/             servidor MCP, stdio y remoto
 shared/                 tipos y contratos compartidos (`automatia_shared`)
 services/               microservicios aislados: `script_sandbox`
 docs/                   arquitectura, decisiones, manuales, casos guía
-planificacion/          plan de desarrollo, cursor del trabajo e historial
+planificacion/          los planes por prompts de la fase 1, su cursor y el historial
 pruebas_manuales/       guiones .bat de lo que sólo puede juzgar una persona
 ```
 
@@ -193,7 +210,10 @@ directorio. CI, el despliegue y el `Dockerfile` trabajan con `server/pyproject.t
   del proyecto. Vale para cualquier agente, no solo para Claude Code: el `CLAUDE.md` de la raíz
   es un fichero de tres líneas que importa este, porque Claude Code busca ese nombre por
   convención.
-- `planificacion/PROJECT_STATE.md` — dónde está el desarrollo ahora mismo.
+- **El estado del desarrollo** está en las *issues* y los hitos de GitHub, ordenados por temas en
+  `ROADMAP.md`. `planificacion/HISTORIAL.md` guarda lo que se aprendió al cerrar cada paso.
+  `planificacion/PROJECT_STATE.md` es el cursor con el que se siguió la fase 1, y ya no se
+  actualiza: lo que quede pendiente de él se abre como *issue* cuando se retoma.
 
 ## Estado
 
