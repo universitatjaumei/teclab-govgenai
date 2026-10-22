@@ -35,10 +35,14 @@ Sin sesión de base de datos en ninguna función: entra dato, sale dato.
 """
 from __future__ import annotations
 
-import re
+import logging
 import uuid
 from dataclasses import dataclass
 from typing import Any
+
+import regex as _regex
+
+logger = logging.getLogger(__name__)
 
 #: Las clases de patrón que `casa_patron` entiende. La lección de VER.8 con las reglas de
 #: selección: un tipo que ningún comparador entiende es una sección que **no puede casar nunca**,
@@ -75,12 +79,35 @@ def validar_patron(pattern_kind: str, pattern: str | None) -> str:
     limpio = pattern.strip()
     if pattern_kind == "regex":
         try:
-            re.compile(limpio)
-        except re.error as fallo:
+            _regex.compile(limpio)
+        except _regex.error as fallo:
             raise PatronInvalido(
                 f"«{limpio}» no es una expresión regular válida: {fallo}"
             ) from fallo
     return limpio
+
+
+#: Lo más que puede tardar un patrón en una URL. Una URL legítima se resuelve en microsegundos.
+TIEMPO_MAXIMO_DE_UN_PATRON = 0.05
+
+
+def busca_con_tope(pattern: str, url: str) -> bool:
+    """`regex.search` con tiempo máximo: lo que no termina a tiempo, no casa.
+
+    Los patrones los escribe un administrador de curación y se aplican a cada URL descubierta
+    dentro del bucle de eventos. `re` no tiene tope y no suelta el GIL mientras busca, así que un
+    patrón con retroceso catastrófico —`^(a+)+$`— contra una URL preparada paraba la API entera,
+    y ni pasarlo a otro hilo lo habría evitado.
+    """
+    try:
+        return _regex.search(pattern, url, timeout=TIEMPO_MAXIMO_DE_UN_PATRON) is not None
+    except TimeoutError:
+        logger.warning("Patrón de URL que no termina a tiempo: %r", pattern)
+        return False
+    except _regex.error:
+        # Un patrón inválido guardado antes de que esto se validara no puede tumbar un
+        # rastreo entero: no casa, y el alta ya no lo admite.
+        return False
 
 
 def casa_patron(pattern_kind: str, pattern: str, url: str) -> bool:
@@ -98,12 +125,7 @@ def casa_patron(pattern_kind: str, pattern: str, url: str) -> bool:
 
         return urlparse(url).path.startswith(pattern)
     if pattern_kind == "regex":
-        try:
-            return re.search(pattern, url) is not None
-        except re.error:
-            # Un patrón inválido guardado antes de que esto se validara no puede tumbar un
-            # rastreo entero: no casa, y el alta ya no lo admite.
-            return False
+        return busca_con_tope(pattern, url)
     return False
 
 

@@ -118,11 +118,16 @@ def _render_pdf(markdown_text: str, run_id: uuid.UUID) -> bytes:
         leftMargin=2.5 * cm,
         rightMargin=2.5 * cm,
     )
+    from xml.sax.saxutils import escape
+
     styles = getSampleStyleSheet()
     story = []
 
+    # `Paragraph` interpreta un marcado propio —`<img src=…>` lee un fichero local del servidor y
+    # una etiqueta mal cerrada tumba la exportación—, y el texto de una conversación lo escribe
+    # quien pregunta. Se escapa cada línea; la negrita que pone esta función va después.
     for line in markdown_text.split("\n"):
-        stripped = line.strip()
+        stripped = escape(line.strip())
         if not stripped:
             story.append(Spacer(1, 0.3 * cm))
         elif stripped.startswith("# "):

@@ -128,11 +128,13 @@ async def login_superadmin(
     )
     superadmin = result.first()
 
-    if (
-        not superadmin
-        or not superadmin.is_active
-        or not verify_password(body.password, superadmin.hashed_password)
-    ):
+    # Como en `login_admin` y `login_usuario`: se compara **siempre**, contra el hash guardado o
+    # contra el señuelo. Antes, un correo que no existía respondía sin hacer bcrypt y el tiempo de
+    # respuesta decía qué correos son de superadministrador.
+    hash_almacenado = getattr(superadmin, "hashed_password", None) if superadmin else None
+    contrasena_valida = verify_password(body.password, hash_almacenado or _HASH_SENUELO)
+
+    if not superadmin or not superadmin.is_active or not hash_almacenado or not contrasena_valida:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials",

@@ -70,6 +70,10 @@ dependencies = [
     # DEP.1 — mismo caso, tercera vez. `bs4` se importa en el NIVEL SUPERIOR de
     # `html_analyzer_service.py` y de `normativa_spider.py`, sin guarda, y llegaba de rebote.
     "beautifulsoup4>=4.12",
+    # Los patrones de URL que escribe un administrador de curación se buscan con `regex` y un
+    # tiempo máximo: `re` no tiene tope y no suelta el GIL, así que un patrón catastrófico paraba
+    # la API entera (2026-10-22). Ya llegaba de rebote por `tiktoken`; se declara porque se importa.
+    "regex>=2024.11.6",
     # DEP.1 — sostiene el proveedor **Ollama**: `model_factory.py` hace
     # `from langchain_community.chat_models import ChatOllama` dentro de la rama `ollama`.
     # El import es perezoso pero NO está guardado, así que sin esta línea configurar Ollama
