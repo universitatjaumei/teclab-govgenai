@@ -50,7 +50,7 @@ APP = RAIZ / "server" / "app"
 MANIFIESTO = RAIZ / "server" / "pyproject.toml"
 
 #: Nombres que no son paquetes de terceros.
-PROPIOS = {"server", "app", "shared", "automatia_shared", "tests"}
+PROPIOS = {"server", "app", "tests"}
 
 #: Módulos cuyo nombre de import NO coincide con el de su distribución.
 DISTRIBUCION = {

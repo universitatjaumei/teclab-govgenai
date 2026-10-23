@@ -29,16 +29,3 @@ class TestDocumentHasher:
 
         assert hash1 != hash2
 
-    def test_hash_file_returns_hash(self) -> None:
-        from server.app.modules.agents_hub.ingestion.hasher import hash_file
-        from pathlib import Path
-        import tempfile
-
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
-            f.write("Contenido del archivo")
-            temp_path = f.name
-
-        result = hash_file(Path(temp_path))
-        assert len(result) == 64
-
-        Path(temp_path).unlink()

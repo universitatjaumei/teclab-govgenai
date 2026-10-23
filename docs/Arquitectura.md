@@ -238,8 +238,8 @@ Los apartados de un sitio son parametrizables y tienen ciclo de vida propio:
 
 ### 5.4 `automation`, que no es un módulo de usuario
 
-Cinco ficheros —`cortex.py`, `extraction_strategies.py` y el `llm_gateway` de
-`infrastructure/`— que consume Informes. **No tiene routers registrados ni interfaz.** Lo que la
+Cuatro ficheros —`extraction_strategies.py` y el `llm_gateway` de `infrastructure/`, con sus
+`__init__`— que consume Informes. `cortex.py` se retiró en #271: nadie lo importaba. **No tiene routers registrados ni interfaz.** Lo que la
 planificación llamaba «automatización» aterrizó en `redaccion/`, y es la ruta que más veces se
 escribe de memoria y no existe.
 
@@ -369,8 +369,8 @@ server/app/
 │   ├── curation/      spider, calidad de contenido, publicación
 │   ├── agentes/       agentes de unidad: acciones, índice, consulta, guion del índice
 │   ├── utilidades/    PDF y anonimización de un fichero
-│   └── automation/    cortex, estrategias de extracción, llm_gateway
-├── services/          agent, library, pricing, scheduler, token, manifest_signature
+│   └── automation/    estrategias de extracción, llm_gateway
+├── services/          api_key, model_fetcher, pricing, token
 └── scripts/           bootstrap.py — sembrado idempotente de primera instalación
 
 server/migrations/     99 revisiones de Alembic (fuera de `app/`, que es donde se busca)
@@ -689,7 +689,7 @@ Lo que decía y no era cierto, para que no vuelva por copia de una versión anti
 | Modelo de licenciamiento **dual-license** | Una licencia, AGPL; la dual es una posibilidad abierta y no ejercida (§15) |
 | Un árbol con `local-runner/`, `modules/expedientes/`, `frontend/src/agent/`, `frontend/src/automation/` y `server/app/api/` | Ninguno existe. `AGENTS.md` ya advertía que son las rutas que se escriben de memoria |
 | Tres módulos: Hub, AutomatIA y Expedientes | Construidos: Chatbots, Informes, Curación, Automatización gobernada, Agentes de unidad y Utilidades; los trámites asistidos, previstos sin código, y sin gestor de expedientes propio |
-| «Job Queue propia de AutomatIA» | No existe tal cosa: lo periódico va con APScheduler (`services/scheduler_service.py` para modelos y precios, `curation/quality_scheduler.py` para la revisión de portales) y lo disparado por una petición, con los *background tasks* de FastAPI |
+| «Job Queue propia de AutomatIA» | No existe tal cosa: lo periódico va con APScheduler (`curation/quality_scheduler.py`, la revisión de portales; el de modelos y precios se retiró en #271 porque nada lo arrancaba) y lo disparado por una petición, con los *background tasks* de FastAPI |
 | Un roadmap por trimestres hasta 2028 | El estado vivo está en `PROJECT_STATE.md` y el pendiente, como *issues* |
 
 Y lo que **callaba**: el módulo de Informes entero, la curación como producto propio, el registro

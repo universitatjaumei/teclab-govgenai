@@ -7,7 +7,6 @@ description = "AutomatIA Brain Server - SaaS AI Services"
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
 dependencies = [
-    "automatia-shared",
     # DEP.1 (arreglado el 2026-09-15, tras tumbar produccion) — `uvicorn` es lo que EJECUTA la
     # aplicacion: el `CMD` del Dockerfile es `uvicorn server.app.main:app`. Llegaba de rebote por
     # `browser-use -> mcp -> uvicorn`, y cuando DEP.1 mando `browser-use` al extra
@@ -166,13 +165,11 @@ url = "https://download.pytorch.org/whl/cpu"
 explicit = true
 
 [tool.uv.sources]
-automatia-shared = { path = "../shared", editable = true }
 govgenai-demo-perfil = { path = "tests/fixtures/paquete_perfil_demo", editable = true }
 torch = { index = "pytorch-cpu" }
 torchvision = { index = "pytorch-cpu" }
 
 [project.optional-dependencies]
-shared = ["automatia-shared"]
 # D.4.0: la pila de modelos locales. Está aquí y no en las dependencias base porque solo la
 # usan `LocalEmbeddingService` (BGE-M3) y `LocalReranker`: con embeddings por API y el
 # reranker apagado —el despliegue estándar— no se ejecuta nada de esto, pero se pagaba

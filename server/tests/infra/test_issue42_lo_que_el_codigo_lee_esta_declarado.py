@@ -280,11 +280,6 @@ CIEGOS_A_PROPOSITO = {
     # vigila. Sus variables están en la sección «Limite de peticiones» de `.env.example`,
     # comprobado a mano el 2026-09-20.
     "server/app/core/rate_limit.py",
-    # El nombre sale de la **tabla de proveedores** `_CONFIGS`, donde es el sexto campo de cada
-    # fila. Las cuatro —`GOOGLE_API_KEY`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY` y
-    # `OLLAMA_BASE_URL`— están declaradas; la última la destapó precisamente este guardarraíl al
-    # ampliarlo, y por eso la excepción se escribe **después** de cerrar el hueco y no antes.
-    "server/app/scripts/seed_llm_configs.py",
 }
 
 

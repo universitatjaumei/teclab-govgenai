@@ -188,7 +188,7 @@ Si no se usa ahora, no existe.
 server/app/modules/agents_hub/   ← RAG, LangGraph, chatbots, ingesta del corpus (105)
 server/app/modules/redaccion/    ← informes, plantillas, scripts, ETL, anonimización (96)
 server/app/modules/curation/     ← curación de portales (29)
-server/app/modules/automation/   ← cortex, estrategias de extracción, llm_gateway (5)
+server/app/modules/automation/   ← estrategias de extracción, llm_gateway (4)
 server/app/core/                 ← servicios compartidos: LLM gateway, auth, tenancy, storage
 server/app/routers/              ← la superficie HTTP, etiquetada `Deploy: cloud|edge|shared`
 frontend/src/admin/              ← panel admin hub + plataforma (64)
@@ -200,11 +200,11 @@ mcp_server/                      ← servidor MCP, stdio y remoto. NO importa `s
 ```
 
 Las cifras son ficheros versionados y están para dar escala, no para cuadrar: lo que importa es que
-`redaccion/` es casi tan grande como `agents_hub/` y `automation/` no es un módulo, son cinco
+`redaccion/` es casi tan grande como `agents_hub/` y `automation/` no es un módulo, son cuatro
 ficheros.
 
 **Tres advertencias, y las tres son rutas que se escriben de memoria y no existen.**
-`server/app/modules/automation/` tiene **cinco** ficheros: lo que la planificación llamaba
+`server/app/modules/automation/` tiene **cuatro** ficheros: lo que la planificación llamaba
 «automatización» aterrizó en `redaccion/`. **No hay** un `automation/` ni un `agent/` bajo
 `frontend/src/`. Y **el bloque REG no dejó un paquete Python**: su «módulo registro» es una fila de
 `hub_modules` —una unidad de licencia, lo que comprueba `require_module` con la clave `registro`—,
@@ -441,7 +441,7 @@ Clasificación, regulada en runtime por `DEPLOY_MODE=cloud|edge|all` (default
 
 | Capa | Cloud (admin/partner) | Edge (cliente) | Compartidos |
 |---|---|---|---|
-| **Routers HTTP** | `auth_router`, `hub_chatbots_router`, `hub_clients_router`, `library_router`, futuros `/hub/prompts`, `/hub/themes` | `hub_chat_router`, `ingestion_router`, `hub_tasks_router`, `hub_feedback_router`, futuros `/automation/*` | `edge_sync_router` (servido por cloud, consumido por edge) |
+| **Routers HTTP** | `auth_router`, `hub_chatbots_router`, `hub_clients_router`, futuros `/hub/prompts`, `/hub/themes` | `hub_chat_router`, `ingestion_router`, `hub_tasks_router`, `hub_feedback_router`, futuros `/automation/*` | `edge_sync_router` (servido por cloud, consumido por edge) |
 | **Módulos lógica** | El CRUD de plantillas de prompt (`server/app/routers/hub_prompt_templates_router.py`), gestión partners / billing | `agents_hub/agent/` (graph, task_runner, tools, hitl), `agents_hub/ingestion/`, `agents_hub/services/retriever`, `agents_hub/evaluation/`, **`modules/automation/` íntegro** | `core/auth`, `services/model_factory`, `services/embedding_service`, `services/config_provider` |
 
 **Reglas duras**:

@@ -105,18 +105,6 @@ updates:
     commit-message:
       prefix: "chore(deps)"
 
-  - package-ecosystem: uv
-    directory: /shared
-    target-branch: desarrollo
-    schedule:
-      interval: monthly
-    open-pull-requests-limit: 3
-    groups:
-      compartido:
-        update-types: ["minor", "patch"]
-        patterns: ["*"]
-    commit-message:
-      prefix: "chore(deps)"
 
   # ─── El frontend ───────────────────────────────────────────────────────────────────────────
   #

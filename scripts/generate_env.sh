@@ -74,11 +74,6 @@ LANGFUSE_ADMIN_PASSWORD="$(openssl rand -hex 12)"
 # con nombre propio en la consola del navegador que un comodín puesto por un script.
 CORS_ALLOWED_ORIGINS="${CORS_ALLOWED_ORIGINS:-}"
 
-# Clave RSA para la firma de manifiestos (AUTOMATIA_SIGNING_KEY). PKCS1 PEM;
-# server/app/services/manifest_signature_service.py normaliza '\n' literal a
-# saltos de línea reales al cargarla.
-RSA_PEM="$(openssl genrsa 2048 2>/dev/null)"
-AUTOMATIA_SIGNING_KEY="$(printf '%s\n' "$RSA_PEM" | awk 'BEGIN{ORS="\\n"} {print}')"
 
 if [ "$MODE" = "local" ]; then
   STORAGE_BACKEND="file"
@@ -212,9 +207,6 @@ PUBLICATION_MCP_URL=
 PUBLICATION_DATASET_INDEX=
 PUBLICATION_DATASET_CONTENT=
 PUBLICATION_DATASET_TOKEN=
-
-# === Firma de manifiestos (RSA, autogenerada) ===
-AUTOMATIA_SIGNING_KEY="${AUTOMATIA_SIGNING_KEY}"
 
 # === LangFuse (observabilidad — autogenerado, valores usados por docker-compose) ===
 LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}

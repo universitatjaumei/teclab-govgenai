@@ -108,7 +108,7 @@ cada variable para quien prefiera rellenarlas a mano.
 ```bash
 scripts/generate_env.sh              # genera .env, server/.env y frontend/.env con secretos
 docker compose up -d postgres        # el servicio se llama postgres, no db
-cd server; uv sync --extra shared    # añade --extra local-models si quieres los modelos en tu máquina
+cd server; uv sync    # añade --extra local-models si quieres los modelos en tu máquina
 uv run alembic upgrade head
 cd ..                                # el backend arranca DESDE LA RAÍZ, ver la nota de abajo
 uv run --project server uvicorn server.app.main:app --port 8000
@@ -176,14 +176,13 @@ server/app/core/        servicios compartidos: LLM gateway, auth, tenancy, stora
 frontend/src/           admin · agentes · automatizacion · curation · redaccion · utilidades · widget
 extension/              la extensión de Chrome de los agentes de unidad, que se carga tal cual
 mcp_server/             servidor MCP, stdio y remoto
-shared/                 tipos y contratos compartidos (`automatia_shared`)
 services/               microservicios aislados: `script_sandbox`
 docs/                   arquitectura, decisiones, manuales, casos guía
 planificacion/          los planes por prompts de la fase 1, su cursor y el historial
 pruebas_manuales/       guiones .bat de lo que sólo puede juzgar una persona
 ```
 
-**No hay proyecto Python en la raíz.** Los proyectos uv son cuatro —`server/`, `shared/`,
+**No hay proyecto Python en la raíz.** Los proyectos uv son tres —`server/`,
 `mcp_server/` y `services/script_sandbox/`—, y cada comando se lanza con `--project` o desde su
 directorio. CI, el despliegue y el `Dockerfile` trabajan con `server/pyproject.toml`.
 

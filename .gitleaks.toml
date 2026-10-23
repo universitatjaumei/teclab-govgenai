@@ -26,7 +26,6 @@ algo con la forma correcta que pasarle al código.
 """
 paths = [
     '''^server/tests/''',
-    '''^shared/tests/''',
     '''^mcp_server/tests/''',
     '''^frontend/src/.*__tests__/''',
     '''^frontend/src/.*\.test\.tsx?$''',

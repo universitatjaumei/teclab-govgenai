@@ -65,7 +65,7 @@ echo automatizaciones. Ahora debe negarse.
 echo.
 curl -s -o nul -w "  library/manifest sin token devuelve %%{http_code}\n" http://localhost:8000/api/v1/library/manifest
 echo.
-echo   Se espera 401. Un 200 aqui seria un fallo grave: avisa.
+echo   Se espera 404: la biblioteca se retiro en #271. Un 200 seria un fallo grave: avisa.
 echo.
 pause
 

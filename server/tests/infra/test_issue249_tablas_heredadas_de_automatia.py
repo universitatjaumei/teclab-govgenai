@@ -84,7 +84,7 @@ def test_nadie_nombra_las_clases_en_el_codigo():
     """Ni imports ni usos en `app`, `scripts` ni `mcp_server`; las migraciones antiguas sí."""
     patron = re.compile(r"\b(?:" + "|".join(CLASES) + r")\b")
     culpables: list[str] = []
-    for carpeta in (SERVER / "app", SERVER / "scripts", RAIZ / "mcp_server", RAIZ / "shared"):
+    for carpeta in (SERVER / "app", SERVER / "scripts", RAIZ / "mcp_server"):
         for fichero in carpeta.rglob("*.py"):
             if "__pycache__" in fichero.parts or ".venv" in fichero.parts:
                 continue

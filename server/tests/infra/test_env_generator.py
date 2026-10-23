@@ -11,7 +11,6 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from cryptography.hazmat.primitives.serialization import load_pem_private_key
 
 _ROOT = Path(__file__).parent.parent.parent.parent
 _SCRIPT = _ROOT / "scripts" / "generate_env.sh"
@@ -65,17 +64,6 @@ def test_should_generate_unique_random_jwt_secret_each_run(tmp_path: Path) -> No
     assert _HEX64.match(secret_a), secret_a
     assert _HEX64.match(secret_b), secret_b
     assert secret_a != secret_b
-
-
-def test_should_generate_valid_rsa_pem_for_signing_key(tmp_path: Path) -> None:
-    _run("--output-dir", str(tmp_path))
-    values = _parse_env(tmp_path / ".env")
-
-    raw = values["AUTOMATIA_SIGNING_KEY"].strip('"')
-    pem = raw.replace("\\n", "\n").encode("utf-8")
-
-    key = load_pem_private_key(pem, password=None)
-    assert key.key_size == 2048
 
 
 def test_should_not_overwrite_existing_env_without_force(tmp_path: Path) -> None:

@@ -272,7 +272,6 @@ class TestElInventarioDeRouters:
         # alimentan la cola de revisión de contenido. Mi inventario lo tenía mal.
         "hub_content_quality_router": "curacion",
         "hub_sites_router": "curacion",
-        "library_router": "plataforma",
         "hub_activity_prompts_router": "plataforma",
     }
 

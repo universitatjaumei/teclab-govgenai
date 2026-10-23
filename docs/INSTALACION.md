@@ -19,7 +19,7 @@
 | **Node 20 o superior** | El frontend (CI y el despliegue usan 24) |
 | **Git Bash**, si estás en Windows | La suite de tests y los guiones `.sh` lo necesitan |
 
-**No hay proyecto Python en la raíz.** Los proyectos uv son cuatro —`server/`, `shared/`,
+**No hay proyecto Python en la raíz.** Los proyectos uv son tres —`server/`,
 `mcp_server/` y `services/script_sandbox/`— y cada comando se lanza desde su directorio o con
 `--project`. Ejecutar `uv sync` en la raíz no instala nada útil.
 
@@ -70,7 +70,7 @@ que permite recargar en caliente y depurar.
 scripts/generate_env.sh
 docker compose up -d postgres            # el servicio se llama `postgres`, no `db`
 cd server
-uv sync --extra shared                   # ver §4 antes de decidir si añades --extra local-models
+uv sync                                  # ver §4 antes de decidir si añades --extra local-models
 uv run alembic upgrade head
 cd ..                                    # el backend arranca DESDE LA RAÍZ
 uv run --project server uvicorn server.app.main:app --port 8000
@@ -168,7 +168,7 @@ En **desarrollo**, el interruptor equivalente es el extra de uv:
 
 ```bash
 cd server
-uv sync --extra local-models --extra shared
+uv sync --extra local-models
 ```
 
 Sin él, el primer uso de embeddings falla con un mensaje que dice exactamente eso. **Con él, el
