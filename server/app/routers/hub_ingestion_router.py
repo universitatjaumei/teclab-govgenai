@@ -1,6 +1,6 @@
 """Router de administración (Hub) para la ingestión de documentos.
 
-Deploy: cloud
+Deploy: edge — maneja documentos, trabajos de ingesta y fragmentos del corpus, que son datos del cliente (#273).
 Módulo: chatbots — la ingesta alimenta el corpus de un chatbot.
 """
 
@@ -221,10 +221,7 @@ async def analyze_html(
     current_user: UserInfo = Depends(_ESCRIBE_EN_EL_CORPUS),
     llm_service=Depends(_get_llm_service),
 ):
-    """Propone selectores CSS para el contenido principal de un HTML institucional.
-
-    Deploy: cloud
-    """
+    """Propone selectores CSS para el contenido principal de un HTML institucional."""
     from server.app.modules.agents_hub.services.html_analyzer_service import (
         HtmlAnalyzerService,
         EmptyHtmlError,

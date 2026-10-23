@@ -508,7 +508,6 @@ def _register_cloud(app: FastAPI) -> None:
     app.include_router(pat_router, prefix="/api/v1")  # Deploy: cloud
     app.include_router(hub_chatbots_router, prefix="/api/v1")
     app.include_router(hub_organizaciones_router, prefix="/api/v1")
-    app.include_router(hub_ingestion_router, prefix="/api/v1")
     app.include_router(hub_llm_configs_router, prefix="/api/v1")
     app.include_router(hub_prompt_templates_router, prefix="/api/v1")
     app.include_router(hub_activity_prompts_router, prefix="/api/v1")  # Deploy: cloud
@@ -530,6 +529,7 @@ def _register_edge(app: FastAPI) -> None:
     app.include_router(hub_usage_router, prefix="/api/v1")  # Deploy: edge (SEC.4)
     app.include_router(hub_tasks_router, prefix="/api/v1")
     app.include_router(ingestion_router, prefix="/api/v1")
+    app.include_router(hub_ingestion_router, prefix="/api/v1")  # Deploy: edge (#273)
     app.include_router(llm_drafts_router, prefix="/api/v1")  # Deploy: edge
     app.include_router(hub_redaccion_router, prefix="/api/v1")  # Deploy: edge
     app.include_router(redaccion_workspaces_router, prefix="/api/v1")  # Deploy: edge
