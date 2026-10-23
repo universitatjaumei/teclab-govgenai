@@ -110,7 +110,7 @@ def _cliente(sesion, principal: UserInfo = _SUPERADMIN):
     from fastapi import FastAPI
 
     from server.app.api.deps import get_current_user
-    from server.app.modules.agents_hub.database.connection import get_async_session
+    from server.app.api.deps import get_session
     from server.app.routers.hub_users_router import router
 
     async def _sesion_override():
@@ -118,7 +118,7 @@ def _cliente(sesion, principal: UserInfo = _SUPERADMIN):
 
     app = FastAPI()
     app.dependency_overrides[get_current_user] = lambda: principal
-    app.dependency_overrides[get_async_session] = _sesion_override
+    app.dependency_overrides[get_session] = _sesion_override
     app.include_router(router, prefix="/api/v1")
     return httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),

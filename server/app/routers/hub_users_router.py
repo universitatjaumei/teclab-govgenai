@@ -49,7 +49,7 @@ from server.app.modules.agents_hub.database.config_models import (
     HubPlatformModule,
     HubUser,
 )
-from server.app.modules.agents_hub.database.connection import get_async_session
+from server.app.api.deps import get_session
 
 router = APIRouter(prefix="/hub/users", tags=["hub-users"])
 
@@ -476,7 +476,7 @@ async def capacidades_de_personas(
 async def list_users(
     organizacion_id: uuid.UUID | None = Query(default=None),
     user: UserInfo = Depends(_require_admin),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ) -> PersonasListadas:
     """Quién existe en esta plataforma —o en tu organización, si es lo que administras.
 
@@ -537,7 +537,7 @@ async def list_users(
 async def create_user(
     body: UsuarioCreate,
     user: UserInfo = Depends(_require_superadmin),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ) -> UsuarioRead:
     """Da de alta a una persona con su rol, **antes** de que entre por primera vez.
 
@@ -671,7 +671,7 @@ async def poner_modulos(
     user_id: uuid.UUID,
     body: ModulosDePersona,
     user: UserInfo = Depends(_require_superadmin),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ) -> UsuarioRead:
     """Deja a una persona **exactamente** con estos módulos, en una transacción (2026-10-07).
 
@@ -767,7 +767,7 @@ async def update_user(
     user_id: uuid.UUID,
     body: UsuarioUpdate,
     user: UserInfo = Depends(_require_superadmin),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ) -> UsuarioRead:
     """Cambia rol, nombre, organización o actividad. **Desactivar es la baja** para quien ya usó
     la plataforma; a quien nunca entró se le puede borrar (ver `delete_user`).
@@ -812,7 +812,7 @@ async def set_usuario_password(
     user_id: uuid.UUID,
     body: SetPasswordRequest,
     user: UserInfo = Depends(_require_admin),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ) -> None:
     """Fija o restablece la contraseña de login local de una persona (USR.1).
 
@@ -866,7 +866,7 @@ async def set_usuario_password(
 async def delete_user(
     user_id: uuid.UUID,
     _: UserInfo = Depends(_require_superadmin),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ) -> None:
     """Borra a una persona **que nunca ha entrado** (REV.8).
 

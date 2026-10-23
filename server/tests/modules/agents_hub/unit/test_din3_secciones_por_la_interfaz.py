@@ -82,14 +82,14 @@ def _seccion(site_id: uuid.UUID, **kw):
 
 
 def _app(session):
-    from server.app.modules.agents_hub.database.connection import get_async_session
+    from server.app.api.deps import get_session
     from server.app.routers.hub_sites_router import router
 
     async def _override():
         yield session
 
     app = FastAPI()
-    app.dependency_overrides[get_async_session] = _override
+    app.dependency_overrides[get_session] = _override
     app.include_router(router, prefix="/api/v1")
     return app
 

@@ -74,7 +74,7 @@ def _principal(rol: str = "admin", *orgs: uuid.UUID) -> UserInfo:
 
 
 def _cliente(session, principal: UserInfo) -> AsyncClient:
-    from server.app.modules.agents_hub.database.connection import get_async_session
+    from server.app.api.deps import get_session
     from server.app.routers.actividad_router import router
 
     async def _sesion():
@@ -82,7 +82,7 @@ def _cliente(session, principal: UserInfo) -> AsyncClient:
 
     app = FastAPI()
     app.dependency_overrides[get_current_user] = lambda: principal
-    app.dependency_overrides[get_async_session] = _sesion
+    app.dependency_overrides[get_session] = _sesion
     app.include_router(router, prefix="/api/v1")
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 
@@ -265,14 +265,14 @@ class TestQuienPuedeLeerlo:
         assert len(r.json()) == 1
 
     async def test_should_refuse_without_any_credential(self, db_session):
-        from server.app.modules.agents_hub.database.connection import get_async_session
+        from server.app.api.deps import get_session
         from server.app.routers.actividad_router import router
 
         async def _sesion():
             yield db_session
 
         app = FastAPI()
-        app.dependency_overrides[get_async_session] = _sesion
+        app.dependency_overrides[get_session] = _sesion
         app.include_router(router, prefix="/api/v1")
 
         async with AsyncClient(

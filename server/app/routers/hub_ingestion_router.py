@@ -32,7 +32,7 @@ from server.app.core.uploads import (
     assert_within_document_quota,
     validate_upload,
 )
-from server.app.modules.agents_hub.database.connection import get_async_session
+from server.app.api.deps import get_session
 from server.app.modules.agents_hub.database.operational_models import (
     HubDocument,
     HubDocumentChunk,
@@ -194,7 +194,7 @@ _ESCRIBE_EN_EL_CORPUS = require_role("superadmin", "admin")
 
 
 async def _get_llm_service(
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
     current_user: UserInfo = Depends(get_current_user),
 ):
     """MT.3 — el analizador de HTML resuelve el modelo para la organización de quien pide.
@@ -265,7 +265,7 @@ async def _chatbot_autorizado(session, chatbot_id, principal):
 @router.get("/{chatbot_id}/jobs", response_model=IngestionJobsOut)
 async def get_ingestion_jobs(
     chatbot_id: uuid.UUID,
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
     current_user: UserInfo = Depends(get_current_user),
 ):
     """Obtiene los trabajos de ingestión de un chatbot."""
@@ -284,7 +284,7 @@ async def get_ingestion_jobs(
 async def list_documents(
     chatbot_id: uuid.UUID,
     language: str | None = Query(None, description="Filtrar por idioma (es, ca, en…)"),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
     current_user: UserInfo = Depends(get_current_user),
 ):
     """Lista los documentos ingestados de un chatbot (unidades citables).
@@ -322,7 +322,7 @@ async def list_documents(
 @router.get("/{chatbot_id}/vigencia", response_model=VigenciaPendentOut)
 async def list_pending_vigencia(
     chatbot_id: uuid.UUID,
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
     current_user: UserInfo = Depends(get_current_user),
 ):
     """Documentos cuya vigencia nadie ha validado, que son los que provocan el aviso (A7).
@@ -397,7 +397,7 @@ async def list_pending_vigencia(
 async def validar_vigencia(
     chatbot_id: uuid.UUID,
     document_id: uuid.UUID,
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
     current_user: UserInfo = Depends(require_role("superadmin", "admin")),
 ):
     """Deja constancia de que una persona ha comprobado la vigencia de un documento (REV.6).
@@ -465,7 +465,7 @@ async def validar_vigencia(
 async def get_document(
     chatbot_id: uuid.UUID,
     document_id: uuid.UUID,
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
     current_user: UserInfo = Depends(get_current_user),
 ):
     """Devuelve un documento con su contenido markdown (para preview en la UI)."""
@@ -524,7 +524,7 @@ async def _copias_en_otros_chatbots(session, doc, organizacion_id) -> list[HubDo
 async def get_document_copies(
     chatbot_id: uuid.UUID,
     document_id: uuid.UUID,
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
     current_user: UserInfo = Depends(get_current_user),
 ):
     """En qué otros chatbots de la organización vive esta norma (DER.2).
@@ -562,7 +562,7 @@ async def delete_document(
             "organización. Por defecto solo se borra la de este chatbot"
         ),
     ),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
     current_user: UserInfo = Depends(_ESCRIBE_EN_EL_CORPUS),
 ):
     """Elimina un documento ingestado y todos sus chunks.
@@ -704,7 +704,7 @@ async def upload_document(
     file: UploadFile = File(...),
     canonical_url: str | None = Form(None),
     language: str | None = Form(None),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
     current_user: UserInfo = Depends(_ESCRIBE_EN_EL_CORPUS),
     storage: FsspecStorageService = Depends(get_storage_service),
 ):
@@ -777,7 +777,7 @@ async def upload_document(
 
     # Lanzar tarea en background — el PDF queda en storage (no se borra)
     async def process_job(job_id: uuid.UUID) -> None:
-        async for bg_session in get_async_session():
+        async for bg_session in get_session():
             watcher = IngestionWatcher(
                 session=bg_session,
                 # `bg_session` y no `session`: la sesión de la petición ya está cerrada
@@ -802,7 +802,7 @@ async def upload_document(
 async def delete_ingestion_job(
     chatbot_id: uuid.UUID,
     job_id: uuid.UUID,
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
     current_user: UserInfo = Depends(_ESCRIBE_EN_EL_CORPUS),
     storage: FsspecStorageService = Depends(get_storage_service),
 ):
@@ -857,7 +857,7 @@ async def delete_ingestion_job(
 )
 async def clear_chatbot_collection(
     chatbot_id: uuid.UUID,
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
     current_user: UserInfo = Depends(_ESCRIBE_EN_EL_CORPUS),
     storage: FsspecStorageService = Depends(get_storage_service),
 ):

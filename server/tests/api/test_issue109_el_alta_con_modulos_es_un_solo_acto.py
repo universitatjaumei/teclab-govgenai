@@ -83,7 +83,7 @@ def _cliente(sesion):
     from fastapi import FastAPI
 
     from server.app.api.deps import get_current_user
-    from server.app.modules.agents_hub.database.connection import get_async_session
+    from server.app.api.deps import get_session
     from server.app.routers.hub_users_router import router
 
     async def _sesion_override():
@@ -91,7 +91,7 @@ def _cliente(sesion):
 
     app = FastAPI()
     app.dependency_overrides[get_current_user] = lambda: _SUPERADMIN
-    app.dependency_overrides[get_async_session] = _sesion_override
+    app.dependency_overrides[get_session] = _sesion_override
     app.include_router(router, prefix="/api/v1")
     # `raise_app_exceptions=False` para poder mirar la base después de un fallo del servidor:
     # con el valor por defecto la excepción sube y el test no llega a comprobar lo único que

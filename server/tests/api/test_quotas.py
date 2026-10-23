@@ -486,7 +486,7 @@ class TestElEndpointDeConsumo:
         from server.app.api.deps import get_current_user
         from server.app.api.v1.hub_usage import router
         from server.app.core.auth.models import UserInfo
-        from server.app.modules.agents_hub.database.connection import get_async_session
+        from server.app.api.deps import get_session
 
         class _Sesion:
             """Doble mínimo: `get` por tipo y `execute` devolviendo el contador pedido."""
@@ -511,7 +511,7 @@ class TestElEndpointDeConsumo:
         app.dependency_overrides[get_current_user] = lambda: UserInfo(
             user_id="persona-1", email="p@uji.es", role="user", organizacion_ids=actor_orgs
         )
-        app.dependency_overrides[get_async_session] = _sesion
+        app.dependency_overrides[get_session] = _sesion
         app.include_router(router, prefix="/api/v1")
         return app
 

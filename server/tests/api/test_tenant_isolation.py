@@ -193,7 +193,7 @@ def _app_con(router, principal: UserInfo, session, prefijo: str = "/api/v1"):
     from fastapi import FastAPI
 
     from server.app.api.deps import get_current_user, get_current_user_optional
-    from server.app.modules.agents_hub.database.connection import get_async_session
+    from server.app.api.deps import get_session
 
     async def _sesion():
         yield session
@@ -204,7 +204,7 @@ def _app_con(router, principal: UserInfo, session, prefijo: str = "/api/v1"):
     # variante opcional. Se sobrescriben las dos para que el gate siga midiendo la
     # frontera de organización y no un 401 por dependencia sin doblar.
     app.dependency_overrides[get_current_user_optional] = lambda: principal
-    app.dependency_overrides[get_async_session] = _sesion
+    app.dependency_overrides[get_session] = _sesion
     app.include_router(router, prefix=prefijo)
     return app
 

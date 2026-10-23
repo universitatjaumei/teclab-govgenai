@@ -1,6 +1,5 @@
 """Conexión asíncrona a PostgreSQL para agents_hub."""
 
-from collections.abc import AsyncGenerator
 from typing import Any
 
 from sqlalchemy.ext.asyncio import (
@@ -42,22 +41,13 @@ def create_session_factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSessi
     return async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
-_engine: AsyncEngine | None = None
-
-
 def get_engine() -> AsyncEngine:
-    global _engine
-    if _engine is None:
-        _engine = create_async_engine()
-    return _engine
+    """El engine de la aplicación, que es uno: `database/db.server_engine` (#272).
 
+    Hasta #272 éste creaba el suyo, con su propio pool, y su `get_session` era el tercer
+    proveedor de sesión. Las peticiones usan `api/deps.get_session`; `create_async_engine` sigue
+    aquí para los guiones que se conectan a otra base.
+    """
+    from server.app.database.db import server_engine
 
-async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
-    session_factory = create_session_factory(get_engine())
-    async with session_factory() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
+    return server_engine

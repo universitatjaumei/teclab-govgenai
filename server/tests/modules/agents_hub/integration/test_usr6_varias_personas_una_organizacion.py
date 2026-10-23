@@ -163,7 +163,7 @@ class TestLaPuertaDeLaContrasena:
         superadministrador. La de otro administrador la fija sólo un superadministrador; un
         administrador, la de los usuarios e informadores de su organización."""
         from server.app.routers.hub_users_router import router as usuarios_router
-        from server.app.modules.agents_hub.database.connection import get_async_session
+        from server.app.api.deps import get_session
 
         uji = await _organizacion(db_session, "Universitat Jaume I")
         una = await _administradora(db_session, uji.id, PASSWORD_UNA)
@@ -178,7 +178,7 @@ class TestLaPuertaDeLaContrasena:
         from server.app.api.deps import get_current_user
 
         app.dependency_overrides[get_current_user] = lambda: sesion
-        app.dependency_overrides[get_async_session] = _sesion_hub
+        app.dependency_overrides[get_session] = _sesion_hub
         app.include_router(usuarios_router, prefix="/api/v1")
 
         async with AsyncClient(
@@ -193,7 +193,7 @@ class TestLaPuertaDeLaContrasena:
 
     async def test_should_refuse_an_admin_over_someone_of_another_organization(self, db_session):
         from server.app.routers.hub_users_router import router as usuarios_router
-        from server.app.modules.agents_hub.database.connection import get_async_session
+        from server.app.api.deps import get_session
         from server.app.api.deps import get_current_user
 
         uji = await _organizacion(db_session, "Universitat Jaume I")
@@ -208,7 +208,7 @@ class TestLaPuertaDeLaContrasena:
 
         app = FastAPI()
         app.dependency_overrides[get_current_user] = lambda: sesion
-        app.dependency_overrides[get_async_session] = _sesion_hub
+        app.dependency_overrides[get_session] = _sesion_hub
         app.include_router(usuarios_router, prefix="/api/v1")
 
         async with AsyncClient(

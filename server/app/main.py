@@ -271,9 +271,9 @@ def _retirador_del_corpus(session: Any) -> Any:
 async def _fail_zombie_jobs() -> None:
     """Marca como fallidos los jobs que quedaron en running/pending al reiniciar el servidor."""
     from sqlalchemy import update
-    from server.app.modules.agents_hub.database.connection import get_async_session
+    from server.app.api.deps import get_session
     from server.app.modules.agents_hub.database.operational_models import HubIngestionJob
-    async for session in get_async_session():
+    async for session in get_session():
         await session.execute(
             update(HubIngestionJob)
             .where(HubIngestionJob.status.in_(["running", "pending"]))

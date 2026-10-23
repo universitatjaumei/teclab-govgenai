@@ -285,7 +285,7 @@ class TestGuardaEnConsulta:
         from sqlalchemy.ext.asyncio import AsyncSession
 
         from server.app.api.v1.hub_chat import router as chat_router
-        from server.app.modules.agents_hub.database.connection import get_async_session
+        from server.app.api.deps import get_session
 
         session = AsyncMock(spec=AsyncSession)
         resultado = MagicMock()
@@ -299,7 +299,7 @@ class TestGuardaEnConsulta:
             yield session
 
         app = FastAPI()
-        app.dependency_overrides[get_async_session] = _sesion
+        app.dependency_overrides[get_session] = _sesion
         app.include_router(chat_router, prefix="/api/v1")
         return app
 
@@ -367,7 +367,7 @@ class TestValidacionAlCrearChatbot:
         from server.app.api.deps import get_current_user
         from server.app.core.auth.models import UserInfo
         from server.app.main import app
-        from server.app.modules.agents_hub.database.connection import get_async_session
+        from server.app.api.deps import get_session
 
         session = MagicMock()
         # Crear comprueba que la configuración de LLM es de plataforma o de la organización.
@@ -382,7 +382,7 @@ class TestValidacionAlCrearChatbot:
         app.dependency_overrides[get_current_user] = lambda: UserInfo(
             user_id="a1", email="a@test.com", role="admin"
         , organizacion_ids=(ORG_PRUEBA,))
-        app.dependency_overrides[get_async_session] = _sesion
+        app.dependency_overrides[get_session] = _sesion
         try:
             with patch(
                 "server.app.routers.hub_chatbots_router.resolve_embedding_service",
@@ -403,7 +403,7 @@ class TestValidacionAlCrearChatbot:
             session.add.assert_not_called()
         finally:
             app.dependency_overrides.pop(get_current_user, None)
-            app.dependency_overrides.pop(get_async_session, None)
+            app.dependency_overrides.pop(get_session, None)
 
     def test_should_not_require_embeddings_for_long_context(self):
         """ACT.8 — el modo del ejemplo era `MD_AGENT_SELECTOR`, y ese SI los necesita.
@@ -419,7 +419,7 @@ class TestValidacionAlCrearChatbot:
         from server.app.api.deps import get_current_user
         from server.app.core.auth.models import UserInfo
         from server.app.main import app
-        from server.app.modules.agents_hub.database.connection import get_async_session
+        from server.app.api.deps import get_session
 
         session = MagicMock()
         # Crear comprueba que la configuración de LLM es de plataforma o de la organización.
@@ -440,7 +440,7 @@ class TestValidacionAlCrearChatbot:
         app.dependency_overrides[get_current_user] = lambda: UserInfo(
             user_id="a1", email="a@test.com", role="admin"
         , organizacion_ids=(ORG_PRUEBA,))
-        app.dependency_overrides[get_async_session] = _sesion
+        app.dependency_overrides[get_session] = _sesion
         try:
             with patch(
                 "server.app.routers.hub_chatbots_router.resolve_embedding_service",
@@ -460,4 +460,4 @@ class TestValidacionAlCrearChatbot:
             resolutor.assert_not_awaited()
         finally:
             app.dependency_overrides.pop(get_current_user, None)
-            app.dependency_overrides.pop(get_async_session, None)
+            app.dependency_overrides.pop(get_session, None)

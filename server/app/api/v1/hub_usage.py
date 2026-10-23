@@ -20,7 +20,7 @@ from server.app.core.auth.delegated_actor import resolve_effective_actor
 from server.app.core.auth.models import UserInfo
 from server.app.core.quotas import consumo_de, limites_aplicables
 from server.app.modules.agents_hub.database.config_models import HubChatbot, HubOrganizacion
-from server.app.modules.agents_hub.database.connection import get_async_session
+from server.app.api.deps import get_session
 
 router = APIRouter(prefix="/hub/usage", tags=["hub-usage"])
 
@@ -44,7 +44,7 @@ async def get_my_usage(
     request: Request,
     chatbot_id: uuid.UUID,
     user: UserInfo = Depends(get_current_user),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ) -> UsoOut:
     """Cuotas que le aplican al actor en este chatbot, y cuánto lleva gastado.
 

@@ -26,7 +26,7 @@ from server.app.core.auth.tenancy import (
     orgs_del_principal,
     organizacion_unica_de,
 )
-from server.app.modules.agents_hub.database.connection import get_async_session
+from server.app.api.deps import get_session
 from server.app.modules.agents_hub.database.config_models import HubChatbot, HubLLMConfig, HubProvider
 from server.app.modules.agents_hub.services.model_factory import _build_model
 from server.app.services.model_fetcher import get_models_for_provider
@@ -126,7 +126,7 @@ class HubProviderUpdate(BaseModel):
 @router.get("/providers", response_model=list[HubProviderOut])
 async def list_providers(
     _: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
 ):
     """Obtiene la lista de proveedores dinámicos."""
     result = await session.execute(select(HubProvider).order_by(HubProvider.name))
@@ -137,7 +137,7 @@ async def list_providers(
 async def create_provider(
     body: HubProviderCreate,
     _: UserInfo = Depends(_require_superadmin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
 ):
     """Crea un nuevo proveedor."""
     existing = await session.get(HubProvider, body.id)
@@ -157,7 +157,7 @@ async def update_provider(
     provider_id: str,
     body: HubProviderUpdate,
     _: UserInfo = Depends(_require_superadmin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
 ):
     """Actualiza un proveedor existente."""
     provider = await session.get(HubProvider, provider_id)
@@ -176,7 +176,7 @@ async def update_provider(
 async def delete_provider(
     provider_id: str,
     _: UserInfo = Depends(_require_superadmin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
 ):
     """Elimina un proveedor si no está en uso."""
     provider = await session.get(HubProvider, provider_id)
@@ -219,7 +219,7 @@ class LLMConnectionTestOut(BaseModel):
 async def list_available_models(
     provider_id: str,
     _: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
 ):
     """Obtiene la lista de modelos disponibles para un proveedor (usa caché)."""
     provider = await session.get(HubProvider, provider_id)
@@ -291,7 +291,7 @@ class LLMConfigUpdate(BaseModel):
 @router.get("", response_model=list[LLMConfigRead])
 async def list_llm_configs(
     user: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
 ):
     """Los modelos de sus organizaciones **y los de plataforma**, que se heredan (SEC.9.2).
 
@@ -361,7 +361,7 @@ async def _relevar_default(
 async def create_llm_config(
     body: LLMConfigCreate,
     user: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
 ):
     # SEC.9.2: la organización se resuelve ANTES del relevo. Si no, un administrador degradaría
     # la marca de «por defecto» de una organización en la que no puede escribir, y el 403 llegaría
@@ -394,7 +394,7 @@ async def update_llm_config(
     config_id: uuid.UUID,
     body: LLMConfigUpdate,
     user: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
 ):
     config = await session.get(HubLLMConfig, config_id)
     if not config:
@@ -423,7 +423,7 @@ async def update_llm_config(
 async def delete_llm_config(
     config_id: uuid.UUID,
     user: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
 ):
     config = await session.get(HubLLMConfig, config_id)
     if not config:
@@ -447,7 +447,7 @@ async def delete_llm_config(
 async def test_llm_connection(
     config_id: uuid.UUID,
     user: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
 ):
     config = await session.scalar(
         select(HubLLMConfig)

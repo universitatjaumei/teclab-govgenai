@@ -71,7 +71,7 @@ def _principal(org: uuid.UUID | None = ORG) -> UserInfo:
 
 
 def _cliente(session, scopes=("verificaciones:use",), org=ORG) -> AsyncClient:
-    from server.app.modules.agents_hub.database.connection import get_async_session
+    from server.app.api.deps import get_session
     from server.app.routers.verificaciones_router import router
 
     async def _sesion():
@@ -85,7 +85,7 @@ def _cliente(session, scopes=("verificaciones:use",), org=ORG) -> AsyncClient:
         return await call_next(request)
 
     app.dependency_overrides[get_current_user] = lambda: _principal(org)
-    app.dependency_overrides[get_async_session] = _sesion
+    app.dependency_overrides[get_session] = _sesion
     app.include_router(router, prefix="/api/v1")
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 

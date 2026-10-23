@@ -22,7 +22,7 @@ from server.app.core.auth.tenancy import (
     organizacion_unica_de,
     scope_query_to_orgs,
 )
-from server.app.modules.agents_hub.database.connection import get_async_session
+from server.app.api.deps import get_session
 from server.app.modules.agents_hub.database.operational_models import (
     HubCorpusSelection,
     HubCrawledPage,
@@ -77,7 +77,7 @@ def get_quality_job() -> Any:
 
 
 async def get_selection_service(
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ) -> Any:
     """Crea CorpusSelectionService con dependencias mínimas (sin embedding, sin watcher real).
 
@@ -200,7 +200,7 @@ async def create_site(
     body: SiteCreate,
     organizacion_id: uuid.UUID | None = Query(default=None),
     current_user: UserInfo = Depends(_de_curacion),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ):
     """Crea un nuevo sitio rastreado.
 
@@ -251,7 +251,7 @@ async def create_site(
 async def list_sites(
     organizacion_id: uuid.UUID | None = Query(default=None),
     current_user: UserInfo = Depends(_de_curacion),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ):
     """Lista sitios, opcionalmente filtrados por organizacion_id.
 
@@ -277,7 +277,7 @@ async def patch_site(
     site_id: uuid.UUID,
     body: SitePatch,
     current_user: UserInfo = Depends(_de_curacion),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ):
     """Actualiza campos de un sitio.
 
@@ -304,7 +304,7 @@ async def patch_site(
 async def delete_site(
     site_id: uuid.UUID,
     current_user: UserInfo = Depends(_de_curacion),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ):
     """Elimina un sitio y todas sus páginas (CASCADE).
 
@@ -328,7 +328,7 @@ async def trigger_crawl(
     site_id: uuid.UUID,
     background_tasks: BackgroundTasks,
     current_user: UserInfo = Depends(_de_curacion),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
     quality_job: Any = Depends(get_quality_job),
 ):
     """Dispara un crawl + análisis de calidad en background.
@@ -356,7 +356,7 @@ async def list_site_pages(
     page_status: str | None = Query(default=None, alias="status"),
     propuestas: bool = Query(default=False),
     current_user: UserInfo = Depends(_de_curacion),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ):
     """Lista las páginas rastreadas de un sitio, opcionalmente filtradas por status.
 
@@ -395,7 +395,7 @@ async def proponer_pagina(
     site_id: uuid.UUID,
     page_id: uuid.UUID,
     current_user: UserInfo = Depends(_de_curacion),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ):
     """Propone la página para un asistente (2026-10-08).
 
@@ -424,7 +424,7 @@ async def retirar_propuesta(
     site_id: uuid.UUID,
     page_id: uuid.UUID,
     current_user: UserInfo = Depends(_de_curacion),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ):
     """Quita la propuesta. No toca el corpus: si ya se publicó, eso se retira en Publicación."""
     await assert_site_org_access(session, site_id, current_user)
@@ -515,7 +515,7 @@ async def _seccion_de_este_sitio(
 async def list_site_sections(
     site_id: uuid.UUID,
     current_user: UserInfo = Depends(_de_curacion),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ):
     """Las secciones de un sitio, con su cadencia efectiva (DIN.3).
 
@@ -536,7 +536,7 @@ async def create_site_section(
     site_id: uuid.UUID,
     body: SectionCreate,
     current_user: UserInfo = Depends(_de_curacion),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ):
     """Da de alta una sección del sitio.
 
@@ -573,7 +573,7 @@ async def patch_site_section(
     section_id: uuid.UUID,
     body: SectionPatch,
     current_user: UserInfo = Depends(_de_curacion),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ):
     """Edita una sección, la activa o la desactiva.
 
@@ -605,7 +605,7 @@ async def delete_site_section(
     site_id: uuid.UUID,
     section_id: uuid.UUID,
     current_user: UserInfo = Depends(_de_curacion),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ):
     """Borra una sección, **sólo si no tiene selecciones colgando**.
 
@@ -646,7 +646,7 @@ async def list_site_runs(
     page: int = Query(default=1, ge=1),
     size: int = Query(default=20, ge=1, le=100),
     current_user: UserInfo = Depends(_de_curacion),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ):
     """El diario de las pasadas de un sitio, filtrable por sección (DIN.6).
 
@@ -692,7 +692,7 @@ async def test_section_pattern(
     site_id: uuid.UUID,
     body: PatternTestRequest,
     current_user: UserInfo = Depends(_de_curacion),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ):
     """Cuántas páginas **ya rastreadas** casarían este patrón, y una muestra (DIN.3).
 
@@ -729,7 +729,7 @@ async def create_selection(
     chatbot_id: uuid.UUID,
     body: SelectionCreate,
     current_user: UserInfo = Depends(_de_curacion_y_chatbots),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ):
     """Crea una regla de selección de corpus para un chatbot.
 
@@ -762,7 +762,7 @@ async def create_selection(
 async def list_selections(
     chatbot_id: uuid.UUID,
     current_user: UserInfo = Depends(_de_curacion_y_chatbots),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ):
     """Lista las selecciones de corpus de un chatbot.
 
@@ -788,7 +788,7 @@ async def delete_selection(
     chatbot_id: uuid.UUID,
     selection_id: uuid.UUID,
     current_user: UserInfo = Depends(_de_curacion_y_chatbots),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ):
     """Elimina una selección de corpus.
 
@@ -812,7 +812,7 @@ async def delete_selection(
 async def get_page_content(
     page_id: uuid.UUID,
     current_user: UserInfo = Depends(_de_curacion),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ):
     """El texto guardado de una página rastreada: lo que iría al corpus (CUR.4).
 
@@ -857,7 +857,7 @@ async def list_candidates(
     chatbot_id: uuid.UUID = Query(...),
     current_user: UserInfo = Depends(_de_curacion),
     svc: Any = Depends(get_selection_service),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ):
     """Páginas candidatas a ingerir: activas, no ingeridas aún para el chatbot.
 
@@ -879,7 +879,7 @@ async def ingest_page(
     background_tasks: BackgroundTasks,
     current_user: UserInfo = Depends(_de_curacion_y_chatbots),
     svc: Any = Depends(get_selection_service),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ):
     """Ingesta manual de una página concreta en un chatbot (idempotente).
 
@@ -911,7 +911,7 @@ async def retire_page(
     page_id: uuid.UUID,
     current_user: UserInfo = Depends(_de_curacion_y_chatbots),
     svc: Any = Depends(get_selection_service),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ):
     """Retira todos los documentos de una página para un chatbot.
 

@@ -68,7 +68,7 @@ def _cliente(session, principal: UserInfo) -> AsyncClient:
     Es lo contrario del arnés de REG.2, y a propósito: allí se comprobaba que una sesión **no**
     puede escribir; aquí, que sí puede leer.
     """
-    from server.app.modules.agents_hub.database.connection import get_async_session
+    from server.app.api.deps import get_session
     from server.app.routers.actividad_router import router
 
     async def _sesion():
@@ -76,7 +76,7 @@ def _cliente(session, principal: UserInfo) -> AsyncClient:
 
     app = FastAPI()
     app.dependency_overrides[get_current_user] = lambda: principal
-    app.dependency_overrides[get_async_session] = _sesion
+    app.dependency_overrides[get_session] = _sesion
     app.include_router(router, prefix="/api/v1")
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 

@@ -152,8 +152,9 @@ def test_app(db_engine):
     from server.app.api.v1.hub_tasks import router as tasks_router
     from server.app.modules.agents_hub.database.connection import (
         create_session_factory,
-        get_async_session,
+
     )
+    from server.app.api.deps import get_session
 
     async def _override_session():
         factory = create_session_factory(db_engine)
@@ -161,7 +162,7 @@ def test_app(db_engine):
             yield session
 
     app = FastAPI()
-    app.dependency_overrides[get_async_session] = _override_session
+    app.dependency_overrides[get_session] = _override_session
     app.include_router(chat_router, prefix="/api/v1")
     app.include_router(tasks_router, prefix="/api/v1")
     return app

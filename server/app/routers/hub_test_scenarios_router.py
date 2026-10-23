@@ -28,7 +28,7 @@ from server.app.modules.agents_hub.agent.public_graphs.core.graph_factory import
 from server.app.modules.agents_hub.agent.public_graphs.strategies.retrieval_pipeline_protocol import (
     GraphDeps,
 )
-from server.app.modules.agents_hub.database.connection import get_async_session
+from server.app.api.deps import get_session
 from server.app.modules.agents_hub.database.operational_models import (
     HubTestRun,
     HubTestScenario,
@@ -45,7 +45,7 @@ _require_admin = require_role("superadmin", "admin")
 async def _guarda_del_chatbot(
     chatbot_id: uuid.UUID,
     user: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
 ) -> UserInfo:
     """SEC.8.1: todas las rutas de este router cuelgan de `/{chatbot_id}`, así que la
     pertenencia se comprueba **una vez, en el router**, y no endpoint por endpoint.
@@ -149,7 +149,7 @@ async def _escenario_o_404(
 async def list_scenarios(
     chatbot_id: uuid.UUID,
     _: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
 ):
     fila = await session.execute(
         select(HubTestScenario)
@@ -168,7 +168,7 @@ async def create_scenario(
     chatbot_id: uuid.UUID,
     body: ScenarioCreate,
     user: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
 ):
     escenario = HubTestScenario(
         chatbot_id=chatbot_id,
@@ -192,7 +192,7 @@ async def update_scenario(
     scenario_id: uuid.UUID,
     body: ScenarioUpdate,
     _: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
 ):
     escenario = await _escenario_o_404(session, chatbot_id, scenario_id)
     for campo, valor in body.model_dump(exclude_none=True).items():
@@ -211,7 +211,7 @@ async def delete_scenario(
     chatbot_id: uuid.UUID,
     scenario_id: uuid.UUID,
     _: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
 ):
     escenario = await _escenario_o_404(session, chatbot_id, scenario_id)
     await session.delete(escenario)
@@ -225,7 +225,7 @@ async def list_runs(
     chatbot_id: uuid.UUID,
     scenario_id: uuid.UUID,
     _: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
 ):
     await _escenario_o_404(session, chatbot_id, scenario_id)
     fila = await session.execute(
@@ -252,7 +252,7 @@ async def run_scenario(
         ),
     ),
     _: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
 ):
     """Ejecuta el escenario por el CoreGraph completo y guarda respuesta y fuentes.
 
@@ -336,7 +336,7 @@ async def set_verdict(
     run_id: uuid.UUID,
     body: VerdictIn,
     user: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
 ):
     """Registra el veredicto humano. Es el dato que no produce ninguna métrica."""
     fila = await session.execute(

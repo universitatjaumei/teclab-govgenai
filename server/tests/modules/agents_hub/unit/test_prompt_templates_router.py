@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from server.app.modules.agents_hub.database.config_models import HubPromptTemplate
-from server.app.modules.agents_hub.database.connection import get_async_session
+from server.app.api.deps import get_session
 
 _JWT_ENV = {
     "JWT_SECRET_KEY": "test-secret-key-that-is-at-least-32-characters-long",
@@ -69,7 +69,7 @@ def _build_app(session_mock) -> FastAPI:
         yield session_mock
 
     app = FastAPI()
-    app.dependency_overrides[get_async_session] = _override
+    app.dependency_overrides[get_session] = _override
     app.include_router(router, prefix="/api/v1")
     return app
 

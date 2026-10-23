@@ -52,14 +52,14 @@ def _cliente(principal: UserInfo, session):
 
     from server.app.api.deps import get_current_user
     from server.app.core.storage import get_storage_service
-    from server.app.modules.agents_hub.database.connection import get_async_session
+    from server.app.api.deps import get_session
 
     async def _s():
         yield session
 
     app = FastAPI()
     app.dependency_overrides[get_current_user] = lambda: principal
-    app.dependency_overrides[get_async_session] = _s
+    app.dependency_overrides[get_session] = _s
     app.dependency_overrides[get_storage_service] = lambda: MagicMock()
     app.include_router(ingestion_router, prefix="/api/v1")
     return TestClient(app, raise_server_exceptions=False)

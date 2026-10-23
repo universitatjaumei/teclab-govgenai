@@ -73,13 +73,13 @@ class _SesionCapturadora:
 
 def _app(session) -> FastAPI:
     from server.app.api.v1.hub_chat import router as chat_router
-    from server.app.modules.agents_hub.database.connection import get_async_session
+    from server.app.api.deps import get_session
 
     async def _override():
         yield session
 
     app = FastAPI()
-    app.dependency_overrides[get_async_session] = _override
+    app.dependency_overrides[get_session] = _override
     app.include_router(chat_router, prefix="/api/v1")
     return app
 

@@ -5,9 +5,8 @@ import logging
 import aiohttp
 from datetime import datetime
 from sqlmodel import select
-from sqlmodel.ext.asyncio.session import AsyncSession
 
-from server.app.database.db import server_engine
+from server.app.database.db import AsyncSessionLocal
 from server.app.database.models import ModelPricing
 
 # Issue #18 — esto lo dispara el planificador de madrugada: no hay nadie mirando una consola.
@@ -29,7 +28,7 @@ async def update_prices_from_openrouter():
                     data = await resp.json()
                     models_data = data.get("data", [])
 
-                    async with AsyncSession(server_engine) as session:
+                    async with AsyncSessionLocal() as session:
                         # Batch load existing prices
                         existing_result = await session.exec(select(ModelPricing))
                         existing_map = {m.id: m for m in existing_result.all()}
@@ -121,7 +120,7 @@ async def calculate_cost(
 
     # If OpenRouter, it's usually the full ID (e.g. "openai/gpt-4")
 
-    async with AsyncSession(server_engine) as session:
+    async with AsyncSessionLocal() as session:
         pricing = await session.get(ModelPricing, lookup_id)
 
         # Fallback: try searching by suffix if exact match fails

@@ -45,7 +45,7 @@ async def export_agent_workspace(
     Deploy: edge
     """
     from server.app.core.auth.tenancy import assert_chatbot_org_access
-    from server.app.modules.agents_hub.database.connection import get_async_session
+    from server.app.api.deps import get_session
     from server.app.modules.agents_hub.database.operational_models import HubInteraction
     from sqlalchemy import select
 
@@ -53,7 +53,7 @@ async def export_agent_workspace(
     # `workspace_id` de la ruta** y devolvía una interacción cualquiera del usuario, presentada
     # como el workspace pedido. No era sólo un fallo de autorización: el DOCX exportado no era
     # el documento que se había pedido, y nada lo delataba.
-    async for session in get_async_session():
+    async for session in get_session():
         result = await session.execute(
             select(HubInteraction).where(
                 HubInteraction.id == workspace_id,

@@ -27,7 +27,7 @@ def _prohibir_sesion(*_args, **_kwargs):
 
 async def test_should_not_seed_dev_data_outside_development(monkeypatch) -> None:
     monkeypatch.setenv("ENVIRONMENT", "production")
-    monkeypatch.setattr(seeds, "AsyncSession", _prohibir_sesion)
+    monkeypatch.setattr(seeds, "AsyncSessionLocal", _prohibir_sesion)
 
     # No debe lanzar: simplemente se omite el sembrado de desarrollo.
     await seeds.seed_multitenancy_defaults()
@@ -38,11 +38,11 @@ async def test_should_seed_dev_data_in_development(monkeypatch) -> None:
 
     abrio_sesion = {"valor": False}
 
-    def _espia(_engine):
+    def _espia(*_args):
         abrio_sesion["valor"] = True
         raise _Sentinela  # cortamos antes de tocar la BD real
 
-    monkeypatch.setattr(seeds, "AsyncSession", _espia)
+    monkeypatch.setattr(seeds, "AsyncSessionLocal", _espia)
 
     with pytest.raises(_Sentinela):
         await seeds.seed_multitenancy_defaults()

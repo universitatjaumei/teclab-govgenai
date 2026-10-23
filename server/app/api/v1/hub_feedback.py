@@ -23,7 +23,7 @@ from server.app.api.deps import get_current_user
 from server.app.core.auth import UserInfo
 from server.app.core.auth.tenancy import assert_chatbot_org_access, assert_org_access
 from server.app.modules.agents_hub.database.config_models import HubChatbot
-from server.app.modules.agents_hub.database.connection import get_async_session
+from server.app.api.deps import get_session
 from server.app.modules.agents_hub.database.operational_models import HubInteraction
 # HIB.H — el mismo modelo que valida el lote de evaluación valida lo que anota el informador.
 # Dos formas para la misma idea divergen, y con ellas se cae el instrumental que cruza
@@ -104,7 +104,7 @@ async def submit_feedback(
     interaction_id: uuid.UUID,
     request: FeedbackRequest,
     user: UserInfo = Depends(get_current_user),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ) -> None:
     # SEC.8.1: el GET de revisión comprobaba la organización desde SEC.2; este POST no
     # comprobaba nada y el servicio hace `UPDATE ... WHERE id = :id` a ciegas, así que
@@ -133,7 +133,7 @@ async def review_interaction(
     interaction_id: uuid.UUID,
     request: ReviewVerdictRequest,
     user: UserInfo = Depends(get_current_user),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ) -> HubInteraction:
     """Anota el veredicto de quien revisa sobre una conversación real (REV.1).
 
@@ -194,7 +194,7 @@ async def get_interactions_for_review(
     review_status: Literal["pending", "reviewed", "all"] = Query("pending"),
     verdict: Literal["good", "bad", "mixed"] | None = Query(None),
     user: UserInfo = Depends(get_current_user),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ) -> list[dict]:
     if user.role not in ("superadmin", "admin"):
         raise HTTPException(

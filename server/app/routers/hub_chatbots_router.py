@@ -24,7 +24,7 @@ from server.app.modules.agents_hub.agent.public_graphs.validacion import (
 )
 from server.app.core.auth.tenancy import assert_org_access, scope_query_to_orgs
 from server.app.modules.agents_hub.database.config_models import HubChatbot, HubLLMConfig
-from server.app.modules.agents_hub.database.connection import get_async_session
+from server.app.api.deps import get_session
 from server.app.modules.agents_hub.database.operational_models import HubDocument
 from server.app.modules.agents_hub.ingestion.watcher import IngestionWatcher
 from server.app.core.storage import StorageService, get_storage_service
@@ -456,7 +456,7 @@ async def opciones_de_grafo(user: UserInfo = Depends(_require_admin)):
 async def list_chatbots(
     organizacion_id: uuid.UUID | None = Query(default=None),
     user: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
 ):
     """Los chatbots que este principal puede ver, opcionalmente los de una organización.
 
@@ -499,7 +499,7 @@ async def list_chatbots(
 async def create_chatbot(
     body: ChatbotCreate,
     user: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
 ):
     # SEC.2: no se puede crear un chatbot en una organizacion ajena. Va delante de la
     # comprobación de embeddings: a quien no gestiona la organización no se le contesta
@@ -578,7 +578,7 @@ async def update_chatbot(
     chatbot_id: uuid.UUID,
     body: ChatbotUpdate,
     user: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
 ):
     chatbot = await _get_chatbot_or_404(session, chatbot_id, user)
 
@@ -642,7 +642,7 @@ async def update_chatbot(
 async def delete_chatbot(
     chatbot_id: uuid.UUID,
     user: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
     storage: StorageService = Depends(get_storage_service),
 ):
     await _get_chatbot_or_404(session, chatbot_id, user)
@@ -682,7 +682,7 @@ async def delete_chatbot(
 async def get_corpus_stats(
     chatbot_id: uuid.UUID,
     user: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
 ):
     await _get_chatbot_or_404(session, chatbot_id, user)
 
@@ -725,7 +725,7 @@ async def get_corpus_stats(
 async def regenerate_chunks(
     chatbot_id: uuid.UUID,
     user: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
 ):
     chatbot = await _get_chatbot_or_404(session, chatbot_id, user)
     if chatbot.retrieval_mode != "RAG":
@@ -763,7 +763,7 @@ async def regenerate_chunks(
 async def recalculate_corpus_endpoint(
     chatbot_id: uuid.UUID,
     user: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
 ):
     chatbot = await _get_chatbot_or_404(session, chatbot_id, user)
 
@@ -803,7 +803,7 @@ async def recalculate_corpus_endpoint(
 async def list_children(
     chatbot_id: uuid.UUID,
     user: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
 ):
     router_cb = await _get_chatbot_or_404(session, chatbot_id, user)
     if router_cb.kind != "router":
@@ -823,7 +823,7 @@ async def assign_child(
     chatbot_id: uuid.UUID,
     body: AssignChildIn,
     user: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
 ):
     router_cb = await _get_chatbot_or_404(session, chatbot_id, user)
     if router_cb.kind != "router":
@@ -879,7 +879,7 @@ async def unassign_child(
     chatbot_id: uuid.UUID,
     child_chatbot_id: uuid.UUID,
     user: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
 ):
     router_cb = await _get_chatbot_or_404(session, chatbot_id, user)
     if router_cb.kind != "router":
@@ -935,7 +935,7 @@ async def create_widget_key(
     chatbot_id: uuid.UUID,
     body: WidgetKeyCreate,
     user: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
 ):
     """Emite una credencial de sitio para incrustar el widget de este chatbot."""
     from server.app.core.auth.widget_key import crear_widget_key
@@ -959,7 +959,7 @@ async def create_widget_key(
 async def list_widget_keys(
     chatbot_id: uuid.UUID,
     user: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
 ):
     from server.app.modules.agents_hub.database.config_models import HubWidgetKey
 
@@ -981,7 +981,7 @@ async def revoke_widget_key(
     chatbot_id: uuid.UUID,
     key_id: uuid.UUID,
     user: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
 ):
     """Revoca en vez de borrar: la fila deja constancia de que la credencial existió."""
     from server.app.modules.agents_hub.database.config_models import HubWidgetKey

@@ -233,11 +233,11 @@ def _exigir(accion: str, funcion: Any, version: Any, principal: UserInfo) -> Non
 
 # La vista se construye **antes** del `commit`, no después.
 #
-# `api/deps.py::get_session` construye `AsyncSession(server_engine)` a pelo, y ahí
-# `expire_on_commit` vale `True` —el `expire_on_commit=False` vive en el `sessionmaker` de
-# `database/db.py`, que es **otro** `get_session`—. Leer `version.version` después de commitear
-# dispara entonces una recarga perezosa síncrona sobre una sesión asíncrona, que revienta con
-# `MissingGreenlet`: la escritura se guarda y la respuesta es un 500.
+# Hasta #272, `api/deps.py::get_session` construía `AsyncSession(server_engine)` a pelo, con
+# `expire_on_commit=True`. Leer `version.version` después de commitear disparaba una recarga
+# perezosa síncrona sobre una sesión asíncrona, que revienta con `MissingGreenlet`: la escritura
+# se guardaba y la respuesta era un 500. Desde #272 hay un solo proveedor y no expira, pero
+# construir la vista antes sigue siendo lo correcto: no depende de cómo esté configurada la sesión.
 #
 # Es el mismo defecto que `scripts_router` tuvo en ocho endpoints, y aquí lo destapó la pantalla
 # de revisión posterior: suspendía con su motivo y devolvía 500, así que quien revisa veía un

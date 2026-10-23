@@ -131,7 +131,6 @@ def _app(session, principal: UserInfo):
         get_session,
         modulos_concedidos,
     )
-    from server.app.modules.agents_hub.database.connection import get_async_session
     from server.app.routers.hub_activity_prompts_router import (
         router as activity_prompts_router,
     )
@@ -145,7 +144,7 @@ def _app(session, principal: UserInfo):
     app = FastAPI()
     app.dependency_overrides[get_current_user] = lambda: principal
     app.dependency_overrides[get_current_user_optional] = lambda: principal
-    app.dependency_overrides[get_async_session] = _sesion
+    app.dependency_overrides[get_session] = _sesion
     app.dependency_overrides[get_session] = _sesion
     # La frontera de módulos tiene su propio test (PLAT.5). Aquí se concede todo a propósito:
     # lo que se mide es la de **organización**, y un 403 por módulo la taparía.

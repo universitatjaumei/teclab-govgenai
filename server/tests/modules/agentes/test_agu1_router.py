@@ -45,7 +45,6 @@ class _Quien:
 @pytest.fixture
 async def http(db_session):
     from server.app.api.deps import get_current_user, get_session
-    from server.app.modules.agents_hub.database.connection import get_async_session
     from server.app.routers.agentes_router import router, router_catalogo
 
     quien = _Quien()
@@ -58,7 +57,7 @@ async def http(db_session):
 
     app.dependency_overrides[get_current_user] = lambda: quien.actual
     app.dependency_overrides[get_session] = _sesion
-    app.dependency_overrides[get_async_session] = _sesion
+    app.dependency_overrides[get_session] = _sesion
     # El módulo lo exige una dependencia del router; aquí se da por concedido.
     for dependencia in router.dependencies:
         app.dependency_overrides[dependencia.dependency] = lambda: quien.actual

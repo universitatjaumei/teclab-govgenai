@@ -13,7 +13,7 @@ from server.app.core.auth import UserInfo
 from server.app.core.auth.tenancy import assert_chatbot_org_access
 from server.app.core.pdf_text import PdfSinCapaDeTexto
 from server.app.core.uploads import UploadKind, validate_upload
-from server.app.modules.agents_hub.database.connection import get_async_session
+from server.app.api.deps import get_session
 from server.app.modules.agents_hub.ingestion.watcher import IngestionWatcher
 from server.app.modules.agents_hub.services.embedding_resolver import (
     resolve_embedding_service,
@@ -26,7 +26,7 @@ router = APIRouter(prefix="/ingestion", tags=["ingestion"])
 async def user_upload(
     chatbot_id: uuid.UUID = Form(...),
     file: UploadFile = File(...),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
     current_user: UserInfo = Depends(get_current_user),
 ) -> dict:
     """Procesa un PDF subido por el usuario y lo vectoriza como contexto temporal.

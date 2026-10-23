@@ -38,7 +38,7 @@ from server.app.modules.agents_hub.database.config_models import (
     HubPlatformModule,
     HubUser,
 )
-from server.app.modules.agents_hub.database.connection import get_async_session
+from server.app.api.deps import get_session
 from server.app.routers.redaccion._actor import user_to_uuid
 
 router = APIRouter(prefix="/hub/modulos", tags=["hub-modulos"])
@@ -103,7 +103,7 @@ class AlcanceDeGrupo(BaseModel):
 @router.get("/catalogo", response_model=list[ModuloDelCatalogo])
 async def get_catalogo(
     _: UserInfo = Depends(_require_superadmin),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ) -> list[ModuloDelCatalogo]:
     """El catálogo de módulos, como dato. La pantalla itera esto; no trae los códigos escritos."""
     filas = (
@@ -118,7 +118,7 @@ async def get_catalogo(
 @router.get("", response_model=list[ConcesionRead])
 async def list_concesiones(
     _: UserInfo = Depends(_require_superadmin),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ) -> list[ConcesionRead]:
     filas = (
         await session.execute(
@@ -144,7 +144,7 @@ async def list_concesiones(
 async def modulos_de_persona(
     user_id: uuid.UUID,
     _: UserInfo = Depends(_require_superadmin),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ) -> dict:
     """Los módulos de una persona **y de dónde le vienen**.
 
@@ -172,7 +172,7 @@ async def modulos_de_persona(
 async def alcance_de_grupo(
     grupo: str,
     _: UserInfo = Depends(_require_superadmin),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ) -> AlcanceDeGrupo:
     """Cuánta gente conocida hay en un grupo, para poder confirmar una retirada con un número.
 
@@ -190,7 +190,7 @@ async def alcance_de_grupo(
 async def conceder(
     body: ConcesionCreate,
     user: UserInfo = Depends(_require_superadmin),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ) -> ConcesionRead:
     """Concede un módulo a una persona o a un grupo del IdP.
 
@@ -266,7 +266,7 @@ async def conceder(
 async def retirar(
     concesion_id: int,
     _: UserInfo = Depends(_require_superadmin),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ) -> None:
     """Retira una concesión.
 

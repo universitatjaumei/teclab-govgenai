@@ -54,7 +54,7 @@ from server.app.core.auth.tenancy import (
     scope_query_to_orgs,
 )
 from server.app.modules.agents_hub.contracts.actividad import ActividadIAEvent
-from server.app.modules.agents_hub.database.connection import get_async_session
+from server.app.api.deps import get_session
 from server.app.modules.agents_hub.database.operational_models import HubActividadIA
 
 #: Tope de la página. Sin él, `size=100000` pide la tabla entera por un endpoint paginado; quien
@@ -105,7 +105,7 @@ class ActividadRegistrada(BaseModel):
 async def registrar_actividad(
     evento: ActividadIAEvent,
     user: UserInfo = Depends(require_pat_scopes(ACTIVIDAD_WRITE)),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ) -> ActividadRegistrada:
     """Registra un uso de IA declarado por una herramienta externa.
 
@@ -231,7 +231,7 @@ async def listar_actividad(
     page: int = Query(default=1, ge=1),
     size: int = Query(default=25, ge=1, le=MAXIMO_POR_PAGINA),
     user: UserInfo = Depends(require_admin),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ) -> PaginaDeActividad:
     """Página del registro de actividad de las organizaciones del principal."""
     base = _consulta(user, herramienta, desde, hasta)
@@ -270,7 +270,7 @@ async def exportar_actividad(
     desde: datetime | None = Query(default=None),
     hasta: datetime | None = Query(default=None),
     user: UserInfo = Depends(require_admin),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ) -> Response:
     """El mismo registro filtrado, en CSV, para llevárselo a otra herramienta."""
     filas = (
@@ -352,7 +352,7 @@ async def categorias_de_datos(
         ),
     ),
     user: UserInfo = Depends(get_current_user),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ) -> list[CategoriaDeDatos]:
     """Los códigos de `categorias_datos` que usa esta organización.
 

@@ -23,7 +23,7 @@ from httpx import ASGITransport, AsyncClient
 
 from server.app.api.deps import get_current_user, get_current_user_optional
 from server.app.core.auth.models import UserInfo
-from server.app.modules.agents_hub.database.connection import get_async_session
+from server.app.api.deps import get_session
 
 
 def _cliente(session, principal) -> AsyncClient:
@@ -35,7 +35,7 @@ def _cliente(session, principal) -> AsyncClient:
     app = FastAPI()
     app.dependency_overrides[get_current_user] = lambda: principal
     app.dependency_overrides[get_current_user_optional] = lambda: principal
-    app.dependency_overrides[get_async_session] = _sesion
+    app.dependency_overrides[get_session] = _sesion
     app.include_router(router, prefix="/api/v1")
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 

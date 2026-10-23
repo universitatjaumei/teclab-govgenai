@@ -94,21 +94,24 @@ def opciones_de_conexion(url: str, timeout_ms: int) -> dict:
 
 DATABASE_URL = _dsn()
 
+#: **El** engine de la aplicación (#272). Había dos: éste y uno global en
+#: `agents_hub/database/connection.py`, con su propio pool. `get_engine()` devuelve ahora éste, y
+#: `pool_pre_ping` viene de aquel: una conexión que la base cerró se descarta antes de usarla.
 server_engine = create_async_engine(
     DATABASE_URL,
     echo=False,
     future=True,
+    pool_pre_ping=True,
     connect_args=opciones_de_conexion(DATABASE_URL, TIEMPO_MAXIMO_DE_CONSULTA_MS),
 )
 
+#: La fábrica de sesiones de la aplicación. `expire_on_commit=False` y no el valor por omisión:
+#: con él, leer un atributo después de commitear dispara una carga síncrona que en una sesión
+#: asíncrona revienta (`MissingGreenlet`), y eso daba 500. El proveedor de las peticiones es
+#: `api/deps.get_session`.
 AsyncSessionLocal = async_sessionmaker(
     server_engine, class_=AsyncSession, expire_on_commit=False
 )
-
-
-async def get_session() -> AsyncSession:
-    async with AsyncSessionLocal() as session:
-        yield session
 
 
 async def seed_server_db():

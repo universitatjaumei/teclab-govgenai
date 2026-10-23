@@ -10,9 +10,8 @@ import logging
 from datetime import datetime
 from typing import Optional
 from sqlmodel import select, desc
-from sqlmodel.ext.asyncio.session import AsyncSession
 
-from server.app.database.db import server_engine
+from server.app.database.db import AsyncSessionLocal
 from server.app.database.models import TokenLog
 from server.app.services.pricing_service import calculate_cost
 
@@ -56,7 +55,7 @@ async def log_token_usage(
         max_retries = 5
         for attempt in range(max_retries):
             try:
-                async with AsyncSession(server_engine) as session:
+                async with AsyncSessionLocal() as session:
                     session.add(log_entry)
                     await session.commit()
                 break  # Success
@@ -91,7 +90,7 @@ async def get_token_stats(
     Returns:
         Dict: Resumen con coste total, tokens totales y lista de logs recientes.
     """
-    async with AsyncSession(server_engine) as session:
+    async with AsyncSessionLocal() as session:
         query = select(TokenLog).order_by(desc(TokenLog.timestamp))
 
         if start_date:

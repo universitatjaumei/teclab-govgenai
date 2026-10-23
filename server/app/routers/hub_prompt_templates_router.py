@@ -22,7 +22,7 @@ from server.app.modules.agents_hub.database.config_models import (
     HubChatbot,
     HubPromptTemplate,
 )
-from server.app.modules.agents_hub.database.connection import get_async_session
+from server.app.api.deps import get_session
 
 router = APIRouter(prefix="/hub/prompt-templates", tags=["hub-prompt-templates"])
 
@@ -72,7 +72,7 @@ class PromptTemplateUpdate(BaseModel):
 @router.get("/", response_model=list[PromptTemplateRead], dependencies=[Depends(require_scopes("chatbots:read"))])
 async def list_prompt_templates(
     chatbot_id: UUID | None = None,
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
     user: UserInfo = Depends(_require_admin),
 ) -> list[HubPromptTemplate]:
     q = select(HubPromptTemplate).order_by(
@@ -91,7 +91,7 @@ async def list_prompt_templates(
 @router.post("/", response_model=PromptTemplateRead, status_code=status.HTTP_201_CREATED)
 async def create_prompt_template(
     body: PromptTemplateCreate,
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
     user: UserInfo = Depends(_require_admin),
 ) -> HubPromptTemplate:
     await assert_chatbot_org_access(session, body.chatbot_id, user)
@@ -115,7 +115,7 @@ async def create_prompt_template(
 async def update_prompt_template(
     template_id: UUID,
     body: PromptTemplateUpdate,
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
     user: UserInfo = Depends(_require_admin),
 ) -> HubPromptTemplate:
     result = await session.execute(
@@ -144,7 +144,7 @@ async def update_prompt_template(
 @router.delete("/{template_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_prompt_template(
     template_id: UUID,
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
     user: UserInfo = Depends(_require_admin),
 ) -> None:
     result = await session.execute(

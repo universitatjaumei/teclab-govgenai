@@ -86,7 +86,7 @@ async def mundo(sesion, almacen):
 def _cliente(sesion, almacen):
     from server.app.api.deps import get_current_user, modulos_concedidos
     from server.app.core.storage import get_storage_service
-    from server.app.modules.agents_hub.database.connection import get_async_session
+    from server.app.api.deps import get_session
     from server.app.routers.hub_chatbots_router import router as chatbots
     from server.app.routers.hub_organizaciones_router import router as organizaciones
 
@@ -96,7 +96,7 @@ def _cliente(sesion, almacen):
     app = FastAPI()
     app.dependency_overrides[get_current_user] = lambda: _SUPERADMIN
     app.dependency_overrides[modulos_concedidos] = lambda: ["plataforma", "chatbots"]
-    app.dependency_overrides[get_async_session] = _s
+    app.dependency_overrides[get_session] = _s
     app.dependency_overrides[get_storage_service] = lambda: almacen
     app.include_router(chatbots, prefix="/api/v1")
     app.include_router(organizaciones, prefix="/api/v1")
