@@ -1,5 +1,5 @@
 # Stage 1: Builder — compila el SPA con Vite (misma major que CI, ver ci.yml)
-FROM node:24-alpine AS builder
+FROM node:25-alpine AS builder
 
 WORKDIR /app
 
