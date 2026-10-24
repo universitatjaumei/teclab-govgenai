@@ -134,3 +134,13 @@ async def test_se_puede_leer_un_objeto_despues_de_commitear(cliente) -> None:
     respuesta = await c.post("/commit-y-leer/tercera")
     assert respuesta.status_code == 200, respuesta.text
     assert respuesta.json() == {"nombre": "tercera"}
+
+
+def test_el_engine_unico_conserva_la_capacidad_de_los_dos() -> None:
+    """Revisión de la PR #300: eran dos pools de 5+10, y el chat por SSE retiene su conexión
+    mientras dura la respuesta. Con uno solo de 5+10, quince chats a la vez dejaban sin conexión
+    al panel y al login. El único conserva los treinta que sumaban los dos."""
+    from server.app.database.db import server_engine
+
+    assert server_engine.pool.size() == 10
+    assert server_engine.pool._max_overflow == 20

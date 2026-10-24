@@ -102,6 +102,11 @@ server_engine = create_async_engine(
     echo=False,
     future=True,
     pool_pre_ping=True,
+    # Los treinta que sumaban los dos pools de 5+10 que había antes de unificarlos. El chat por
+    # SSE retiene su conexión mientras dura la respuesta, y con quince en total una racha de
+    # chats dejaba sin conexión al panel y al login (revisión de la PR #300).
+    pool_size=10,
+    max_overflow=20,
     connect_args=opciones_de_conexion(DATABASE_URL, TIEMPO_MAXIMO_DE_CONSULTA_MS),
 )
 
