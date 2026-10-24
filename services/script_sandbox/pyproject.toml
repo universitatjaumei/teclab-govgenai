@@ -4,15 +4,15 @@ version = "0.1.0"
 description = "Microservicio aislado que ejecuta scripts Python aprobados en un subproceso efímero."
 requires-python = ">=3.13,<3.14"
 dependencies = [
-    "fastapi>=0.110",
-    "pydantic>=2.6",
+    "fastapi>=0.157.0",
+    "pydantic>=2.14.1",
     "uvicorn[standard]>=0.53.0",
     "pandas>=3.0",
     "openpyxl>=3.1",
     "pdfplumber>=0.10",
     "matplotlib>=3.8",
     "seaborn>=0.13",
-    "numpy>=1.26",
+    "numpy>=2.5.4",
     # AUT.9 (issue #119) — el ecosistema autorizado que la institución ratificó el 2026-09-29.
     # `pymupdf` se importa como `fitz`, que ya estaba permitido por el auditor y **no estaba
     # instalado**: era la divergencia que destapó el guardarraíl de AUT.9.
