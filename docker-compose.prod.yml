@@ -96,7 +96,7 @@ services:
     # Fijada (issue #43): con `:latest` no se puede saber qué versión corre ni volver a la
     # anterior, que son las dos preguntas de cualquier incidente. Dependabot vigila `docker`,
     # así que subirla será una PR y no una sorpresa.
-    image: ollama/ollama:0.34.2
+    image: ollama/ollama:0.40.7
     container_name: govgenai_ollama
     volumes:
       - ollama_data:/root/.ollama
