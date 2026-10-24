@@ -8,13 +8,14 @@ name: govgenai-dev
 
 services:
   postgres:
-    image: pgvector/pgvector:pg16
+    image: pgvector/pgvector:0.8.7-pg16
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-govgenai}
       POSTGRES_USER: ${POSTGRES_USER:-govgenai}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-govgenai_dev}
+    # #269 — sólo la máquina: la contraseña por omisión de arriba está en el repositorio.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -85,7 +86,7 @@ services:
       start_period: 30s
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.4.10-alpine
     volumes:
       - redis_data:/data
     healthcheck:
@@ -95,7 +96,7 @@ services:
       retries: 10
 
   langfuse:
-    image: langfuse/langfuse:3
+    image: langfuse/langfuse:3.225.11
     depends_on:
       postgres:
         condition: service_healthy

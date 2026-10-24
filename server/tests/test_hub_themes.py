@@ -135,7 +135,7 @@ class TestThemeAPI:
         # que doblar es la sesión.
         from unittest.mock import AsyncMock, MagicMock
 
-        from server.app.modules.agents_hub.database.connection import get_async_session
+        from server.app.api.deps import get_session
 
         sesion = MagicMock()
         sesion.add = MagicMock()
@@ -145,7 +145,7 @@ class TestThemeAPI:
         async def _sesion():
             yield sesion
 
-        test_app.dependency_overrides[get_async_session] = _sesion
+        test_app.dependency_overrides[get_session] = _sesion
 
         try:
             async with AsyncClient(

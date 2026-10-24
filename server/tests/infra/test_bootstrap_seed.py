@@ -87,11 +87,13 @@ def _run_bootstrap(async_url: str, *extra: str) -> subprocess.CompletedProcess:
         [
             sys.executable, "-m", "server.app.scripts.bootstrap",
             "--superadmin-email", SUPERADMIN_EMAIL,
-            "--superadmin-password", SUPERADMIN_PASSWORD,
             *extra,
         ],
         cwd=_SERVER_ROOT.parent,
-        env={**os.environ, "DATABASE_URL": async_url},
+        # #270: la contraseña ya no va como argumento, y sin `stdin` cerrado el guion
+        # se quedaría esperándola en la terminal.
+        env={**os.environ, "DATABASE_URL": async_url, "SUPERADMIN_PASSWORD": SUPERADMIN_PASSWORD},
+        stdin=subprocess.DEVNULL,
         capture_output=True, text=True, timeout=180,
     )
 

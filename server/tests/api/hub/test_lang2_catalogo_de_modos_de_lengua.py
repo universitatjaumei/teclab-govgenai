@@ -164,6 +164,6 @@ def _sin_base_de_datos():
     """El catálogo no toca la base: es contrato, no dato de inquilino.
 
     Se deja dicho como fixture vacía porque su ausencia es la observación: si algún día este
-    endpoint necesitara `get_async_session`, es que el catálogo dejó de ser contrato.
+    endpoint necesitara `get_session`, es que el catálogo dejó de ser contrato.
     """
     yield

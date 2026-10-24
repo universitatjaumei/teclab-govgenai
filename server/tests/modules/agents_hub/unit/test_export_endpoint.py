@@ -52,7 +52,7 @@ def _build_export_app(interaction_mock, org_del_chatbot: str = _ORG_DEL_CHATBOT)
     import uuid as _uuid
 
     from server.app.api.v1.hub_tasks import router as tasks_router
-    from server.app.modules.agents_hub.database.connection import get_async_session
+    from server.app.api.deps import get_session
     from sqlalchemy.ext.asyncio import AsyncSession
 
     mock_session = AsyncMock(spec=AsyncSession)
@@ -71,7 +71,7 @@ def _build_export_app(interaction_mock, org_del_chatbot: str = _ORG_DEL_CHATBOT)
         yield mock_session
 
     app = FastAPI()
-    app.dependency_overrides[get_async_session] = _mock_session
+    app.dependency_overrides[get_session] = _mock_session
     app.include_router(tasks_router, prefix="/api/v1")
     return app
 

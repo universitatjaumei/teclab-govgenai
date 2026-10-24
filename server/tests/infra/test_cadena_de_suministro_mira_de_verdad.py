@@ -194,10 +194,9 @@ def test_las_dependencias_auditadas_son_las_del_lock(job: dict[str, Any]) -> Non
         "que parece bueno y mide otra cosa. Es la misma avería que vivió 17 días con el lock "
         "de la raíz."
     )
-    assert "--no-emit-project" in run and "automatia-shared" in run, (
-        "Nuestro propio código se excluye del fichero auditado: `-e ../shared` es una ruta "
-        "local que pip-audit no resuelve contra PyPI, y un paquete propio no tiene CVE. Sus "
-        "dependencias sí están, resueltas en el mismo export."
+    assert "--no-emit-project" in run, (
+        "Nuestro propio código se excluye del fichero auditado: un paquete propio no tiene "
+        "CVE. Sus dependencias sí están, resueltas en el mismo export."
     )
 
 

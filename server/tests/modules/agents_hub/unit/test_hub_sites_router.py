@@ -85,7 +85,7 @@ def _fake_page(**kw):
 
 def _build_app(session_mock=None, site_repo_mock=None, selection_service_mock=None, quality_job_mock=None):
     from server.app.routers.hub_sites_router import router, get_quality_job
-    from server.app.modules.agents_hub.database.connection import get_async_session
+    from server.app.api.deps import get_session
 
     _session = session_mock or AsyncMock()
 
@@ -102,7 +102,7 @@ def _build_app(session_mock=None, site_repo_mock=None, selection_service_mock=No
         yield _session
 
     app = FastAPI()
-    app.dependency_overrides[get_async_session] = _session_override
+    app.dependency_overrides[get_session] = _session_override
 
     if quality_job_mock is not None:
         app.dependency_overrides[get_quality_job] = lambda: quality_job_mock
@@ -334,10 +334,9 @@ def test_list_candidates_returns_200():
     from server.app.routers.hub_sites_router import router
 
     app = FastAPI()
-    from server.app.modules.agents_hub.database.connection import get_async_session
-    # SEC.8.1: la guarda de organización resuelve el recurso con `session.get`.
+    from server.app.api.deps import get_session
     session.get = AsyncMock(return_value=_fake_site())
-    app.dependency_overrides[get_async_session] = lambda: session
+    app.dependency_overrides[get_session] = lambda: session
     app.dependency_overrides[get_selection_service] = lambda: mock_svc
     app.include_router(router, prefix="/api/v1")
 
@@ -382,10 +381,9 @@ def test_ingest_page_returns_202(monkeypatch):
 
     from server.app.routers.hub_sites_router import router
     app = FastAPI()
-    from server.app.modules.agents_hub.database.connection import get_async_session
-    # SEC.8.1: la guarda de organización resuelve el recurso con `session.get`.
+    from server.app.api.deps import get_session
     session.get = AsyncMock(return_value=_fake_site())
-    app.dependency_overrides[get_async_session] = lambda: session
+    app.dependency_overrides[get_session] = lambda: session
     app.dependency_overrides[get_selection_service] = lambda: mock_svc
     app.include_router(router, prefix="/api/v1")
 
@@ -409,10 +407,9 @@ def test_retire_page_returns_200_with_count():
 
     from server.app.routers.hub_sites_router import router
     app = FastAPI()
-    from server.app.modules.agents_hub.database.connection import get_async_session
-    # SEC.8.1: la guarda de organización resuelve el recurso con `session.get`.
+    from server.app.api.deps import get_session
     session.get = AsyncMock(return_value=_fake_site())
-    app.dependency_overrides[get_async_session] = lambda: session
+    app.dependency_overrides[get_session] = lambda: session
     app.dependency_overrides[get_selection_service] = lambda: mock_svc
     app.include_router(router, prefix="/api/v1")
 

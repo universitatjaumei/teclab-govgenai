@@ -32,7 +32,7 @@ from fastapi.testclient import TestClient
 import server.app.main  # noqa: F401
 from server.app.api.deps import get_current_user
 from server.app.core.auth.models import UserInfo
-from server.app.modules.agents_hub.database.connection import get_async_session
+from server.app.api.deps import get_session
 from server.app.routers.hub_themes_router import router
 
 ORG_A = uuid.UUID("00000000-0000-0000-0000-0000000000a1")
@@ -50,7 +50,7 @@ def _app_con(principal: UserInfo, session):
     # SEC.8.5: el endpoint admite dos vías (sesión o credencial de sitio), así que depende
     # de la variante opcional; sin este override caería al 401 antes de mirar nada.
     app.dependency_overrides[get_current_user_optional] = lambda: principal
-    app.dependency_overrides[get_async_session] = _sesion
+    app.dependency_overrides[get_session] = _sesion
     app.include_router(router, prefix="/api/v1")
     return TestClient(app, raise_server_exceptions=False)
 

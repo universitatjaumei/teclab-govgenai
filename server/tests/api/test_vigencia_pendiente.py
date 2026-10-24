@@ -17,7 +17,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import server.app.main  # noqa: F401  (fija el orden de carga; ver test_corpus_upload_contract)
-from server.app.modules.agents_hub.database.connection import get_async_session
+from server.app.api.deps import get_session
 from server.app.routers.hub_ingestion_router import router as ingestion_router
 
 ORG = "00000000-0000-0000-0000-00000000dead"
@@ -84,7 +84,7 @@ def _consultar(pendientes, total=297):
         yield session
 
     app = FastAPI()
-    app.dependency_overrides[get_async_session] = _sesion
+    app.dependency_overrides[get_session] = _sesion
     app.include_router(ingestion_router, prefix="/api/v1")
 
     with TestClient(app, raise_server_exceptions=False) as cliente:
@@ -174,7 +174,7 @@ class TestColaDeVigencia:
             yield session
 
         app = FastAPI()
-        app.dependency_overrides[get_async_session] = _sesion
+        app.dependency_overrides[get_session] = _sesion
         app.include_router(ingestion_router, prefix="/api/v1")
 
         with TestClient(app, raise_server_exceptions=False) as cliente:
@@ -225,7 +225,7 @@ def _validar(documento, *, role: str = "admin", doc_id: str | None = None):
         yield session
 
     app = FastAPI()
-    app.dependency_overrides[get_async_session] = _sesion
+    app.dependency_overrides[get_session] = _sesion
     app.include_router(ingestion_router, prefix="/api/v1")
 
     objetivo = doc_id or (str(documento.id) if documento is not None else str(uuid.uuid4()))

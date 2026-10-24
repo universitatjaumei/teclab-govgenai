@@ -219,7 +219,7 @@ class TestExposicion:
 
         from server.app.api.deps import get_current_user
         from server.app.core.auth.models import UserInfo
-        from server.app.modules.agents_hub.database.connection import get_async_session
+        from server.app.api.deps import get_session
         from server.app.routers.hub_ingestion_router import router as ingestion_router
 
         from datetime import datetime, timezone
@@ -257,7 +257,7 @@ class TestExposicion:
             yield session
 
         app = FastAPI()
-        app.dependency_overrides[get_async_session] = _sesion
+        app.dependency_overrides[get_session] = _sesion
         app.dependency_overrides[get_current_user] = lambda: UserInfo(
             user_id="a1", email="a@test.com", role="admin"
         , organizacion_ids=(ORG_PRUEBA,))

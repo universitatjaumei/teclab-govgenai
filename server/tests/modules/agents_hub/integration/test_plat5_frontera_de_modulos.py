@@ -32,10 +32,8 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 import server.app.main  # noqa: F401
-
-from server.app.api.deps import get_current_user
+from server.app.api.deps import get_current_user, get_session
 from server.app.core.auth.models import UserInfo
-from server.app.modules.agents_hub.database.connection import get_async_session
 
 
 def _principal(*orgs, role: str = "admin") -> UserInfo:
@@ -57,12 +55,9 @@ def _cliente(session, principal, router) -> AsyncClient:
         from server.app.api.deps import get_current_user_optional
 
         app.dependency_overrides[get_current_user_optional] = lambda: principal
-    app.dependency_overrides[get_async_session] = _sesion
-    # `modulos_concedidos` depende de `get_session`, no de `get_async_session`: sin doblar las
-    # dos, la guarda consulta la BD del desarrollador y responde 403 por no encontrar la
-    # concesión que este test acaba de crear — un falso rojo que parece de autorización.
-    from server.app.api.deps import get_session
-
+    # Hasta #272 había que doblar dos proveedores —éste y `get_async_session` del Hub, del que
+    # dependía `modulos_concedidos`—; sin el segundo, la guarda consultaba la BD del
+    # desarrollador y respondía 403. Ahora hay uno.
     app.dependency_overrides[get_session] = _sesion
     app.include_router(router, prefix="/api/v1")
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
@@ -272,7 +267,6 @@ class TestElInventarioDeRouters:
         # alimentan la cola de revisión de contenido. Mi inventario lo tenía mal.
         "hub_content_quality_router": "curacion",
         "hub_sites_router": "curacion",
-        "library_router": "plataforma",
         "hub_activity_prompts_router": "plataforma",
     }
 

@@ -424,7 +424,7 @@ class TestEndpointYComando:
 
         from server.app.api.deps import get_current_user
         from server.app.core.auth.models import UserInfo
-        from server.app.modules.agents_hub.database.connection import get_async_session
+        from server.app.api.deps import get_session
         from server.app.routers.hub_content_quality_router import router
 
         chatbot = await _chatbot(db_session)
@@ -436,7 +436,7 @@ class TestEndpointYComando:
             yield db_session
 
         app = FastAPI()
-        app.dependency_overrides[get_async_session] = _sesion
+        app.dependency_overrides[get_session] = _sesion
         app.dependency_overrides[get_current_user] = lambda: UserInfo(
             user_id="a1",
             email="admin@uji.es",
@@ -469,7 +469,7 @@ class TestEndpointYComando:
 
         from server.app.api.deps import get_current_user
         from server.app.core.auth.models import UserInfo
-        from server.app.modules.agents_hub.database.connection import get_async_session
+        from server.app.api.deps import get_session
         from server.app.modules.agents_hub.ingestion.gap_detector import (
             analizar_huecos,
         )
@@ -486,7 +486,7 @@ class TestEndpointYComando:
             yield db_session
 
         app = FastAPI()
-        app.dependency_overrides[get_async_session] = _sesion
+        app.dependency_overrides[get_session] = _sesion
         app.dependency_overrides[get_current_user] = lambda: UserInfo(
             user_id="a1",
             email="admin@uji.es",

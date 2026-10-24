@@ -131,14 +131,14 @@ class TestEndpoints:
 
         from server.app.api.deps import get_current_user
         from server.app.core.auth.models import UserInfo
-        from server.app.modules.agents_hub.database.connection import get_async_session
+        from server.app.api.deps import get_session
         from server.app.routers.hub_test_scenarios_router import router
 
         async def _sesion():
             yield session
 
         app = FastAPI()
-        app.dependency_overrides[get_async_session] = _sesion
+        app.dependency_overrides[get_session] = _sesion
         # SEC.8.1: el router resuelve el chatbot a su organización antes de nada, así que
         # el actor tiene que gestionarla. Se conceden las organizaciones de los chatbots
         # del test en vez de usar un superadministrador: con el comodín, la guarda no se

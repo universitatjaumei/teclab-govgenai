@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from server.app.core.auth.models import UserInfo
 from server.app.main import app
-from server.app.modules.agents_hub.database.connection import get_async_session
+from server.app.api.deps import get_session
 from server.app.api.deps import get_current_user
 
 DEV_ORG_ID = uuid.UUID("00000000-0000-0000-0000-000000000010")
@@ -95,7 +95,7 @@ class TestListOrganizaciones:
     def test_returns_list_of_organizaciones(self, client):
         o = _make_organizacion()
         session = _session_for_list([(o, 3)])
-        app.dependency_overrides[get_async_session] = _override_session(session)
+        app.dependency_overrides[get_session] = _override_session(session)
         try:
             resp = client.get("/api/v1/hub/organizaciones")
             assert resp.status_code == 200
@@ -104,17 +104,17 @@ class TestListOrganizaciones:
             assert data[0]["name"] == "UJI"
             assert data[0]["chatbot_count"] == 3
         finally:
-            app.dependency_overrides.pop(get_async_session, None)
+            app.dependency_overrides.pop(get_session, None)
 
     def test_returns_empty_list(self, client):
         session = _session_for_list([])
-        app.dependency_overrides[get_async_session] = _override_session(session)
+        app.dependency_overrides[get_session] = _override_session(session)
         try:
             resp = client.get("/api/v1/hub/organizaciones")
             assert resp.status_code == 200
             assert resp.json() == []
         finally:
-            app.dependency_overrides.pop(get_async_session, None)
+            app.dependency_overrides.pop(get_session, None)
 
     def test_requires_auth(self, client):
         app.dependency_overrides.pop(get_current_user, None)
@@ -136,7 +136,7 @@ class TestCreateOrganizacion:
             obj.updated_at = created.updated_at
 
         session.refresh = _refresh
-        app.dependency_overrides[get_async_session] = _override_session(session)
+        app.dependency_overrides[get_session] = _override_session(session)
         try:
             resp = client.post(
                 "/api/v1/hub/organizaciones",
@@ -146,16 +146,16 @@ class TestCreateOrganizacion:
             assert resp.json()["name"] == "Nueva Institución"
             assert resp.json()["partner_id"] == "partner-1"
         finally:
-            app.dependency_overrides.pop(get_async_session, None)
+            app.dependency_overrides.pop(get_session, None)
 
     def test_requires_name_and_partner_id(self, client):
         session = _session_for_crud()
-        app.dependency_overrides[get_async_session] = _override_session(session)
+        app.dependency_overrides[get_session] = _override_session(session)
         try:
             resp = client.post("/api/v1/hub/organizaciones", json={"name": "Solo nombre"})
             assert resp.status_code == 422
         finally:
-            app.dependency_overrides.pop(get_async_session, None)
+            app.dependency_overrides.pop(get_session, None)
 
 
 class TestUpdateOrganizacion:
@@ -167,7 +167,7 @@ class TestUpdateOrganizacion:
 
         session = _session_for_crud(o)
         session.refresh = _refresh
-        app.dependency_overrides[get_async_session] = _override_session(session)
+        app.dependency_overrides[get_session] = _override_session(session)
         try:
             resp = client.patch(
                 f"/api/v1/hub/organizaciones/{DEV_ORG_ID}",
@@ -176,11 +176,11 @@ class TestUpdateOrganizacion:
             assert resp.status_code == 200
             assert resp.json()["name"] == "Actualizado"
         finally:
-            app.dependency_overrides.pop(get_async_session, None)
+            app.dependency_overrides.pop(get_session, None)
 
     def test_returns_404_for_unknown_id(self, client):
         session = _session_for_crud(None)
-        app.dependency_overrides[get_async_session] = _override_session(session)
+        app.dependency_overrides[get_session] = _override_session(session)
         try:
             resp = client.patch(
                 f"/api/v1/hub/organizaciones/{uuid.uuid4()}",
@@ -188,25 +188,25 @@ class TestUpdateOrganizacion:
             )
             assert resp.status_code == 404
         finally:
-            app.dependency_overrides.pop(get_async_session, None)
+            app.dependency_overrides.pop(get_session, None)
 
 
 class TestDeleteOrganizacion:
     def test_deletes_organizacion_returns_204(self, client):
         o = _make_organizacion()
         session = _session_for_crud(o)
-        app.dependency_overrides[get_async_session] = _override_session(session)
+        app.dependency_overrides[get_session] = _override_session(session)
         try:
             resp = client.delete(f"/api/v1/hub/organizaciones/{DEV_ORG_ID}")
             assert resp.status_code == 204
         finally:
-            app.dependency_overrides.pop(get_async_session, None)
+            app.dependency_overrides.pop(get_session, None)
 
     def test_returns_404_for_unknown_id(self, client):
         session = _session_for_crud(None)
-        app.dependency_overrides[get_async_session] = _override_session(session)
+        app.dependency_overrides[get_session] = _override_session(session)
         try:
             resp = client.delete(f"/api/v1/hub/organizaciones/{uuid.uuid4()}")
             assert resp.status_code == 404
         finally:
-            app.dependency_overrides.pop(get_async_session, None)
+            app.dependency_overrides.pop(get_session, None)

@@ -9,10 +9,9 @@ Estos modelos se almacenan en brain_server.db y contienen:
 """
 
 from datetime import datetime
-from typing import Optional, Dict, List, Any
+from typing import Optional, List, Any
 from sqlmodel import SQLModel, Field, Column
-from sqlalchemy import JSON, DateTime, Text
-from automatia_shared.enums import AutomationType
+from sqlalchemy import JSON, DateTime
 from pydantic import field_validator, ConfigDict
 
 
@@ -80,40 +79,6 @@ class ModelCache(SQLModel, table=True):
     )
     models: List[str] = Field(default=[], sa_column=Column(JSON))
     last_updated: datetime = Field(default_factory=datetime.utcnow)
-
-
-class AutomationLibrary(SQLModel, table=True):
-    """
-    Repositorio central de automatizaciones (scripts y flujos).
-
-    Soporta versionado, firmas criptográficas y grupos de acceso para
-    una distribución segura de componentes.
-    """
-
-    __tablename__ = "automation_library"
-
-    id: str = Field(primary_key=True, index=True)
-    name: str = Field(index=True)
-    type: AutomationType
-    code_content: str = Field(sa_column=Column(Text))
-    version: int = 1
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-
-    # Jerarquía y Seguridad
-    client_id: Optional[str] = Field(default=None, index=True)
-    partner_id: Optional[str] = Field(default=None, index=True)
-    is_system_template: bool = Field(default=False)
-
-    # --- NUEVOS CAMPOS (Sincronizados con DTO v2.0) ---
-    signature: Optional[str] = Field(default=None)  # Firma del Partner/Superadmin
-    is_workflow: bool = Field(
-        default=False
-    )  # Distingue script simple de flujo complejo
-    # Almacenado como JSON/Array en la BD
-    access_groups: List[str] = Field(default_factory=list, sa_column=Column(JSON))
-    # --------------------------------------------------
-
-    metadata_json: Optional[Dict[str, Any]] = Field(default={}, sa_column=Column(JSON))
 
 
 # === MULTITENANCY MODELS (Future - Phase 1) ===
@@ -196,21 +161,3 @@ class AdminAccount(SQLModel, table=True):
         default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
     )
 
-
-class SchedulerConfig(SQLModel, table=True):
-    """
-    Configuración para el programador de tareas en segundo plano.
-
-    Controla tareas automatizadas como la actualización de la caché de modelos.
-    """
-
-    id: int = Field(default=1, primary_key=True)
-    enabled: bool = Field(default=True, description="Whether scheduler is enabled")
-    refresh_hour: int = Field(default=3, description="Hour to run daily refresh (0-23)")
-    refresh_minute: int = Field(
-        default=0, description="Minute to run daily refresh (0-59)"
-    )
-    last_run: Optional[datetime] = Field(
-        default=None, description="Timestamp of last successful run"
-    )
-    updated_at: datetime = Field(default_factory=datetime.utcnow)

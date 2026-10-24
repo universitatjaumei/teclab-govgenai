@@ -20,7 +20,7 @@ from fastapi.testclient import TestClient
 
 from server.app.api.deps import get_current_user
 from server.app.core.auth.models import UserInfo
-from server.app.modules.agents_hub.database.connection import get_async_session
+from server.app.api.deps import get_session
 from server.app.routers.hub_sites_router import router as sites_router
 
 _ORG = uuid.uuid4()
@@ -38,7 +38,7 @@ def _app(sesion: Any) -> FastAPI:
 
     app = FastAPI()
     app.include_router(sites_router, prefix="/api/v1")
-    app.dependency_overrides[get_async_session] = _sesion
+    app.dependency_overrides[get_session] = _sesion
     app.dependency_overrides[get_current_user] = _usuario
     return app
 

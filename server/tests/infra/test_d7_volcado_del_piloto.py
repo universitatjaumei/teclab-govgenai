@@ -344,6 +344,14 @@ def test_exige_organizacion_y_salida() -> None:
         assert resultado.returncode == 2, f"Debería negarse con {argumentos}"
 
 
+def test_la_organizacion_tiene_que_ser_un_uuid() -> None:
+    """#270 — se interpola en `sed` y en SQL: cualquier otra cosa es código, no un dato."""
+    for organizacion in ("x' OR '1'='1", "u", "00000000-0000-0000-0000-00000000000g"):
+        resultado = _run("--organizacion", organizacion, "--salida", "x.sql", "--dry-run")
+        assert resultado.returncode == 2, f"Debería negarse con {organizacion!r}"
+        assert "UUID" in resultado.stderr
+
+
 def test_la_conexion_no_esta_cableada() -> None:
     texto = _texto()
     assert "DATABASE_URL_SYNC" in texto
@@ -354,8 +362,8 @@ def test_la_conexion_no_esta_cableada() -> None:
 
 def test_el_plan_en_seco_enumera_las_dos_listas_y_no_toca_la_base() -> None:
     solo_bash = str(Path(_BASH).parent)
-    resultado = _run("--organizacion", "u", "--salida", "x.sql", "--dry-run",
-                     env={"PATH": solo_bash, "DATABASE_URL_SYNC": ""})
+    resultado = _run("--organizacion", "5d0c6a7e-3b1f-4c2a-9e8d-1a2b3c4d5e6f", "--salida", "x.sql",
+                     "--dry-run", env={"PATH": solo_bash, "DATABASE_URL_SYNC": ""})
     assert resultado.returncode == 0, resultado.stderr
     assert "Viajan" in resultado.stdout and "NO viajan" in resultado.stdout
     for tabla in ("hub_documents", "hub_workspaces"):

@@ -34,7 +34,6 @@ PROYECTOS = (
     "server",
     "mcp_server",
     "services/script_sandbox",
-    "shared",
 )
 
 #: La versión en la que esto se ejecuta de verdad: las cuatro imágenes y CI.

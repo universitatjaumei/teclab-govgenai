@@ -39,6 +39,7 @@ _SERVER_ROOT = Path(__file__).resolve().parents[2]
 
 SUPERADMIN_EMAIL = "arranque@example.local"
 SUPERADMIN_PASSWORD = "una-contrasena-de-prueba-larga"
+_CON_CLAVE = {"SUPERADMIN_PASSWORD": SUPERADMIN_PASSWORD}
 
 
 def _sync_url() -> str:
@@ -110,6 +111,8 @@ def _bootstrap(async_url: str, *argumentos: str, entorno_extra: dict | None = No
         [sys.executable, "-m", "server.app.scripts.bootstrap", *argumentos],
         cwd=_SERVER_ROOT.parent,
         env=entorno,
+        # #270: sin entorno, el guion lee la contraseña de aquí; cerrado, no espera a nadie.
+        stdin=subprocess.DEVNULL,
         capture_output=True, text=True, timeout=180,
     )
 
@@ -172,7 +175,7 @@ class TestUnSegundoSuperadministradorNoEsSilencioso:
         resultado = _bootstrap(
             async_url,
             "--superadmin-email", SUPERADMIN_EMAIL,
-            "--superadmin-password", SUPERADMIN_PASSWORD,
+            entorno_extra=_CON_CLAVE,
         )
 
         assert resultado.returncode == 0, resultado.stderr
@@ -184,13 +187,13 @@ class TestUnSegundoSuperadministradorNoEsSilencioso:
         _bootstrap(
             async_url,
             "--superadmin-email", SUPERADMIN_EMAIL,
-            "--superadmin-password", SUPERADMIN_PASSWORD,
+            entorno_extra=_CON_CLAVE,
         )
 
         resultado = _bootstrap(
             async_url,
             "--superadmin-email", "arrranque@example.local",  # la errata
-            "--superadmin-password", SUPERADMIN_PASSWORD,
+            entorno_extra=_CON_CLAVE,
         )
 
         assert _cuenta(dsn, "SELECT count(*) FROM superadminaccount") == 1, (
@@ -204,14 +207,14 @@ class TestUnSegundoSuperadministradorNoEsSilencioso:
         _bootstrap(
             async_url,
             "--superadmin-email", SUPERADMIN_EMAIL,
-            "--superadmin-password", SUPERADMIN_PASSWORD,
+            entorno_extra=_CON_CLAVE,
         )
 
         resultado = _bootstrap(
             async_url,
             "--superadmin-email", "segundo@example.local",
-            "--superadmin-password", SUPERADMIN_PASSWORD,
             "--permitir-otro-superadmin",
+            entorno_extra=_CON_CLAVE,
         )
 
         assert resultado.returncode == 0, resultado.stderr
@@ -222,13 +225,10 @@ class TestUnSegundoSuperadministradorNoEsSilencioso:
     ) -> None:
         """`setup.sh` se reejecuta, y eso no puede empezar a fallar."""
         dsn, async_url = base_desechable
-        credenciales = (
-            "--superadmin-email", SUPERADMIN_EMAIL,
-            "--superadmin-password", SUPERADMIN_PASSWORD,
-        )
-        _bootstrap(async_url, *credenciales)
+        credenciales = ("--superadmin-email", SUPERADMIN_EMAIL)
+        _bootstrap(async_url, *credenciales, entorno_extra=_CON_CLAVE)
 
-        segunda = _bootstrap(async_url, *credenciales)
+        segunda = _bootstrap(async_url, *credenciales, entorno_extra=_CON_CLAVE)
 
         assert segunda.returncode == 0, (
             f"reejecutar con el mismo correo ha fallado:\n{segunda.stdout}\n{segunda.stderr}"

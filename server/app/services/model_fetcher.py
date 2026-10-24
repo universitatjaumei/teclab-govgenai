@@ -3,10 +3,9 @@
 import logging
 from datetime import datetime, timedelta
 from typing import List
-from sqlmodel.ext.asyncio.session import AsyncSession
 import aiohttp
 
-from server.app.database.db import server_engine
+from server.app.database.db import AsyncSessionLocal
 from server.app.database.models import ModelCache
 
 # Issue #18 — lo llama el planificador y tambien la primera consulta que encuentra la cache
@@ -146,7 +145,7 @@ async def refresh_model_cache():
         "openrouter": fetch_openrouter_models,
     }
 
-    async with AsyncSession(server_engine) as session:
+    async with AsyncSessionLocal() as session:
         for provider, fetch_func in providers.items():
             try:
                 models = await fetch_func()
@@ -168,7 +167,7 @@ async def refresh_model_cache():
 
 async def get_models_for_provider(provider: str) -> List[str]:
     """Get models for a provider, using cache if fresh, otherwise fetch."""
-    async with AsyncSession(server_engine) as session:
+    async with AsyncSessionLocal() as session:
         cache = await session.get(ModelCache, provider)
 
         # Check if cache is fresh

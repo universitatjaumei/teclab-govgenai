@@ -58,7 +58,7 @@ async def _escenario(sesion):
 
 def _cliente(sesion, principal: UserInfo, modulos: list[str]):
     from server.app.api.deps import get_current_user, modulos_concedidos
-    from server.app.modules.agents_hub.database.connection import get_async_session
+    from server.app.api.deps import get_session
     from server.app.routers.hub_sites_router import router
 
     async def _s():
@@ -67,7 +67,7 @@ def _cliente(sesion, principal: UserInfo, modulos: list[str]):
     app = FastAPI()
     app.dependency_overrides[get_current_user] = lambda: principal
     app.dependency_overrides[modulos_concedidos] = lambda: modulos
-    app.dependency_overrides[get_async_session] = _s
+    app.dependency_overrides[get_session] = _s
     app.include_router(router, prefix="/api/v1")
     return httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t")
 

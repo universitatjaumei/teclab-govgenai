@@ -73,7 +73,7 @@ def _app(chatbot) -> FastAPI:
     from sqlalchemy.ext.asyncio import AsyncSession
 
     from server.app.api.v1.hub_chat import router as chat_router
-    from server.app.modules.agents_hub.database.connection import get_async_session
+    from server.app.api.deps import get_session
 
     sesion = AsyncMock(spec=AsyncSession)
     resultado = MagicMock()
@@ -87,7 +87,7 @@ def _app(chatbot) -> FastAPI:
         yield sesion
 
     app = FastAPI()
-    app.dependency_overrides[get_async_session] = _sesion
+    app.dependency_overrides[get_session] = _sesion
     app.include_router(chat_router, prefix="/api/v1")
     return app
 

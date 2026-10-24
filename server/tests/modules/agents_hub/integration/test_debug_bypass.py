@@ -256,7 +256,7 @@ class TestEndpointDeBypass:
         from server.app.api.deps import get_current_user
         from server.app.api.v1.hub_chat import router as chat_router
         from server.app.core.auth.models import UserInfo
-        from server.app.modules.agents_hub.database.connection import get_async_session
+        from server.app.api.deps import get_session
 
         session = AsyncMock(spec=AsyncSession)
         resultado = MagicMock()
@@ -278,7 +278,7 @@ class TestEndpointDeBypass:
         )
 
         app = FastAPI()
-        app.dependency_overrides[get_async_session] = _sesion
+        app.dependency_overrides[get_session] = _sesion
         app.dependency_overrides[get_current_user] = lambda: principal
         # SEC.8.5: el chat admite sesión o credencial de sitio, así que depende de la
         # variante opcional; sin doblarla, la petición muere en un 401 antes de llegar al

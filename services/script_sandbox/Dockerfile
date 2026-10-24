@@ -39,7 +39,7 @@ COPY uv.lock* ./
 # el primer `uv sync` fallaba, la segunda rama **volvía a resolver** y la imagen salía con
 # versiones que nadie había fijado ni probado: justo lo que el lock existe para impedir, y con la
 # construcción en verde. Comprobado con `--no-cache` y sin reserva que el primero se vale solo.
-RUN pip install --no-cache-dir uv && uv sync --locked --no-dev
+RUN pip install --no-cache-dir uv==0.12.24 && uv sync --locked --no-dev
 
 COPY sandbox/ ./sandbox/
 

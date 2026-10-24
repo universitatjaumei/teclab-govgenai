@@ -49,7 +49,7 @@ from server.app.core.urls import normalizar_url
 from server.app.modules.agents_hub.agent.citation_validator import aplicar_contrato
 from server.app.modules.agents_hub.contracts.actividad import ActividadIAEvent
 from server.app.modules.agents_hub.database.config_models import HubChatbot
-from server.app.modules.agents_hub.database.connection import get_async_session
+from server.app.api.deps import get_session
 from server.app.modules.agents_hub.database.operational_models import (
     HubActividadIA,
     HubDocument,
@@ -245,7 +245,7 @@ async def consultar_vigencia(
     document_id: uuid.UUID | None = Query(default=None),
     url: str | None = Query(default=None, max_length=2048),
     user: UserInfo = Depends(_exige_scope),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ) -> EstadoDeVigencia:
     """Si la plataforma pondría un aviso sobre este documento, y cuál.
 
@@ -435,7 +435,7 @@ class VeredictoDeCodigo(BaseModel):
 async def auditar_codigo(
     peticion: PeticionDeAuditoria,
     user: UserInfo = Depends(_exige_scope),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ) -> VeredictoDeCodigo:
     """Audita código que va a correr fuera, con la vara del catálogo de funciones.
 

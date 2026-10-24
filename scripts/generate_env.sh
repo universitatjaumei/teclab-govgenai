@@ -74,11 +74,6 @@ LANGFUSE_ADMIN_PASSWORD="$(openssl rand -hex 12)"
 # con nombre propio en la consola del navegador que un comodín puesto por un script.
 CORS_ALLOWED_ORIGINS="${CORS_ALLOWED_ORIGINS:-}"
 
-# Clave RSA para la firma de manifiestos (AUTOMATIA_SIGNING_KEY). PKCS1 PEM;
-# server/app/services/manifest_signature_service.py normaliza '\n' literal a
-# saltos de línea reales al cargarla.
-RSA_PEM="$(openssl genrsa 2048 2>/dev/null)"
-AUTOMATIA_SIGNING_KEY="$(printf '%s\n' "$RSA_PEM" | awk 'BEGIN{ORS="\\n"} {print}')"
 
 if [ "$MODE" = "local" ]; then
   STORAGE_BACKEND="file"
@@ -213,9 +208,6 @@ PUBLICATION_DATASET_INDEX=
 PUBLICATION_DATASET_CONTENT=
 PUBLICATION_DATASET_TOKEN=
 
-# === Firma de manifiestos (RSA, autogenerada) ===
-AUTOMATIA_SIGNING_KEY="${AUTOMATIA_SIGNING_KEY}"
-
 # === LangFuse (observabilidad — autogenerado, valores usados por docker-compose) ===
 LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
 LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
@@ -234,7 +226,11 @@ write_if_absent() {
     echo "Ya existe, se conserva (usa --force para regenerar): $target"
     return 0
   fi
-  render_env > "$target"
+  # #270 — lleva la contraseña de Postgres, el secreto JWT y la clave privada RSA: sólo su
+  # dueño lo lee. `umask` cubre el fichero nuevo; `chmod`, el que ya existía y se regenera con
+  # `--force`, porque redirigir a un fichero existente conserva sus permisos.
+  (umask 077; render_env > "$target")
+  chmod 600 "$target"
   echo "Generado: $target"
 }
 

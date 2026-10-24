@@ -56,7 +56,7 @@ from server.app.core.auth.tenancy import assert_org_access, puede_acceder
 from server.app.core.storage import StorageService, get_storage_service
 from server.app.core.uploads import UploadKind, tipo_de_imagen, validate_upload
 from server.app.modules.agents_hub.database.config_models import HubChatbot, HubTheme
-from server.app.modules.agents_hub.database.connection import get_async_session
+from server.app.api.deps import get_session
 
 router = APIRouter(prefix="/hub/themes", tags=["hub-themes"])
 
@@ -370,7 +370,7 @@ async def get_themes(
     organizacion_id: str | None = None,
     chatbot_id: str | None = None,
     user: UserInfo = Depends(_require_admin),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
     _modulo=_de_plataforma,
 ) -> list[dict]:
     """Lista los temas disponibles para el partner.
@@ -401,7 +401,7 @@ async def get_theme_for_chatbot(
     chatbot_id: uuid.UUID,
     http_request: Request,
     user: UserInfo | None = Depends(get_current_user_optional),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ) -> ChatbotThemeOut:
     """Tema resuelto de un chatbot, para pintar el widget público.
 
@@ -458,7 +458,7 @@ async def get_theme_for_chatbot(
 async def get_resolved_theme(
     organizacion: uuid.UUID | None = None,
     user: UserInfo = Depends(get_current_user),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ) -> TemaResueltoOut:
     """La cascada visual resuelta para quien pregunta: plataforma → organización.
 
@@ -514,7 +514,7 @@ async def get_resolved_theme(
 async def get_theme(
     theme_id: str,
     user: UserInfo = Depends(_require_admin),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
     _modulo=_de_plataforma,
 ) -> dict:
     """Obtiene un tema específico por ID.
@@ -538,7 +538,7 @@ async def get_theme(
 async def create_theme(
     data: ThemeCreate,
     user: UserInfo = Depends(_require_admin),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
     _modulo=_de_plataforma,
 ) -> dict:
     """Crea un nuevo tema para un cliente o chatbot del partner."""
@@ -591,7 +591,7 @@ async def update_theme(
     theme_id: str,
     data: ThemeUpdate,
     user: UserInfo = Depends(_require_superadmin),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
     _modulo=_de_plataforma,
 ) -> dict:
     """Actualiza un tema existente."""
@@ -613,7 +613,7 @@ async def update_theme(
 async def delete_theme(
     theme_id: str,
     user: UserInfo = Depends(_require_superadmin),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
     _modulo=_de_plataforma,
 ) -> None:
     """Elimina un tema personalizado."""
@@ -631,7 +631,7 @@ async def apply_theme_to_chatbot(
     theme_id: str,
     chatbot_id: uuid.UUID,
     user: UserInfo = Depends(_require_superadmin),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
     _modulo=_de_plataforma,
 ) -> dict:
     """Aplica un tema a un chatbot específico.
@@ -663,7 +663,7 @@ async def upload_theme_logo(
     file: UploadFile = File(...),
     logoAlt: str | None = Form(None),
     user: UserInfo = Depends(_require_admin),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
     storage: StorageService = Depends(get_storage_service),
     _modulo=_de_plataforma,
 ) -> LogoSubidoOut:
@@ -740,7 +740,7 @@ async def upload_theme_logo(
 @router.get("/{theme_id}/logo")
 async def get_theme_logo(
     theme_id: str,
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
     storage: StorageService = Depends(get_storage_service),
 ) -> Response:
     """Sirve el logotipo de un tema. **Sin autenticación, y es deliberado.**

@@ -26,9 +26,7 @@ os.environ.setdefault("JWT_EXPIRATION_MINUTES", "60")
 # Import a nivel de módulo: importar el router a media sesión provoca un crash nativo de
 # pyarrow en Windows (patrón documentado en `test_tenant_isolation.py`).
 from server.app.routers.hub_ingestion_router import router  # noqa: E402
-from server.app.modules.agents_hub.database.connection import (  # noqa: E402
-    get_async_session,
-)
+from server.app.api.deps import get_session
 
 ORG = uuid.UUID("00000000-0000-0000-0000-0000000000d1")
 URL = "https://www.uji.es/normativa/instruccio-1-2019"
@@ -61,7 +59,7 @@ def _app(session):
         yield session
 
     app = FastAPI()
-    app.dependency_overrides[get_async_session] = _override
+    app.dependency_overrides[get_session] = _override
     app.include_router(router, prefix="/api/v1")
     return app
 

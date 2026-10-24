@@ -18,7 +18,7 @@ import logging
 import os
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
-from server.app.database.db import server_engine
+from server.app.database.db import AsyncSessionLocal
 from server.app.database.models import (
     SuperAdminAccount,
     AdminAccount,
@@ -69,7 +69,7 @@ async def seed_multitenancy_defaults():
         )
         return
 
-    async with AsyncSession(server_engine) as session:
+    async with AsyncSessionLocal() as session:
         # 0. Crear SuperAdmin de desarrollo
         await _seed_dev_superadmin(session)
 

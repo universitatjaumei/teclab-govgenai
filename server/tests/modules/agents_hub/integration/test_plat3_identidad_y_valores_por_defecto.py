@@ -31,7 +31,7 @@ import server.app.main  # noqa: F401
 
 from server.app.api.deps import get_current_user
 from server.app.core.auth.models import UserInfo
-from server.app.modules.agents_hub.database.connection import get_async_session
+from server.app.api.deps import get_session
 from server.app.routers.hub_organizaciones_router import router
 
 #: Los campos que son configuración de RAG y **no** identidad del inquilino.
@@ -77,7 +77,7 @@ def _cliente(session, principal: UserInfo) -> AsyncClient:
 
     app = FastAPI()
     app.dependency_overrides[get_current_user] = lambda: principal
-    app.dependency_overrides[get_async_session] = _sesion
+    app.dependency_overrides[get_session] = _sesion
     app.include_router(router, prefix="/api/v1")
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 

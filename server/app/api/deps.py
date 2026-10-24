@@ -6,7 +6,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from server.app.core.auth import AuthenticationError, UserInfo, decode_token
 from server.app.core.auth.models import UserRole
 from server.app.core.auth.pat.service import PatInvalidError, PatService
-from server.app.database.db import server_engine
+from server.app.database.db import AsyncSessionLocal
 
 _PAT_PREFIX = "pat_"
 
@@ -54,9 +54,23 @@ def _ruta_admite_token(ruta) -> bool:
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
-    """Dependency for obtaining a database session."""
-    async with AsyncSession(server_engine) as session:
-        yield session
+    """La sesión de una petición. **La única** (#272), y esto es lo que garantiza:
+
+    * se puede leer un objeto después de commitear (`expire_on_commit=False`, en la fábrica);
+    * lo que quede pendiente se commitea al terminar la petición sin error;
+    * si algo lanza —también un `HTTPException`—, se deshace.
+
+    Hasta #272 había tres: ésta, sin commit al final y con `expire_on_commit`; la de
+    `database/db.py`, sin uso; y la del Hub, con otro engine y con commit al final. Los routers
+    que commitean a mano siguen igual: un commit sin nada pendiente no hace nada.
+    """
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
 
 
 def _unauthorized(detail: str) -> HTTPException:

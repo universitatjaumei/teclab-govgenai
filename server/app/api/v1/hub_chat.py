@@ -47,7 +47,7 @@ from server.app.modules.agents_hub.agent.public_graphs.strategies.retrieval_pipe
     GraphDeps,
 )
 from server.app.modules.agents_hub.agent.router_node import build_route_to_subagent_node
-from server.app.modules.agents_hub.database.connection import get_async_session
+from server.app.api.deps import get_session
 from server.app.core.chatbot_availability import assert_chatbot_available
 from server.app.core.quotas import assert_within_quota, contabilizar_interaccion
 from server.app.core.rate_limit import ip_de, limitar_chat
@@ -321,7 +321,7 @@ async def chat_stream(
     request: ChatRequest,
     http_request: Request,
     user: UserInfo | None = Depends(get_current_user_optional),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ):
     """Chat con streaming SSE, o inspección del prompt final si `debug_bypass` (RAG.11)."""
     # SEC.8.5: sin sesión Y sin credencial de sitio no se sigue. Va antes de resolver el

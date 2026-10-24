@@ -18,7 +18,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 COMPOSE_FILE="docker-compose.prod.yml"
-PUERTOS_REQUERIDOS="80 443 5432"
+# Sin 5432 (#269): el compose de producción no publica Postgres, así que exigirlo libre
+# rechazaba máquinas que sí podían instalar.
+PUERTOS_REQUERIDOS="80 443"
 
 DRY_RUN=0
 SKIP_CHECKS=0

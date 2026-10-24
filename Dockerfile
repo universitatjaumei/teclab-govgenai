@@ -3,10 +3,7 @@ FROM python:3.13-slim AS builder
 
 WORKDIR /app
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
-
-# El paquete compartido debe copiarse antes de instalar server/
-COPY shared/ ./shared/
+COPY --from=ghcr.io/astral-sh/uv:0.12.24 /uv /usr/local/bin/uv
 
 # Copiar sólo los manifiestos para aprovechar caché Docker en cambios de código.
 #
@@ -39,7 +36,6 @@ WORKDIR /app/server
 # modelos, y en silencio.
 ARG EXTRAS_APP=""
 
-# --no-editable convierte automatia-shared en paquete regular (no hace falta shared/ en runtime)
 # **`--frozen` aquí, y `--locked` en las imágenes del MCP y del sandbox.** No es incoherencia:
 # es que en esta imagen `--locked` **no puede funcionar**, y conviene que esté escrito para que
 # nadie lo «arregle» por simetría.

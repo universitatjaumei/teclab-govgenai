@@ -30,7 +30,7 @@ from server.app.core.auth.tenancy import (
     assert_chatbot_org_access,
     assert_site_org_access,
 )
-from server.app.modules.agents_hub.database.connection import get_async_session
+from server.app.api.deps import get_session
 from server.app.modules.curation.contracts import (
     InvalidFindingTransitionError,
 )
@@ -64,13 +64,13 @@ def get_quality_job() -> Any:
 
 
 def get_findings_repo(
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ) -> ContentFindingRepo:
     return ContentFindingRepo(session)
 
 
 def get_report_builder(
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ) -> Any:
     from server.app.modules.curation.report_builder import (
         WebQualityReportBuilder,
@@ -155,7 +155,7 @@ async def list_site_findings(
     finding_type: str | None = Query(default=None, alias="type"),
     current_user: UserInfo = Depends(_de_curacion),
     findings_repo: ContentFindingRepo = Depends(get_findings_repo),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ):
     """Lista hallazgos de un sitio (cola de revisión).
 
@@ -180,7 +180,7 @@ async def transition_finding(
     body: _TransitionIn,
     current_user: UserInfo = Depends(_de_curacion),
     findings_repo: ContentFindingRepo = Depends(get_findings_repo),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ):
     """Transiciona el estado de un hallazgo (confirm/dismiss/resolve).
 
@@ -226,7 +226,7 @@ async def get_site_report(
     site_id: uuid.UUID,
     current_user: UserInfo = Depends(_de_curacion),
     builder: Any = Depends(get_report_builder),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ):
     """Genera y devuelve el informe de auditoría de calidad de un sitio.
 
@@ -246,7 +246,7 @@ async def export_site_report(
     current_user: UserInfo = Depends(_de_curacion),
     builder: Any = Depends(get_report_builder),
     exporter: Any = Depends(get_report_exporter),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ):
     """Descarga el informe como DOCX o PDF.
 
@@ -291,7 +291,7 @@ async def analyze_site(
     background_tasks: BackgroundTasks,
     current_user: UserInfo = Depends(_de_curacion),
     quality_job: Any = Depends(get_quality_job),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ):
     """Dispara un análisis de calidad completo del sitio en background.
 
@@ -319,7 +319,7 @@ async def analyze_content_gaps(
     dias: int = Query(30, ge=1, le=365),
     min_cluster: int = Query(3, ge=2, le=100),
     current_user: UserInfo = Depends(_de_curacion_y_chatbots),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ):
     """Busca huecos de corpus en las conversaciones que salieron mal (RAG.14).
 
@@ -358,7 +358,7 @@ class StaleAnalysisOut(BaseModel):
 async def analyze_stale_documents(
     chatbot_id: uuid.UUID = Query(..., description="Chatbot cuyo corpus se revisa"),
     current_user: UserInfo = Depends(_de_curacion_y_chatbots),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ):
     """Busca documentos con la revisión prevista vencida (SYNC.2).
 
@@ -384,7 +384,7 @@ async def list_stale_documents(
     chatbot_id: uuid.UUID = Query(...),
     status_filter: str | None = Query(None, alias="status"),
     current_user: UserInfo = Depends(_de_curacion_y_chatbots),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ):
     """Cola de revisión de las caducidades de un chatbot (SYNC.2).
 
@@ -425,7 +425,7 @@ async def list_content_gaps(
     chatbot_id: uuid.UUID = Query(...),
     status_filter: str | None = Query(None, alias="status"),
     current_user: UserInfo = Depends(_de_curacion_y_chatbots),
-    session: AsyncSession = Depends(get_async_session),
+    session: AsyncSession = Depends(get_session),
 ):
     """Cola de revisión de los huecos de un chatbot (RAG.14).
 

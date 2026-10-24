@@ -102,15 +102,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.1.0
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
-          version: "latest"
+          version: "0.12.24"
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -255,10 +255,11 @@ jobs:
       # funciona con el pandas del sandbox —3— y no sólo con el del modo local —2—. `--locked`
       # para que un lock que no cuadre con su manifiesto falle aquí en vez de relockearse en
       # silencio.
-      - name: Run the trees the server job does not see (shared, mcp_server, script_sandbox)
+      #
+      # `shared/` se retiró en #271: su único consumidor era la biblioteca de automatizaciones.
+      - name: Run the trees the server job does not see (mcp_server, script_sandbox)
         working-directory: ${{ github.workspace }}
         run: |
-          uv run --project server pytest shared/tests -q --no-cov -p no:cacheprovider
           uv run --directory mcp_server --extra dev pytest tests -p no:cacheprovider
           uv run --directory services/script_sandbox --locked --extra dev pytest tests -p no:cacheprovider
 
@@ -284,7 +285,6 @@ jobs:
           uv run pytest \
             tests/api/test_tenant_isolation.py \
             tests/api/test_router_inventory_is_walked.py \
-            tests/api/test_library_router_auth.py \
             tests/api/test_llm_configs_isolation.py \
             tests/api/test_activity_prompts_isolation.py \
             tests/modules/agents_hub/integration/test_mt16_aislamiento_dos_organizaciones.py \
@@ -310,7 +310,7 @@ jobs:
             -v
 
       - name: Upload coverage report
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: coverage-report
@@ -323,15 +323,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.1.0
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
-          version: "latest"
+          version: "0.12.24"
 
       - name: Set up Python 3.13
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.13"
 
@@ -348,7 +348,7 @@ jobs:
         run: uv run python export_openapi.py
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24"
           cache: "npm"
@@ -363,7 +363,7 @@ jobs:
         run: npm run generate:api
 
       - name: Upload generated API client
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: generated-api-client
           path: frontend/src/shared/api/generated/
@@ -399,10 +399,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24"
           cache: "npm"
@@ -413,7 +413,7 @@ jobs:
         run: npm ci
 
       - name: Download generated API client
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: generated-api-client
           path: frontend/src/shared/api/generated/
@@ -467,17 +467,17 @@ jobs:
       # `fetch-depth: 0` porque el escaneo del historial necesita el historial. Los demás jobs
       # se quedan con el clon superficial que basta para compilar y probar.
       - name: Checkout (full history — el escaneo de secretos lo necesita)
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v10.1.0
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
-          version: "latest"
+          version: "0.12.24"
 
       - name: Set up Python 3.13
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.13"
 
@@ -485,10 +485,10 @@ jobs:
       # resolver, y auditaríamos un conjunto de dependencias que el lock no describe — que es
       # exactamente el desajuste que vivió 17 días sin dar síntoma.
       #
-      # `--no-emit-project` y `--no-emit-package automatia-shared` quitan **nuestro** código
-      # del fichero. No es cosmético: `-e ../shared` es una ruta local que pip-audit no puede
-      # resolver contra PyPI, y además auditar código propio contra una base de CVE de
-      # terceros no dice nada. Sus dependencias sí están, resueltas en el mismo export.
+      # `--no-emit-project` quita **nuestro** código del fichero: auditar código propio contra
+      # una base de CVE de terceros no dice nada. Sus dependencias sí están, resueltas en el
+      # mismo export. (Hasta #271 también se quitaba `automatia-shared`, un paquete local que
+      # pip-audit no podía resolver contra PyPI; se retiró con la biblioteca que lo usaba.)
       #
       # Medido en local el 2026-09-08: 408 dependencias en `server`, 38 en `mcp_server`, cero
       # editables en los dos.
@@ -510,14 +510,11 @@ jobs:
         run: |
           mkdir -p sbom
           uv export --directory server --locked --no-dev --no-hashes \
-            --no-emit-project --no-emit-package automatia-shared \
+            --no-emit-project \
             --format requirements-txt -o "$GITHUB_WORKSPACE/sbom/server-requirements.txt"
           uv export --directory mcp_server --locked --no-dev --no-hashes \
             --no-emit-project \
             --format requirements-txt -o "$GITHUB_WORKSPACE/sbom/mcp-requirements.txt"
-          uv export --directory shared --locked --no-dev --no-hashes \
-            --no-emit-project \
-            --format requirements-txt -o "$GITHUB_WORKSPACE/sbom/shared-requirements.txt"
           uv export --directory services/script_sandbox --locked --no-dev --no-hashes \
             --no-emit-project \
             --format requirements-txt -o "$GITHUB_WORKSPACE/sbom/sandbox-requirements.txt"
@@ -527,22 +524,23 @@ jobs:
           # Dependabot. Sin esto, el job auditaba 200 paquetes de los 438 de `server` y el verde
           # no decía su alcance: el 2026-09-19 Dependabot informó de un `authlib` crítico
           # mientras este job estaba en verde, y las dos cosas eran ciertas.
-          for proyecto in server mcp_server shared services/script_sandbox; do
+          for proyecto in server mcp_server services/script_sandbox; do
             nombre="$(echo "$proyecto" | tr '/' '-')"
             # Los paquetes locales se quitan del fichero: `pip-audit` instala lo que lee,
             # y un `-e ./tests/fixtures/...` lo hace fallar entero con «not a valid
             # editable requirement» — medido antes de empujar esto. Auditar código propio
             # contra una base de CVE de terceros tampoco diría nada.
             uv export --directory "$proyecto" --locked --all-extras --no-hashes \
-              --no-emit-project --no-emit-package automatia-shared \
+              --no-emit-project \
               --no-emit-package govgenai-demo-perfil \
               --format requirements-txt \
               -o "$GITHUB_WORKSPACE/sbom/completo-$nombre-requirements.txt"
           done
 
-      # Sin versión pinada, a propósito y al revés que gitleaks: pip-audit consulta la base de
-      # avisos viva de PyPI, así que lo que importa es que la herramienta siga al día. De cada
-      # ejecución lo que queda registrado es el informe, no la versión del escáner.
+      # Con versión fija desde #268, y antes iba sin ella «para que la herramienta siga al día».
+      # El argumento no se sostenía: pip-audit consulta la base de avisos **viva** de PyPI, así
+      # que anclar el escáner no envejece los datos; sólo fija el código que corre dentro de CI,
+      # que es lo que una versión nueva y comprometida cambiaría. Se sube a mano, como gitleaks.
       # El `|| rc=1` no es defensivo: arregla un agujero que la primera ejecución destapó. Los
       # dos comandos estaban encadenados sin más, `pip-audit` sale con código 1 cuando encuentra
       # algo, y el shell de GitHub aborta el paso al primer fallo. Como el paso lleva
@@ -561,13 +559,11 @@ jobs:
         continue-on-error: true
         run: |
           rc=0
-          uvx pip-audit -r sbom/server-requirements.txt \
+          uvx pip-audit@2.10.1 -r sbom/server-requirements.txt \
             --format json --output sbom/pip-audit-server.json --progress-spinner off || rc=1
-          uvx pip-audit -r sbom/mcp-requirements.txt \
+          uvx pip-audit@2.10.1 -r sbom/mcp-requirements.txt \
             --format json --output sbom/pip-audit-mcp.json --progress-spinner off || rc=1
-          uvx pip-audit -r sbom/shared-requirements.txt \
-            --format json --output sbom/pip-audit-shared.json --progress-spinner off || rc=1
-          uvx pip-audit -r sbom/sandbox-requirements.txt \
+          uvx pip-audit@2.10.1 -r sbom/sandbox-requirements.txt \
             --format json --output sbom/pip-audit-sandbox.json --progress-spinner off || rc=1
           # APER.17 — el conjunto completo NO se audita con `pip-audit`, y la razón se midió:
           # `pip-audit -r` **instala** lo que lee para resolverlo, y estos ficheros llevan
@@ -577,7 +573,7 @@ jobs:
           # segundos para 435 paquetes, y los mismos diez hallazgos que reporta Dependabot.
           #
           # La salida imita la de `pip-audit --format json`, así que la puerta la lee igual.
-          for proyecto in server mcp_server shared services-script_sandbox; do
+          for proyecto in server mcp_server services-script_sandbox; do
             python scripts/avisos_del_lock.py \
               "sbom/completo-$proyecto-requirements.txt" \
               --salida "sbom/pip-audit-completo-$proyecto.json" || rc=1
@@ -602,11 +598,10 @@ jobs:
         run: |
           python scripts/puerta_de_avisos.py \
             sbom/pip-audit-server.json sbom/pip-audit-mcp.json \
-            sbom/pip-audit-shared.json sbom/pip-audit-sandbox.json \
+            sbom/pip-audit-sandbox.json \
             --informativos \
               sbom/pip-audit-completo-server.json \
               sbom/pip-audit-completo-mcp_server.json \
-              sbom/pip-audit-completo-shared.json \
               sbom/pip-audit-completo-services-script_sandbox.json \
             --aceptados avisos_aceptados.toml \
             --resumen "$GITHUB_STEP_SUMMARY"
@@ -628,7 +623,7 @@ jobs:
       # misma ejecución es justo lo que hace útil el job.
       - name: Set up Node.js
         if: always()
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24"
           cache: "npm"
@@ -668,11 +663,11 @@ jobs:
         if: always()
         continue-on-error: true
         run: |
-          uvx --from cyclonedx-bom cyclonedx-py requirements \
+          uvx --from cyclonedx-bom==7.5.0 cyclonedx-py requirements \
             sbom/server-requirements.txt -o sbom/sbom-server.cdx.json
-          uvx --from cyclonedx-bom cyclonedx-py requirements \
+          uvx --from cyclonedx-bom==7.5.0 cyclonedx-py requirements \
             sbom/mcp-requirements.txt -o sbom/sbom-mcp.cdx.json
-          npx --yes @cyclonedx/cyclonedx-npm --omit dev \
+          npx --yes @cyclonedx/cyclonedx-npm@6.0.1 --omit dev \
             --output-file "$GITHUB_WORKSPACE/sbom/sbom-frontend.cdx.json" \
             --package-lock-only frontend/package-lock.json
 
@@ -727,7 +722,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload SBOM and audit reports
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: supply-chain
@@ -791,7 +786,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # `frontend/src/shared/api/generated/` está en `.gitignore` a propósito: lo genera Orval
       # desde `openapi.json`, así que **no viaja en el repositorio** y `docker build ./frontend`
@@ -800,7 +795,7 @@ jobs:
       # vez de repetir aquí la instalación del backend y de node: es la misma secuencia y
       # duplicarla es cómo empiezan a divergir.
       - name: Descargar el cliente de la API generado
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: generated-api-client
           path: frontend/src/shared/api/generated/
@@ -1044,7 +1039,7 @@ jobs:
       issues: read
       pull-requests: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 

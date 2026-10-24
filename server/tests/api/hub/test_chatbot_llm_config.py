@@ -21,7 +21,7 @@ from server.app.modules.agents_hub.database.config_models import (
     HubChatbot,
     HubLLMConfig,
 )
-from server.app.modules.agents_hub.database.connection import get_async_session
+from server.app.api.deps import get_session
 from server.tests.api.hub.test_chatbots import _make_chatbot
 
 CHATBOT_ID = uuid.UUID("00000000-0000-0000-0000-000000000100")
@@ -122,7 +122,7 @@ class TestCambiarElModeloDelChatbot:
         session = _sesion(
             por_modelo={HubChatbot: chatbot, HubLLMConfig: _config(CONFIG_NUEVA)}
         )
-        app.dependency_overrides[get_async_session] = _override(session)
+        app.dependency_overrides[get_session] = _override(session)
         try:
             resp = client.patch(
                 f"/api/v1/hub/chatbots/{CHATBOT_ID}",
@@ -131,12 +131,12 @@ class TestCambiarElModeloDelChatbot:
             assert resp.status_code == 200, resp.text
             assert chatbot.llm_config_id == CONFIG_NUEVA
         finally:
-            app.dependency_overrides.pop(get_async_session, None)
+            app.dependency_overrides.pop(get_session, None)
 
     def test_should_reject_an_unknown_llm_config_with_404(self, client):
         """Mejor un 404 con mensaje que un IntegrityError de la FK a mitad de la petición."""
         session = _sesion(por_modelo={HubChatbot: _chatbot(), HubLLMConfig: None})
-        app.dependency_overrides[get_async_session] = _override(session)
+        app.dependency_overrides[get_session] = _override(session)
         try:
             resp = client.patch(
                 f"/api/v1/hub/chatbots/{CHATBOT_ID}",
@@ -145,7 +145,7 @@ class TestCambiarElModeloDelChatbot:
             assert resp.status_code == 404
             assert "config" in resp.json()["detail"].lower()
         finally:
-            app.dependency_overrides.pop(get_async_session, None)
+            app.dependency_overrides.pop(get_session, None)
 
     def test_should_not_touch_the_model_when_the_field_is_absent(self, client):
         """El riesgo real: una edición inocente no puede reasignar el modelo en silencio.
@@ -155,7 +155,7 @@ class TestCambiarElModeloDelChatbot:
         """
         chatbot = _chatbot()
         session = _sesion(por_modelo={HubChatbot: chatbot, HubLLMConfig: None})
-        app.dependency_overrides[get_async_session] = _override(session)
+        app.dependency_overrides[get_session] = _override(session)
         try:
             resp = client.patch(
                 f"/api/v1/hub/chatbots/{CHATBOT_ID}", json={"name": "Otro nombre"}
@@ -163,7 +163,7 @@ class TestCambiarElModeloDelChatbot:
             assert resp.status_code == 200, resp.text
             assert chatbot.llm_config_id == CONFIG_VIEJA
         finally:
-            app.dependency_overrides.pop(get_async_session, None)
+            app.dependency_overrides.pop(get_session, None)
 
 
 class TestUnaSolaConfiguracionPorDefecto:
@@ -173,7 +173,7 @@ class TestUnaSolaConfiguracionPorDefecto:
         anterior = _config(CONFIG_VIEJA, is_default=True)
         nueva = _config(CONFIG_NUEVA, is_default=False)
         session = _sesion(por_modelo={HubLLMConfig: nueva}, filas=[anterior])
-        app.dependency_overrides[get_async_session] = _override(session)
+        app.dependency_overrides[get_session] = _override(session)
         try:
             resp = client.patch(
                 f"/api/v1/hub/llm-configs/{CONFIG_NUEVA}", json={"is_default": True}
@@ -182,12 +182,12 @@ class TestUnaSolaConfiguracionPorDefecto:
             assert nueva.is_default is True
             assert anterior.is_default is False, "la anterior sigue marcada por defecto"
         finally:
-            app.dependency_overrides.pop(get_async_session, None)
+            app.dependency_overrides.pop(get_session, None)
 
     def test_should_promote_on_create_demoting_the_previous_one(self, client):
         anterior = _config(CONFIG_VIEJA, is_default=True)
         session = _sesion(por_modelo={}, filas=[anterior])
-        app.dependency_overrides[get_async_session] = _override(session)
+        app.dependency_overrides[get_session] = _override(session)
         try:
             resp = client.post(
                 "/api/v1/hub/llm-configs",
@@ -203,7 +203,7 @@ class TestUnaSolaConfiguracionPorDefecto:
             assert resp.status_code == 201, resp.text
             assert anterior.is_default is False
         finally:
-            app.dependency_overrides.pop(get_async_session, None)
+            app.dependency_overrides.pop(get_session, None)
 
     def test_should_not_demote_defaults_of_another_tier(self, client):
         """Cada tier tiene la suya: promover en el 1 no puede dejar el 2 sin defecto."""
@@ -211,7 +211,7 @@ class TestUnaSolaConfiguracionPorDefecto:
         nueva = _config(CONFIG_NUEVA, tier=1)
         # El filtro por tier corre en SQL, así que la consulta no devuelve la del tier 2.
         session = _sesion(por_modelo={HubLLMConfig: nueva}, filas=[])
-        app.dependency_overrides[get_async_session] = _override(session)
+        app.dependency_overrides[get_session] = _override(session)
         try:
             resp = client.patch(
                 f"/api/v1/hub/llm-configs/{CONFIG_NUEVA}", json={"is_default": True}
@@ -220,4 +220,4 @@ class TestUnaSolaConfiguracionPorDefecto:
             assert nueva.is_default is True
             assert otro_tier.is_default is True
         finally:
-            app.dependency_overrides.pop(get_async_session, None)
+            app.dependency_overrides.pop(get_session, None)

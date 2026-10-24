@@ -186,9 +186,27 @@ def get_settings() -> Settings:
         max_upload_mb=int(os.getenv("MAX_UPLOAD_MB", "10")),
         max_documents_per_chatbot=int(os.getenv("MAX_DOCUMENTS_PER_CHATBOT", "0")),
     )
+    _assert_entorno_conocido(ajustes)
     _assert_autoridad_del_rol(ajustes)
     _assert_configuracion_de_produccion(ajustes)
     return ajustes
+
+
+ENTORNOS = ("development", "production")
+
+
+def _assert_entorno_conocido(ajustes: Settings) -> None:
+    """#269 — las puertas de producción comparan con `production` literal.
+
+    Con `prod` o `staging` se desactivaban todas en silencio: el secreto de ejemplo, el sandbox
+    local, `TESTING`, CORS, HSTS y `/docs`. Un valor que no está en la lista no arranca.
+    """
+    if ajustes.environment not in ENTORNOS:
+        raise RuntimeError(
+            f"ENVIRONMENT={ajustes.environment!r} no es un valor conocido. Admitidos: "
+            f"{', '.join(ENTORNOS)}. Cualquier otro desactivaría en silencio las comprobaciones "
+            "de producción, que comparan con `production`."
+        )
 
 
 AUTORIDADES_DEL_ROL = ("app", "idp")

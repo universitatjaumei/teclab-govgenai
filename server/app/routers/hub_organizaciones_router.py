@@ -26,7 +26,7 @@ from sqlalchemy import func, select, delete as sql_delete
 from server.app.api.deps import require_module, require_role, require_scopes
 from server.app.core.auth.models import UserInfo
 from server.app.core.auth.tenancy import assert_org_access, scope_query_to_orgs
-from server.app.modules.agents_hub.database.connection import get_async_session
+from server.app.api.deps import get_session
 from server.app.modules.agents_hub.database.config_models import HubChatbot, HubOrganizacion
 from server.app.modules.agents_hub.database.operational_models import (
     HubAgenteUnidad,
@@ -239,7 +239,7 @@ _count_sq = (
 )
 async def list_organizaciones(
     user: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
 ):
     # SEC.8.1: la organización ES la entidad, así que se acota por su propia clave y no
     # por una columna `organizacion_id` que aquí no existe.
@@ -260,7 +260,7 @@ async def list_organizaciones(
 async def create_organizacion(
     body: OrganizacionCreate,
     user: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
     _modulo=_de_plataforma,
 ):
     """Da de alta una organización. El `partner_id` **lo pone el token**, no el cuerpo (SEC.9.6).
@@ -295,7 +295,7 @@ async def update_organizacion(
     organizacion_id: uuid.UUID,
     body: OrganizacionUpdate,
     user: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
     _modulo=_de_plataforma,
 ):
     organizacion = await session.get(HubOrganizacion, organizacion_id)
@@ -344,7 +344,7 @@ async def update_organizacion(
 async def get_valores_por_defecto(
     organizacion_id: uuid.UUID,
     user: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
     _modulo=_de_chatbots,
 ):
     """Los valores por defecto de RAG de una organización (PLAT.3).
@@ -369,7 +369,7 @@ async def update_valores_por_defecto(
     organizacion_id: uuid.UUID,
     body: ValoresPorDefectoUpdate,
     user: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
     _modulo=_de_chatbots,
 ):
     """Cambia los valores por defecto, y **permite volver a heredar**.
@@ -405,7 +405,7 @@ async def update_valores_por_defecto(
 async def delete_organizacion(
     organizacion_id: uuid.UUID,
     user: UserInfo = Depends(_require_admin),
-    session=Depends(get_async_session),
+    session=Depends(get_session),
     _modulo=_de_plataforma,
     storage: StorageService = Depends(get_storage_service),
 ):

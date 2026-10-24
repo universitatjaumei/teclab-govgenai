@@ -28,12 +28,13 @@ def test_las_dos_clases_ya_no_estan():
     assert "class SystemPrompt" not in fuente
 
 
-def test_las_otras_ocho_siguen():
+def test_las_otras_seis_siguen():
     """El fichero se queda: retirar clases no es retirar el módulo."""
     clases = re.findall(r"^class (\w+)", _fuente_de_models(), re.MULTILINE)
 
-    assert len(clases) == 8, f"esperaba 8 clases vivas, hay {len(clases)}: {clases}"
-    for viva in ("AIConfig", "TokenLog", "ModelPricing", "AutomationLibrary", "AdminAccount"):
+    # Seis desde #271, que retiró `SchedulerConfig` y `AutomationLibrary` con su código.
+    assert len(clases) == 6, f"esperaba 6 clases vivas, hay {len(clases)}: {clases}"
+    for viva in ("AIConfig", "TokenLog", "ModelPricing", "AdminAccount"):
         assert viva in clases
 
 

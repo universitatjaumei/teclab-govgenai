@@ -67,7 +67,7 @@ def _fake_orm_finding(**kw):
 
 def _build_app_with_session(session_mock):
     from server.app.routers.hub_content_quality_router import router
-    from server.app.modules.agents_hub.database.connection import get_async_session
+    from server.app.api.deps import get_session
 
     session_mock.get = AsyncMock(return_value=_duenio_de_la_org())
 
@@ -75,7 +75,7 @@ def _build_app_with_session(session_mock):
         yield session_mock
 
     app = FastAPI()
-    app.dependency_overrides[get_async_session] = _session_override
+    app.dependency_overrides[get_session] = _session_override
     app.include_router(router, prefix="/api/v1")
     return app
 
@@ -86,7 +86,7 @@ def _build_app_with_overrides(session_mock=None, findings_repo_mock=None, report
         get_findings_repo,
         get_report_builder,
     )
-    from server.app.modules.agents_hub.database.connection import get_async_session
+    from server.app.api.deps import get_session
 
     _session = session_mock or AsyncMock()
     _session.get = AsyncMock(return_value=_duenio_de_la_org())
@@ -95,7 +95,7 @@ def _build_app_with_overrides(session_mock=None, findings_repo_mock=None, report
         yield _session
 
     app = FastAPI()
-    app.dependency_overrides[get_async_session] = _session_override
+    app.dependency_overrides[get_session] = _session_override
 
     if findings_repo_mock is not None:
         app.dependency_overrides[get_findings_repo] = lambda: findings_repo_mock
@@ -260,7 +260,7 @@ def test_get_report_export_docx_returns_bytes():
 def test_post_analyze_returns_202():
     """POST /hub/sites/{id}/analyze → 202 y encola run_for_site."""
     from server.app.routers.hub_content_quality_router import router, get_quality_job
-    from server.app.modules.agents_hub.database.connection import get_async_session
+    from server.app.api.deps import get_session
 
     site_id = uuid.uuid4()
     session = AsyncMock()
@@ -271,7 +271,7 @@ def test_post_analyze_returns_202():
     quality_job.run_for_site = AsyncMock()
 
     app = FastAPI()
-    app.dependency_overrides[get_async_session] = lambda: session
+    app.dependency_overrides[get_session] = lambda: session
     app.dependency_overrides[get_quality_job] = lambda: quality_job
     app.include_router(router, prefix="/api/v1")
 

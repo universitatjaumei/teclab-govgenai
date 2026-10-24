@@ -39,7 +39,6 @@ async def _organizacion(db) -> str:
 
 async def _token(db, organizacion_id: str | None, scopes=("actividad:write",)) -> str:
     from server.app.core.auth.pat.service import PatService
-
     from server.tests.core.auth._duenos import persona_real
 
     async with AsyncSession(db.engine) as s:
@@ -88,7 +87,6 @@ class TestElPrincipal:
 
 def _app(db) -> FastAPI:
     from server.app.api.deps import get_session
-    from server.app.modules.agents_hub.database.connection import get_async_session
     from server.app.routers.actividad_router import router
 
     async def _sesion():
@@ -97,7 +95,7 @@ def _app(db) -> FastAPI:
 
     app = FastAPI()
     app.dependency_overrides[get_session] = _sesion
-    app.dependency_overrides[get_async_session] = _sesion
+    app.dependency_overrides[get_session] = _sesion
     app.include_router(router, prefix="/api/v1")
     return app
 

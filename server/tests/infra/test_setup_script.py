@@ -66,8 +66,11 @@ def test_should_check_docker_and_required_ports() -> None:
     # uno que no dice nada, porque se arregla el sitio equivocado.
     if "el demonio de Docker no responde" in salida:
         pytest.skip("el demonio de Docker no está en marcha: el script aborta antes de los puertos")
-    for puerto in ("80", "443", "5432"):
+    for puerto in ("80", "443"):
         assert puerto in salida, f"debe comprobar el puerto {puerto}"
+    # #269: el compose de producción no publica Postgres, así que exigir el 5432 libre
+    # rechazaba máquinas que sí podían instalar.
+    assert "5432" not in salida
     assert "docker" in salida.lower()
 
 

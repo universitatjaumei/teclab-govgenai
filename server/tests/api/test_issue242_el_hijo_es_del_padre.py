@@ -85,7 +85,7 @@ async def dos(sesion):
 
 def _cliente(sesion, principal: UserInfo = _SUPERADMIN):
     from server.app.api.deps import get_current_user, modulos_concedidos
-    from server.app.modules.agents_hub.database.connection import get_async_session
+    from server.app.api.deps import get_session
     from server.app.routers.hub_content_quality_router import router as calidad
     from server.app.routers.hub_sites_router import router as sitios
 
@@ -95,7 +95,7 @@ def _cliente(sesion, principal: UserInfo = _SUPERADMIN):
     app = FastAPI()
     app.dependency_overrides[get_current_user] = lambda: principal
     app.dependency_overrides[modulos_concedidos] = lambda: ["curacion", "chatbots"]
-    app.dependency_overrides[get_async_session] = _s
+    app.dependency_overrides[get_session] = _s
     app.include_router(sitios, prefix="/api/v1")
     app.include_router(calidad, prefix="/api/v1")
     return httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t")

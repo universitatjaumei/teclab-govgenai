@@ -71,7 +71,7 @@ def _build_upload_app(mock_session, mock_storage):
     """App FastAPI aislada con sesión y storage mockeados."""
     from fastapi import FastAPI
     from server.app.routers.hub_ingestion_router import router
-    from server.app.modules.agents_hub.database.connection import get_async_session
+    from server.app.api.deps import get_session
     from server.app.core.storage import get_storage_service
 
     async def _mock_session():
@@ -85,7 +85,7 @@ def _build_upload_app(mock_session, mock_storage):
     mock_session.get = AsyncMock(return_value=chatbot)
 
     app = FastAPI()
-    app.dependency_overrides[get_async_session] = _mock_session
+    app.dependency_overrides[get_session] = _mock_session
     app.dependency_overrides[get_storage_service] = lambda: mock_storage
     app.include_router(router, prefix="/api/v1")
     return app
@@ -136,7 +136,7 @@ class TestUploadEndpointStorageIntegration:
         mock_session, _ = self._make_mock_session()
 
         app = _build_upload_app(mock_session, mock_storage)
-        # raise_server_exceptions=False: el background task llama get_async_session()
+        # raise_server_exceptions=False: el background task llama get_session()
         # sin override de DI e intenta conectar a PostgreSQL real (no disponible en CI).
         # Las assertions son sobre el handler de la petición, que ocurre antes del task.
         client = TestClient(app, raise_server_exceptions=False)
@@ -171,7 +171,7 @@ class TestUploadEndpointStorageIntegration:
         mock_session, _ = self._make_mock_session()
 
         app = _build_upload_app(mock_session, mock_storage)
-        # raise_server_exceptions=False: el background task usa get_async_session()
+        # raise_server_exceptions=False: el background task usa get_session()
         # directamente (no inyectado) y puede abrir una conexión real cuyo teardown
         # choca con el event loop cerrado del TestClient.
         client = TestClient(app, raise_server_exceptions=False)

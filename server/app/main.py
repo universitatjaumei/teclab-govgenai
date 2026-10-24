@@ -34,7 +34,6 @@ from server.app.routers.auth_router import router as auth_router
 from server.app.routers.google_auth_router import router as google_auth_router
 from server.app.routers.saml_auth_router import router as saml_auth_router
 from server.app.routers.pat_router import router as pat_router
-from server.app.routers.library_router import router as library_router
 from server.app.routers.hub_chatbots_router import router as hub_chatbots_router
 from server.app.routers.hub_organizaciones_router import router as hub_organizaciones_router
 from server.app.routers.hub_ingestion_router import router as hub_ingestion_router
@@ -272,9 +271,9 @@ def _retirador_del_corpus(session: Any) -> Any:
 async def _fail_zombie_jobs() -> None:
     """Marca como fallidos los jobs que quedaron en running/pending al reiniciar el servidor."""
     from sqlalchemy import update
-    from server.app.modules.agents_hub.database.connection import get_async_session
+    from server.app.api.deps import get_session
     from server.app.modules.agents_hub.database.operational_models import HubIngestionJob
-    async for session in get_async_session():
+    async for session in get_session():
         await session.execute(
             update(HubIngestionJob)
             .where(HubIngestionJob.status.in_(["running", "pending"]))
@@ -507,10 +506,8 @@ def _register_cloud(app: FastAPI) -> None:
     app.include_router(saml_auth_router, prefix="/api/v1")  # Deploy: cloud
     app.include_router(google_auth_router, prefix="/api/v1")  # Deploy: cloud
     app.include_router(pat_router, prefix="/api/v1")  # Deploy: cloud
-    app.include_router(library_router, prefix="/api")
     app.include_router(hub_chatbots_router, prefix="/api/v1")
     app.include_router(hub_organizaciones_router, prefix="/api/v1")
-    app.include_router(hub_ingestion_router, prefix="/api/v1")
     app.include_router(hub_llm_configs_router, prefix="/api/v1")
     app.include_router(hub_prompt_templates_router, prefix="/api/v1")
     app.include_router(hub_activity_prompts_router, prefix="/api/v1")  # Deploy: cloud
@@ -532,6 +529,7 @@ def _register_edge(app: FastAPI) -> None:
     app.include_router(hub_usage_router, prefix="/api/v1")  # Deploy: edge (SEC.4)
     app.include_router(hub_tasks_router, prefix="/api/v1")
     app.include_router(ingestion_router, prefix="/api/v1")
+    app.include_router(hub_ingestion_router, prefix="/api/v1")  # Deploy: edge (#273)
     app.include_router(llm_drafts_router, prefix="/api/v1")  # Deploy: edge
     app.include_router(hub_redaccion_router, prefix="/api/v1")  # Deploy: edge
     app.include_router(redaccion_workspaces_router, prefix="/api/v1")  # Deploy: edge

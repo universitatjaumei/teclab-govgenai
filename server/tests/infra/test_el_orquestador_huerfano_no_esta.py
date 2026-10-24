@@ -5,8 +5,8 @@
 líneas sin ejecutar nunca. Es el Caso B de CLAUDE.md —huérfano sin migración activa—, así que se
 borra: el historial de git es la fuente de verdad del pasado.
 
-`AutomationLibrary` **no se toca**: la importaba este orquestador, pero también `library_service`, que
-está vivo y lo usa `library_router`.
+`AutomationLibrary` no se tocó entonces: la importaba este orquestador, pero también
+`library_service`, que seguía vivo. **Se retiró después, en #271**, con la biblioteca entera.
 """
 from __future__ import annotations
 
@@ -38,10 +38,11 @@ def test_nadie_lo_importa():
     assert culpables == [], f"quedan imports del orquestador huérfano: {culpables}"
 
 
-def test_la_biblioteca_de_automatizaciones_sigue_viva():
-    """La frontera que el plan marcaba: se retira el orquestador, no lo que también usa otro."""
-    from server.app.database.models import AutomationLibrary
-    from server.app.services import library_service
+def test_la_biblioteca_de_automatizaciones_tampoco_esta():
+    """#271 — servía al agente de ejecución local, descartado el 2026-09-23, y nadie la llamaba."""
+    from server.app.database import models
 
-    assert AutomationLibrary is not None
-    assert library_service is not None
+    assert not hasattr(models, "AutomationLibrary")
+    for fichero in ("routers/library_router.py", "services/library_service.py",
+                    "services/manifest_signature_service.py"):
+        assert not (SERVER / "app" / fichero).exists(), fichero
