@@ -220,6 +220,21 @@ describe('ChatbotsPage', () => {
     expect(snippet.textContent).toContain(`data-chatbot-id="${DEMO_CHATBOT.id}"`)
   })
 
+  // #279 — el fragmento se pega en OTRA web: una ruta relativa apuntaba a la anfitriona. Con la
+  // imagen de producción `VITE_API_URL` va vacía, y salía `data-api-url="/api/v1"`.
+  it('should_give_absolute_urls_in_the_install_snippet', async () => {
+    vi.stubEnv('VITE_API_URL', '')
+    try {
+      await openEditDialog()
+      const texto = screen.getByTestId('install-snippet').textContent ?? ''
+      expect(texto).toContain(`data-api-url="${window.location.origin}/api/v1"`)
+      expect(texto).toContain(`src="${window.location.origin}/widget.iife.js"`)
+      expect(texto).not.toContain('ejemplo.com')
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
   it('should_show_kind_selector_in_form', async () => {
     renderPage([])
     await waitFor(() => screen.getByRole('button', { name: /nuevo chatbot/i }))

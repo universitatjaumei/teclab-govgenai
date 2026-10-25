@@ -243,5 +243,11 @@
     "valorada_como": "Valoración de la promoción",
     "origen_externa": "Se ejecuta fuera, registrada aquí"
   },
-  "automatizacion_nav_aria": "Navegación de automatización"
+  "automatizacion_nav_aria": "Navegación de automatización",
+  "preview_audit_title": "Anexo de auditoría",
+  "preview_no_citations": "Sin citas registradas.",
+  "preview_col_source": "Fuente",
+  "preview_col_page": "Página",
+  "preview_col_model": "Modelo",
+  "preview_col_prompt_version": "Versión del prompt"
 }

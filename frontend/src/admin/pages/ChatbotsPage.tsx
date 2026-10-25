@@ -314,14 +314,17 @@ export function ChatbotsPage() {
   }
 
   function installSnippet(id: string): string {
-    const base = import.meta.env.VITE_API_URL ?? 'https://tu-api.ejemplo.com'
+    // #279 — la URL absoluta de la instancia: el panel se sirve desde ella, y el fragmento se pega
+    // en **otra** web, así que una ruta relativa apuntaba a la web anfitriona. Con la imagen,
+    // `VITE_API_URL` va vacía y salía `data-api-url="/api/v1"`.
+    const base = import.meta.env.VITE_API_URL || window.location.origin
     return [
       `<div id="govgenai-widget"`,
       `     data-chatbot-id="${id}"`,
       `     data-lang="es"`,
       `     data-api-url="${base}/api/v1">`,
       `</div>`,
-      `<script src="${base}/widget.iife.js"></script>`,
+      `<script src="${base}/widget.iife.js" defer></script>`,
     ].join('\n')
   }
 
@@ -932,7 +935,7 @@ export function ChatbotsPage() {
                       onChange={(e) => setSelectedChildId(e.target.value)}
                       className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
                     >
-                      <option value="">-- Seleccionar --</option>
+                      <option value="">{t('hub.select_placeholder')}</option>
                       {assignableChildren.map((cb) => (
                         <option key={cb.id} value={cb.id}>{cb.name}</option>
                       ))}

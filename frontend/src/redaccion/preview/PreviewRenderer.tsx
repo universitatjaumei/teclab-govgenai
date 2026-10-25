@@ -1,4 +1,5 @@
 import DOMPurify from 'dompurify'
+import { useTranslation } from 'react-i18next'
 
 import type { PreviewBlock, PreviewPayload } from '@/shared/api/generated/model'
 
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export function PreviewRenderer({ payload }: Props) {
+  const { t } = useTranslation('redaccion')
   const citationIndex = _buildCitationIndex(payload)
 
   return (
@@ -43,18 +45,18 @@ export function PreviewRenderer({ payload }: Props) {
       </section>
 
       <section data-preview-section="audit-annex" className="preview-audit">
-        <h2>Anexo de auditoría</h2>
+        <h2>{t('preview_audit_title')}</h2>
         {(payload.audit_annex ?? []).length === 0 ? (
-          <p>Sin citas registradas.</p>
+          <p>{t('preview_no_citations')}</p>
         ) : (
           <table>
             <thead>
               <tr>
                 <th>#</th>
-                <th>Fuente</th>
-                <th>Página</th>
-                <th>Modelo</th>
-                <th>Versión prompt</th>
+                <th>{t('preview_col_source')}</th>
+                <th>{t('preview_col_page')}</th>
+                <th>{t('preview_col_model')}</th>
+                <th>{t('preview_col_prompt_version')}</th>
               </tr>
             </thead>
             <tbody>

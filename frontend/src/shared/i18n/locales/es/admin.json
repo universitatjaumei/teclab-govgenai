@@ -369,7 +369,13 @@
     "vigencia_table_title": "Pendientes de validar",
     "vigencia_title": "Validación de vigencia",
     "vigencia_validada_por": "Vigencia validada por {{persona}}",
-    "vigencia_validar": "Validar vigencia"
+    "vigencia_validar": "Validar vigencia",
+    "select_placeholder": "-- Seleccionar --",
+    "prompts_usage_all": "Uso: todos",
+    "prompts_usage_chatbot": "Uso: chatbot (prompt base)",
+    "prompts_usage_template": "Uso: plantillas",
+    "prompts_service_all": "Servicio: todos",
+    "search_prompts_placeholder": "Buscar prompt..."
   },
   "login": {
     "title": "Iniciar sesión",

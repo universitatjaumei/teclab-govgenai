@@ -369,7 +369,13 @@
     "vigencia_table_title": "Pending validation",
     "vigencia_title": "Validity review",
     "vigencia_validada_por": "Currency validated by {{persona}}",
-    "vigencia_validar": "Validate currency"
+    "vigencia_validar": "Validate currency",
+    "select_placeholder": "-- Select --",
+    "prompts_usage_all": "Use: all",
+    "prompts_usage_chatbot": "Use: chatbot (base prompt)",
+    "prompts_usage_template": "Use: templates",
+    "prompts_service_all": "Service: all",
+    "search_prompts_placeholder": "Search prompt..."
   },
   "login": {
     "title": "Sign in",

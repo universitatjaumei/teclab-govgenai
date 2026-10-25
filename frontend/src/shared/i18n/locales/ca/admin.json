@@ -369,7 +369,13 @@
     "vigencia_table_title": "Pendents de validar",
     "vigencia_title": "Validació de vigència",
     "vigencia_validada_por": "Vigència validada per {{persona}}",
-    "vigencia_validar": "Validar vigència"
+    "vigencia_validar": "Validar vigència",
+    "select_placeholder": "-- Selecciona --",
+    "prompts_usage_all": "Ús: tots",
+    "prompts_usage_chatbot": "Ús: xatbot (prompt base)",
+    "prompts_usage_template": "Ús: plantilles",
+    "prompts_service_all": "Servei: tots",
+    "search_prompts_placeholder": "Cerca un prompt..."
   },
   "login": {
     "title": "Inicia la sessió",
