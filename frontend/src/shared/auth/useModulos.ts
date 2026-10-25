@@ -18,11 +18,7 @@ import { useGetMeApiV1AuthMeGet } from '@/shared/api/generated/auth/auth'
  */
 export function useModulos(): { modulos: string[]; cargando: boolean } {
   const { data, isLoading } = useGetMeApiV1AuthMeGet()
-  const modulos = (data as { modulos?: unknown } | undefined)?.modulos
-  return {
-    modulos: Array.isArray(modulos) ? modulos.map(String) : [],
-    cargando: isLoading,
-  }
+  return { modulos: data?.modulos ?? [], cargando: isLoading }
 }
 
 /** La primera ruta a la que puede ir esta persona, para el aterrizaje. */

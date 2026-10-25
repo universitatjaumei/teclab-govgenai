@@ -96,7 +96,7 @@ export function PromptsPage() {
   // cualquier hook que lo metiera en sus dependencias se recalculaba siempre. Mismo caso que en
   // `ActivityPromptsPage`.
   const chatbots: ChatbotRead[] = useMemo(
-    () => (chatbotsRaw as unknown as ChatbotRead[] | undefined) ?? [],
+    () => chatbotsRaw ?? [],
     [chatbotsRaw],
   )
 

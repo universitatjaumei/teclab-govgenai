@@ -36,7 +36,7 @@ export function VigenciaPage() {
   const [error, setError] = useState<string | null>(null)
 
   const { data: chatbotsRaw, isLoading: isLoadingChatbots } = useChatbotsDeLaOrganizacion()
-  const chatbots: ChatbotRead[] = (chatbotsRaw as unknown as ChatbotRead[] | undefined) ?? []
+  const chatbots: ChatbotRead[] = chatbotsRaw ?? []
 
   // Issue #11 — al cambiar de organización, un chatbot de la anterior no puede quedarse
   // elegido: la consulta dependiente y las mutaciones irían contra otra organización.

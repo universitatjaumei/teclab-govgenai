@@ -10,17 +10,17 @@ import {
   useEditBlock,
   useResumeWorkspace,
 } from '@/shared/api/generated/redaccion-workspaces/redaccion-workspaces'
-import type { WorkspaceOut } from '@/shared/api/generated/model'
 import { StatusBadge } from '@/shared/components/StatusBadge'
 import { guardarBorrador, leerBorrador, olvidarBorrador } from '../utils/borradorLocal'
 import { mapBlockStatusToUserLabel } from '../utils/statusLabels'
+import type { BlockStateOutAccionesPermitidasItem } from '@/shared/api/generated/model'
 
 interface Props {
   workspaceId: string
 }
 
 /** Las acciones que son una transición de estado; `edit` no lo es (sobreescribe el contenido). */
-type AccionDeTransicion = 'approve' | 'reject' | 'regenerate'
+type AccionDeTransicion = Exclude<BlockStateOutAccionesPermitidasItem, 'edit'>
 
 /**
  * Cómo se pinta cada acción. INF.2 — el catálogo es **presentación**: qué acciones existen y
@@ -77,7 +77,7 @@ export function AIBlockReviewPanel({ workspaceId }: Props) {
   const [errorAlGuardar, setErrorAlGuardar] = useState<string | null>(null)
 
   const { data: workspaceRaw, isLoading } = useGetWorkspaceById(workspaceId)
-  const workspace = workspaceRaw as unknown as WorkspaceOut | undefined
+  const workspace = workspaceRaw
   const { mutate: patchBlock, isPending } = usePatchWorkspaceBlock()
   const { mutate: editarBloque, isPending: guardando } = useEditBlock()
   /**

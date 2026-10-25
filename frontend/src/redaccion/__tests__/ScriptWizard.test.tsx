@@ -43,6 +43,10 @@ vi.mock('@/shared/auth', async () => {
   const actual = await vi.importActual<typeof import('@/shared/auth')>('@/shared/auth')
   return { ...actual, useAuth: vi.fn() }
 })
+// #277 — la pantalla pregunta capacidades a `/auth/me`; se simulan las del rol del test.
+vi.mock('@/shared/auth/useCapacidad', async () =>
+  (await import('@/test-utils/capacidades')).dobleDeUseCapacidad(() => vi.mocked(useAuth)()?.user?.role),
+)
 
 import {
   useProposeScript,
@@ -273,6 +277,7 @@ function wrapRouted(role = 'user') {
         <Routes>
           <Route path="/redaccion/scripts/review" element={<AdminScriptReviewQueuePage />} />
           <Route path="/hub" element={<div data-testid="hub-page">Hub</div>} />
+          <Route path="/sin-acceso" element={<div data-testid="sin-acceso">Sin acceso</div>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -886,9 +891,10 @@ describe('AdminScriptReviewQueuePage', () => {
     wrapRouted('user')
     // Non-admin should not see the review queue
     expect(screen.queryByTestId('review-queue-page')).toBeNull()
-    // Should be redirected (hub-page shown) or access-denied shown
-    const destination = screen.queryByTestId('hub-page') ?? screen.queryByTestId('access-denied')
-    expect(destination).not.toBeNull()
+    // #277 — a una ruta que esta persona tiene, y no a `/hub`, que podía no tener: sin módulos
+    // concedidos, la de «sin acceso».
+    expect(screen.queryByTestId('hub-page')).toBeNull()
+    expect(screen.queryByTestId('sin-acceso')).not.toBeNull()
   })
 
   it('should_show_hash_match_indicator_in_review_queue', () => {

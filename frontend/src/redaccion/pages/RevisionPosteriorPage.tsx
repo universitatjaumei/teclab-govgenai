@@ -196,7 +196,7 @@ export function RevisionPosteriorPage() {
     { estado, ...(muestra ? { muestra } : {}) },
     { query: { enabled: true } },
   )
-  const filas = (data as unknown as VersionEnRevision[] | undefined) ?? []
+  const filas = data ?? []
 
   return (
     <section className="space-y-4">

@@ -91,6 +91,7 @@
   "confirm": "Confirmar",
   "dismiss": "Descartar",
   "resolve": "Resolver",
+  "reopen": "Reabrir",
   "no_findings": "No hay hallazgos activos para este sitio",
   "severity_critical": "Crítico",
   "severity_warning": "Aviso",

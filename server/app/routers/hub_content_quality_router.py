@@ -10,7 +10,8 @@ corpus (RAG.14) y las caducidades (SYNC.2) cuelgan de un chatbot, no de un sitio
 from __future__ import annotations
 
 import uuid
-from typing import Any
+from datetime import datetime
+from typing import Any, cast
 
 from fastapi import (
     APIRouter,
@@ -21,7 +22,7 @@ from fastapi import (
     Response,
     status,
 )
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.app.api.deps import require_module
@@ -32,6 +33,9 @@ from server.app.core.auth.tenancy import (
 )
 from server.app.api.deps import get_session
 from server.app.modules.curation.contracts import (
+    _VALID_FINDING_TRANSITIONS,
+    FindingSeverity,
+    FindingStatus,
     InvalidFindingTransitionError,
 )
 from server.app.modules.curation.findings_repo import (
@@ -110,7 +114,7 @@ async def _de_curacion_y_chatbots(
 # ──────────────────────── Cola de revisión ────────────────────────
 
 
-class _FindingOut(BaseModel):
+class HallazgoOut(BaseModel):
     """Un hallazgo, tal como lo lee la cola de revisión.
 
     `page_id` y `signal` no son extras informativos: son lo que hace **revisable** el hallazgo
@@ -123,8 +127,8 @@ class _FindingOut(BaseModel):
     id: uuid.UUID
     site_id: uuid.UUID
     finding_type: str
-    severity: str
-    status: str
+    severity: FindingSeverity
+    status: FindingStatus
     confidence: float
     source_url: str | None
     page_id: uuid.UUID | None = None
@@ -133,10 +137,20 @@ class _FindingOut(BaseModel):
     #: guardado, que es con lo que se juzga si el duplicado es cierto.
     related_page_id: uuid.UUID | None = None
     signal: dict[str, Any] = Field(default_factory=dict, validation_alias="signal_json")
-    detected_at: Any
-    reviewed_at: Any = None
+    detected_at: datetime
+    reviewed_at: datetime | None = None
 
     model_config = {"from_attributes": True}
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def acciones_permitidas(self) -> list[FindingStatus]:
+        """Los estados a los que puede pasar, con la regla que aplica `transition` (#277).
+
+        La cola los pintaba con su propia máquina de estado, y se equivocaba: no ofrecía descartar
+        un hallazgo confirmado ni reabrir uno descartado, que el servidor sí admite.
+        """
+        return cast(list[FindingStatus], sorted(_VALID_FINDING_TRANSITIONS.get(self.status, set())))
 
 
 class _TransitionIn(BaseModel):
@@ -146,7 +160,7 @@ class _TransitionIn(BaseModel):
 
 @router.get(
     "/hub/sites/{site_id}/findings",
-    response_model=list[_FindingOut],
+    response_model=list[HallazgoOut],
     operation_id="listSiteFindings",
 )
 async def list_site_findings(
@@ -171,7 +185,7 @@ async def list_site_findings(
 
 @router.patch(
     "/hub/sites/{site_id}/findings/{finding_id}",
-    response_model=_FindingOut,
+    response_model=HallazgoOut,
     operation_id="transitionFinding",
 )
 async def transition_finding(

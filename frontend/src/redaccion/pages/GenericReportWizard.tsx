@@ -10,7 +10,7 @@ export function GenericReportWizard() {
   const { t } = useTranslation('common')
   const navigate = useNavigate()
   const { data: templatesRaw, isLoading } = useListTemplates()
-  const templates = (templatesRaw as unknown as TemplateOut[] | undefined) ?? []
+  const templates = templatesRaw ?? []
   const { mutate: createWorkspace, isPending } = useCreateWorkspace()
 
   if (isLoading) return <div>{t('loading')}</div>

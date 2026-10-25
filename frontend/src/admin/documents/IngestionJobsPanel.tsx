@@ -78,7 +78,8 @@ export function IngestionJobsPanel({
                       <button
                         type="button"
                         onClick={() => onDeleteJob(job.id)}
-                        disabled={job.status === 'pending' || job.status === 'running'}
+                        // #277 — lo decide el servidor, con la regla que aplica al borrar.
+                        disabled={!job.acciones_permitidas.includes('borrar')}
                         className="p-1 text-muted-foreground hover:text-destructive disabled:opacity-30 transition-colors"
                         title={t('hub.delete_job')}
                       >

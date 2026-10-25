@@ -1,5 +1,7 @@
 import { create } from 'zustand'
 
+import type { CopilotTranslateResponseKind } from '@/shared/api/generated/model'
+
 type ViewMode = 'standard' | 'focus'
 type ActiveTab = 'config' | 'blocks' | 'data' | 'ai' | 'pills' | 'copilot'
 type ContextType = 'informe' | 'flujo'
@@ -9,7 +11,8 @@ interface FocusContext {
   entityId: string
 }
 
-export type CopilotActionKind = 'chart_config' | 'etl_ops' | 'script_proposal'
+// #277 — lo que el copiloto propone lo declara el servidor en su respuesta.
+export type CopilotActionKind = CopilotTranslateResponseKind
 
 export interface CopilotAction {
   kind: CopilotActionKind

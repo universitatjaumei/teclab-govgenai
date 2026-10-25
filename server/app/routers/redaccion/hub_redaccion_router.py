@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Response
-from pydantic import BaseModel, Field, ValidationError, field_validator
+from pydantic import BaseModel, Field, ValidationError, computed_field, field_validator
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -48,6 +48,7 @@ from server.app.modules.redaccion.services.campos_manuales import (
 )
 from server.app.modules.redaccion.services.block_actions import (
     _DESTINO_DE_LA_ACCION,
+    AccionDeBloque,
     acciones_del_informe,
     acciones_permitidas,
 )
@@ -87,7 +88,7 @@ class BlockStateOut(BaseModel):
     # esta lista y no compara `status` con literales: comparándolos, un bloque de IA que falla
     # no era ni «pendiente» ni «aprobado» para la pantalla, así que bloqueaba el informe sin
     # ofrecer salida. Regla maestra nº2. Detalle en `services/block_actions.py`.
-    acciones_permitidas: list[str] = []
+    acciones_permitidas: list[AccionDeBloque] = []
 
 
 def _estado_del_bloque(block: Any) -> BlockStateOut:
@@ -110,6 +111,10 @@ def _estado_del_bloque(block: Any) -> BlockStateOut:
     )
 
 
+#: Los estados en los que el grafo está trabajando sobre el informe.
+ESTADOS_EN_CURSO = ("drafting", "extracting")
+
+
 class WorkspaceOut(BaseModel):
     id: uuid.UUID
     template_version_id: uuid.UUID
@@ -130,6 +135,16 @@ class WorkspaceOut(BaseModel):
     # panel deducía «se puede ensamblar» de que ningún bloque tuviera acciones, que también es
     # cierto antes de generar y después de ensamblar.
     acciones_permitidas: list[str] = []
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def en_curso(self) -> bool:
+        """Si una tarea de fondo lo está generando ahora (#277).
+
+        La pantalla lo deducía de `status` para dos cosas —no dejar lanzar otra generación y
+        refrescar mientras dura— y es el servidor quien sabe qué estados son «trabajando».
+        """
+        return self.status in ESTADOS_EN_CURSO
 
 
 class BlockPatchRequest(BaseModel):

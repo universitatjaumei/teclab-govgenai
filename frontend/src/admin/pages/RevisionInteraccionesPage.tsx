@@ -8,13 +8,19 @@ import {
   useReviewInteractionApiV1HubFeedbackInteractionsInteractionIdReviewPatch,
   getGetInteractionsForReviewApiV1HubFeedbackChatbotIdReviewGetQueryKey,
 } from '@/shared/api/generated/hub-feedback/hub-feedback'
-import type { ChatbotRead, InteractionReviewOut } from '@/shared/api/generated/model'
+import type {
+  ChatbotRead,
+  GetInteractionsForReviewApiV1HubFeedbackChatbotIdReviewGetReviewStatus,
+  InteractionReviewOut,
+  ReviewVerdictRequestVerdict,
+} from '@/shared/api/generated/model'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { useChatbotsDeLaOrganizacion } from '@/shared/organizacion/useChatbotsDeLaOrganizacion'
 import { useSeleccionValida } from '@/shared/organizacion/useSeleccionValida'
 
-type Verdict = 'good' | 'bad' | 'mixed'
-type ReviewStatus = 'pending' | 'reviewed' | 'all'
+// #277 — las uniones salen del contrato: el veredicto y el filtro los declara el servidor.
+type Verdict = ReviewVerdictRequestVerdict
+type ReviewStatus = GetInteractionsForReviewApiV1HubFeedbackChatbotIdReviewGetReviewStatus
 
 const VEREDICTOS: { valor: Verdict; clave: string; defecto: string; clase: string }[] = [
   { valor: 'good', clave: 'hub.reports_verdict_good', defecto: 'Adecuada', clase: 'text-green-600' },
@@ -109,7 +115,7 @@ export function RevisionInteraccionesPage() {
 
   const qc = useQueryClient()
   const { data: chatbotsRaw } = useChatbotsDeLaOrganizacion()
-  const chatbots: ChatbotRead[] = (chatbotsRaw as unknown as ChatbotRead[] | undefined) ?? []
+  const chatbots: ChatbotRead[] = chatbotsRaw ?? []
 
   // Issue #11 — al cambiar de organización, un chatbot de la anterior no puede quedarse
   // elegido: la consulta dependiente y las mutaciones irían contra otra organización.

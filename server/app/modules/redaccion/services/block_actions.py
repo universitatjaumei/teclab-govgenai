@@ -25,7 +25,7 @@ módulo que una lista paralela se desincroniza de la que manda.
 """
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from server.app.modules.redaccion.contracts.runtime import _VALID_TRANSITIONS
 
@@ -56,10 +56,13 @@ _ESTADOS_SIN_EDICION = frozenset({"approved", "locked"})
 #: Orden estable en la respuesta: la pantalla itera la lista tal cual, así que **el orden de
 #: los botones lo decide el servidor**. Primero lo que cierra la revisión, después lo que la
 #: devuelve atrás; es el orden que el panel ya tenía cuando los botones estaban escritos a mano.
-_ORDEN = ("approve", "edit", "reject", "regenerate")
+#: Lo que se puede pedir sobre un bloque. Va al contrato (#277) para que el panel no lo copie.
+AccionDeBloque = Literal["approve", "edit", "reject", "regenerate"]
+
+_ORDEN: tuple[AccionDeBloque, ...] = ("approve", "edit", "reject", "regenerate")
 
 
-def acciones_permitidas(kind: str, status: str) -> list[str]:
+def acciones_permitidas(kind: str, status: str) -> list[AccionDeBloque]:
     """Las acciones que una persona puede pedir sobre este bloque, ahora mismo.
 
     Solo se ofrece lo que la máquina de estados aceptaría: la lista es un subconjunto de lo

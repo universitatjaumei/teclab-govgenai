@@ -133,15 +133,7 @@ export function ValoresPorDefectoPage() {
   // ofrece nada: una lista propia sería volver a escribir el catálogo en React.
   const { data: opcionesDeLengua } = useOpcionesDeLengua()
   // PLG.3 — perfiles y modos, del catalogo de ESTA instalacion.
-  const { data: opcionesDeGrafoRaw } = useOpcionesDeGrafoApiV1HubChatbotsOpcionesDeGrafoGet()
-  const opcionesDeGrafo = opcionesDeGrafoRaw as unknown as
-    | {
-        perfiles: { nombre: string; configurable: boolean }[]
-        modos: { nombre: string }[]
-        estrategias: Record<string, { nombre: string }[]>
-        ejes: string[]
-      }
-    | undefined
+  const { data: opcionesDeGrafo } = useOpcionesDeGrafoApiV1HubChatbotsOpcionesDeGrafoGet()
   const { t: tc } = useTranslation('common')
   const qc = useQueryClient()
 

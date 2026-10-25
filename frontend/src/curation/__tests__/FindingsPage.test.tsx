@@ -45,6 +45,7 @@ const FINDING = {
   finding_type: 'stale',
   severity: 'info',
   status: 'new',
+  acciones_permitidas: ['confirmed', 'dismissed'],
   confidence: 1.0,
   source_url: 'https://ej.es/tramites/2020',
   detected_at: '2026-06-06T00:00:00Z',

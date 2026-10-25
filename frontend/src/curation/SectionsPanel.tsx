@@ -101,7 +101,7 @@ export function SectionsPanel({ siteId }: { siteId: string }) {
       siteId,
       data: { pattern: watch('pattern'), pattern_kind: watch('pattern_kind') ?? 'path_prefix' },
     })
-    setPrueba(informe as unknown as PatternTestView)
+    setPrueba(informe)
   }
 
   const onSubmit = (data: SeccionFormValues) =>

@@ -28,6 +28,11 @@ beforeAll(async () => {
   await i18n.changeLanguage('es')
 })
 
+// #277 — la pantalla pregunta capacidades a `/auth/me`; se simulan las del rol del test.
+vi.mock('@/shared/auth/useCapacidad', async () =>
+  (await import('@/test-utils/capacidades')).dobleDeUseCapacidad(() => rol.actual),
+)
+
 describe('AgentesLayout', () => {
   it('quien sólo consulta ve la pestaña de consultar y no la de gestionar', () => {
     montar(['consulta_agentes'])

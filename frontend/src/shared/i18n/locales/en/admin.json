@@ -76,7 +76,7 @@
     "chatbot_kind_router": "Router",
     "chatbot_language_fixed_code": "Answer language",
     "chatbot_language_mode": "Language mode",
-    "chatbot_long_context_error": "The corpus exceeds the MD_LONG_CONTEXT mode limit (128K tokens). Reduce the corpus or switch to MD_AGENT_SELECTOR.",
+    "chatbot_long_context_error": "The corpus exceeds the MD_LONG_CONTEXT mode limit ({{limite}} tokens). Reduce the corpus or switch to MD_AGENT_SELECTOR.",
     "chatbot_min_results": "Minimum retrieval results",
     "chatbot_min_score": "Minimum retrieval score (0–1)",
     "chatbot_model": "Language model",

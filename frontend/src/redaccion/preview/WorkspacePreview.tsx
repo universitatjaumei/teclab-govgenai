@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next'
 import { useGetWorkspacePreview } from '@/shared/api/generated/redaccion-workspaces/redaccion-workspaces'
 import { errorDeLaApi } from '@/shared/api/errorDeLaApi'
 import { PreviewRenderer } from './PreviewRenderer'
-import type { PreviewPayload } from './PreviewRenderer'
 import './WorkspacePreview.css'
 
 /** Los bloques que el servidor devuelve como pendientes en el 409, si es lo que ha pasado. */
@@ -76,7 +75,7 @@ export function WorkspacePreview() {
         </button>
       </div>
       <div className="preview-a4-container">
-        <PreviewRenderer payload={data as unknown as PreviewPayload} />
+        <PreviewRenderer payload={data} />
       </div>
     </div>
   )

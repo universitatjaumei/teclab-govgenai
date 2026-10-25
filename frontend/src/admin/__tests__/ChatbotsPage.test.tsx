@@ -76,6 +76,7 @@ afterEach(() => {
 
 const DEMO_CHATBOT: ChatbotRead = {
   id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+  puede_ser_hijo: true,
   name: 'Bot Demo',
   organizacion_id: '00000000-0000-0000-0000-000000000010',
   llm_config_id: '00000000-0000-0000-0000-000000000001',
@@ -133,6 +134,8 @@ const DEMO_CORPUS_STATS: CorpusStatsOut = {
   by_language: { es: 100000, ca: 20000 },
   recommended_mode: 'MD_AGENT_SELECTOR',
   recommendation_reason: 'Recomendado MD_AGENT_SELECTOR para este tamaño de corpus.',
+  limite_contexto_largo: 128000,
+  cabe_en_contexto_largo: true,
 }
 
 function renderPage(chatbots: ChatbotRead[] = [], children: ChatbotRead[] = [], corpusStats?: CorpusStatsOut) {

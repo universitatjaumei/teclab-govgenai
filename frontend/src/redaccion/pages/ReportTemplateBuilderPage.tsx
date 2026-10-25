@@ -10,7 +10,8 @@ import {
   getListTemplatesQueryKey,
 } from '@/shared/api/generated/hub-redaccion/hub-redaccion'
 import type { TemplateOut } from '@/shared/api/generated/model'
-import { useAuth } from '@/shared/auth'
+import { useCapacidad } from '@/shared/auth/useCapacidad'
+import { UsuarioActualCapacidadesItem } from '@/shared/api/generated/model'
 
 /**
  * Gestión de plantillas de informe (GUI.1 + GUI.2).
@@ -31,7 +32,7 @@ import { useAuth } from '@/shared/auth'
 export function ReportTemplateBuilderPage() {
   const { t } = useTranslation('redaccion')
   const { t: tc } = useTranslation('common')
-  const { user } = useAuth()
+  const { tiene: puedePublicar, cargando } = useCapacidad(UsuarioActualCapacidadesItem.plantillaspublicar)
   const qc = useQueryClient()
 
   const [verRetiradas, setVerRetiradas] = useState(false)
@@ -42,13 +43,14 @@ export function ReportTemplateBuilderPage() {
   const { data: plantillasRaw, isLoading } = useListTemplates(
     verRetiradas ? { include_archived: true } : undefined,
   )
-  const plantillas = (plantillasRaw as unknown as TemplateOut[] | undefined) ?? []
+  const plantillas = plantillasRaw ?? []
 
   const { mutate: renombrar, isPending: renombrandoEnCurso } = usePatchTemplate()
   const { mutate: archivar, isPending: archivandoEnCurso } = useArchiveTemplate()
   const { mutate: recuperar } = useRestoreTemplate()
 
-  if (!user || !['superadmin', 'admin'].includes(user.role)) {
+  if (cargando) return <div>{tc('loading')}</div>
+  if (!puedePublicar) {
     return <div data-testid="access-denied">{t('templates.no_permission')}</div>
   }
 

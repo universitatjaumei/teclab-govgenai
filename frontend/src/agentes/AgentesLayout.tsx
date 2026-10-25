@@ -1,7 +1,8 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useModulos } from '@/shared/auth/useModulos'
-import { useAuth } from '@/shared/auth'
+import { useCapacidad } from '@/shared/auth/useCapacidad'
+import { UsuarioActualCapacidadesItem } from '@/shared/api/generated/model'
 
 /**
  * Los agentes de unidad, bajo una sola entrada del menú (2026-10-03).
@@ -14,17 +15,27 @@ import { useAuth } from '@/shared/auth'
  * La integración con el asistente (#215) es del superadministrador: corrige algo que usan todas las
  * organizaciones. El servidor lo exige igualmente; aquí sólo se evita enseñar una pestaña que daría 403.
  */
-const PESTANAS: { key: string; path: string; modulo: string; rol?: string }[] = [
+const PESTANAS: {
+  key: string
+  path: string
+  modulo: string
+  capacidad?: UsuarioActualCapacidadesItem
+}[] = [
   { key: 'nav_consultar', path: '/agentes/consultar', modulo: 'consulta_agentes' },
   { key: 'nav_gestion', path: '/agentes/gestion', modulo: 'agentes' },
-  { key: 'nav_integracion', path: '/agentes/integracion', modulo: 'consulta_agentes', rol: 'superadmin' },
+  {
+    key: 'nav_integracion',
+    path: '/agentes/integracion',
+    modulo: 'consulta_agentes',
+    capacidad: UsuarioActualCapacidadesItem.agentesintegrar_asistentes,
+  },
 ]
 
 export function AgentesLayout() {
   const { t } = useTranslation('agentes')
   const { modulos } = useModulos()
-  const { user } = useAuth()
-  const visibles = PESTANAS.filter((p) => modulos.includes(p.modulo) && (!p.rol || user?.role === p.rol))
+  const { tiene: integra } = useCapacidad(UsuarioActualCapacidadesItem.agentesintegrar_asistentes)
+  const visibles = PESTANAS.filter((p) => modulos.includes(p.modulo) && (!p.capacidad || integra))
 
   return (
     <div className="space-y-4">

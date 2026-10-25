@@ -6,7 +6,7 @@ Módulo: chatbots — la ingesta alimenta el corpus de un chatbot.
 
 import uuid
 from datetime import date, datetime, timezone
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import (
     APIRouter,
@@ -19,7 +19,7 @@ from fastapi import (
     UploadFile,
     status,
 )
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -60,6 +60,10 @@ class AnalyzeHtmlRequest(BaseModel):
 # cola", no tumbar el listado entero con un 500 de validación de respuesta.
 
 
+#: Un trabajo en estos estados no se puede borrar: lo está procesando el watcher.
+ESTADOS_EN_CURSO = ("pending", "running")
+
+
 class IngestionJob(BaseModel):
     """Trabajo de ingesta tal y como lo pinta la tabla técnica del panel."""
 
@@ -83,6 +87,12 @@ class IngestionJob(BaseModel):
     processing_started_at: datetime | None = None
     processing_completed_at: datetime | None = None
     created_at: datetime
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def acciones_permitidas(self) -> list[Literal["borrar"]]:
+        """«borrar» si no está en curso: la misma regla con la que `delete_ingestion_job` da 409."""
+        return [] if self.status in ESTADOS_EN_CURSO else ["borrar"]
 
 
 class IngestionJobsOut(BaseModel):
@@ -814,7 +824,7 @@ async def delete_ingestion_job(
     if not job or job.chatbot_id != chatbot_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job no encontrado.")
 
-    if job.status in ("pending", "running"):
+    if job.status in ESTADOS_EN_CURSO:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="No se puede eliminar un job en curso.",
