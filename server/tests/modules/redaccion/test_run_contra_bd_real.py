@@ -28,6 +28,7 @@ from server.app.modules.redaccion.database.models import (
     HubWorkspace,
 )
 from server.app.routers.redaccion._actor import user_to_uuid
+from server.app.modules.redaccion.services.workspace_run_service import WorkspaceRunService
 from server.app.routers.redaccion.workspaces_router import run_workspace
 
 _USUARIO = UserInfo(user_id="1", email="admin@example.local", role="superadmin")
@@ -184,6 +185,7 @@ async def test_should_accept_the_run_and_queue_the_generation_against_a_real_ses
                 background_tasks=tareas,
                 user=_USUARIO,
                 session=session,
+                svc=WorkspaceRunService(session=session),
             )
 
             assert salida.status == "queued"
@@ -227,6 +229,7 @@ async def test_should_refuse_to_run_when_a_required_slot_is_missing(db_url):
                     background_tasks=tareas,
                     user=_USUARIO,
                     session=session,
+                    svc=WorkspaceRunService(session=session),
                 )
 
             assert fallo.value.status_code == 422
@@ -265,6 +268,7 @@ async def test_should_run_when_the_required_slot_is_satisfied(db_url):
                 background_tasks=tareas,
                 user=_USUARIO,
                 session=session,
+                svc=WorkspaceRunService(session=session),
             )
 
             assert salida.status == "queued"
@@ -291,6 +295,7 @@ async def test_should_still_run_a_template_without_required_slots(db_url):
                 background_tasks=tareas,
                 user=_USUARIO,
                 session=session,
+                svc=WorkspaceRunService(session=session),
             )
 
             assert salida.status == "queued"

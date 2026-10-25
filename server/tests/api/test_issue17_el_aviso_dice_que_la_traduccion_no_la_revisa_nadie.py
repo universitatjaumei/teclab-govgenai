@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import pytest
 
-from server.app.api.v1.hub_chat import _build_translation_warning
+from server.app.modules.agents_hub.services.turno_de_chat import _build_translation_warning
 
 #: Las tres lenguas en las que el aviso se escribe, con la marca de que dice lo que tiene que
 #: decir. No se comprueba la frase literal: eso sería fijar la redacción en un test y obligar a

@@ -145,9 +145,7 @@ class TestMigrateWorkspaceNonUuidUserId:
         fake_new_workspace = MagicMock(id=uuid.uuid4())
         mock_service = MagicMock()
         mock_service.migrate_workspace = AsyncMock(return_value=fake_new_workspace)
-        monkeypatch.setattr(
-            router_module, "TemplateMigrationService", MagicMock(return_value=mock_service)
-        )
+        app.dependency_overrides[router_module.get_template_migration_service] = lambda: mock_service
 
         session = _mock_session()
         app.dependency_overrides[get_current_user] = lambda: _ADMIN_NON_UUID

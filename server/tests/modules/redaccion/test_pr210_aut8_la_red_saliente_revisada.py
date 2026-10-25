@@ -224,9 +224,9 @@ class _Bajadas:
 
 
 def _instalar(monkeypatch, bajadas):
-    from server.app.routers.redaccion import funciones_run_router
+    from server.app.modules.redaccion import funciones_por_api
 
-    monkeypatch.setattr(funciones_run_router, "descargar_de_un_origen_declarado", bajadas)
+    monkeypatch.setattr(funciones_por_api, "descargar_de_un_origen_declarado", bajadas)
 
 
 class _SandboxQueApunta:

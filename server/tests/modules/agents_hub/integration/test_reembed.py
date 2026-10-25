@@ -332,9 +332,9 @@ class TestGuardaEnConsulta:
         token = create_token(UserInfo(user_id="u1", email="u@test.com", role="user", organizacion_ids=(ORG_PRUEBA,)))
 
         with patch(
-            "server.app.api.v1.hub_chat.resolve_embedding_service", new_callable=AsyncMock
+            "server.app.modules.agents_hub.services.turno_de_chat.resolve_embedding_service", new_callable=AsyncMock
         ), patch(
-            "server.app.api.v1.hub_chat.assert_embedding_space_matches",
+            "server.app.modules.agents_hub.services.turno_de_chat.assert_embedding_space_matches",
             new=AsyncMock(side_effect=EmbeddingSpaceMismatch(
                 "El corpus contiene vectores de BAAI/bge-m3 (1024), y el modelo activo es "
                 "gemini-embedding-001 (1024)."

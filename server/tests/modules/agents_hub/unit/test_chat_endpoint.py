@@ -184,10 +184,10 @@ class TestChatEndpointSSE:
 
         token = _make_token()
         with (
-            patch("server.app.api.v1.hub_chat.GraphFactory",
+            patch("server.app.modules.agents_hub.services.turno_de_chat.GraphFactory",
                   return_value=MagicMock(build=AsyncMock(return_value=mock_graph))),
-            patch("server.app.api.v1.hub_chat.resolve_embedding_service", new_callable=AsyncMock),
-            patch("server.app.api.v1.hub_chat.get_model", new_callable=AsyncMock),
+            patch("server.app.modules.agents_hub.services.turno_de_chat.resolve_embedding_service", new_callable=AsyncMock),
+            patch("server.app.modules.agents_hub.services.turno_de_chat.get_model", new_callable=AsyncMock),
         ):
             with TestClient(app) as client:
                 with client.stream(
@@ -223,10 +223,10 @@ class TestChatEndpointSSE:
         token = _make_token()
         all_lines: list[str] = []
         with (
-            patch("server.app.api.v1.hub_chat.GraphFactory",
+            patch("server.app.modules.agents_hub.services.turno_de_chat.GraphFactory",
                   return_value=MagicMock(build=AsyncMock(return_value=mock_graph))),
-            patch("server.app.api.v1.hub_chat.resolve_embedding_service", new_callable=AsyncMock),
-            patch("server.app.api.v1.hub_chat.get_model", new_callable=AsyncMock),
+            patch("server.app.modules.agents_hub.services.turno_de_chat.resolve_embedding_service", new_callable=AsyncMock),
+            patch("server.app.modules.agents_hub.services.turno_de_chat.get_model", new_callable=AsyncMock),
         ):
             with TestClient(app) as client:
                 with client.stream(
@@ -276,10 +276,10 @@ class TestChatEndpointSSE:
         token = _make_token()
         all_lines: list[str] = []
         with (
-            patch("server.app.api.v1.hub_chat.GraphFactory",
+            patch("server.app.modules.agents_hub.services.turno_de_chat.GraphFactory",
                   return_value=MagicMock(build=AsyncMock(return_value=mock_graph))),
-            patch("server.app.api.v1.hub_chat.resolve_embedding_service", new_callable=AsyncMock),
-            patch("server.app.api.v1.hub_chat.get_model", new_callable=AsyncMock),
+            patch("server.app.modules.agents_hub.services.turno_de_chat.resolve_embedding_service", new_callable=AsyncMock),
+            patch("server.app.modules.agents_hub.services.turno_de_chat.get_model", new_callable=AsyncMock),
         ):
             with TestClient(app) as client:
                 with client.stream(
@@ -334,10 +334,10 @@ class TestChatEndpointSSE:
         token = _make_token()
         all_lines: list[str] = []
         with (
-            patch("server.app.api.v1.hub_chat.GraphFactory",
+            patch("server.app.modules.agents_hub.services.turno_de_chat.GraphFactory",
                   return_value=MagicMock(build=AsyncMock(return_value=mock_graph))),
-            patch("server.app.api.v1.hub_chat.resolve_embedding_service", new_callable=AsyncMock),
-            patch("server.app.api.v1.hub_chat.get_model", new_callable=AsyncMock),
+            patch("server.app.modules.agents_hub.services.turno_de_chat.resolve_embedding_service", new_callable=AsyncMock),
+            patch("server.app.modules.agents_hub.services.turno_de_chat.get_model", new_callable=AsyncMock),
         ):
             with TestClient(app) as client:
                 with client.stream(
@@ -406,10 +406,10 @@ class TestChatEndpointSSE:
         token = _make_token()
         all_lines: list[str] = []
         with (
-            patch("server.app.api.v1.hub_chat.GraphFactory",
+            patch("server.app.modules.agents_hub.services.turno_de_chat.GraphFactory",
                   return_value=MagicMock(build=AsyncMock(return_value=mock_graph))),
-            patch("server.app.api.v1.hub_chat.resolve_embedding_service", new_callable=AsyncMock),
-            patch("server.app.api.v1.hub_chat.get_model", new_callable=AsyncMock),
+            patch("server.app.modules.agents_hub.services.turno_de_chat.resolve_embedding_service", new_callable=AsyncMock),
+            patch("server.app.modules.agents_hub.services.turno_de_chat.get_model", new_callable=AsyncMock),
         ):
             with TestClient(app) as client:
                 with client.stream(
@@ -449,10 +449,10 @@ class TestChatEndpointSSE:
         token = _make_token()
         all_lines: list[str] = []
         with (
-            patch("server.app.api.v1.hub_chat.GraphFactory",
+            patch("server.app.modules.agents_hub.services.turno_de_chat.GraphFactory",
                   return_value=MagicMock(build=AsyncMock(return_value=mock_graph))),
-            patch("server.app.api.v1.hub_chat.resolve_embedding_service", new_callable=AsyncMock),
-            patch("server.app.api.v1.hub_chat.get_model", new_callable=AsyncMock),
+            patch("server.app.modules.agents_hub.services.turno_de_chat.resolve_embedding_service", new_callable=AsyncMock),
+            patch("server.app.modules.agents_hub.services.turno_de_chat.get_model", new_callable=AsyncMock),
         ):
             with TestClient(app, raise_server_exceptions=False) as client:
                 with client.stream(
@@ -474,7 +474,7 @@ class TestChatEndpointSSE:
         # chatbot es público, así que cualquiera podía provocar un error y leer el detalle
         # interno. Lo que se conserva del test es lo que sí importaba: que haya un evento
         # `error` y que no haya `done` detrás.
-        from server.app.api.v1.hub_chat import MENSAJE_DE_ERROR
+        from server.app.modules.agents_hub.services.turno_de_chat import MENSAJE_DE_ERROR
 
         assert error_payload["message"] == MENSAJE_DE_ERROR
         assert "LangGraph internal error" not in error_payload["message"]

@@ -228,7 +228,7 @@ class TestSeBajaAntesDeEjecutar:
         self, db_session, monkeypatch
     ):
         from server.app.modules.redaccion import funciones_origenes
-        from server.app.routers.redaccion import funciones_run_router
+        from server.app.modules.redaccion import funciones_por_api
         from server.app.routers.redaccion.funciones_run_router import (
             EjecutarRequest,
             ejecutar_funcion_por_api,
@@ -244,7 +244,7 @@ class TestSeBajaAntesDeEjecutar:
             funciones_origenes, "descargar_de_un_origen_declarado", _falso
         )
         monkeypatch.setattr(
-            funciones_run_router, "descargar_de_un_origen_declarado", _falso
+            funciones_por_api, "descargar_de_un_origen_declarado", _falso
         )
 
         class _Sandbox:

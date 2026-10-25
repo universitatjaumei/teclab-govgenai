@@ -14,7 +14,12 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel
 from sqlalchemy import select
 
-from server.app.api.deps import get_current_user, get_session, require_module
+from server.app.api.deps import (
+    get_current_user,
+    get_pat_service,
+    get_session,
+    require_module,
+)
 from server.app.core.auth.models import UserInfo
 from server.app.core.auth.pat.scopes import UnknownScopeError, allowed_scopes_for
 from server.app.core.auth.pat.service import (
@@ -72,10 +77,10 @@ class PatView(BaseModel):
 async def create_pat(
     body: PatCreateRequest,
     user: UserInfo = Depends(get_current_user),
-    session=Depends(get_session),
+    servicio: PatService = Depends(get_pat_service),
 ) -> PatCreatedResponse:
     try:
-        pat, token = await PatService(session).create(
+        pat, token = await servicio.create(
             owner=user,
             name=body.name,
             scopes=body.scopes,
@@ -140,9 +145,9 @@ async def pat_opciones(
 @router.get("", response_model=list[PatView], operation_id="listPats")
 async def list_pats(
     user: UserInfo = Depends(get_current_user),
-    session=Depends(get_session),
+    servicio: PatService = Depends(get_pat_service),
 ) -> list[PatView]:
-    pats = await PatService(session).list_for(user)
+    pats = await servicio.list_for(user)
     return [
         PatView(
             id=p.id,
@@ -163,10 +168,10 @@ async def list_pats(
 async def revoke_pat(
     pat_id: uuid.UUID,
     user: UserInfo = Depends(get_current_user),
-    session=Depends(get_session),
+    servicio: PatService = Depends(get_pat_service),
 ) -> Response:
     try:
-        await PatService(session).revoke(user, pat_id)
+        await servicio.revoke(user, pat_id)
     except PatInvalidError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

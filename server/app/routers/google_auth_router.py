@@ -23,9 +23,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from server.app.api.deps import get_session
+from server.app.api.deps import get_saml_identity_service
 from server.app.core.auth import google_oidc
 from server.app.core.auth.jwt_handler import create_token
 from server.app.core.auth.saml.identity_service import SamlIdentityService
@@ -92,7 +91,7 @@ async def google_callback(
     code: str | None = None,
     state: str | None = None,
     error: str | None = None,
-    session: AsyncSession = Depends(get_session),
+    identidad: SamlIdentityService = Depends(get_saml_identity_service),
 ):
     """Recibe la vuelta de Google, comprueba el dominio y emite el token de la plataforma."""
     ajustes = _ajustes_o_404()
@@ -156,7 +155,6 @@ async def google_callback(
             detail={"code": "GOOGLE_OAUTH_DOMINIO_NO_ADMITIDO", "reason": str(exc)},
         ) from exc
 
-    identidad = SamlIdentityService(session)
     user_info = await identidad.resolve_session(
         correo,
         {

@@ -6,6 +6,7 @@ por Docling (opción 1 confirmada en el prompt 9R.5.5): no se regenera el PDF.
 """
 from __future__ import annotations
 
+import asyncio
 import io
 import uuid
 from collections import Counter
@@ -166,6 +167,112 @@ _PROVIDER_CONTEXT: dict[FakerProvider, str] = {
 }
 
 
+def _describir_columnas(data: bytes, suffix: str) -> list[ColumnInfo]:
+    return PiiDetector().scan_dataframe(_read_dataframe(data, suffix))
+
+
+def _anonimizar_tabla(
+    data: bytes, suffix: str, substitutions: list[ColumnSubstitution]
+) -> tuple[bytes, FakerGenerator, list[str], InformeDeAnonimizacion]:
+    """La sustitución por columnas de `anonymize_tabular`, entera y síncrona (#274)."""
+    df = _read_dataframe(data, suffix)
+
+    indicadas = {sub.column_name for sub in substitutions}
+    propuesto = {
+        str(col.name): col.inferred_faker_provider for col in PiiDetector().scan_dataframe(df)
+    }
+    propuestas = [
+        ColumnSubstitution(column_name=columna, faker_provider=proveedor)
+        for columna, proveedor in propuesto.items()
+        if columna not in indicadas
+    ]
+
+    fakes = FakerGenerator()
+    applied: list[str] = []
+    sustituidas: list[ColumnaSustituida] = []
+    originales: set[str] = set()
+    for sub in [*substitutions, *propuestas]:
+        if sub.column_name not in df.columns:
+            continue
+        if sub.faker_provider == "keep":
+            continue
+        pii_type = _PROVIDER_TO_PII.get(sub.faker_provider)
+        if pii_type is None:
+            continue
+        ctx_hint = _PROVIDER_CONTEXT.get(sub.faker_provider, sub.column_name)
+        originales |= _sin_vacios(df[sub.column_name].astype(str))
+        df[sub.column_name] = df[sub.column_name].astype(str).apply(
+            lambda v, t=pii_type, c=ctx_hint: fakes.generate(t, v, context=c)
+        )
+        applied.append(sub.column_name)
+        sustituidas.append(ColumnaSustituida(columna=sub.column_name, sustituto=sub.faker_provider))
+
+    mantenidas = [
+        ColumnaMantenida(columna=str(col), propuesta=propuesto.get(str(col), "keep"))
+        for col in df.columns
+        if str(col) not in applied
+    ]
+    restos = len(originales & _sin_vacios(df.astype(str).to_numpy().ravel()))
+    informe = InformeDeAnonimizacion(
+        tipo="tabular",
+        sustituidas=sustituidas,
+        mantenidas=mantenidas,
+        restos=restos,
+        requiere_aceptacion=restos > 0 or any(m.propuesta != "keep" for m in mantenidas),
+    )
+    return _write_dataframe(df, suffix), fakes, applied, informe
+
+
+def _anonimizar_texto(
+    markdown: str, span_overrides: list[SpanOverride] | None
+) -> tuple[str, AnonymizationContext, int, InformeDeAnonimizacion]:
+    """La sustitución por fragmentos de `anonymize_pdf_to_text`, entera y síncrona (#274)."""
+    overrides = {
+        (s.start, s.end): s for s in (span_overrides or [])
+    }
+
+    ctx = AnonymizationContext()
+    # Mismo flujo que ctx.anonymize() pero permitiendo override por span.
+    anchor_entities, anchor_meta = ctx._detect_with_anchors(markdown)
+    ctx._detected_anchors.extend(anchor_meta)
+    regex_ner = ctx._detect_with_regex(markdown) + ctx._detect_with_ner(markdown)
+    non_overlap = ctx._remove_overlapping(anchor_entities, regex_ner)
+    entities = anchor_entities + non_overlap
+    entities.sort(key=lambda e: e.start, reverse=True)
+
+    result_text = markdown
+    spans_applied = 0
+    fragmentos: Counter[str] = Counter()
+    rechazados: Counter[str] = Counter()
+    originales: set[str] = set()
+    for entity in entities:
+        ov = overrides.get((entity.start, entity.end))
+        if ov is not None and not ov.accept:
+            rechazados[str(entity.type)] += 1
+            continue
+        fragmentos[str(entity.type)] += 1
+        originales.add(entity.text)
+        if ov is not None and ov.suggested_fake:
+            fake = ov.suggested_fake
+            # Registrar manualmente en mapa para deanonimización futura
+            ctx.fakes.fake_to_real[fake] = entity.text
+            ctx.fakes.real_to_fake[entity.text] = fake
+        else:
+            fake = ctx.fakes.generate(entity.type, entity.text, context=entity.context)
+        result_text = result_text[: entity.start] + fake + result_text[entity.end :]
+        spans_applied += 1
+
+    restos = sum(1 for original in originales if original.strip() and original in result_text)
+    informe = InformeDeAnonimizacion(
+        tipo="pdf",
+        fragmentos=dict(fragmentos),
+        rechazados=dict(rechazados),
+        restos=restos,
+        requiere_aceptacion=restos > 0 or bool(rechazados),
+    )
+    return result_text, ctx, spans_applied, informe
+
+
 class TestDataAnonymizerService:
     """Operaciones de anonimización de test data para el workflow de scripts."""
 
@@ -179,9 +286,7 @@ class TestDataAnonymizerService:
     async def describe_columns(self, file_ref: StorageRef) -> list[ColumnInfo]:
         """Carga el archivo tabular y devuelve descripciones de columnas."""
         data = await self._storage.get(file_ref.key)
-        suffix = _suffix_from_key(file_ref.key)
-        df = _read_dataframe(data, suffix)
-        return PiiDetector().scan_dataframe(df)
+        return await asyncio.to_thread(_describir_columnas, data, _suffix_from_key(file_ref.key))
 
     async def anonymize_tabular(
         self,
@@ -198,53 +303,10 @@ class TestDataAnonymizerService:
         """
         data = await self._storage.get(file_ref.key)
         suffix = _suffix_from_key(file_ref.key)
-        df = _read_dataframe(data, suffix)
-
-        indicadas = {sub.column_name for sub in substitutions}
-        propuesto = {
-            str(col.name): col.inferred_faker_provider for col in PiiDetector().scan_dataframe(df)
-        }
-        propuestas = [
-            ColumnSubstitution(column_name=columna, faker_provider=proveedor)
-            for columna, proveedor in propuesto.items()
-            if columna not in indicadas
-        ]
-
-        fakes = FakerGenerator()
-        applied: list[str] = []
-        sustituidas: list[ColumnaSustituida] = []
-        originales: set[str] = set()
-        for sub in [*substitutions, *propuestas]:
-            if sub.column_name not in df.columns:
-                continue
-            if sub.faker_provider == "keep":
-                continue
-            pii_type = _PROVIDER_TO_PII.get(sub.faker_provider)
-            if pii_type is None:
-                continue
-            ctx_hint = _PROVIDER_CONTEXT.get(sub.faker_provider, sub.column_name)
-            originales |= _sin_vacios(df[sub.column_name].astype(str))
-            df[sub.column_name] = df[sub.column_name].astype(str).apply(
-                lambda v, t=pii_type, c=ctx_hint: fakes.generate(t, v, context=c)
-            )
-            applied.append(sub.column_name)
-            sustituidas.append(ColumnaSustituida(columna=sub.column_name, sustituto=sub.faker_provider))
-
-        mantenidas = [
-            ColumnaMantenida(columna=str(col), propuesta=propuesto.get(str(col), "keep"))
-            for col in df.columns
-            if str(col) not in applied
-        ]
-        restos = len(originales & _sin_vacios(df.astype(str).to_numpy().ravel()))
-        informe = InformeDeAnonimizacion(
-            tipo="tabular",
-            sustituidas=sustituidas,
-            mantenidas=mantenidas,
-            restos=restos,
-            requiere_aceptacion=restos > 0 or any(m.propuesta != "keep" for m in mantenidas),
+        # #274 — leer, buscar datos personales y sustituir fila a fila es CPU: en un hilo.
+        out_bytes, fakes, applied, informe = await asyncio.to_thread(
+            _anonimizar_tabla, data, suffix, substitutions
         )
-
-        out_bytes = _write_dataframe(df, suffix)
         out_key = f"test-data/{uuid.uuid4()}.{suffix or 'bin'}"
         await self._storage.put(out_key, out_bytes)
         return AnonymizedTabularResult(
@@ -263,7 +325,7 @@ class TestDataAnonymizerService:
     async def preview_pdf_spans(self, file_ref: StorageRef) -> list[PiiSpan]:
         """Devuelve los spans PII detectados sobre el markdown del PDF."""
         markdown = await self._extract_pdf_markdown(file_ref)
-        return PiiDetector().detect_spans(markdown)
+        return await asyncio.to_thread(PiiDetector().detect_spans, markdown)
 
     async def anonymize_pdf_to_text(
         self,
@@ -278,48 +340,9 @@ class TestDataAnonymizerService:
         el comportamiento por defecto del motor.
         """
         markdown = await self._extract_pdf_markdown(file_ref)
-        overrides = {
-            (s.start, s.end): s for s in (span_overrides or [])
-        }
-
-        ctx = AnonymizationContext()
-        # Mismo flujo que ctx.anonymize() pero permitiendo override por span.
-        anchor_entities, anchor_meta = ctx._detect_with_anchors(markdown)
-        ctx._detected_anchors.extend(anchor_meta)
-        regex_ner = ctx._detect_with_regex(markdown) + ctx._detect_with_ner(markdown)
-        non_overlap = ctx._remove_overlapping(anchor_entities, regex_ner)
-        entities = anchor_entities + non_overlap
-        entities.sort(key=lambda e: e.start, reverse=True)
-
-        result_text = markdown
-        spans_applied = 0
-        fragmentos: Counter[str] = Counter()
-        rechazados: Counter[str] = Counter()
-        originales: set[str] = set()
-        for entity in entities:
-            ov = overrides.get((entity.start, entity.end))
-            if ov is not None and not ov.accept:
-                rechazados[str(entity.type)] += 1
-                continue
-            fragmentos[str(entity.type)] += 1
-            originales.add(entity.text)
-            if ov is not None and ov.suggested_fake:
-                fake = ov.suggested_fake
-                # Registrar manualmente en mapa para deanonimización futura
-                ctx.fakes.fake_to_real[fake] = entity.text
-                ctx.fakes.real_to_fake[entity.text] = fake
-            else:
-                fake = ctx.fakes.generate(entity.type, entity.text, context=entity.context)
-            result_text = result_text[: entity.start] + fake + result_text[entity.end :]
-            spans_applied += 1
-
-        restos = sum(1 for original in originales if original.strip() and original in result_text)
-        informe = InformeDeAnonimizacion(
-            tipo="pdf",
-            fragmentos=dict(fragmentos),
-            rechazados=dict(rechazados),
-            restos=restos,
-            requiere_aceptacion=restos > 0 or bool(rechazados),
+        # #274 — la detección (anclas, regex y NER) es CPU: en un hilo.
+        result_text, ctx, spans_applied, informe = await asyncio.to_thread(
+            _anonimizar_texto, markdown, span_overrides
         )
 
         out_key = f"test-data/{uuid.uuid4()}.md"
@@ -351,7 +374,7 @@ class TestDataAnonymizerService:
         from server.app.core.pdf_text import extraer_paginas, hay_capa_de_texto
 
         data = await self._storage.get(file_ref.key)
-        paginas = extraer_paginas(data)
+        paginas = await asyncio.to_thread(extraer_paginas, data)
         if not hay_capa_de_texto(paginas):
             return ""
         return "\n\n".join(p.strip() for p in paginas if p.strip()).strip()

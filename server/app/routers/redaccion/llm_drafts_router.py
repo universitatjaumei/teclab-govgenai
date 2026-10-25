@@ -5,6 +5,8 @@ Expone generación, validación y aprobación de ReportTemplateDraft.
 """
 from __future__ import annotations
 
+import asyncio
+
 import uuid
 from typing import Literal
 
@@ -165,7 +167,10 @@ async def describe_sample_file(
     """
     contenido = await read_within_limit(file)
     try:
-        return resumen_de_la_muestra(contenido, file.filename or "sin-nombre")
+        # #274 — pandas lee el Excel en este hilo: fuera del bucle, o bloquea a todo el proceso.
+        return await asyncio.to_thread(
+            resumen_de_la_muestra, contenido, file.filename or "sin-nombre"
+        )
     except MuestraIlegibleError as fallo:
         raise HTTPException(status_code=422, detail=str(fallo)) from fallo
 

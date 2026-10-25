@@ -324,14 +324,14 @@ class TestEndpointDeBypass:
         grafo.compile = MagicMock(return_value=compilado)
 
         with patch(
-            "server.app.api.v1.hub_chat.GraphFactory",
+            "server.app.modules.agents_hub.services.turno_de_chat.GraphFactory",
             return_value=MagicMock(build=AsyncMock(return_value=grafo)),
         ), patch(
-            "server.app.api.v1.hub_chat.resolve_embedding_service", new_callable=AsyncMock
+            "server.app.modules.agents_hub.services.turno_de_chat.resolve_embedding_service", new_callable=AsyncMock
         ), patch(
-            "server.app.api.v1.hub_chat.assert_embedding_space_matches",
+            "server.app.modules.agents_hub.services.turno_de_chat.assert_embedding_space_matches",
             new_callable=AsyncMock,
-        ), patch("server.app.api.v1.hub_chat.get_model", new_callable=AsyncMock):
+        ), patch("server.app.modules.agents_hub.services.turno_de_chat.get_model", new_callable=AsyncMock):
             resp = cliente.post(
                 f"/api/v1/hub/chat/{chatbot.id}",
                 json={"message": "hola", "debug_bypass": True},

@@ -45,7 +45,12 @@ class TestLaCuotaDelAnonimoSeAplica:
     """NUEVO-6. El parámetro existía y nadie lo rellenaba."""
 
     def test_should_pass_the_ip_to_the_quota_check(self):
-        texto = Path("app/api/v1/hub_chat.py").read_text(encoding="utf-8")
+        # #274 — el turno (y con él `contabilizar_interaccion`) vive en su servicio; la cuota
+        # previa sigue en el endpoint. Se leen los dos.
+        texto = "".join(
+            Path(ruta).read_text(encoding="utf-8")
+            for ruta in ("app/api/v1/hub_chat.py", "app/modules/agents_hub/services/turno_de_chat.py")
+        )
         assert re.search(r"assert_within_quota\([^)]*ip=", texto, re.S), (
             "assert_within_quota se llama sin ip=, así que anon_ip_daily_token_quota "
             "(quotas.py) es código muerto y el tráfico anónimo del widget no tiene cuota"

@@ -135,11 +135,11 @@ def _lanzar(chatbot, eventos, capturadora=None):
     app = _app(session)
     with (
         patch(
-            "server.app.api.v1.hub_chat.GraphFactory",
+            "server.app.modules.agents_hub.services.turno_de_chat.GraphFactory",
             return_value=MagicMock(build=AsyncMock(return_value=grafo)),
         ),
-        patch("server.app.api.v1.hub_chat.resolve_embedding_service", new_callable=AsyncMock),
-        patch("server.app.api.v1.hub_chat.get_model", new_callable=AsyncMock),
+        patch("server.app.modules.agents_hub.services.turno_de_chat.resolve_embedding_service", new_callable=AsyncMock),
+        patch("server.app.modules.agents_hub.services.turno_de_chat.get_model", new_callable=AsyncMock),
     ):
         with TestClient(app) as client:
             with client.stream(
@@ -405,13 +405,13 @@ class TestRouterBeforeGraph:
 
         with (
             patch(
-                "server.app.api.v1.hub_chat.GraphFactory",
+                "server.app.modules.agents_hub.services.turno_de_chat.GraphFactory",
                 return_value=MagicMock(build=AsyncMock(return_value=grafo)),
             ),
-            patch("server.app.api.v1.hub_chat.resolve_embedding_service", new_callable=AsyncMock),
-            patch("server.app.api.v1.hub_chat.get_model", new_callable=AsyncMock),
+            patch("server.app.modules.agents_hub.services.turno_de_chat.resolve_embedding_service", new_callable=AsyncMock),
+            patch("server.app.modules.agents_hub.services.turno_de_chat.get_model", new_callable=AsyncMock),
             patch(
-                "server.app.api.v1.hub_chat.build_route_to_subagent_node",
+                "server.app.modules.agents_hub.services.turno_de_chat.build_route_to_subagent_node",
                 return_value=router_node,
             ),
         ):

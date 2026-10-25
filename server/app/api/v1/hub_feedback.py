@@ -99,12 +99,18 @@ class InteractionReviewOut(BaseModel):
     review_reference_answer: str | None = None
 
 
+def get_feedback_service(session: AsyncSession = Depends(get_session)) -> FeedbackService:
+    """Las valoraciones y la revisión de interacciones (#274)."""
+    return FeedbackService(session)
+
+
 @router.post("/{interaction_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def submit_feedback(
     interaction_id: uuid.UUID,
     request: FeedbackRequest,
     user: UserInfo = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
+    service: FeedbackService = Depends(get_feedback_service),
 ) -> None:
     # SEC.8.1: el GET de revisión comprobaba la organización desde SEC.2; este POST no
     # comprobaba nada y el servicio hace `UPDATE ... WHERE id = :id` a ciegas, así que
@@ -118,7 +124,6 @@ async def submit_feedback(
     if interaccion.user_id != user.user_id:
         await assert_chatbot_org_access(session, interaccion.chatbot_id, user)
 
-    service = FeedbackService(session)
     await service.submit_feedback(
         interaction_id=interaction_id,
         score=request.score,
@@ -134,6 +139,7 @@ async def review_interaction(
     request: ReviewVerdictRequest,
     user: UserInfo = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
+    service: FeedbackService = Depends(get_feedback_service),
 ) -> HubInteraction:
     """Anota el veredicto de quien revisa sobre una conversación real (REV.1).
 
@@ -149,7 +155,6 @@ async def review_interaction(
     # y además deja rastro atribuido a alguien que no debería estar ahí.
     await assert_chatbot_org_access(session, interaccion.chatbot_id, user)
 
-    service = FeedbackService(session)
     revisada = await service.record_review(
         interaction=interaccion,
         verdict=request.verdict,
@@ -195,6 +200,7 @@ async def get_interactions_for_review(
     verdict: Literal["good", "bad", "mixed"] | None = Query(None),
     user: UserInfo = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
+    service: FeedbackService = Depends(get_feedback_service),
 ) -> list[dict]:
     if user.role not in ("superadmin", "admin"):
         raise HTTPException(
@@ -209,7 +215,6 @@ async def get_interactions_for_review(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chatbot not found")
     assert_org_access(user, chatbot.organizacion_id)
 
-    service = FeedbackService(session)
     interactions = await service.get_interactions_for_review(
         chatbot_id=chatbot_id,
         limit=limit,

@@ -18,7 +18,7 @@ Por qué se normaliza en la FRONTERA y no en el corpus: los fragmentos son 60.85
 lengua la fija el contrato del corpus, donde `val` es el código. La detección es un solo punto.
 """
 
-from server.app.api.v1.hub_chat import _build_translation_warning
+from server.app.modules.agents_hub.services.turno_de_chat import _build_translation_warning
 from server.app.modules.agents_hub.services.language_detector import detect_language
 
 VALENCIA = (

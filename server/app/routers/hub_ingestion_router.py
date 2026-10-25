@@ -215,19 +215,24 @@ async def _get_llm_service(
     return LangChainLLMAdapter(model)
 
 
+def get_html_analyzer_service(llm_service=Depends(_get_llm_service)) -> Any:
+    """El analizador de HTML, con el modelo de la petición (#274)."""
+    from server.app.modules.agents_hub.services.html_analyzer_service import (
+        HtmlAnalyzerService,
+    )
+
+    return HtmlAnalyzerService(llm_service=llm_service)
+
+
 @router.post("/analyze-html", status_code=status.HTTP_200_OK, response_model=AnalyzeHtmlOut)
 async def analyze_html(
     body: AnalyzeHtmlRequest,
     current_user: UserInfo = Depends(_ESCRIBE_EN_EL_CORPUS),
-    llm_service=Depends(_get_llm_service),
+    service=Depends(get_html_analyzer_service),
 ):
     """Propone selectores CSS para el contenido principal de un HTML institucional."""
-    from server.app.modules.agents_hub.services.html_analyzer_service import (
-        HtmlAnalyzerService,
-        EmptyHtmlError,
-    )
+    from server.app.modules.agents_hub.services.html_analyzer_service import EmptyHtmlError
 
-    service = HtmlAnalyzerService(llm_service=llm_service)
     try:
         result = await service.analyze(html=body.html, url_hint=body.url_hint)
     except EmptyHtmlError:

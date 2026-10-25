@@ -6,6 +6,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from server.app.core.auth import AuthenticationError, UserInfo, decode_token
 from server.app.core.auth.models import UserRole
 from server.app.core.auth.pat.service import PatInvalidError, PatService
+from server.app.core.auth.saml.identity_service import SamlIdentityService
 from server.app.database.db import AsyncSessionLocal
 
 _PAT_PREFIX = "pat_"
@@ -71,6 +72,18 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
         except Exception:
             await session.rollback()
             raise
+
+
+def get_pat_service(session: AsyncSession = Depends(get_session)) -> PatService:
+    """Los tokens personales, sobre la sesión de la petición (#274)."""
+    return PatService(session)
+
+
+def get_saml_identity_service(
+    session: AsyncSession = Depends(get_session),
+) -> SamlIdentityService:
+    """La resolución de identidad que comparten SAML y Google (#274)."""
+    return SamlIdentityService(session)
 
 
 def _unauthorized(detail: str) -> HTTPException:

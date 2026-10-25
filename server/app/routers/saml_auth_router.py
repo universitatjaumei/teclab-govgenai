@@ -15,7 +15,7 @@ from fastapi.responses import RedirectResponse, Response
 from onelogin.saml2.auth import OneLogin_Saml2_Auth
 from onelogin.saml2.settings import OneLogin_Saml2_Settings
 
-from server.app.api.deps import get_session
+from server.app.api.deps import get_saml_identity_service
 from server.app.core.auth import create_token
 from server.app.core.auth.saml import (
     InvalidSamlConfigError,
@@ -91,7 +91,10 @@ async def saml_login(request: Request, relay_state: str | None = None):
 
 
 @router.post("/acs")
-async def saml_acs(request: Request, session=Depends(get_session)):
+async def saml_acs(
+    request: Request,
+    identity: SamlIdentityService = Depends(get_saml_identity_service),
+):
     """Assertion Consumer Service: valida la aserción, resuelve la identidad y emite JWT."""
     _ensure_enabled()
     auth = await _build_auth(request)
@@ -134,7 +137,6 @@ async def saml_acs(request: Request, session=Depends(get_session)):
             detail={"code": "SAML_REUTILIZADA"},
         )
 
-    identity = SamlIdentityService(session)
     try:
         user_info = await identity.resolve_session(
             auth.get_nameid(), auth.get_attributes()

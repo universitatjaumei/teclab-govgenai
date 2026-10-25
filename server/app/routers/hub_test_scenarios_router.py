@@ -297,7 +297,7 @@ async def run_scenario(
     # VIS.5 — el mismo aviso que vería quien pregunta, redactado igual. Se construye aquí y no
     # se copia el booleano: lo que hay que poder revisar es **el texto**, que es lo que llega al
     # ciudadano; el flag sólo dice que hubo uno.
-    from server.app.api.v1.hub_chat import _build_translation_warning
+    from server.app.modules.agents_hub.services.turno_de_chat import _build_translation_warning
 
     # La lengua de la pregunta la **detecta el grafo** y vive en el estado como `language`; el
     # escenario no la declara, y pedírsela al autor sería pedirle un dato que el sistema ya sabe

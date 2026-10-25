@@ -796,6 +796,13 @@ async def get_workspace_warnings(
     ]
 
 
+def get_template_migration_service(
+    session: AsyncSession = Depends(get_session),
+) -> TemplateMigrationService:
+    """La migración de un workspace a otra versión de su plantilla (#274)."""
+    return TemplateMigrationService(session)
+
+
 @router.get(
     "/workspaces/{workspace_id}/template-update-notice",
     response_model=NewVersionNotice,
@@ -804,10 +811,9 @@ async def get_workspace_warnings(
 async def template_update_notice(
     workspace_id: uuid.UUID,
     _user: UserInfo = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session),
+    service: TemplateMigrationService = Depends(get_template_migration_service),
 ) -> NewVersionNotice | Response:
     """Devuelve aviso de nueva versión disponible, o 204 si ya está alineado."""
-    service = TemplateMigrationService(session)
     try:
         notice = await service.detect_new_version(workspace_id)
     except WorkspaceNotFoundError:
@@ -827,10 +833,9 @@ async def migrate_workspace(
     workspace_id: uuid.UUID,
     body: MigrateRequest,
     user: UserInfo = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session),
+    service: TemplateMigrationService = Depends(get_template_migration_service),
 ) -> MigrateResponse:
     """Crea workspace nuevo contra target_version_id, archiva el antiguo."""
-    service = TemplateMigrationService(session)
     try:
         new_workspace = await service.migrate_workspace(
             workspace_id,
