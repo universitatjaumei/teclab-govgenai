@@ -1,6 +1,7 @@
 import axios, { AxiosError } from 'axios';
 
 import { errorDeLaApi } from './errorDeLaApi';
+import { avisaDeSesionCaducada } from '@/shared/auth/sesionCaducada';
 
 /**
  * Base de la API. Único sitio del frontend donde vive el host del servidor: el
@@ -36,6 +37,11 @@ axiosInstance.interceptors.request.use((config) => {
  */
 axiosInstance.interceptors.response.use(undefined, (error: AxiosError<{ detail?: unknown }>) => {
   const detail = error.response?.data?.detail;
+  // #278 — un 401 con token es que la sesión ya no vale: se cierra, en vez de dejar cada
+  // pantalla fallando hasta que alguien recargue.
+  if (error.response?.status === 401) {
+    avisaDeSesionCaducada(error.config?.url, Boolean(error.config?.headers?.Authorization));
+  }
   const errorDelServidor = errorDeLaApi(error);
   if (errorDelServidor) {
     error.message = errorDelServidor.message;

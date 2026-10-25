@@ -77,6 +77,16 @@ const _usarEleccion = create<{ elegida: string; elegir: (id: string) => void }>(
   },
 }))
 
+/** Olvida la organización elegida, en la tienda y en el navegador. Al cerrar sesión (#278). */
+export function olvidarLaEleccion(): void {
+  _usarEleccion.setState({ elegida: '' })
+  try {
+    localStorage.removeItem(CLAVE_GUARDADA)
+  } catch {
+    /* sin almacenamiento no había nada guardado */
+  }
+}
+
 export function useOrganizacionElegida(): EleccionDeOrganizacion {
   const { data } = useListOrganizacionesApiV1HubOrganizacionesGet()
 

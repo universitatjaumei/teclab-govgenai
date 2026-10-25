@@ -8,6 +8,7 @@ import React, {
   type ReactNode,
 } from 'react';
 import {
+  CLAVE_DEL_TEMA,
   DEFAULT_THEME,
   validateTheme,
   mergeThemes,
@@ -36,7 +37,6 @@ const PRESET_THEMES: Record<string, ThemeConfig> = {
   'high-contrast': HIGH_CONTRAST_THEME,
 };
 
-const STORAGE_KEY = 'chatbot-theme';
 
 function camelToKebab(str: string): string {
   return str.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
@@ -182,7 +182,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
 }) => {
   const [theme, setThemeState] = useState<ThemeConfig>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = localStorage.getItem(CLAVE_DEL_TEMA);
       if (saved) {
         const parsed = JSON.parse(saved);
         return mergeThemes(DEFAULT_THEME, parsed);
@@ -209,7 +209,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
     setValidationWarnings(validation.warnings);
     setThemeState(newTheme);
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(newTheme));
+      localStorage.setItem(CLAVE_DEL_TEMA, JSON.stringify(newTheme));
     } catch (e) {
       console.warn('Failed to save theme to localStorage:', e);
     }
@@ -248,7 +248,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
 
   const resetTheme = useCallback(() => {
     setTheme(DEFAULT_THEME);
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(CLAVE_DEL_TEMA);
   }, [setTheme]);
 
   const availableThemes = useMemo(() => Object.keys(PRESET_THEMES), []);

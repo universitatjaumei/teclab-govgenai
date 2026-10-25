@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { noReintentarSiElServidorYaDecidio } from '@/shared/api/reintentos'
 import { Suspense, lazy } from 'react'
 import { AuthProvider, PrivateRoute } from '@/shared/auth'
+import { olvidarLoDeLaPersona } from '@/shared/auth/olvidarLoDeLaPersona'
 import { RutaDeModulo, Aterrizaje, SinAcceso, NoEncontrado } from '@/shared/auth/RutaDeModulo'
 import { AppLayout } from '@/admin/AppLayout'
 import { HubLayout } from '@/admin/HubLayout'
@@ -86,8 +87,12 @@ const queryClient = new QueryClient({
 })
 
 // #172 — al cambiar de sesión, lo que se consultó con la anterior no vale: módulos, acciones
-// permitidas, listados. Con `staleTime` de cinco minutos se seguía pintando.
-const vaciarCacheDeConsultas = () => queryClient.clear()
+// permitidas, listados. Con `staleTime` de cinco minutos se seguía pintando. Y #278: tampoco lo
+// que la persona dejó en el navegador —borradores, organización elegida, tema—.
+const vaciarCacheDeConsultas = () => {
+  queryClient.clear()
+  olvidarLoDeLaPersona()
+}
 
 /**
  * Espera mientras llega el trozo de la ruta.

@@ -55,6 +55,8 @@ export function mountWidget(container: Element, config: WidgetConfig): () => voi
   void applyChatbotTheme(config)
 
   const handleMessage = (event: MessageEvent) => {
+    // #278 — sólo de la página que lo embebe: un iframe ajeno no le cambia nada al widget.
+    if (event.origin !== window.location.origin) return
     if (event.data?.type === 'govgenai:setLang' && typeof event.data.lang === 'string') {
       i18n.changeLanguage(event.data.lang)
     }

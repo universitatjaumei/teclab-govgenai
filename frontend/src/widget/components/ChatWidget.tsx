@@ -94,11 +94,17 @@ function StarRating({ interactionId, apiUrl }: StarRatingProps) {
 
   const handleClick = async (score: number) => {
     setSelected(score)
-    await fetch(`${apiUrl}/hub/feedback/${interactionId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ score }),
-    })
+    // #278 — si la valoración no llega, la estrella no se queda marcada como si hubiera llegado.
+    try {
+      const respuesta = await fetch(`${apiUrl}/hub/feedback/${interactionId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ score }),
+      })
+      if (!respuesta.ok) setSelected(null)
+    } catch {
+      setSelected(null)
+    }
   }
 
   return (
@@ -143,6 +149,7 @@ export function ChatWidget({ chatbotId, apiUrl, lang, widgetKey, model, title }:
   const { t } = useTranslation('chat')
   const {
     messages,
+    error,
     currentNodeStatus,
     isStreaming,
     translationWarning,
@@ -381,6 +388,17 @@ export function ChatWidget({ chatbotId, apiUrl, lang, widgetKey, model, title }:
 
       {isStreaming && (
         <div role="status" aria-label={t('widget_loading')} aria-busy="true" />
+      )}
+
+      {/* #278 — el fallo se dice. Antes se tragaba y quedaba una burbuja vacía. */}
+      {error && (
+        <p
+          role="alert"
+          data-testid="widget-error"
+          style={{ margin: 0, padding: '0 0.75rem 0.4rem', color: '#b42318', fontSize: '0.8rem' }}
+        >
+          {t(`error_${error}`)}
+        </p>
       )}
 
       {showRating && (

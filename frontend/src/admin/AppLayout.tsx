@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/shared/auth'
 import { CambiarMiContrasena } from '@/shared/auth/CambiarMiContrasena'
@@ -7,6 +7,7 @@ import { SUPPORTED_LANGUAGES } from '@/shared/i18n'
 import { useMarca } from '@/shared/marca/useMarca'
 import { useColoresDelPanel } from '@/shared/marca/useColoresDelPanel'
 import { EnlaceAlFuente } from '@/shared/licencia/EnlaceAlFuente'
+import { ErrorBoundary } from '@/shared/components/ErrorBoundary'
 import { useOrganizacionElegida } from '@/shared/organizacion/useOrganizacionElegida'
 
 /** El nombre de cada idioma EN ese idioma: quien busca su lengua la reconoce escrita así. */
@@ -54,6 +55,7 @@ export function AppLayout() {
   const { t, i18n } = useTranslation('admin')
   const { t: tc } = useTranslation('common')
   const { user, logout } = useAuth()
+  const location = useLocation()
   // INF.7 — el menu se genera con lo que el servidor concede. No habia nada que filtrar:
   // cualquier cuenta veia chatbots, informes y curacion.
   const { modulos } = useModulos()
@@ -177,7 +179,11 @@ export function AppLayout() {
       </nav>
 
       <main className="flex-1 overflow-auto p-6">
-        <Outlet />
+        {/* #278 — si una pantalla revienta al pintarse, cae ella y no el panel: el menú queda
+            fuera. La clave por ruta lo rearma al navegar a otra sección. */}
+        <ErrorBoundary key={location.pathname}>
+          <Outlet />
+        </ErrorBoundary>
       </main>
     </div>
   )

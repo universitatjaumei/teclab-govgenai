@@ -6,9 +6,10 @@
  * remonta el árbol entero en cada cambio, y se pierde el estado de la pantalla. Quien consume
  * esto entra por `@/shared/auth`, así que el reparto no se nota desde fuera.
  */
-import { useState, useCallback, type ReactNode } from 'react'
+import { useState, useCallback, useEffect, type ReactNode } from 'react'
 
 import { AuthContext, TOKEN_KEY, loadStoredUser, parseJwtPayload, type AuthUser } from './authState'
+import { SESION_CADUCADA } from './sesionCaducada'
 
 export function AuthProvider({
   children,
@@ -39,6 +40,12 @@ export function AuthProvider({
     alCambiarDeSesion?.()
     setUser(null)
   }, [alCambiarDeSesion])
+
+  // #278 — el cliente avisa cuando el servidor deja de aceptar el token; salir lleva al login.
+  useEffect(() => {
+    window.addEventListener(SESION_CADUCADA, logout)
+    return () => window.removeEventListener(SESION_CADUCADA, logout)
+  }, [logout])
 
   return (
     <AuthContext.Provider value={{ user, isAuthenticated: user !== null, login, logout }}>
