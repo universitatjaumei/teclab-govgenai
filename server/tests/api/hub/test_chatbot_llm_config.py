@@ -143,7 +143,7 @@ class TestCambiarElModeloDelChatbot:
                 json={"llm_config_id": str(uuid.uuid4())},
             )
             assert resp.status_code == 404
-            assert "config" in resp.json()["detail"].lower()
+            assert "config" in resp.json()["detail"]["message"].lower()
         finally:
             app.dependency_overrides.pop(get_session, None)
 

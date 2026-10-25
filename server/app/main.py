@@ -20,6 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from server.app.core.cors import politica_cors
 from server.app.core.version import version
+from server.app.core.errores import instalar_errores
 from server.app.core.security_headers import (
     SecurityHeadersMiddleware,
     urls_de_documentacion,
@@ -485,6 +486,9 @@ app = FastAPI(
 )
 
 app.add_middleware(SecurityHeadersMiddleware, entorno=ENTORNO)
+
+# #276 — un solo formato de error para toda la API: `{"detail": {"code", "message", …}}`.
+instalar_errores(app)
 
 # SEC.3: los orígenes salen de la configuración y no del código. En producción no hay
 # comodín ni aunque la variable de entorno lo traiga; el porqué está en `core/cors.py`.

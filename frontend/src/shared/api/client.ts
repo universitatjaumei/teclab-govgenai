@@ -1,5 +1,7 @@
 import axios, { AxiosError } from 'axios';
 
+import { errorDeLaApi } from './errorDeLaApi';
+
 /**
  * Base de la API. Único sitio del frontend donde vive el host del servidor: el
  * resto del código construye rutas relativas y deja que este cliente las resuelva.
@@ -27,15 +29,16 @@ axiosInstance.interceptors.request.use((config) => {
 });
 
 /**
- * FastAPI devuelve el motivo del fallo en `detail`. Axios, por su cuenta, deja un
- * `message` genérico del tipo «Request failed with status code 409», y las pantallas
- * pintan `err.message`. Sin esta traducción, migrar de fetch a Orval convertiría
- * «Ya existe un chatbot por defecto» en un número de estado.
+ * El servidor devuelve el motivo del fallo en `detail.message` (#276: un formato único). Axios,
+ * por su cuenta, deja un `message` genérico del tipo «Request failed with status code 409», y
+ * las pantallas pintan `err.message`. Sin esta traducción, «Ya existe un chatbot por defecto» se
+ * vería como un número de estado.
  */
 axiosInstance.interceptors.response.use(undefined, (error: AxiosError<{ detail?: unknown }>) => {
   const detail = error.response?.data?.detail;
-  if (typeof detail === 'string' && detail) {
-    error.message = detail;
+  const errorDelServidor = errorDeLaApi(error);
+  if (errorDelServidor) {
+    error.message = errorDelServidor.message;
   } else if (Array.isArray(detail)) {
     // Errores de validación de Pydantic: [{loc, msg, type}, …]
     const msgs = detail

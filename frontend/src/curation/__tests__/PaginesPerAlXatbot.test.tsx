@@ -112,7 +112,7 @@ describe('Pàgines: el que la revisió de la PR #246 va trobar', () => {
   it('si la llista no es pot carregar, ho diu en lloc de «no hi ha pàgines»', () => {
     vi.mocked(useListSitePages).mockReturnValue({
       data: undefined, isLoading: false, isError: true,
-      error: { response: { data: { detail: 'Sense accés al mòdul' } } },
+      error: { response: { data: { detail: { code: 'FORBIDDEN', message: 'Sense accés al mòdul' } } } },
     } as never)
     render(
       <QueryClientProvider client={new QueryClient()}>

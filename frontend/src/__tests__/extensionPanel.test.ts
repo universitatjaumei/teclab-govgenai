@@ -184,7 +184,7 @@ function cargar(mundo: Mundo) {
       autorizacion: opciones.headers.Authorization,
     })
     if (ruta.endsWith('/consulta') && mundo.consultaRetenida) await mundo.consultaRetenida
-    const r = mundo.respuestas[ruta] ?? { status: 404, cuerpo: { detail: 'no' } }
+    const r = mundo.respuestas[ruta] ?? { status: 404, cuerpo: { detail: { code: 'NOT_FOUND', message: 'no' } } }
     return { status: r.status, ok: r.status < 400, json: async () => r.cuerpo }
   }
   const navigator = {
@@ -327,7 +327,7 @@ describe('#176 — el panel de la extensión', () => {
   it('un 401 olvida el token y vuelve a pedir conectar', async () => {
     mundo.gestionada = { panel_url: 'https://normativa.uji.es/panel' }
     mundo.local = { token: 'ggai_pat_revocado' }
-    mundo.respuestas['/api/v1/agentes/catalogo'] = { status: 401, cuerpo: { detail: 'Invalid token' } }
+    mundo.respuestas['/api/v1/agentes/catalogo'] = { status: 401, cuerpo: { detail: { code: 'UNAUTHORIZED', message: 'Invalid token' } } }
     await cargar(mundo).pintar()
     await vi.waitFor(() => expect(document.body.textContent).toContain(MENSAJES.reconectar.message))
     expect(mundo.local.token).toBeUndefined()
@@ -462,7 +462,7 @@ describe('#176 — el panel de la extensión', () => {
     })
 
     it('sin adaptador no hay botón de insertar, y copiar sigue siendo lo principal', async () => {
-      mundo.respuestas['/api/v1/agentes/asistentes/gemini/adaptador'] = { status: 404, cuerpo: { detail: 'no' } }
+      mundo.respuestas['/api/v1/agentes/asistentes/gemini/adaptador'] = { status: 404, cuerpo: { detail: { code: 'NOT_FOUND', message: 'no' } } }
       mundo.gestionada = { panel_url: 'https://normativa.uji.es/panel' }
       mundo.local = { token: 'ggai_pat_x' }
       await cargar(mundo).pintar()

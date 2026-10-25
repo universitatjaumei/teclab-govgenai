@@ -358,7 +358,7 @@ class TestChatbotRetrievalMode:
                 json={"retrieval_mode": "MD_LONG_CONTEXT"},
             )
             assert resp.status_code == 400
-            assert "128K tokens" in resp.json()["detail"]
+            assert "128K tokens" in resp.json()["detail"]["message"]
         finally:
             app.dependency_overrides.pop(get_session, None)
 
@@ -370,7 +370,7 @@ class TestChatbotRetrievalMode:
         try:
             resp = client.post(f"/api/v1/hub/chatbots/{chatbot.id}/regenerate-chunks")
             assert resp.status_code == 400
-            assert "retrieval_mode == 'RAG'" in resp.json()["detail"]
+            assert "retrieval_mode == 'RAG'" in resp.json()["detail"]["message"]
         finally:
             app.dependency_overrides.pop(get_session, None)
 
@@ -462,8 +462,8 @@ class TestChatbotRetrievalMode:
             try:
                 resp = client.post(f"/api/v1/hub/chatbots/{chatbot.id}/recalculate-corpus")
                 assert resp.status_code == 409
-                assert "bge-m3" in resp.json()["detail"]
-                assert "gemini-embedding-001" in resp.json()["detail"]
+                assert "bge-m3" in resp.json()["detail"]["message"]
+                assert "gemini-embedding-001" in resp.json()["detail"]["message"]
             finally:
                 app.dependency_overrides.pop(get_session, None)
 
@@ -529,7 +529,7 @@ class TestChatbotHierarchy:
                 json={"child_chatbot_id": str(child_id)},
             )
             assert resp.status_code == 400
-            assert "tipo router" in resp.json()["detail"]
+            assert "tipo router" in resp.json()["detail"]["message"]
         finally:
             app.dependency_overrides.pop(get_session, None)
 
@@ -554,7 +554,7 @@ class TestChatbotHierarchy:
                 json={"child_chatbot_id": str(child_id)},
             )
             assert resp.status_code == 400
-            assert "2 niveles" in resp.json()["detail"]
+            assert "2 niveles" in resp.json()["detail"]["message"]
         finally:
             app.dependency_overrides.pop(get_session, None)
 
@@ -616,7 +616,7 @@ class TestChatbotHierarchy:
                 json={"child_chatbot_id": str(child_id)},
             )
             assert resp.status_code == 400
-            assert "misma organización" in resp.json()["detail"]
+            assert "misma organización" in resp.json()["detail"]["message"]
         finally:
             app.dependency_overrides.pop(get_session, None)
             app.dependency_overrides.pop(get_current_user, None)

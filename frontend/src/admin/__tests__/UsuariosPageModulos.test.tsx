@@ -299,7 +299,7 @@ describe('Los módulos de quien ya existe se editan en su fila, varios a la vez 
 
   it('si el servidor lo rechaza, dice por qué', async () => {
     poner.mockImplementation((_v: unknown, o?: { onError?: (e: unknown) => void }) =>
-      o?.onError?.({ response: { data: { detail: 'Estos módulos no se pueden conceder: x' } } })
+      o?.onError?.({ response: { data: { detail: { code: 'UNPROCESSABLE_CONTENT', message: 'Estos módulos no se pueden conceder: x' } } } })
     )
     montar([persona({ puede_editar_modulos: true })])
     const celda = screen.getByTestId(`modulos-${ID}`)

@@ -1,5 +1,7 @@
 import type { TFunction } from 'i18next'
 
+import { errorDeLaApi } from '@/shared/api/errorDeLaApi'
+
 /** Los `detail.code` de la subida que tienen texto propio; los demás dicen su `message`. */
 const TEXTO_DEL_CODIGO: Record<string, string> = {
   CORPUS_CONTRACT_VIOLATION: 'hub.upload_rechazo.CORPUS_CONTRACT_VIOLATION',
@@ -13,16 +15,12 @@ const TEXTO_DEL_CODIGO: Record<string, string> = {
  * quien prepara el documento necesita la lista para corregirlo de una pasada.
  */
 export function motivoDelRechazo(fallo: Error, t: TFunction<'admin'>): string {
-  const detalle = (fallo as { response?: { data?: { detail?: unknown } } }).response?.data?.detail
-  if (typeof detalle === 'string') return detalle
-  if (!detalle || typeof detalle !== 'object') return fallo.message
-  const { code, message, problemas } = detalle as {
-    code?: string
-    message?: string
-    problemas?: { campo: string; problema: string }[]
-  }
-  const clave = code ? TEXTO_DEL_CODIGO[code] : undefined
-  const motivo = clave ? t(clave) : (message ?? fallo.message)
+  const detalle = errorDeLaApi(fallo)
+  if (!detalle) return fallo.message
+  const { code, message } = detalle
+  const problemas = detalle.problemas as { campo: string; problema: string }[] | undefined
+  const clave = TEXTO_DEL_CODIGO[code]
+  const motivo = clave ? t(clave) : message
   const campos = (problemas ?? []).map(p => `${p.campo}: ${p.problema}`).join('; ')
   return campos ? `${motivo} ${campos}` : motivo
 }

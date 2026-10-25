@@ -6,6 +6,7 @@ consume la respuesta firmada (ACS) y publica la metadata del SP. La emisión del
 de sesión y el provisioning de la identidad llegan en AUTH.2.
 """
 
+import logging
 import threading
 import time
 
@@ -28,6 +29,8 @@ from server.app.core.auth.saml.identity_service import (
     SamlUserInactiveError,
 )
 from server.app.core.config import get_settings
+
+_log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth/saml", tags=["auth-saml"])
 
@@ -104,9 +107,11 @@ async def saml_acs(
         # Con el ID de la petición python3-saml compara `InResponseTo`; sin él, no compara nada.
         auth.process_response(request_id=peticion)
     except Exception as exc:  # cualquier fallo de parseo => 401
+        # #276 — el texto de python3-saml puede llevar trozos de la aserción: al registro.
+        _log.warning("La respuesta SAML no se pudo validar", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"code": "SAML_VALIDATION_FAILED", "reason": str(exc)},
+            detail={"code": "SAML_VALIDATION_FAILED", "message": "La respuesta del proveedor de identidad no es válida."},
         ) from exc
 
     errors = auth.get_errors()

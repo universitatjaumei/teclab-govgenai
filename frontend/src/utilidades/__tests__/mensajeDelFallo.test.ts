@@ -3,8 +3,13 @@ import { describe, it, expect } from 'vitest'
 import { mensajeDelFallo } from '@/utilidades/mensajeDelFallo'
 
 describe('mensajeDelFallo', () => {
-  it('un detail de texto se enseña tal cual', () => {
-    expect(mensajeDelFallo({ response: { data: { detail: 'no cabe' } } }, 'genérico')).toBe('no cabe')
+  it('la validación de entrada no es un error con formato único: se usa el mensaje del interceptor', () => {
+    // #276 — todo error sale como `{code, message}` salvo la validación de FastAPI, que es una
+    // lista; de ella el interceptor ya ha compuesto `message`.
+    const fallo = Object.assign(new Error('n: debe ser un número'), {
+      response: { data: { detail: [{ loc: ['body', 'n'], msg: 'debe ser un número', type: 'int' }] } },
+    })
+    expect(mensajeDelFallo(fallo, 'genérico')).toBe('n: debe ser un número')
   })
 
   it('un detail objeto enseña su message: el 403 de quien no tiene una sola organización', () => {

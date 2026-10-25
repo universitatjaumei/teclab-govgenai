@@ -8,12 +8,16 @@ Todas toleran ausencia o malformación devolviendo None / {}.
 """
 from __future__ import annotations
 
+import logging
+
 import re
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Awaitable, Callable
 from urllib.parse import urljoin
+
+_log = logging.getLogger(__name__)
 
 _CANONICAL_RE = re.compile(
     r'<link\b[^>]*\brel=["\']canonical["\'][^>]*\bhref=["\']([^"\']+)["\']',
@@ -120,6 +124,7 @@ class CrawlSignalExtractor:
                 try:
                     result.update(await self._parse_sitemap(loc, fetch_fn, depth + 1))
                 except Exception:  # noqa: BLE001 — un sitemap hijo roto no invalida los demás
+                    _log.debug("Sitemap hijo %s ilegible; se sigue con el resto", loc, exc_info=True)
                     continue
             return result
 

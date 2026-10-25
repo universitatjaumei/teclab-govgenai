@@ -543,7 +543,7 @@ describe('#213 — el asistente que propone el prompt', () => {
 
   it('si no hay modelo, dice por qué', () => {
     mutaciones.proponer.mockImplementation((_vars, opciones) =>
-      opciones.onError({ response: { data: { detail: 'No hay modelo para redactar la propuesta (nivel 1).' } } }),
+      opciones.onError({ response: { data: { detail: { code: 'SERVICE_UNAVAILABLE', message: 'No hay modelo para redactar la propuesta (nivel 1).' } } } }),
     )
     montar([])
     fireEvent.click(screen.getByRole('button', { name: 'Publicar un agente' }))

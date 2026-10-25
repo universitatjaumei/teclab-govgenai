@@ -16,6 +16,7 @@ import {
 import type { ReportUIContract, WorkspaceOut } from '@/shared/api/generated/model'
 
 import { descargarConAutorizacion } from '@/shared/api/download'
+import { errorDeLaApi } from '@/shared/api/errorDeLaApi'
 import { FocusLayout } from '@/shared/layout/FocusLayout'
 import { useFocusStore } from '@/shared/layout/useFocusStore'
 import { AIBlockReviewPanel } from '../components/AIBlockReviewPanel'
@@ -40,8 +41,10 @@ export function mensajeDeFallo(
   fallo: unknown,
   t: (clave: string) => string,
 ): { texto: string; bloques: string[] } {
-  const detalle = ((fallo as { response?: { data?: { detail?: unknown } } })?.response?.data
-    ?.detail ?? {}) as { missing_slots?: string[]; pending_block_ids?: string[] }
+  const detalle = (errorDeLaApi(fallo) ?? {}) as {
+    missing_slots?: string[]
+    pending_block_ids?: string[]
+  }
 
   if (detalle.missing_slots?.length) {
     return {

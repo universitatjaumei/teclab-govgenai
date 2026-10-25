@@ -210,7 +210,7 @@ describe('WorkspacePage', () => {
   it('should_say_the_missing_slot_when_the_server_refuses_the_run', async () => {
     vi.mocked(useRunWorkspace).mockReturnValue({
       mutate: (_vars: unknown, opciones: { onError?: (e: unknown) => void }) =>
-        opciones?.onError?.({ response: { data: { detail: { missing_slots: ['datos_excel'] } } } }),
+        opciones?.onError?.({ response: { data: { detail: { code: 'UNPROCESSABLE_CONTENT', message: 'faltan datos', missing_slots: ['datos_excel'] } } } }),
       isPending: false,
     } as any)
     renderPage({ ...WORKSPACE, uploaded_slots: ['datos_excel'] })

@@ -9,6 +9,7 @@ test de conexión— en vez de construir un panel paralelo. Ver
 Deploy: cloud
 Módulo: plataforma — ya lo declaraba; proveedores y niveles son globales.
 """
+import logging
 import time
 import uuid
 from typing import Literal
@@ -30,6 +31,8 @@ from server.app.api.deps import get_session
 from server.app.modules.agents_hub.database.config_models import HubChatbot, HubLLMConfig, HubProvider
 from server.app.modules.agents_hub.services.model_factory import _build_model
 from server.app.services.model_fetcher import get_models_for_provider
+
+_log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/hub/llm-configs", tags=["hub-llm-configs"],
     # INF.7 — el modulo se exige a nivel de router: asi no se puede olvidar en un
@@ -472,7 +475,13 @@ async def test_llm_connection(
             detail=str(exc),
         ) from exc
     except Exception as exc:
+        # #276 — el texto del proveedor va al registro y no al cliente: puede llevar la clave, la
+        # URL interna o la respuesta cruda. El `ValueError` de arriba sí es nuestro y se dice.
+        _log.warning("La prueba de conexión del modelo %s falló", config_id, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Error al probar conexión LLM: {exc}",
+            detail={
+                "code": "LLM_CONEXION_FALLIDA",
+                "message": "El proveedor no respondió a la prueba de conexión. El motivo está en el registro del servidor.",
+            },
         ) from exc

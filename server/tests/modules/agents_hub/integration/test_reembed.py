@@ -298,7 +298,10 @@ class TestGuardaEnConsulta:
         async def _sesion():
             yield session
 
+        from server.app.core.errores import instalar_errores
+
         app = FastAPI()
+        instalar_errores(app)  # el formato de error de producción (#276)
         app.dependency_overrides[get_session] = _sesion
         app.include_router(chat_router, prefix="/api/v1")
         return app
@@ -348,8 +351,8 @@ class TestGuardaEnConsulta:
                 )
 
         assert resp.status_code == 409
-        assert "bge-m3" in resp.json()["detail"]
-        assert "gemini-embedding-001" in resp.json()["detail"]
+        assert "bge-m3" in resp.json()["detail"]["message"]
+        assert "gemini-embedding-001" in resp.json()["detail"]["message"]
 
 
 class TestValidacionAlCrearChatbot:
@@ -399,7 +402,7 @@ class TestValidacionAlCrearChatbot:
                     },
                 )
             assert resp.status_code == 503
-            assert "embedding" in resp.json()["detail"].lower()
+            assert "embedding" in resp.json()["detail"]["message"].lower()
             session.add.assert_not_called()
         finally:
             app.dependency_overrides.pop(get_current_user, None)

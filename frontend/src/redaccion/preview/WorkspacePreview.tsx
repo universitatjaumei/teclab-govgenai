@@ -1,14 +1,14 @@
 import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useGetWorkspacePreview } from '@/shared/api/generated/redaccion-workspaces/redaccion-workspaces'
+import { errorDeLaApi } from '@/shared/api/errorDeLaApi'
 import { PreviewRenderer } from './PreviewRenderer'
 import type { PreviewPayload } from './PreviewRenderer'
 import './WorkspacePreview.css'
 
 /** Los bloques que el servidor devuelve como pendientes en el 409, si es lo que ha pasado. */
 function bloquesPendientes(error: unknown): string[] {
-  const detalle = (error as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
-  const pendientes = (detalle as { pending_block_ids?: unknown })?.pending_block_ids
+  const pendientes = errorDeLaApi(error)?.pending_block_ids
   return Array.isArray(pendientes) ? pendientes.map(String) : []
 }
 

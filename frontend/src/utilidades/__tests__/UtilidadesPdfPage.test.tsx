@@ -87,7 +87,7 @@ describe('UtilidadesPdfPage (UTL.1, #190)', () => {
 
   it('enseña el motivo que da el servidor cuando algo no se puede hacer', async () => {
     descargar.mockRejectedValue({
-      response: { data: { detail: 'el rango 2-9 no cabe: el documento tiene 3 páginas' } },
+      response: { data: { detail: { code: 'UNPROCESSABLE_CONTENT', message: 'el rango 2-9 no cabe: el documento tiene 3 páginas' } } },
     })
     montar()
     fireEvent.click(screen.getByText('Dividir'))
