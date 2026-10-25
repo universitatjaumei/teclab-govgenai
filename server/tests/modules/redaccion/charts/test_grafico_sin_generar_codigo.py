@@ -131,7 +131,8 @@ async def test_un_tipo_inventado_no_pasa_la_validacion() -> None:
     plan = await ChartFactory(llm, "m").generate_chart_from_nl(nl_prompt="x", schema=_ESQUEMA)
 
     assert plan.mode == "configuration"
-    assert plan.configuration is not None and plan.configuration.chart_type == "bar"
+    assert plan.configuration is not None
+    assert plan.configuration.chart_type == "bar"
 
 
 @pytest.mark.asyncio

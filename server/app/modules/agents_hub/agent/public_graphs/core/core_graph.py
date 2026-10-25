@@ -12,7 +12,7 @@ Deploy: edge
 from __future__ import annotations
 
 import uuid
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, cast, Literal, TYPE_CHECKING
 
 from typing_extensions import TypedDict
 
@@ -240,8 +240,8 @@ class CoreGraph:
                 # «tengo al menos una fuente buena» en vez de «mis fuentes son buenas de media».
                 puntuados = [i for i in items if i.score is not None]
                 if puntuados:
-                    mejor = max(puntuados, key=lambda i: i.score)
-                    nota = mejor.score
+                    mejor = max(puntuados, key=lambda i: i.score or 0.0)
+                    nota = mejor.score or 0.0
                     quality_source = {"title": mejor.title, "score": mejor.score}
                 else:
                     nota = 0.5
@@ -406,7 +406,7 @@ class CoreGraph:
                 "bypass": instantanea,
             }
 
-        async def fallback_node(state: CoreGraphState) -> dict:
+        async def fallback_node(state: CoreGraphState) -> dict:  # noqa: ARG001 — LangGraph llama a cada nodo con el estado
             # El fallback EMITE el mensaje, no deja answer=None: el endpoint lo manda por
             # SSE como una respuesta normal y el usuario ve una explicación en vez de nada.
             #
@@ -421,7 +421,7 @@ class CoreGraph:
                 "sources": [],
             }
 
-        async def log_node(state: CoreGraphState) -> dict:
+        async def log_node(state: CoreGraphState) -> dict:  # noqa: ARG001 — LangGraph llama a cada nodo con el estado
             return {}
 
         graph.add_node("detect_language", detect_language_node)
@@ -528,7 +528,7 @@ class CoreGraph:
     ) -> dict:
         """Ejecuta el grafo y devuelve el estado final."""
         compiled = self.compile()
-        initial: CoreGraphState = {
+        initial = cast(CoreGraphState, {
             "query": query,
             "chatbot_id": chatbot_id,
             "language": None,
@@ -546,5 +546,5 @@ class CoreGraph:
             "context_source_language": None,
             "fallback_reason": None,
             "sources": [],
-        }
+        })
         return await compiled.ainvoke(initial)

@@ -19,7 +19,7 @@ import uuid
 
 import pytest
 
-from server.app.modules.agents_hub.agent.public_graphs.strategies.md_agent_selector_pipeline import (  # noqa: E501
+from server.app.modules.agents_hub.agent.public_graphs.strategies.md_agent_selector_pipeline import (
     MdAgentSelectorPipeline,
 )
 from server.app.modules.agents_hub.agent.public_graphs.strategies.retrieval_contract import (

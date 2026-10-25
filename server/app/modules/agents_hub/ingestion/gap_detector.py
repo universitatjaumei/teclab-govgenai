@@ -68,7 +68,7 @@ class EmbeddingService(Protocol):
 
 
 def _cosine(a: list[float], b: list[float]) -> float:
-    dot = sum(x * y for x, y in zip(a, b))
+    dot = sum(x * y for x, y in zip(a, b, strict=False))
     na = math.sqrt(sum(x * x for x in a))
     nb = math.sqrt(sum(y * y for y in b))
     if na == 0.0 or nb == 0.0:
@@ -145,9 +145,7 @@ async def recoger_senales(
     ]
 
 
-def _agrupar(
-    senales: list[SenalDeFallo], vectores: list[list[float]], umbral: float
-) -> list[list[int]]:
+def _agrupar(vectores: list[list[float]], umbral: float) -> list[list[int]]:
     """Aglomerativo por umbral: cada señal entra en el primer grupo que la acepta.
 
     Se compara contra el CENTROIDE del grupo y no contra su primer miembro, para que el
@@ -171,7 +169,7 @@ def _agrupar(
         grupos[destino].append(indice)
         n = len(grupos[destino])
         centroides[destino] = [
-            (c * (n - 1) + v) / n for c, v in zip(centroides[destino], vector)
+            (c * (n - 1) + v) / n for c, v in zip(centroides[destino], vector, strict=True)
         ]
 
     return grupos
@@ -233,7 +231,7 @@ async def _detectar(
     ahora = datetime.now(timezone.utc)
     huecos: list[HuecoDetectado] = []
 
-    for grupo in _agrupar(senales, vectores, umbral_similitud):
+    for grupo in _agrupar(vectores, umbral_similitud):
         if len(grupo) < min_cluster_size:
             continue
 

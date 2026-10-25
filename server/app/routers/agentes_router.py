@@ -959,7 +959,7 @@ async def obtener_modelo_de_redaccion(
     )
     try:
         return await get_model_for_tier(1, LocalConfigProvider(session), organizacion_id=organizacion)
-    except Exception as fallo:  # noqa: BLE001 — sin modelo no hay propuesta, y el motivo va en el mensaje
+    except Exception as fallo:  # sin modelo no hay propuesta, y el motivo va en el mensaje
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=(
@@ -999,7 +999,7 @@ async def proponer_prompt(
                 lengua=body.lengua,
             )
         )
-    except Exception as fallo:  # noqa: BLE001 — el proveedor puede fallar de muchas maneras
+    except Exception as fallo:  # el proveedor puede fallar de muchas maneras
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="El modelo no ha respondido. Inténtalo de nuevo en un momento.",

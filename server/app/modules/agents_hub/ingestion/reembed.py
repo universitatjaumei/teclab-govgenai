@@ -24,7 +24,7 @@ import asyncio
 import logging
 import uuid
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -158,8 +158,9 @@ async def reembeber_chatbot(
         if not lote:
             break
 
-        vectores = await _embeber(embedding_service, [c.embedding_text for c in lote])
-        for chunk, vector in zip(lote, vectores):
+        # Los fragmentos sin texto embebible no se seleccionan: `embedding_text` viene relleno.
+        vectores = await _embeber(embedding_service, [cast(str, c.embedding_text) for c in lote])
+        for chunk, vector in zip(lote, vectores, strict=True):
             chunk.embedding = vector
             chunk.embedding_model = modelo
             chunk.embedding_dim = dimension

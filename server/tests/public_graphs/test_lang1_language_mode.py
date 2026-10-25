@@ -190,7 +190,7 @@ class TestElValorSeValidaAlEscribirse:
 
         from server.app.core.language_mode import valida_language_mode
 
-        with pytest.raises(ValueError) as exc:
+        with pytest.raises(ValueError, match="Modo de lengua no válido") as exc:
             valida_language_mode("castellano")
 
         # El mensaje enumera los modos: un 422 que solo dice «inválido» obliga a leer el código.
@@ -202,7 +202,7 @@ class TestElValorSeValidaAlEscribirse:
 
         from server.app.core.language_mode import valida_language_mode
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Modo de lengua no válido"):
             valida_language_mode("fixed:")
 
     def test_should_refuse_a_fixed_mode_with_a_bogus_code(self):
@@ -211,7 +211,7 @@ class TestElValorSeValidaAlEscribirse:
         from server.app.core.language_mode import valida_language_mode
 
         for valor in ("fixed:ESP", "fixed:e", "fixed:espanyol", "fixed:es-ES"):
-            with pytest.raises(ValueError):
+            with pytest.raises(ValueError, match="Modo de lengua no válido"):
                 valida_language_mode(valor)
 
 

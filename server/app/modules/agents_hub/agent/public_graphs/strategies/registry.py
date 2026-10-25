@@ -83,13 +83,13 @@ class StrategyRegistry:
     def _eje(eje: str | EjeDeEstrategia) -> EjeDeEstrategia:
         try:
             return EjeDeEstrategia(eje)
-        except ValueError:
+        except ValueError as exc:
             raise ValueError(
                 f"'{eje}' no es un eje de estrategia. Los ejes son "
                 f"{[e.value for e in EjeDeEstrategia]}, y son estructura: añadir uno exige "
                 f"escribir el nodo del CoreGraph que lo consuma, así que no puede llegar por "
                 f"instalación."
-            )
+            ) from exc
 
     def register_strategy(
         self, eje: str | EjeDeEstrategia, nombre: str, factoria: EstrategiaFactory
@@ -106,11 +106,11 @@ class StrategyRegistry:
         eje_ = self._eje(eje)
         try:
             return self._por_eje[eje_][nombre]
-        except KeyError:
+        except KeyError as exc:
             raise UnknownStrategyError(
                 f"No hay ninguna estrategia '{nombre}' en el eje '{eje_.value}'. Disponibles: "
                 f"{sorted(self._por_eje[eje_])}."
-            )
+            ) from exc
 
     def list_strategies(self, eje: str | EjeDeEstrategia) -> list[str]:
         return sorted(self._por_eje[self._eje(eje)])

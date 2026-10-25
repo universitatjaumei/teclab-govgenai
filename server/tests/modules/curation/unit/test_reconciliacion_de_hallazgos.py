@@ -75,10 +75,10 @@ class _Sesion:
         filas = self._filas
 
         class _R:
-            def scalars(self_inner) -> Any:  # noqa: N805
+            def scalars(self_inner) -> Any:
                 return self_inner
 
-            def all(self_inner) -> list:  # noqa: N805
+            def all(self_inner) -> list:
                 return filas
 
         return _R()
@@ -351,10 +351,10 @@ class TestElFiltroDeAbiertos:
                 capturadas.append(str(stmt))
 
                 class _R:
-                    def scalars(self_inner) -> Any:  # noqa: N805
+                    def scalars(self_inner) -> Any:
                         return self_inner
 
-                    def all(self_inner) -> list:  # noqa: N805
+                    def all(self_inner) -> list:
                         return []
 
                 return _R()

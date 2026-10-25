@@ -58,7 +58,7 @@ def test_should_reject_registering_the_same_name_twice() -> None:
     """Hoy sobrescribe en silencio, y eso hace que gane el último en cargarse."""
     registry.register_profile("DUPLICADO", lambda cfg, deps, llm=None: object())
 
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(ValueError, match="DUPLICADO") as exc:
         registry.register_profile("DUPLICADO", lambda cfg, deps, llm=None: object())
 
     assert "DUPLICADO" in str(exc.value), (
@@ -139,7 +139,7 @@ def test_should_reject_an_unknown_mode_listing_the_available_ones() -> None:
         retrieval_pipeline_factory as fabrica,
     )
 
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(ValueError, match="NO_EXISTE") as exc:
         fabrica.get_pipeline("NO_EXISTE")
 
     mensaje = str(exc.value)
@@ -218,7 +218,8 @@ def test_should_fail_loudly_when_two_entry_points_share_a_name(monkeypatch) -> N
         plugins.descubrir_perfiles()
 
     mensaje = str(exc.value)
-    assert "paquete-uno" in mensaje and "paquete-dos" in mensaje
+    assert "paquete-uno" in mensaje
+    assert "paquete-dos" in mensaje
 
 
 def test_should_reject_a_pipeline_that_does_not_satisfy_the_protocol(monkeypatch) -> None:

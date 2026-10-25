@@ -151,7 +151,7 @@ class TestLaDeclaracion:
         assert (await publicar(c))["version"]["reservas"] == []
 
     @pytest.mark.parametrize(
-        "reservas,presupuesto",
+        ("reservas", "presupuesto"),
         [
             ([{"capa": "LCSP", "plazas": 4}, {"capa": "TACRC", "plazas": 2}], 5),  # más que el presupuesto
             ([{"capa": "LCSP", "plazas": 1}, {"capa": "lcsp", "plazas": 1}], 10),  # la misma capa dos veces

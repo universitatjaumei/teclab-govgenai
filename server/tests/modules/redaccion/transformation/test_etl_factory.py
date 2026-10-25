@@ -163,7 +163,7 @@ class _LLMContado:
         self._respuestas = list(respuestas)
         self.llamadas = 0
 
-    async def ainvoke(self, messages):  # noqa: ANN001, ANN201
+    async def ainvoke(self, messages):
         self.llamadas += 1
         if not self._respuestas:
             raise AssertionError("el modelo se ha llamado más veces de las previstas")

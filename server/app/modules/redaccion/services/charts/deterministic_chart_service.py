@@ -9,6 +9,8 @@ quien lo pone en una plantilla cree que ha pedido las cifras).
 """
 from __future__ import annotations
 
+from typing import Any, cast
+
 import io
 
 import matplotlib
@@ -69,7 +71,7 @@ class DeterministicChartService:
         Existe para que los tests puedan mirar lo que se ha dibujado —un título, una cifra
         encima de una barra, el orden del eje— en vez de conformarse con «devuelve bytes».
         """
-        sns.set_style(config.style)
+        sns.set_style(cast(Any, config.style))
         fig, ax = plt.subplots(figsize=config.size)
 
         plot_df = self._prepare_data(df, config)
@@ -89,7 +91,7 @@ class DeterministicChartService:
         }
         renderizadores[config.chart_type](plot_df, ax, config)
 
-        self._apply_styling(fig, ax, config, plot_df)
+        self._apply_styling(ax, config, plot_df)
         return fig
 
     # ------------------------------------------------------------------
@@ -109,7 +111,7 @@ class DeterministicChartService:
             return df.copy()
         agg_map = {"sum": "sum", "mean": "mean", "count": "count", "min": "min", "max": "max"}
         func = agg_map.get(config.aggregation, "sum")
-        return df.groupby(group_cols, as_index=False).agg({value_col: func})
+        return cast(pd.DataFrame, df.groupby(group_cols, as_index=False).agg({value_col: func}))
 
     @staticmethod
     def _ordenar(df: pd.DataFrame, config: ChartConfiguration) -> pd.DataFrame:
@@ -157,7 +159,7 @@ class DeterministicChartService:
             return
         acumulado = None
         colores = sns.color_palette(config.palette, len(tabla.columns))
-        for color, columna in zip(colores, tabla.columns):
+        for color, columna in zip(colores, tabla.columns, strict=True):
             valores = tabla[columna]
             ax.bar(
                 tabla.index.astype(str), valores, bottom=acumulado,
@@ -290,7 +292,7 @@ class DeterministicChartService:
     # Styling / output
     # ------------------------------------------------------------------
 
-    def _apply_styling(self, fig, ax, config: ChartConfiguration, df: pd.DataFrame) -> None:
+    def _apply_styling(self, ax, config: ChartConfiguration, df: pd.DataFrame) -> None:
         if config.title:
             ax.set_title(config.title, fontsize=14, fontweight="bold", pad=15)
         self._etiquetar_ejes(ax, config)

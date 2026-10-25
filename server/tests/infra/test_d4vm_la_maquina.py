@@ -188,13 +188,16 @@ def test_la_limpieza_de_sockets_comprueba_que_no_haya_proxy_corriendo() -> None:
     la aplicación murió con `FileNotFoundError` al conectar.
     """
     texto = _texto(UNIDAD)
-    assert "/opt/govgenai/cloudsql" in texto and "rm -rf" in texto, (
-        "Falta la limpieza de sockets huérfanos en ExecStartPre."
-    )
+    assert "/opt/govgenai/cloudsql" in texto, "Falta la limpieza de sockets huérfanos en ExecStartPre."
+    assert "rm -rf" in texto, "Falta la limpieza de sockets huérfanos en ExecStartPre."
     limpieza = [linea for linea in texto.splitlines() if "rm -rf" in linea and "cloudsql" in linea]
     assert limpieza, "No se encuentra la línea de limpieza."
     for linea in limpieza:
-        assert "govgenai_sql_proxy" in linea and "status=running" in linea, (
+        assert "govgenai_sql_proxy" in linea, (
+            "La limpieza tiene que comprobar antes que no haya proxy corriendo: "
+            f"{linea.strip()}"
+        )
+        assert "status=running" in linea, (
             "La limpieza tiene que comprobar antes que no haya proxy corriendo: "
             f"{linea.strip()}"
         )
@@ -240,7 +243,8 @@ def test_el_proxy_no_repite_las_cabeceras_de_seguridad_de_la_aplicacion() -> Non
 
 def test_el_proxy_pasa_la_api_y_la_salud_a_la_aplicacion() -> None:
     texto = _texto(CADDYFILE)
-    assert "handle /api/*" in texto and "reverse_proxy app:8000" in texto
+    assert "handle /api/*" in texto
+    assert "reverse_proxy app:8000" in texto
     assert "handle /health" in texto
     assert "{$GOVGENAI_HOST}" in texto, (
         "El host tiene que llegar por entorno: hoy es un sslip.io y mañana el subdominio."
@@ -266,7 +270,8 @@ def test_la_unidad_systemd_levanta_la_pila_y_baja_los_secretos_antes() -> None:
     assert "vm_fetch_secrets.sh" in texto, (
         "Los secretos se rebajan en cada arranque: rotar es cambiar el secreto y reiniciar."
     )
-    assert "docker compose" in texto and "docker-compose.vm.yml" in texto
+    assert "docker compose" in texto
+    assert "docker-compose.vm.yml" in texto
     assert "unless-stopped" in _texto(COMPOSE), (
         "Lo que mantiene los contenedores en pie entre fallos es `restart: unless-stopped`."
     )
@@ -295,6 +300,7 @@ def test_la_maquina_usa_cuenta_propia_y_no_la_de_por_defecto_de_compute() -> Non
         [_BASH, str(PROVISION), "--project", "proyecto-de-prueba", "--dry-run"],
         cwd=RAIZ, capture_output=True, text=True, timeout=60,
         env={**os.environ, "PATH": solo_bash},
+        check=False,
     )
     assert "govgenai-vm@proyecto-de-prueba.iam.gserviceaccount.com" in seco.stdout, (
         f"El plan no declara la cuenta de servicio propia:\n{seco.stdout}"
@@ -307,7 +313,8 @@ def test_la_maquina_usa_cuenta_propia_y_no_la_de_por_defecto_de_compute() -> Non
     assert "roles/aiplatform.user" in texto, (
         "Falta el rol de Vertex: sin él la recuperación falla con 403 en la primera consulta."
     )
-    assert "roles/editor" not in texto and "roles/owner" not in texto
+    assert "roles/editor" not in texto
+    assert "roles/owner" not in texto
 
 
 def test_la_ip_es_estatica_porque_el_nombre_del_host_depende_de_ella() -> None:
@@ -376,6 +383,7 @@ def test_el_aprovisionamiento_exige_proyecto_y_su_plan_en_seco_no_toca_nada() ->
     sin_proyecto = subprocess.run(
         [_BASH, str(PROVISION), "--dry-run"],
         cwd=RAIZ, capture_output=True, text=True, timeout=60,
+        check=False,
     )
     assert sin_proyecto.returncode == 2, "Sin --project tiene que negarse."
 
@@ -384,6 +392,7 @@ def test_el_aprovisionamiento_exige_proyecto_y_su_plan_en_seco_no_toca_nada() ->
         [_BASH, str(PROVISION), "--project", "proyecto-de-prueba", "--dry-run"],
         cwd=RAIZ, capture_output=True, text=True, timeout=60,
         env={**os.environ, "PATH": solo_bash},
+        check=False,
     )
     assert seco.returncode == 0, seco.stderr
     assert "dry-run" in seco.stdout

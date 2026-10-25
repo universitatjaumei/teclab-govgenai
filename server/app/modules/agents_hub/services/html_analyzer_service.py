@@ -41,7 +41,7 @@ class HtmlAnalyzerService:
     def __init__(self, llm_service: LLMServiceProtocol) -> None:
         self._llm = llm_service
 
-    async def analyze(self, html: str, url_hint: str) -> AnalysisResult:
+    async def analyze(self, html: str, url_hint: str) -> AnalysisResult:  # noqa: ARG002 — está en el contrato de la API y el prompt aún no lo usa
         if not html or not html.strip():
             raise EmptyHtmlError("El HTML no puede estar vacío.")
 

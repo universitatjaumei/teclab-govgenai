@@ -9,7 +9,7 @@ import pytest
 def test_deploy_mode_invalid_raises():
     with patch.dict(os.environ, {"DEPLOY_MODE": "foo"}):
         import importlib
-        with pytest.raises(RuntimeError, match="Invalid DEPLOY_MODE: foo"):
+        with pytest.raises(RuntimeError, match="Invalid DEPLOY_MODE: foo"):  # noqa: PT012 — lanza el import o el reload, según si ya estaba cargado
             import server.app.main
             importlib.reload(server.app.main)
 

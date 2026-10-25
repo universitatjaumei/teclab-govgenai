@@ -131,7 +131,6 @@ class TestPipelineContractSuite:
             assert isinstance(item, EvidenceItem), (
                 f"Pipeline '{mode}': item debe ser EvidenceItem, no {type(item).__name__}"
             )
-            assert isinstance(item.source_id, str) and item.source_id, (
-                "source_id debe ser un str no vacío"
-            )
+            assert isinstance(item.source_id, str), "source_id debe ser un str no vacío"
+            assert item.source_id, "source_id debe ser un str no vacío"
             assert isinstance(item.content, str), "content debe ser str"

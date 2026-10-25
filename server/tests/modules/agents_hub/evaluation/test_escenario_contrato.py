@@ -189,7 +189,8 @@ class TestLasVeinticincoRealesSobrevivenAlEnriquecimiento:
                 reference_answer="20 % de los creditos matriculados.",
             )
         )
-        assert esc.expectation_note and esc.reference_answer
+        assert esc.expectation_note
+        assert esc.reference_answer
 
     def test_should_identify_an_unpublished_document_without_faking_a_url(self):
         """Las circulares e instrucciones propias de Gerencia no están publicadas y su
@@ -226,7 +227,8 @@ class TestLasVeinticincoRealesSobrevivenAlEnriquecimiento:
             _escenario(name="GXD-04", prompt=pregunta, kind=Kind.VARIOS_ARTICULOS)
         )
         assert negativo.prompt == positivo.prompt
-        assert negativo.answerable is False and positivo.answerable is True
+        assert negativo.answerable is False
+        assert positivo.answerable is True
 
 
 class TestUnaPremisaFalsaSeRefutaContestando:
@@ -236,7 +238,8 @@ class TestUnaPremisaFalsaSeRefutaContestando:
 
     def test_should_accept_an_answerable_scenario_that_must_deny_the_premise(self):
         esc = Escenario.model_validate(_escenario(debe_refutar=True))
-        assert esc.answerable is True and esc.debe_refutar is True
+        assert esc.answerable is True
+        assert esc.debe_refutar is True
 
     def test_should_default_to_not_demanding_a_refutation(self):
         assert Escenario.model_validate(_escenario()).debe_refutar is False

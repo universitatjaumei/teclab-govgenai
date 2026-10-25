@@ -58,6 +58,7 @@ def _run(*args: str, env: dict[str, str] | None = None) -> subprocess.CompletedP
         text=True,
         timeout=60,
         env={**os.environ, **(env or {})},
+        check=False,
     )
 
 
@@ -171,7 +172,8 @@ def test_es_idempotente() -> None:
     """
     primera = _run("--project", "proyecto-de-prueba", "--dry-run")
     segunda = _run("--project", "proyecto-de-prueba", "--dry-run")
-    assert primera.returncode == 0 and segunda.returncode == 0
+    assert primera.returncode == 0
+    assert segunda.returncode == 0
     assert primera.stdout == segunda.stdout
 
 

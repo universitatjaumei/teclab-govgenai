@@ -43,7 +43,7 @@ def _vector(*componentes: tuple[int, float]) -> list[float]:
 
 
 def _coseno(a: list[float], b: list[float]) -> float:
-    producto = sum(x * y for x, y in zip(a, b))
+    producto = sum(x * y for x, y in zip(a, b, strict=True))
     na = math.sqrt(sum(x * x for x in a))
     nb = math.sqrt(sum(y * y for y in b))
     return producto / (na * nb) if na and nb else 0.0
@@ -160,6 +160,7 @@ def _alembic(database_url: str, *args: str) -> None:
         capture_output=True,
         text=True,
         timeout=300,
+        check=False,
     )
     assert resultado.returncode == 0, f"alembic {args}:\n{resultado.stderr}"
 

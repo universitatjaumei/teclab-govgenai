@@ -11,7 +11,7 @@ import io
 import uuid
 from collections import Counter
 from datetime import datetime
-from typing import Literal
+from typing import Any, cast, Literal
 
 import pandas as pd
 from pydantic import BaseModel, Field
@@ -63,7 +63,7 @@ def _write_dataframe(df: pd.DataFrame, suffix: str) -> bytes:
     elif suffix in ("xlsx", "xls"):
         df.to_excel(buffer, index=False, engine="openpyxl")
     elif suffix == "json":
-        buffer.write(df.to_json(orient="records", force_ascii=False).encode("utf-8"))
+        buffer.write(cast(str, df.to_json(orient="records", force_ascii=False)).encode("utf-8"))
     elif suffix == "parquet":
         df.to_parquet(buffer, index=False)
     else:
@@ -182,7 +182,7 @@ def _anonimizar_tabla(
         str(col.name): col.inferred_faker_provider for col in PiiDetector().scan_dataframe(df)
     }
     propuestas = [
-        ColumnSubstitution(column_name=columna, faker_provider=proveedor)
+        ColumnSubstitution(column_name=columna, faker_provider=cast(Any, proveedor))
         for columna, proveedor in propuesto.items()
         if columna not in indicadas
     ]
@@ -208,7 +208,7 @@ def _anonimizar_tabla(
         sustituidas.append(ColumnaSustituida(columna=sub.column_name, sustituto=sub.faker_provider))
 
     mantenidas = [
-        ColumnaMantenida(columna=str(col), propuesta=propuesto.get(str(col), "keep"))
+        ColumnaMantenida(columna=str(col), propuesta=cast(Any, propuesto.get(str(col), "keep")))
         for col in df.columns
         if str(col) not in applied
     ]

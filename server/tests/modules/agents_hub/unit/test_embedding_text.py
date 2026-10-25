@@ -161,7 +161,9 @@ class TestIngesta:
         session.add = MagicMock()
         embedding = AsyncMock()
         embedding.embed = AsyncMock(return_value=[0.1] * 1024)
-        embedding.embed_batch = AsyncMock(return_value=[[0.1] * 1024] * 3)
+        # Un vector por texto, como el servicio de verdad: con un número fijo, el `zip` del
+        # watcher truncaba en silencio y se guardaban menos fragmentos de los troceados.
+        embedding.embed_batch = AsyncMock(side_effect=lambda textos, **_: [[0.1] * 1024 for _ in textos])
         embedding.model_name = "BAAI/bge-m3"
         embedding.dimensions = 1024
 

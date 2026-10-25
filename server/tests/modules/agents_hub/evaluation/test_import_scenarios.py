@@ -93,7 +93,7 @@ class TestCargaDelFichero:
         datos["scenarios"][0]["prompt"] = "   "
         ruta.write_text(json.dumps(datos, ensure_ascii=False), encoding="utf-8")
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="sin consulta"):
             cargar_lote(ruta)
 
 

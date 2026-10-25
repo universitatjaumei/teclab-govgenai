@@ -168,7 +168,7 @@ class SiteCreate(BaseModel):
 
     #: El sitemap se pide igual que la raíz, así que se valida igual: era la puerta de al lado.
     _valida_destinos = field_validator("root_url", "sitemap_url")(
-        classmethod(lambda cls, v: _url_que_el_servidor_va_a_pedir(v))
+        classmethod(lambda cls, v: _url_que_el_servidor_va_a_pedir(v))  # noqa: ARG005 — validador de clase de pydantic
     )
 
 
@@ -182,7 +182,7 @@ class SitePatch(BaseModel):
 
     #: Sin esto el `PATCH` sería el rodeo obvio para meter lo que el `POST` rechaza.
     _valida_destinos = field_validator("root_url", "sitemap_url")(
-        classmethod(lambda cls, v: _url_que_el_servidor_va_a_pedir(v))
+        classmethod(lambda cls, v: _url_que_el_servidor_va_a_pedir(v))  # noqa: ARG005 — validador de clase de pydantic
     )
 
 
@@ -453,7 +453,7 @@ class ReconnaissanceRequest(BaseModel):
             try:
                 re.compile(valor)
             except re.error as fallo:
-                raise ValueError(f"url_regex_filter no es una expresión regular válida: {fallo}")
+                raise ValueError(f"url_regex_filter no es una expresión regular válida: {fallo}") from fallo
         return valor
 
 

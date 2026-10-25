@@ -33,7 +33,12 @@ TOLERANCIA_POR_DEFECTO = 0.02
 
 class Retriever(Protocol):
     async def hybrid_search(
-        self, query: str, query_embedding: list[float], chatbot_id: uuid.UUID, **kw
+        self,
+        query: str,
+        query_embedding: list[float],
+        chatbot_id: uuid.UUID,
+        top_k: int = ...,
+        language: str | None = ...,
     ) -> list: ...
 
 

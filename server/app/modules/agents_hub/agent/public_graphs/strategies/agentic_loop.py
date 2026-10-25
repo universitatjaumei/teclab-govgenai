@@ -224,7 +224,7 @@ class AgenticLoop:
         chatbot_id: str,
         language: str | None,
         leidas: list[EvidenceItem],
-        query: str = "",
+        query: str = "",  # noqa: ARG002 — la firma la fija el protocolo del tool
     ) -> str:
         """Fragmentos que respondan a la consulta, para lo que no cabe entero.
 

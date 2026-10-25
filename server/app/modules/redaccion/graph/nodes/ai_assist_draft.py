@@ -172,7 +172,7 @@ class AIAssistDraftNode:
             async def _redactar(contrato, _state, _refs=refs):
                 if _refs:
                     contexto = apply_pre_llm(
-                        _contexto_anclado(updated_blocks, _refs), anon_ctx
+                        _contexto_anclado(updated_blocks, _refs), anon_ctx  # noqa: B023 — se ejecuta en esta iteración
                     )
                 else:
                     contexto = contexto_completo

@@ -295,7 +295,7 @@ def test_run_manifest_is_immutable():
     manifest = _make_manifest(final_document_hash="original-hash")
 
     # DraftingRunManifest is frozen — attribute assignment must fail
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError, match="frozen"):
         manifest.final_document_hash = "tampered-hash"  # type: ignore[misc]
 
     # No PUT/PATCH endpoints exposed

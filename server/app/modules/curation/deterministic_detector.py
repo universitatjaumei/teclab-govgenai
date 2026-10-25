@@ -93,7 +93,7 @@ def _process_key(canonical_url: str | None, url: str) -> str:
     return _strip_year_segments(path)
 
 
-def _effective_date(page: Any, now: datetime) -> datetime:
+def _effective_date(page: Any) -> datetime:
     """La fecha con la que se ordenan las versiones de un grupo.
 
     **Es una cadena de prioridad, no un `max()`.** Hacía `max()` sobre una lista que mezclaba
@@ -399,7 +399,7 @@ class DeterministicQualityDetector:
         for key, group in groups.items():
             if len(group) < 2:
                 continue
-            ordenadas = sorted(group, key=lambda p: _effective_date(p, now), reverse=True)
+            ordenadas = sorted(group, key=lambda p: _effective_date(p), reverse=True)
 
             if self._version_series_policy == "superseded":
                 # En este sitio la nueva deroga a la vieja, así que sí hay algo que retirar y se
@@ -418,8 +418,8 @@ class DeterministicQualityDetector:
                             "process_key": key,
                             "superseded_by": vigente.url,
                             "page_ids": [str(antigua.id)],
-                            "effective_date_old": _effective_date(antigua, now).isoformat(),
-                            "effective_date_new": _effective_date(vigente, now).isoformat(),
+                            "effective_date_old": _effective_date(antigua).isoformat(),
+                            "effective_date_new": _effective_date(vigente).isoformat(),
                         },
                         now=now,
                     ))
@@ -440,7 +440,7 @@ class DeterministicQualityDetector:
                     "versions": [
                         {
                             "url": p.url,
-                            "date": _effective_date(p, now).isoformat(),
+                            "date": _effective_date(p).isoformat(),
                             "owner": getattr(p, "content_owner", None),
                         }
                         for p in ordenadas
@@ -476,7 +476,7 @@ class DeterministicQualityDetector:
         for hash_, group in por_hash.items():
             if len(group) < 2:
                 continue
-            ordenadas = sorted(group, key=lambda p: _effective_date(p, now), reverse=True)
+            ordenadas = sorted(group, key=lambda p: _effective_date(p), reverse=True)
             results.append(self._finding(
                 site_id=site_id,
                 finding_type="duplicate",
@@ -490,7 +490,7 @@ class DeterministicQualityDetector:
                     "versions": [
                         {
                             "url": p.url,
-                            "date": _effective_date(p, now).isoformat(),
+                            "date": _effective_date(p).isoformat(),
                             "owner": getattr(p, "content_owner", None),
                         }
                         for p in ordenadas

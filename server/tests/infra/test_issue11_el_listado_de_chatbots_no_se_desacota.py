@@ -109,14 +109,16 @@ class TestLaSalidaDeclaradaFunciona:
     def test_la_marca_exime(self):
         codigo = f"// {MARCA} este panel compara organizaciones\nconst x = {HOOK_GENERADO}()"
 
-        assert MARCA in codigo and HOOK_GENERADO in codigo
+        assert MARCA in codigo
+        assert HOOK_GENERADO in codigo
         # La condición del recorrido, aplicada al mismo texto:
         assert not (HOOK_GENERADO in codigo and MARCA not in codigo)
 
     def test_sin_la_marca_no_exime(self):
         codigo = f"const x = {HOOK_GENERADO}()"
 
-        assert HOOK_GENERADO in codigo and MARCA not in codigo
+        assert HOOK_GENERADO in codigo
+        assert MARCA not in codigo
 
 
 class TestLoQueNoSeAcotaYPorQue:

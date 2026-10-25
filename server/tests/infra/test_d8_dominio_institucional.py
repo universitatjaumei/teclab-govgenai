@@ -136,7 +136,7 @@ def test_el_guion_de_tls_no_instala_el_sitio_sin_certificado() -> None:
 
 def test_el_guion_de_tls_pasa_su_propia_comprobacion_de_sintaxis() -> None:
     assert FETCH_TLS.is_file()
-    r = subprocess.run([_BASH, "-n", str(FETCH_TLS)], capture_output=True, text=True)
+    r = subprocess.run([_BASH, "-n", str(FETCH_TLS)], capture_output=True, text=True, check=False)
     assert r.returncode == 0, f"Error de sintaxis en vm_fetch_tls.sh: {r.stderr}"
 
 
@@ -145,6 +145,7 @@ def test_el_guion_de_tls_corre_en_seco_sin_llamar_a_gcloud() -> None:
         [_BASH, str(FETCH_TLS), "--project", "proyecto-de-prueba", "--host", DOMINIO,
          "--dry-run"],
         capture_output=True, text=True,
+        check=False,
     )
     assert r.returncode == 0, f"--dry-run debería salir 0: {r.stderr or r.stdout}"
     assert DOMINIO in r.stdout, "El --dry-run tiene que decir para qué nombre trabajaría."
@@ -179,7 +180,7 @@ def test_no_hay_material_criptografico_seguido_por_git() -> None:
     """
     r = subprocess.run(
         ["git", "ls-files", "-z"], cwd=RAIZ, capture_output=True, text=True
-    )
+    , check=False)
     assert r.returncode == 0, f"git ls-files falló: {r.stderr}"
     seguidos = [p for p in r.stdout.split("\0") if p]
     sospechosos = [
@@ -227,9 +228,8 @@ def test_la_unidad_baja_el_certificado_antes_de_levantar_la_pila() -> None:
         f"El certificado se baja ANTES de `docker compose up`. Directivas: {directivas}"
     )
     pre_secretos = [i for i, d in enumerate(directivas) if "vm_fetch_secrets.sh" in d]
-    assert pre_secretos and pre_secretos[0] < pre_tls[0], (
-        "Y después de los secretos, que es de donde sale el proyecto de GCP."
-    )
+    assert pre_secretos, "Y después de los secretos, que es de donde sale el proyecto de GCP."
+    assert pre_secretos[0] < pre_tls[0], "Y después de los secretos, que es de donde sale el proyecto de GCP."
 
 
 # ---------------------------------------------------------------------------

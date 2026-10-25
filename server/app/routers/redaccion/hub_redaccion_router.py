@@ -816,8 +816,8 @@ async def template_update_notice(
     """Devuelve aviso de nueva versión disponible, o 204 si ya está alineado."""
     try:
         notice = await service.detect_new_version(workspace_id)
-    except WorkspaceNotFoundError:
-        raise HTTPException(status_code=404, detail="Workspace not found")
+    except WorkspaceNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Workspace not found") from exc
 
     if notice is None:
         return Response(status_code=204)
@@ -842,18 +842,18 @@ async def migrate_workspace(
             body.target_version_id,
             user_to_uuid(user.user_id),
         )
-    except WorkspaceNotFoundError:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    except WorkspaceOwnershipError:
+    except WorkspaceNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Workspace not found") from exc
+    except WorkspaceOwnershipError as exc:
         raise HTTPException(
             status_code=403,
             detail="Only the workspace owner can trigger migration",
-        )
+        ) from exc
     except CompatibilityConflictError as exc:
         raise HTTPException(
             status_code=409,
             detail={"compatibility_errors": exc.compatibility_errors},
-        )
+        ) from exc
 
     return MigrateResponse(new_workspace_id=new_workspace.id)
 
@@ -951,7 +951,7 @@ async def publish_template_version(
     try:
         spec = ReportTemplateSpec.model_validate(body.spec_json)
     except ValidationError as exc:
-        raise HTTPException(status_code=422, detail=json.loads(exc.json()))
+        raise HTTPException(status_code=422, detail=json.loads(exc.json())) from exc
 
     # SEG.5 — un bloque que ninguna sección enumera no se pinta. Se rechaza aquí porque es el
     # único momento en que avisar sirve de algo: después, el informe sale con las secciones

@@ -200,7 +200,7 @@ class SiteCrawler:
         # 1. Conjunto de URLs objetivo: unión(sitemap, enlaces descubiertos por el spider).
         try:
             target_urls, sitemap_map, recorrido = await self._discover_urls(fuente)
-        except Exception as exc:  # fallo global del crawl → el sitio queda en error
+        except Exception as exc:  # noqa: BLE001 — fallo global del crawl → el sitio queda en error
             site.status = "error"
             site.error_message = str(exc)
             await self._session.flush()
@@ -244,7 +244,7 @@ class SiteCrawler:
                 summary.truncated = True
                 summary.stop_reason = summary.stop_reason or "robots"
                 continue
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — se clasifica la causa y se anota en la página
                 # RAS.3 — un 404 y un `timeout` no dicen lo mismo: el primero es una respuesta
                 # («esto ya no está», información útil) y el segundo un fallo del que no se
                 # puede concluir nada sobre la página. Los dos producían el mismo hallazgo
@@ -360,6 +360,7 @@ class SiteCrawler:
             # arrancaría por la mitad del recorrido ajeno y —con el censo acotado— creería haber
             # visto su ámbito sin haberlo visto. Una sección es pequeña por definición: si se
             # trunca, la siguiente pasada empieza de nuevo.
+            assert parametros.seccion is not None, "un ámbito que no es el sitio es una sección"
             parametros.seccion.last_crawled_at = now
         await self._session.flush()
 

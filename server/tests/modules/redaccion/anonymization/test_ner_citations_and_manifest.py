@@ -128,7 +128,8 @@ async def test_citations_preserve_original_pii_after_reversal() -> None:
     out = await CitationAndTraceabilityNode()(state)
     ai_block = out["blocks"]["ai_block"]
 
-    assert ai_block.citations is not None and len(ai_block.citations) == 1
+    assert ai_block.citations is not None
+    assert len(ai_block.citations) == 1
     excerpt = ai_block.citations[0].excerpt or ""
     assert "Juan García" in excerpt
     assert "Carlos Pérez" not in excerpt
@@ -172,7 +173,8 @@ async def test_citations_keep_source_document_metadata() -> None:
 
     out = await CitationAndTraceabilityNode()(state)
     citations = out["blocks"]["ai_block"].citations
-    assert citations and len(citations) == 1
+    assert citations
+    assert len(citations) == 1
     assert citations[0].source_document == "data_block"
     # page se extrae si el contenido lo expone — confirmamos que no se anonimiza.
     assert citations[0].page in (3, None)

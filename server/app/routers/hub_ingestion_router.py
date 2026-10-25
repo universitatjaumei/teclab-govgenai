@@ -227,7 +227,7 @@ def get_html_analyzer_service(llm_service=Depends(_get_llm_service)) -> Any:
 @router.post("/analyze-html", status_code=status.HTTP_200_OK, response_model=AnalyzeHtmlOut)
 async def analyze_html(
     body: AnalyzeHtmlRequest,
-    current_user: UserInfo = Depends(_ESCRIBE_EN_EL_CORPUS),
+    current_user: UserInfo = Depends(_ESCRIBE_EN_EL_CORPUS),  # noqa: ARG001 — autoriza: se pide por su efecto
     service=Depends(get_html_analyzer_service),
 ):
     """Propone selectores CSS para el contenido principal de un HTML institucional."""
@@ -235,11 +235,11 @@ async def analyze_html(
 
     try:
         result = await service.analyze(html=body.html, url_hint=body.url_hint)
-    except EmptyHtmlError:
+    except EmptyHtmlError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="El HTML no puede estar vacío.",
-        )
+        ) from exc
     return {
         "proposed_selectors": result.proposed_selectors,
         "confidence": result.confidence,

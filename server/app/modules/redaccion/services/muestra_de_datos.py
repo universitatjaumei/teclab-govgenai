@@ -87,7 +87,7 @@ def _leer_como_tabla(contenido: bytes, nombre: str):
         )
     except MuestraIlegibleError:
         raise
-    except Exception as fallo:  # noqa: BLE001
+    except Exception as fallo:
         raise MuestraIlegibleError(f"No se pudo leer {nombre!r} como tabla: {fallo}") from fallo
 
 

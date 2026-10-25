@@ -91,17 +91,17 @@ async def create_pat(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail={"code": "UNKNOWN_SCOPE", "reason": str(exc)},
-        )
+        ) from exc
     except PatForbiddenError as exc:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={"code": "PAT_FORBIDDEN", "reason": str(exc)},
-        )
+        ) from exc
     except PatOrganizacionDesconocidaError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail={"code": "ORGANIZACION_DESCONOCIDA", "reason": str(exc)},
-        )
+        ) from exc
     return PatCreatedResponse(
         id=pat.id,
         token=token,
@@ -172,9 +172,9 @@ async def revoke_pat(
 ) -> Response:
     try:
         await servicio.revoke(user, pat_id)
-    except PatInvalidError:
+    except PatInvalidError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Access token not found",
-        )
+        ) from exc
     return Response(status_code=status.HTTP_204_NO_CONTENT)

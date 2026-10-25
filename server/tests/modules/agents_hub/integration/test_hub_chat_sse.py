@@ -250,7 +250,7 @@ class TestRetrievalModeDispatch:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        "mode,esperado",
+        ("mode", "esperado"),
         [
             ("RAG", "RagVectorPipeline"),
             ("MD_LONG_CONTEXT", "MdLongContextPipeline"),

@@ -110,6 +110,7 @@ def _construir(tmp_path: Path, extras: str) -> list[list[str]]:
     resultado = subprocess.run(
         ["bash", guion.as_posix()],
         capture_output=True, text=True, env=entorno, cwd=tmp_path, timeout=120,
+        check=False,
     )
     assert resultado.returncode == 0, (
         f"el bloque de construcción del workflow falló con extras=«{extras}»:\n"

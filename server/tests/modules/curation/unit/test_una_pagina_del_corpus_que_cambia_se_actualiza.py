@@ -88,10 +88,10 @@ class _Sesion:
         documentos = self._documentos
 
         class _R:
-            def scalars(self_inner) -> Any:  # noqa: N805
+            def scalars(self_inner) -> Any:
                 return self_inner
 
-            def all(self_inner) -> list:  # noqa: N805
+            def all(self_inner) -> list:
                 return documentos
 
         return _R()

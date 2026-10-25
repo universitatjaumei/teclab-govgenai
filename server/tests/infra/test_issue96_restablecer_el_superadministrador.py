@@ -89,6 +89,7 @@ def base_con_dos_superadmins():
         cwd=_SERVER_ROOT,
         env={**os.environ, "DATABASE_URL_SYNC": sync_nueva},
         capture_output=True, text=True, timeout=180,
+        check=False,
     )
     assert migrar.returncode == 0, f"migraciones fallaron:\n{migrar.stderr}"
 
@@ -122,6 +123,7 @@ def _restablecer(async_url: str, correo: str, nueva: str | None):
         env={**os.environ, "DATABASE_URL": async_url},
         input=None if nueva is None else f"{nueva}\n{nueva}\n",
         capture_output=True, text=True, timeout=180,
+        check=False,
     )
 
 
@@ -204,6 +206,7 @@ class TestLaContrasenaNoViajaPorDondeSeVe:
             [sys.executable, "-m", _GUION, "--help"],
             cwd=_SERVER_ROOT.parent,
             capture_output=True, text=True, timeout=60,
+            check=False,
         ).stdout
 
         for prohibida in ("--password", "--contrasena", "--contraseña"):
@@ -233,6 +236,7 @@ class TestLaContrasenaNoViajaPorDondeSeVe:
             env={**os.environ, "DATABASE_URL": async_url},
             input=f"{_NUEVA}\notra-cosa-completamente-distinta\n",
             capture_output=True, text=True, timeout=180,
+            check=False,
         )
 
         assert resultado.returncode != 0

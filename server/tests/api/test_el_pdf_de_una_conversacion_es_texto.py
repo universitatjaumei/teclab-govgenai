@@ -8,7 +8,6 @@ que se escapa antes; la negrita que pone la propia exportación se añade despu�
 from __future__ import annotations
 
 import io
-import uuid
 
 import pdfplumber
 
@@ -27,7 +26,7 @@ def test_should_not_interpret_markup_written_in_the_chat():
         "**Asistente**:\n\nUna respuesta con <font color='red'>marcado</font>.\n"
     )
 
-    pdf = _render_pdf(markdown, uuid.uuid4())
+    pdf = _render_pdf(markdown)
 
     texto = _texto(pdf)
     assert "<img" in texto, texto
@@ -35,7 +34,7 @@ def test_should_not_interpret_markup_written_in_the_chat():
 
 
 def test_should_keep_the_bold_the_export_itself_adds():
-    pdf = _render_pdf("**Usuario**: hola\n", uuid.uuid4())
+    pdf = _render_pdf("**Usuario**: hola\n")
 
     assert "Usuario" in _texto(pdf)
     assert "**" not in _texto(pdf)

@@ -84,6 +84,7 @@ def base_desechable():
         cwd=_SERVER_ROOT,
         env={**os.environ, "DATABASE_URL_SYNC": sync_nueva},
         capture_output=True, text=True, timeout=180,
+        check=False,
     )
     assert migrar.returncode == 0, f"migraciones fallaron:\n{migrar.stderr}"
 
@@ -114,6 +115,7 @@ def _bootstrap(async_url: str, *argumentos: str, entorno_extra: dict | None = No
         # #270: sin entorno, el guion lee la contraseña de aquí; cerrado, no espera a nadie.
         stdin=subprocess.DEVNULL,
         capture_output=True, text=True, timeout=180,
+        check=False,
     )
 
 

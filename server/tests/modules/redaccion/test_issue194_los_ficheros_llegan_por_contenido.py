@@ -300,7 +300,8 @@ class TestElGuionRecibeRutasQuePuedeAbrir:
         raiz = pathlib.Path(__file__).resolve().parents[4]
         ruta = raiz / "services" / "script_sandbox" / "sandbox" / "wrappers.py"
         spec = importlib.util.spec_from_file_location("_wrappers_194", ruta)
-        assert spec and spec.loader
+        assert spec
+        assert spec.loader
         modulo = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(modulo)
 

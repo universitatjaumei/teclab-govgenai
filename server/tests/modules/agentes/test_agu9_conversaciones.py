@@ -271,7 +271,8 @@ class TestEnIncidencias:
         assert r.status_code == 204, r.text
         fila = await _fila(db_session, cuerpo["consulta_id"])
         assert fila.puntuacion == 1
-        assert fila.pregunta is None and fila.respuesta is None
+        assert fila.pregunta is None
+        assert fila.respuesta is None
 
 
 class TestLaValoracion:

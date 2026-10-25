@@ -266,7 +266,7 @@ async def get_effective_public_graph_config(
 
 
 def _resolver_estrategias(
-    perfil: str,
+    perfil: str,  # noqa: ARG001 — hoy sólo un perfil declara composición y se parte siempre de la suya
     de_organizacion: dict[str, str] | None,
     del_chatbot: dict[str, str] | None,
 ) -> dict[str, str]:

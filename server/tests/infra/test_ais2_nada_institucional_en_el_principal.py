@@ -208,7 +208,7 @@ class TestLosSpidersNoNombranUnPortal:
 class TestNingunDocstringMienteSobreLaSeguridad:
 
     @pytest.mark.parametrize(
-        "ruta,frase",
+        ("ruta", "frase"),
         [
             ("app/database/seeds.py", "no verifica pwd"),
             ("app/main.py", "pendientes de registrar"),

@@ -12,7 +12,7 @@ class TestTaskRunner:
 
         runner = TaskRunner(
             retriever=AsyncMock(hybrid_search=AsyncMock(return_value=[])),
-            embedding_service=AsyncMock(embed=AsyncMock(return_value=[0.1] * 1024)),
+            embedding_service=AsyncMock(embed=AsyncMock(return_value=[0.1] * 1024), embed_batch=None),
         )
 
         oracle_data = {"gasto_total": 15000.0, "fecha_fin": "2025-12-31"}
@@ -42,7 +42,7 @@ class TestTaskRunner:
 
         runner = TaskRunner(
             retriever=AsyncMock(hybrid_search=AsyncMock(return_value=[])),
-            embedding_service=AsyncMock(embed=AsyncMock(return_value=[0.1] * 1024)),
+            embedding_service=AsyncMock(embed=AsyncMock(return_value=[0.1] * 1024), embed_batch=None),
         )
 
         # Falta el campo 'fecha_fin' requerido por la normativa

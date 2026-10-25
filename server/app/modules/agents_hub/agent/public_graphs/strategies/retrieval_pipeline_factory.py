@@ -46,10 +46,10 @@ def get_pipeline(mode: str) -> RetrievalPipeline:
     """
     try:
         fabrica = _REGISTRO[mode]
-    except KeyError:
+    except KeyError as exc:
         raise ValueError(
             f"Unknown retrieval mode: {mode!r}. Valid modes: {sorted(_REGISTRO)}"
-        )
+        ) from exc
     return fabrica()
 
 

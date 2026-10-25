@@ -45,7 +45,7 @@ class _ModeloDeMentira:
     def __init__(self) -> None:
         self.preguntas: list[str] = []
 
-    async def ainvoke(self, messages):  # noqa: ANN001
+    async def ainvoke(self, messages):
         self.preguntas.append(str(messages)[-200:])
 
         class _R:

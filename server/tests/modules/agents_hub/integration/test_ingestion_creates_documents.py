@@ -154,6 +154,11 @@ class TestIngestionCreatesDocuments:
         session = _make_session_for_new_doc()
         chatbot_provider = _make_chatbot_provider("MD_AGENT_SELECTOR")
         embedding_svc = AsyncMock()
+        # Un vector por texto: con el lote que fabrica un `AsyncMock` pelado, el `zip` del watcher
+        # truncaba a cero y el test pasaba sin guardar un solo fragmento (#275, `strict=True`).
+        embedding_svc.embed_batch = AsyncMock(
+            side_effect=lambda textos, **_: [[0.1] * 1024 for _ in textos]
+        )
 
         watcher = IngestionWatcher(
             session=session,
@@ -213,7 +218,7 @@ class TestIngestionCreatesDocuments:
         session = _make_session_for_new_doc()
         watcher = IngestionWatcher(
             session=session,
-            embedding_service=AsyncMock(embed=AsyncMock(return_value=[0.1] * 1024)),
+            embedding_service=AsyncMock(embed=AsyncMock(return_value=[0.1] * 1024), embed_batch=None),
         )
         result = await watcher.process_source(
             source_url="https://ej.com/doc.pdf",

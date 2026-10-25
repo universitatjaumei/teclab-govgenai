@@ -13,6 +13,7 @@ from __future__ import annotations
 import io
 
 from docx import Document
+from docx.document import Document as DocumentoDocx
 from docx.shared import Inches, RGBColor
 
 from server.app.modules.redaccion.contracts.manifest import DraftingRunManifest
@@ -29,7 +30,7 @@ class ExportService:
         self._builder = builder
         self.last_payload_used = None
 
-    async def export(self, workspace_id, format: str = "docx") -> bytes:  # noqa: A002
+    async def export(self, workspace_id, format: str = "docx") -> bytes:  # noqa: ARG002 — DOCX es el único formato hoy
         """Exporta usando PreviewBuilderService (1C.3).
 
         Requiere que se haya inyectado un builder en el constructor.
@@ -108,7 +109,7 @@ class ExportService:
     # Private helpers
     # ------------------------------------------------------------------
 
-    def _escribir_bloque(self, doc: Document, block) -> None:
+    def _escribir_bloque(self, doc: DocumentoDocx, block) -> None:
         """Un bloque del informe en el documento, según lo que sea.
 
         Sin contenido estructurado se cae al HTML como texto, que es el comportamiento
@@ -144,7 +145,7 @@ class ExportService:
             doc.add_paragraph(str(contenido["free_text"]))
 
     @staticmethod
-    def _escribir_tabla(doc: Document, tabla: dict) -> None:
+    def _escribir_tabla(doc: DocumentoDocx, tabla: dict) -> None:
         cabeceras = [str(c) for c in (tabla.get("headers") or [])]
         filas = tabla.get("rows") or []
         if not cabeceras and not filas:
@@ -162,12 +163,12 @@ class ExportService:
             for i, valor in enumerate(fila[:columnas]):
                 celdas[i].text = str(valor)
 
-    def _write_content(self, doc: Document, content: str) -> None:
+    def _write_content(self, doc: DocumentoDocx, content: str) -> None:
         doc.add_heading("Informe Generado", level=0)
         for line in content.splitlines():
             doc.add_paragraph(line)
 
-    def _write_audit_appendix(self, doc: Document, manifest: DraftingRunManifest) -> None:
+    def _write_audit_appendix(self, doc: DocumentoDocx, manifest: DraftingRunManifest) -> None:
         doc.add_page_break()
         heading = doc.add_heading("Anexo de Auditoría", level=1)
         heading.runs[0].font.color.rgb = RGBColor(0x44, 0x44, 0x44)

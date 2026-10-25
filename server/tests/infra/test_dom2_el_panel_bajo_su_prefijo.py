@@ -220,6 +220,5 @@ def test_el_prefijo_es_el_mismo_en_la_imagen_en_nginx_y_en_el_proxy() -> None:
     matchers = re.findall(r"^\t@\w+\s+path\s+([^\n]+)$", caddy, re.M)
     rutas = [ruta for linea in matchers for ruta in linea.split()]
     corto = prefijo.rstrip("/")
-    assert corto in rutas and f"{prefijo}*" in rutas, (
-        f"El proxy no encamina {corto} y {prefijo}* al frontend. Rutas encontradas: {rutas}"
-    )
+    assert corto in rutas, f"El proxy no encamina {corto} y {prefijo}* al frontend. Rutas encontradas: {rutas}"
+    assert f"{prefijo}*" in rutas, f"El proxy no encamina {corto} y {prefijo}* al frontend. Rutas encontradas: {rutas}"

@@ -165,7 +165,7 @@ async def _traer_de_fuera(
             )
         except OrigenNoDeclarado as fallo:
             raise RechazoDeEjecucion(422, str(fallo)) from fallo
-        except Exception as fallo:  # noqa: BLE001 — se traduce, no se deja subir opaco
+        except Exception as fallo:  # se traduce, no se deja subir opaco
             # 502 y no 500: el fallo es del servidor de fuera, no de la petición. Quien
             # integra necesita distinguirlo para saber si reintentar.
             raise RechazoDeEjecucion(
@@ -206,7 +206,7 @@ async def _correr(
             )
         except EntradaNoCumpleElContrato as fallo:
             raise RechazoDeEjecucion(422, str(fallo)) from fallo
-        except Exception as fallo:  # noqa: BLE001 — se traduce, no se deja subir opaco
+        except Exception as fallo:  # se traduce, no se deja subir opaco
             raise RechazoDeEjecucion(
                 502, f"la función empaquetada «{funcion.nombre}» falló al ejecutarse: {fallo}"
             ) from fallo

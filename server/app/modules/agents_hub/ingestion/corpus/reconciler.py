@@ -640,7 +640,7 @@ class CorpusReconciler:
             cfg = await get_effective_public_graph_config(chatbot_id, self._session)
             estrategia = str(cfg.chunking_strategy)
             techo = int(getattr(cfg, "parent_max_tokens", 8000) or 8000)
-        except Exception:  # pragma: no cover - sin config no se arriesga una copia
+        except Exception:  # noqa: BLE001  # pragma: no cover - sin config no se arriesga una copia
             return None, "no se pudo resolver la configuracion de troceado del destino"
 
         veredicto = se_puede_copiar(

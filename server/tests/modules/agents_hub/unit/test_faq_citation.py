@@ -148,7 +148,7 @@ class TestTodoEstoEstaEnchufado:
         )
 
     def test_evidence_from_a_faq_source_should_carry_the_warning(self):
-        from server.app.modules.agents_hub.agent.public_graphs.strategies.rag_vector_pipeline import (  # noqa: E501
+        from server.app.modules.agents_hub.agent.public_graphs.strategies.rag_vector_pipeline import (
             _source_to_evidence,
         )
         from server.app.modules.agents_hub.services.retrieval.types import Source
@@ -169,7 +169,7 @@ class TestTodoEstoEstaEnchufado:
         assert "Se justifica con el formulario." in evidencia.content
 
     def test_evidence_from_a_regulation_should_be_untouched(self):
-        from server.app.modules.agents_hub.agent.public_graphs.strategies.rag_vector_pipeline import (  # noqa: E501
+        from server.app.modules.agents_hub.agent.public_graphs.strategies.rag_vector_pipeline import (
             _source_to_evidence,
         )
         from server.app.modules.agents_hub.services.retrieval.types import Source

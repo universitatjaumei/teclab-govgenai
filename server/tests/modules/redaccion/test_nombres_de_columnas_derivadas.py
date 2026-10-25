@@ -21,7 +21,7 @@ from server.app.modules.redaccion.services.actividades_llm import (
 )
 
 
-@pytest.fixture()
+@pytest.fixture
 def prompt_del_etl() -> str:
     return PROMPT_POR_ACTIVIDAD[ActividadLLM.TRANSFORMACION_ETL].lower()
 

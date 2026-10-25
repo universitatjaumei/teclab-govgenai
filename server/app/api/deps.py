@@ -145,7 +145,7 @@ async def get_current_user(
         try:
             principal = await PatService(session).verify(token)
         except PatInvalidError as e:
-            raise _unauthorized(str(e))
+            raise _unauthorized(str(e)) from e
         request.state.pat_scopes = principal.scopes
         # #214 — **el valor por defecto es el seguro**: un token sólo entra donde la ruta declara
         # qué alcance acepta. Antes, un endpoint que no decía nada aceptaba cualquier token, y
@@ -169,7 +169,7 @@ async def get_current_user(
     try:
         principal = decode_token(token)
     except AuthenticationError as e:
-        raise _unauthorized(str(e))
+        raise _unauthorized(str(e)) from e
 
     _exigir_el_cambio_pendiente(request, principal)
     return principal

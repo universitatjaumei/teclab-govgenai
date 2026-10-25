@@ -70,9 +70,8 @@ class TestLaExencionEsLaQueSeDecidio:
 
     def test_la_exencion_se_dice_en_el_registro(self, guion: str) -> None:
         """Una exención que no se ve en el registro es una que nadie vuelve a revisar."""
-        assert "::notice::" in guion and "exento" in guion, (
-            "Cuando se salta un commit, el paso tiene que decirlo en el registro."
-        )
+        assert "::notice::" in guion, "Cuando se salta un commit, el paso tiene que decirlo en el registro."
+        assert "exento" in guion, "Cuando se salta un commit, el paso tiene que decirlo en el registro."
 
     def test_los_saltados_se_cuentan_aparte(self, guion: str) -> None:
         """Sumarlos a los revisados haría que el resumen dijera «todos firmados» de commits
@@ -84,9 +83,8 @@ class TestLaExencionEsLaQueSeDecidio:
 class TestParaLasPersonasNoCambiaNada:
 
     def test_sigue_exigiendo_la_firma(self, guion: str) -> None:
-        assert "Signed-off-by:" in guion and "falta Signed-off-by" in guion, (
-            "El paso ha dejado de exigir la firma."
-        )
+        assert "Signed-off-by:" in guion, "El paso ha dejado de exigir la firma."
+        assert "falta Signed-off-by" in guion, "El paso ha dejado de exigir la firma."
 
     def test_sigue_exigiendo_que_la_firma_sea_del_autor(self, guion: str) -> None:
         """Firmar con el nombre de otro no certifica nada."""

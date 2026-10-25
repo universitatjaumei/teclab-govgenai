@@ -151,7 +151,8 @@ class TestOptimizar:
         resultado = optimizar(_pdf(3), nivel=nivel)
 
         assert _paginas(resultado.datos) == 3
-        assert resultado.bytes_original > 0 and resultado.bytes_final > 0
+        assert resultado.bytes_original > 0
+        assert resultado.bytes_final > 0
 
     def test_un_nivel_que_no_existe_se_dice(self):
         from server.app.modules.utilidades.pdf import OperacionNoValida, optimizar

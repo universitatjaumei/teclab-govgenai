@@ -93,7 +93,7 @@ class TestLoQueLlegaAlModelo:
         servicio = LLMSpecService(_ModeloFalso(), "modelo-de-prueba")
         muestra = resumen_de_la_muestra(_csv_de_tesoreria(), "saldos.csv")
 
-        with pytest.raises(Exception):
+        with pytest.raises(RuntimeError, match="solo interesa el prompt"):
             await servicio.propose_template(
                 "Informe de tesoreria por ano y mes", "admin", muestra=muestra
             )
@@ -117,7 +117,7 @@ class TestLoQueLlegaAlModelo:
 
         servicio = LLMSpecService(_ModeloFalso(), "modelo-de-prueba")
 
-        with pytest.raises(Exception):
+        with pytest.raises(RuntimeError, match="solo interesa el prompt"):
             await servicio.propose_template("Un informe cualquiera", "admin")
 
         assert len(capturado["messages"]) == 2  # sistema + peticion, nada mas
@@ -135,7 +135,7 @@ class TestLoQueLlegaAlModelo:
                 raise RuntimeError("solo interesa el prompt")
 
         servicio = LLMSpecService(_ModeloFalso(), "modelo-de-prueba")
-        await_error = pytest.raises(Exception)
+        await_error = pytest.raises(RuntimeError, match="solo interesa el prompt")
         with await_error:
             await servicio.propose_template(
                 "Informe", "admin", muestra=resumen_de_la_muestra(_csv_de_tesoreria(), "s.csv")

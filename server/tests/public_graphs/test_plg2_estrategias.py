@@ -64,7 +64,7 @@ def test_should_expose_exactly_four_axes() -> None:
 
 def test_should_reject_an_axis_that_does_not_exist() -> None:
     """Un eje nuevo exige un nodo del CoreGraph que lo consuma: no llega por instalación."""
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(ValueError, match="no es un eje") as exc:
         sreg.register_strategy("inventado", "x", lambda cfg, deps, llm=None: object())
 
     assert "retrieval" in str(exc.value), "El error enumera los ejes que sí existen."
@@ -73,7 +73,7 @@ def test_should_reject_an_axis_that_does_not_exist() -> None:
 def test_should_reject_the_same_strategy_name_twice_in_an_axis() -> None:
     sreg.register_strategy("merge", "_dup_test", lambda cfg, deps, llm=None: object())
     try:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="_dup_test"):
             sreg.register_strategy("merge", "_dup_test", lambda cfg, deps, llm=None: object())
     finally:
         sreg._default_registry._por_eje[sreg.EjeDeEstrategia.MERGE].pop("_dup_test", None)
@@ -213,7 +213,8 @@ def test_should_fail_loudly_when_a_configured_strategy_is_not_registered() -> No
         _aplicar_sobreescrituras(grafo, cfg, None, None)
 
     mensaje = str(exc.value)
-    assert "merge" in mensaje and "no_existe" in mensaje
+    assert "merge" in mensaje
+    assert "no_existe" in mensaje
     assert str(cfg.chatbot_id) in mensaje, (
         "El error nombra el chatbot: con varios configurados, saber cuál es lo primero que hace "
         "falta."

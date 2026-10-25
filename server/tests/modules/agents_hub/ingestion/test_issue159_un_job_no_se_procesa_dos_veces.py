@@ -102,7 +102,12 @@ class TestElCandadoDecideEnUnaSolaOperacion:
         from server.app.modules.agents_hub.ingestion.watcher import tomar_job
 
         fuente = inspect.getsource(tomar_job)
-        assert "update(" in fuente and "rowcount" in fuente, (
+        assert "update(" in fuente, (
+            "el candado no decide en una sola operación de base de datos. Leer el estado y "
+            "escribirlo después deja una ventana entre las dos, y dos tareas de fondo del mismo "
+            "proceso caben de sobra en ella."
+        )
+        assert "rowcount" in fuente, (
             "el candado no decide en una sola operación de base de datos. Leer el estado y "
             "escribirlo después deja una ventana entre las dos, y dos tareas de fondo del mismo "
             "proceso caben de sobra en ella."

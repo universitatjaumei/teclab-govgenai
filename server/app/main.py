@@ -207,7 +207,7 @@ def _start_quality_scheduler():
             settings.content_quality_interval_hours,
         )
         return scheduler
-    except Exception:
+    except Exception:  # noqa: BLE001 — se registra con traza: `_log.exception`
         # AIS.8 — `exception` y no `print(exc)`. Esto se tragaba el fallo con una línea sin
         # traza: el planificador es lo que mantiene vigilado el corpus, así que arrancar sin él
         # es una degradación silenciosa que sólo se nota semanas después, cuando alguien
@@ -360,7 +360,7 @@ async def _sincronizar_funciones_de_paquete() -> None:
 
 
 @asynccontextmanager
-async def _arranque(app: FastAPI):
+async def _arranque(app: FastAPI):  # noqa: ARG001 — FastAPI pasa la aplicación al lifespan
     # Lo primero, antes de que nada tenga algo que decir: si se configurara después, los
     # mensajes del propio arranque —que son los que más falta hacen cuando algo va mal— se
     # perderían o saldrían con el formato de otro.

@@ -212,7 +212,9 @@ class TestCatalogo:
         quien.actual = _persona()
         item = (await c.get("/api/v1/agentes/catalogo")).json()[0]
         assert "prompt" not in item
-        assert item["finalidad"] and item["responsable"] and item["unidad"]
+        assert item["finalidad"]
+        assert item["responsable"]
+        assert item["unidad"]
 
     @pytest.mark.asyncio
     async def test_con_la_revision_vencida_se_sigue_ofreciendo_y_lo_dice(self, http, db_session):

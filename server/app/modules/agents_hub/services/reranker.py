@@ -241,7 +241,7 @@ class VertexRankingReranker:
 
 async def resolve_reranker(
     session: AsyncSession,
-    chatbot_id: uuid.UUID | None = None,
+    chatbot_id: uuid.UUID | None = None,  # noqa: ARG001 — el reranker es la fila de plataforma `purpose=rerank`; no hay nivel de chatbot
     credenciales: Any = None,
 ) -> Any:
     """Reranker configurado, o excepción explícita. Nunca None.

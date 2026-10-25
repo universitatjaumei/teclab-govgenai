@@ -19,11 +19,13 @@ historia de lo que dijo.
 """
 from __future__ import annotations
 
+from typing import cast
+
 import logging
 import uuid
 from dataclasses import dataclass
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import CursorResult, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.app.core.storage import StorageService
@@ -82,7 +84,7 @@ async def purgar_corpus_del_chatbot(
         delete(HubDocumentChunk).where(HubDocumentChunk.chatbot_id == chatbot_id)
     )
     await session.execute(delete(HubDocument).where(HubDocument.chatbot_id == chatbot_id))
-    trabajos = (
+    trabajos = cast(CursorResult, 
         await session.execute(
             delete(HubIngestionJob).where(HubIngestionJob.chatbot_id == chatbot_id)
         )

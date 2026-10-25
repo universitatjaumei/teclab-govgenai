@@ -83,7 +83,7 @@ class ChatRequest(BaseModel):
     debug_bypass: bool = False
 
 
-def puede_depurar(request: Request, user: UserInfo) -> bool:
+def puede_depurar(request: Request, user: UserInfo | None) -> bool:
     """Quién puede pedir el bypass (RAG.11).
 
     Dos clases de principal y dos comprobaciones distintas: un PAT lleva el permiso
@@ -94,6 +94,9 @@ def puede_depurar(request: Request, user: UserInfo) -> bool:
     scopes = getattr(request.state, "pat_scopes", None)
     if scopes is not None:
         return CHAT_DEBUG in scopes
+    # El widget llega con su credencial de sitio y sin sesión: no hay rol que mirar (#275).
+    if user is None:
+        return False
     return user.role in (UserRole.ADMIN.value, UserRole.SUPERADMIN.value)
 
 

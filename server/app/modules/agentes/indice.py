@@ -253,6 +253,7 @@ async def cargar(
         zip(
             (f.url for f in por_embeber),
             await embed_para_indexar(embedder, [texto_embebido(f) for f in por_embeber]),
+            strict=True,
         )
     )
 

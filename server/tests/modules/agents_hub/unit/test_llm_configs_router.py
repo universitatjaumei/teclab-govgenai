@@ -5,7 +5,6 @@ Deploy: cloud
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -75,7 +74,6 @@ def _build_app(session_mock) -> FastAPI:
     return app
 
 
-@pytest.mark.usefixtures()
 class TestLLMConfigsRouter:
 
     def test_should_list_llm_configs(self):

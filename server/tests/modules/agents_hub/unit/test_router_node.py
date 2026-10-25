@@ -35,7 +35,7 @@ class TestRouteToSubagent:
     async def test_router_classifies_to_correct_child(self, router_chatbot):
         from server.app.modules.agents_hub.agent.router_node import build_route_to_subagent_node
 
-        embedding_service = AsyncMock(embed=AsyncMock(return_value=[0.1] * 1024))
+        embedding_service = AsyncMock(embed=AsyncMock(return_value=[0.1] * 1024), embed_batch=None)
         chatbot_provider = AsyncMock()
         chatbot_provider.get_children = AsyncMock(return_value=router_chatbot[1:])
 
@@ -54,7 +54,7 @@ class TestRouteToSubagent:
     @pytest.mark.asyncio
     async def test_router_with_single_child_passes_through(self, router_chatbot):
         from server.app.modules.agents_hub.agent.router_node import build_route_to_subagent_node
-        embedding_service = AsyncMock(embed=AsyncMock(return_value=[0.1] * 1024))
+        embedding_service = AsyncMock(embed=AsyncMock(return_value=[0.1] * 1024), embed_batch=None)
         only_one = [router_chatbot[1]]
         chatbot_provider = AsyncMock(get_children=AsyncMock(return_value=only_one))
         node = build_route_to_subagent_node(embedding_service, chatbot_provider)
@@ -67,7 +67,7 @@ class TestRouteToSubagent:
     @pytest.mark.asyncio
     async def test_router_with_no_children_raises(self, router_chatbot):
         from server.app.modules.agents_hub.agent.router_node import build_route_to_subagent_node
-        embedding_service = AsyncMock(embed=AsyncMock(return_value=[0.1] * 1024))
+        embedding_service = AsyncMock(embed=AsyncMock(return_value=[0.1] * 1024), embed_batch=None)
         chatbot_provider = AsyncMock(get_children=AsyncMock(return_value=[]))
         node = build_route_to_subagent_node(embedding_service, chatbot_provider)
         state = {"messages": [type("M", (), {"content": "x"})()],

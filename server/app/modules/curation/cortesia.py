@@ -225,7 +225,7 @@ class CortesiaDeRastreo:
         for intento in range(1, self.reintentos + 1):
             try:
                 return await descargar(url)
-            except Exception as fallo:  # noqa: BLE001 — la clasificación decide qué hacer
+            except Exception as fallo:  # la clasificación decide qué hacer
                 ultimo = fallo
                 if not es_transitorio(fallo):
                     raise

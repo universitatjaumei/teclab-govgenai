@@ -109,7 +109,7 @@ class ContextEnricher(Protocol):
 class NoopEnricher:
     """No enriquece. El default, y el unico que existe hoy."""
 
-    def enrich(self, document: str, chunk: str) -> str:
+    def enrich(self, document: str, chunk: str) -> str:  # noqa: ARG002 — el enriquecedor nulo cumple el protocolo y no enriquece
         return ""
 
 

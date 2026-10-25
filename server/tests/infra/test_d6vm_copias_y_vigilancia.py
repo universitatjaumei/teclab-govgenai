@@ -44,6 +44,7 @@ def _run(*args: str, env: dict[str, str] | None = None):
         [_BASH, str(VIGILANCIA), *args],
         cwd=RAIZ, capture_output=True, text=True, timeout=60,
         env={**os.environ, **(env or {})},
+        check=False,
     )
 
 
@@ -127,9 +128,8 @@ def test_la_alerta_de_caida_agrupa_las_regiones_y_exige_mas_de_una() -> None:
         "La alerta de caída tiene que agrupar entre series, o manda un correo por región."
     )
     assert '"groupByFields": ["resource.label.host"]' in texto
-    assert '"comparison": "COMPARISON_GT"' in texto and '"thresholdValue": 1' in texto, (
-        "El umbral tiene que ser «más de una región fallando», no «alguna»."
-    )
+    assert '"comparison": "COMPARISON_GT"' in texto, "El umbral tiene que ser «más de una región fallando», no «alguna»."
+    assert '"thresholdValue": 1' in texto, "El umbral tiene que ser «más de una región fallando», no «alguna»."
 
 
 def test_declara_las_tres_alertas() -> None:
@@ -191,7 +191,11 @@ def test_el_despliegue_refresca_el_guion_de_arranque_en_los_metadatos() -> None:
 
 def test_los_logs_de_contenedor_rotan_en_local() -> None:
     texto = _texto(STARTUP)
-    assert "max-size" in texto and "max-file" in texto, (
+    assert "max-size" in texto, (
+        "El disco lleno por logs es la avería más común de una VM, y no avisa. Un envío a "
+        "Cloud Logging no protege el disco local: si la red falla, el fichero crece igual."
+    )
+    assert "max-file" in texto, (
         "El disco lleno por logs es la avería más común de una VM, y no avisa. Un envío a "
         "Cloud Logging no protege el disco local: si la red falla, el fichero crece igual."
     )

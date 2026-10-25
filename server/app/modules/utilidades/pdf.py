@@ -74,7 +74,7 @@ class Optimizado:
 def _abrir(datos: bytes) -> fitz.Document:
     try:
         doc = fitz.open(stream=datos, filetype="pdf")
-    except Exception as fallo:  # noqa: BLE001 — MuPDF lanza tipos propios; el motivo va en el mensaje
+    except Exception as fallo:  # MuPDF lanza tipos propios; el motivo va en el mensaje
         raise PdfNoValido(f"no es un PDF que se pueda leer: {fallo}") from fallo
     if doc.needs_pass:
         doc.close()

@@ -27,7 +27,7 @@ class TestIngestionWatcher:
         # doblar el conversor porque no hay conversor al que llamar.
         watcher = IngestionWatcher(
             session=mock_session,
-            embedding_service=AsyncMock(embed=AsyncMock(return_value=[0.1] * 1024)),
+            embedding_service=AsyncMock(embed=AsyncMock(return_value=[0.1] * 1024), embed_batch=None),
         )
 
         doc, n_chunks = await watcher.process_source(
@@ -60,7 +60,7 @@ class TestIngestionWatcher:
 
         watcher = IngestionWatcher(
             session=mock_session,
-            embedding_service=AsyncMock(embed=AsyncMock(return_value=[0.1] * 1024)),
+            embedding_service=AsyncMock(embed=AsyncMock(return_value=[0.1] * 1024), embed_batch=None),
         )
 
         doc, _ = await watcher.process_source(

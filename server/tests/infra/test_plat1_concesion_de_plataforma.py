@@ -49,6 +49,7 @@ def _alembic(fresh_database: str, *args: str) -> subprocess.CompletedProcess:
         capture_output=True,
         text=True,
         timeout=240,
+        check=False,
     )
 
 

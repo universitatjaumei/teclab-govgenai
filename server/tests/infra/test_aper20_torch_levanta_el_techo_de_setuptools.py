@@ -139,7 +139,13 @@ class TestQueLLegaAlDespliegueYQueNo:
         sync = next(
             linea for linea in dockerfile.splitlines() if linea.startswith("RUN uv sync")
         )
-        assert "--all-extras" not in sync and "--extra" not in sync, (
+        assert "--all-extras" not in sync, (
+            f"El `uv sync` de la imagen instala extras a pelo: «{sync}». Con `torch` dentro la "
+            "imagen pasa de 1,84 a 3,14 GB en disco y de 421 a 686 MB de capas que transferir "
+            "—medido el 2026-09-19 construyendo las dos—, así que hace falta una VM mayor. Eso "
+            "se decide al desplegar con `EXTRAS_APP`, no aquí."
+        )
+        assert "--extra" not in sync, (
             f"El `uv sync` de la imagen instala extras a pelo: «{sync}». Con `torch` dentro la "
             "imagen pasa de 1,84 a 3,14 GB en disco y de 421 a 686 MB de capas que transferir "
             "—medido el 2026-09-19 construyendo las dos—, así que hace falta una VM mayor. Eso "

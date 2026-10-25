@@ -89,7 +89,7 @@ class WorkspaceRunService:
     # ------------------------------------------------------------------
     def validate_inputs(
         self,
-        workspace_id: UUID,
+        workspace_id: UUID,  # noqa: ARG002 — identifica el workspace en la firma pública; la validación sólo mira slots
         uploaded_slots: list[str],
         required_slots: list[str] | None = None,
     ) -> None:
@@ -253,6 +253,7 @@ class WorkspaceRunService:
             if workspace.status in ("draft", "ingesting"):
                 workspace.status = "drafting"
 
+            assert self._session is not None, "arrancar una ejecución necesita sesión"
             await self._session.commit()
 
         return WorkspaceRunResult(

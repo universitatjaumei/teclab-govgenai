@@ -111,7 +111,7 @@ class BlockExecutor:
                     retry_attempts=attempts,
                     output=output,
                 )
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — se reintenta y el último fallo va al resultado
                 attempts += 1
                 last_exc = exc
                 span.add_event(
@@ -128,6 +128,7 @@ class BlockExecutor:
                 # else: second attempt exhausted
 
         span.end()
+        assert last_exc is not None, "sólo se llega aquí tras un fallo"
         actual_kind = _failure_kind_from_exc(last_exc, failure_kind)
         return NodeResult(
             status="failed",

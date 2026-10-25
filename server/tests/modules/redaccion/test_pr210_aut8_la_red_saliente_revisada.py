@@ -93,7 +93,7 @@ class TestCadaSaltoTieneQueEstarDeclarado:
 
         hooks = hooks_de_la_descarga(origenes=["sede.gva.es"])
 
-        with pytest.raises(OrigenNoDeclarado):
+        with pytest.raises(OrigenNoDeclarado):  # noqa: PT012 — basta con que lance el primer gancho
             for hook in hooks:
                 await hook(httpx.Request("GET", "https://intermedio.example/salto"))
 

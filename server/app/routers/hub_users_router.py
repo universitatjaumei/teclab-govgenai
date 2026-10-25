@@ -26,6 +26,8 @@ había que saberse el UUID de la persona.
 """
 from __future__ import annotations
 
+from sqlmodel import col
+
 import uuid
 from datetime import datetime, timezone
 
@@ -436,7 +438,7 @@ async def _otro_superadmin_activo(session: AsyncSession, excluido: uuid.UUID) ->
 
     de_arranque = (
         await session.execute(
-            select(SuperAdminAccount).where(SuperAdminAccount.is_active.is_(True))
+            select(SuperAdminAccount).where(col(SuperAdminAccount.is_active).is_(True))
         )
     ).scalars().first()
     return de_arranque is not None
@@ -751,14 +753,14 @@ async def poner_modulos(
     lectura = _a_lectura(fila, quien=user, modulos=quedan)
     try:
         await session.commit()
-    except IntegrityError:
+    except IntegrityError as exc:
         # Otro guardado —esta pantalla en otra pestaña, o Plataforma → Módulos— concedió lo mismo
         # entre la lectura y el `commit`. Es un conflicto, no un fallo del servidor.
         await session.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Los módulos de esta persona acaban de cambiar en otro sitio: vuelve a cargar y repite.",
-        )
+        ) from exc
     return lectura
 
 

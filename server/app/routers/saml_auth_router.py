@@ -80,7 +80,7 @@ async def saml_login(request: Request, relay_state: str | None = None):
     produccion = get_settings().environment == "production"
     respuesta.set_cookie(
         COOKIE_DE_LA_PETICION,
-        auth.get_last_request_id(),
+        auth.get_last_request_id() or "",
         max_age=600,
         path=_RUTA_DE_LA_COOKIE,
         httponly=True,
@@ -103,11 +103,11 @@ async def saml_acs(
     try:
         # Con el ID de la petición python3-saml compara `InResponseTo`; sin él, no compara nada.
         auth.process_response(request_id=peticion)
-    except Exception as exc:  # noqa: BLE001 — cualquier fallo de parseo => 401
+    except Exception as exc:  # cualquier fallo de parseo => 401
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"code": "SAML_VALIDATION_FAILED", "reason": str(exc)},
-        )
+        ) from exc
 
     errors = auth.get_errors()
     if errors:
@@ -139,20 +139,20 @@ async def saml_acs(
 
     try:
         user_info = await identity.resolve_session(
-            auth.get_nameid(), auth.get_attributes()
+            auth.get_nameid() or "", auth.get_attributes()
         )
     except SamlMissingEmailError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"code": "SAML_MISSING_EMAIL", "reason": str(exc)},
-        )
+        ) from exc
     except SamlUserInactiveError as exc:
         # 403 y no 401: el IdP la autenticó bien, es esta plataforma la que no la deja pasar.
         # Con un 401 quien lo vea buscará el fallo en el IdP, que es donde no está.
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={"code": "USER_INACTIVE", "reason": str(exc)},
-        )
+        ) from exc
 
     token = create_token(user_info)
     return_url = get_settings().saml_frontend_return_url
@@ -178,7 +178,7 @@ async def saml_metadata():
             build_saml_settings(sp_only=True), sp_validation_only=True
         )
     except InvalidSamlConfigError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     metadata = saml_settings.get_sp_metadata()
     errors = saml_settings.validate_metadata(metadata)

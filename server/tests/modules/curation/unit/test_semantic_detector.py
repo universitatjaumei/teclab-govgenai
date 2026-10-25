@@ -75,10 +75,10 @@ class _FakeSession:
         self._chunks = chunks or []
         self.flush_count = 0
 
-    async def get(self, model, ident):  # noqa: ANN001
+    async def get(self, model, ident):
         return self._site if ident == self._site.id else None
 
-    async def execute(self, stmt):  # noqa: ANN001
+    async def execute(self, stmt):
         hint = getattr(stmt, "_model_hint", "page")
         if hint == "document":
             return _FakeResult(self._documents)

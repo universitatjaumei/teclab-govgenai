@@ -1,5 +1,6 @@
 """Servicio para la obtención y almacenamiento en caché de modelos de IA disponibles."""
 
+from sqlalchemy.exc import IntegrityError
 import logging
 from datetime import datetime, timedelta
 from typing import List
@@ -196,7 +197,7 @@ async def get_models_for_provider(provider: str) -> List[str]:
 
             try:
                 await session.commit()
-            except Exception as e:
+            except IntegrityError as e:
                 # If race condition occurred (Unique constraint), just ignore and return fresh models
                 # The other thread won so data is there.
                 # `debug`: es la carrera esperada y el resultado es correcto, asi que en

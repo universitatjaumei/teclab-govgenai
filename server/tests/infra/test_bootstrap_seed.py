@@ -66,6 +66,7 @@ def seeded_database():
         cwd=_SERVER_ROOT,
         env={**os.environ, "DATABASE_URL_SYNC": fresh_sync},
         capture_output=True, text=True, timeout=180,
+        check=False,
     )
     assert migrate.returncode == 0, f"migraciones fallaron:\n{migrate.stderr}"
 
@@ -95,6 +96,7 @@ def _run_bootstrap(async_url: str, *extra: str) -> subprocess.CompletedProcess:
         env={**os.environ, "DATABASE_URL": async_url, "SUPERADMIN_PASSWORD": SUPERADMIN_PASSWORD},
         stdin=subprocess.DEVNULL,
         capture_output=True, text=True, timeout=180,
+        check=False,
     )
 
 

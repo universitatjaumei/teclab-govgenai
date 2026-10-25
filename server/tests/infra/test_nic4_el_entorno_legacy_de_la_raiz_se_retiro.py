@@ -204,9 +204,8 @@ class TestElI18nDelLegacySeFue:
 
         texto = init.read_text(encoding="utf-8")
         for simbolo in ("i18n", "I18nManager"):
-            assert f"import {simbolo}" not in texto and f" {simbolo}," not in texto, (
-                f"`automatia_shared.core` sigue re-exportando `{simbolo}`"
-            )
+            assert f"import {simbolo}" not in texto, f"`automatia_shared.core` sigue re-exportando `{simbolo}`"
+            assert f" {simbolo}," not in texto, f"`automatia_shared.core` sigue re-exportando `{simbolo}`"
 
 
 class TestElArranqueSigueArrancandoAlgoQueExiste:

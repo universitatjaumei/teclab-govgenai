@@ -69,7 +69,7 @@ def _nombre_de_distribucion(punto: Any) -> str:
 def _cargar(punto: Any, grupo: str) -> Any:
     try:
         return punto.load()
-    except Exception as exc:  # noqa: BLE001 — se reenvía con contexto y se aborta
+    except Exception as exc:  # se reenvía con contexto y se aborta
         raise RuntimeError(
             f"El entry point '{punto.name}' del grupo '{grupo}', aportado por "
             f"'{_nombre_de_distribucion(punto)}', no se puede cargar: {exc}. El arranque se "
@@ -269,7 +269,7 @@ def verificar_perfiles_registrados() -> None:
             import dataclasses
 
             grafo = factoria(dataclasses.replace(cfg_minima, profile=nombre), None, None)
-        except Exception as exc:  # noqa: BLE001 — se reenvía con contexto y se aborta
+        except Exception as exc:  # se reenvía con contexto y se aborta
             raise RuntimeError(
                 f"El perfil '{nombre}' está registrado pero no construye: {exc}. El arranque se "
                 f"detiene: un perfil que revienta al construirse lo haría en la primera "
@@ -325,7 +325,7 @@ def verificar_estrategias_registradas() -> None:
         for nombre in list_strategies(eje):
             try:
                 instancia = get_strategy(eje, nombre)(dataclasses.replace(cfg), None, None)
-            except Exception as exc:  # noqa: BLE001 — se reenvía con contexto y se aborta
+            except Exception as exc:  # se reenvía con contexto y se aborta
                 raise RuntimeError(
                     f"La estrategia '{eje.value}.{nombre}' no se puede instanciar: {exc}."
                 ) from exc

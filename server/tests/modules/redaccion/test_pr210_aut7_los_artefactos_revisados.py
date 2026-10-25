@@ -154,7 +154,7 @@ class TestNoQuedanFicherosSinFila:
         organizacion = uuid.uuid4()
         funcion = await _una_funcion(db_session, organizacion)
 
-        with pytest.raises(OSError):
+        with pytest.raises(OSError, match="el bucket no responde"):
             await guardar_artefactos(
                 db_session,
                 [_bruto("uno.csv", b"1"), _bruto("dos.csv", b"2")],
@@ -268,7 +268,8 @@ class TestElTopeDeSalidaCabe:
         spec = importlib.util.spec_from_file_location(
             "_contratos_del_sandbox_210", raiz / "sandbox" / "contracts.py"
         )
-        assert spec and spec.loader
+        assert spec
+        assert spec.loader
         modulo = importlib.util.module_from_spec(spec)
         sys.modules[spec.name] = modulo
         spec.loader.exec_module(modulo)

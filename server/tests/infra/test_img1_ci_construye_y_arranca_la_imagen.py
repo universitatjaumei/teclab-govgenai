@@ -202,7 +202,12 @@ def test_la_imagen_de_la_aplicacion_instala_el_conjunto_base() -> None:
         "miraría nada."
     )
     for linea in instalaciones:
-        assert "--frozen" in linea and "--no-dev" in linea, (
+        assert "--frozen" in linea, (
+            f"«{linea.strip()}» no instala el conjunto base. El despliegue usa "
+            f"`uv sync --frozen --no-dev`, y si la imagen se aparta de eso, lo que CI arranca "
+            f"deja de ser lo que se despliega."
+        )
+        assert "--no-dev" in linea, (
             f"«{linea.strip()}» no instala el conjunto base. El despliegue usa "
             f"`uv sync --frozen --no-dev`, y si la imagen se aparta de eso, lo que CI arranca "
             f"deja de ser lo que se despliega."
@@ -214,7 +219,13 @@ def test_la_imagen_de_la_aplicacion_instala_el_conjunto_base() -> None:
 
 def test_el_job_migra_con_la_imagen_antes_de_arrancarla(job: dict[str, Any]) -> None:
     script = _script(job)
-    assert "alembic" in script and "upgrade" in script, (
+    assert "alembic" in script, (
+        "El job no aplica las migraciones. El arranque consulta la base —siembra y trabajos "
+        "zombis— así que contra una base vacía el contenedor moriría por una razón distinta de "
+        "la que este job vigila. El despliegue lo hace con el servicio `migrate` de "
+        "`docker-compose.prod.yml`, que usa esta misma imagen."
+    )
+    assert "upgrade" in script, (
         "El job no aplica las migraciones. El arranque consulta la base —siembra y trabajos "
         "zombis— así que contra una base vacía el contenedor moriría por una razón distinta de "
         "la que este job vigila. El despliegue lo hace con el servicio `migrate` de "

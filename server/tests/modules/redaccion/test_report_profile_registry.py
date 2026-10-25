@@ -105,9 +105,8 @@ class TestGenericReportSpec:
         ]
         assert len(ai_blocks) >= 1
         for block in ai_blocks:
-            assert block.review_policy_id is not None and block.review_policy_id != "", (
-                f"AI block {block.id!r} missing review_policy_id"
-            )
+            assert block.review_policy_id is not None, f"AI block {block.id!r} missing review_policy_id"
+            assert block.review_policy_id != "", f"AI block {block.id!r} missing review_policy_id"
 
     def test_generic_report_ai_block_policy_is_required_review(self):
         from server.app.modules.redaccion.contracts.template import AIBlockPolicy

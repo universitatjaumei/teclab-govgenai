@@ -29,7 +29,7 @@ from server.app.modules.agents_hub.services.vocabulary_service import Vocabulary
 # Columnas afectadas por eje. Solo los dos ejes que el documento materializa como
 # columnas de primer nivel; los demás (rang, colectiu, tipus) viven en doc_metadata y
 # no gobiernan la recuperación, así que no se barren aquí.
-_COLUMNAS_POR_EJE: dict[str, tuple[str, tuple[str, ...]]] = {
+_COLUMNAS_POR_EJE: dict[str, tuple[str | None, tuple[str, ...]]] = {
     VocabularyAxis.AMBIT: ("ambit_principal", ("ambits_secundaris",)),
     VocabularyAxis.SUBMATERIA: (None, ("submateries", "submateries_internes")),
 }

@@ -31,8 +31,8 @@ class TestModelFactory:
 
         mock_cls.assert_called_once()
         assert model is not None
-        assert getattr(model, "_prompt_caching_enabled") is True
-        assert getattr(model, "_prompt_cache_ttl") == 7200
+        assert model._prompt_caching_enabled is True
+        assert model._prompt_cache_ttl == 7200
 
     @pytest.mark.asyncio
     async def test_model_factory_returns_openai_model(self) -> None:
@@ -58,8 +58,8 @@ class TestModelFactory:
             model = await get_model(uuid.uuid4(), mock_config_provider)
 
         mock_cls.assert_called_once()
-        assert getattr(model, "_prompt_caching_enabled") is False
-        assert getattr(model, "_prompt_cache_ttl") == 3600
+        assert model._prompt_caching_enabled is False
+        assert model._prompt_cache_ttl == 3600
 
     @pytest.mark.asyncio
     async def test_model_factory_switching(self) -> None:

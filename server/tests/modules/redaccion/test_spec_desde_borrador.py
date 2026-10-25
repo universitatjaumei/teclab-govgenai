@@ -117,7 +117,7 @@ class TestLaConversion:
         assert con_puerta.review_policy == ReviewPolicy.REQUIRED
         assert sin_puerta.review_policy == ReviewPolicy.NONE
 
-    @pytest.mark.parametrize("tipo,es_fichero", [
+    @pytest.mark.parametrize(("tipo", "es_fichero"), [
         ("pdf", True), ("excel", True), ("csv", True),
         ("text", False), ("number", False), ("date", False), ("selector", False),
     ])

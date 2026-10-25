@@ -531,16 +531,16 @@ def caja_de_herramientas() -> CajaDeHerramientas:
     import sys
 
     modulo = sys.modules[__name__]
-    permitidos = sorted(getattr(modulo, "WHITELIST_MODULES"))
+    permitidos = sorted(modulo.WHITELIST_MODULES)
     denegados = sorted(
-        set(getattr(modulo, "MODULOS_PROHIBIDOS"))
-        | set(getattr(modulo, "NOMBRES_PROHIBIDOS"))
-        | set(getattr(modulo, "_DANGEROUS_CALLS"))
-        | set(getattr(modulo, "_DANGEROUS_ATTRS"))
+        set(modulo.MODULOS_PROHIBIDOS)
+        | set(modulo.NOMBRES_PROHIBIDOS)
+        | set(modulo._DANGEROUS_CALLS)
+        | set(modulo._DANGEROUS_ATTRS)
     )
-    reglas = list(getattr(modulo, "REGLAS"))
+    reglas = list(modulo.REGLAS)
     fichas = sorted(
-        (f for f in getattr(modulo, "CATALOGO_DE_MODULOS") if f.modulo in set(permitidos)),
+        (f for f in modulo.CATALOGO_DE_MODULOS if f.modulo in set(permitidos)),
         key=lambda f: f.modulo,
     )
 

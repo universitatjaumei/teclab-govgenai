@@ -398,7 +398,7 @@ async def registrar_funcion_externa(
             finalidad=body.finalidad,
             categorias_datos=list(body.categorias_datos),
         )
-    except Exception as fallo:  # noqa: BLE001 — se traduce a 422 con su motivo
+    except Exception as fallo:  # se traduce a 422 con su motivo
         raise HTTPException(
             status_code=422,
             detail={"code": "DECLARACION_INCOMPLETA", "message": str(fallo)},
@@ -470,6 +470,7 @@ async def registrar_funcion_externa(
     await session.commit()
 
     funcion = await session.get(HubFuncion, funcion_id)
+    assert funcion is not None, "se acaba de crear en esta misma sesión"
     versiones = await _versiones_de(session, funcion_id)
     return _vista_de_funcion(funcion, versiones, principal)
 

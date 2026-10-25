@@ -250,7 +250,8 @@ class TestLasTresDefensas:
 
         _login(client, sesion)
 
-        assert orden and orden[0] == "limite", f"orden real: {orden}"
+        assert orden, f"orden real: {orden}"
+        assert orden[0] == "limite", f"orden real: {orden}"
 
 
 class TestLaContrasenaQuePusoOtro:

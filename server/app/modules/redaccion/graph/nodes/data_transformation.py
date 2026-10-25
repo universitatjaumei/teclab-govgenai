@@ -124,7 +124,7 @@ class DataTransformationNode:
                         # aunque el modo fuera `replace`, y nada lo decía.
                         anonymization_context=state.anonymization_context,
                     )
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — el fallo se convierte en aviso del bloque
                 new_warnings.append(
                     ExtractionWarning(
                         block_id=block_id,

@@ -91,7 +91,7 @@ class SuperAdminAccount(SQLModel, table=True):
     Gestiona la plataforma global, admins y configuraciones de IA.
     """
 
-    model_config = ConfigDict(validate_assignment=True)
+    model_config = ConfigDict(validate_assignment=True)  # pyright: ignore[reportAssignmentType]  # SQLModel tipa su configuración aparte; el diccionario es el mismo
 
     admin_id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(nullable=False)

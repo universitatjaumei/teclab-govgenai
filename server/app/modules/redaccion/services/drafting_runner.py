@@ -21,7 +21,7 @@ from __future__ import annotations
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import select
 
@@ -161,11 +161,11 @@ def _estado_inicial(
         return BlockState(
             block_id=fila.block_id,
             kind=fila.kind,
-            status=fila.status,
+            status=cast(Any, fila.status),
             content=fila.content_json,
             last_updated_by="system",
             updated_at=fila.updated_at or ahora,
-            failure_kind=fila.failure_kind,
+            failure_kind=cast(Any, fila.failure_kind),
             last_error_message=fila.last_error_message,
             retry_attempts=fila.retry_attempts,
         )
@@ -173,7 +173,7 @@ def _estado_inicial(
     return WorkspaceState(
         workspace_id=workspace.id,
         template_version_id=workspace.template_version_id,
-        report_profile=_perfil_de(spec),
+        report_profile=cast(Any, _perfil_de(spec)),
         inputs=_artefactos_de(workspace),
         blocks={contrato.id: _bloque(contrato) for contrato in spec.blocks},
         status="drafting",

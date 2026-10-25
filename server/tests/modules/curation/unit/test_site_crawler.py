@@ -48,7 +48,7 @@ class _FakeSession:
     def __init__(self, site: _FakeSite) -> None:
         self._site = site
 
-    async def get(self, model, ident):  # noqa: ANN001
+    async def get(self, model, ident):
         return self._site if ident == self._site.id else None
 
     async def flush(self) -> None:
@@ -63,7 +63,7 @@ class _FakePageRepo:
         for p in existing or []:
             self.pages[(p.site_id, p.url)] = p
 
-    async def upsert(self, *, site_id, url, **fields):  # noqa: ANN001
+    async def upsert(self, *, site_id, url, **fields):
         key = (site_id, url)
         existing = self.pages.get(key)
         if existing is not None:
@@ -74,13 +74,13 @@ class _FakePageRepo:
         self.pages[key] = page
         return page
 
-    async def list_by_site(self, site_id, status=None):  # noqa: ANN001
+    async def list_by_site(self, site_id, status=None):
         out = [p for p in self.pages.values() if p.site_id == site_id]
         if status is not None:
             out = [p for p in out if p.status == status]
         return out
 
-    async def mark_gone(self, page_ids):  # noqa: ANN001
+    async def mark_gone(self, page_ids):
         n = 0
         ids = set(page_ids)
         for p in self.pages.values():
@@ -101,7 +101,7 @@ class _FakeSpider:
         self._headers = headers or {}
         self._fetch_errors = fetch_errors or {}
 
-    async def crawl(self, source):  # noqa: ANN001
+    async def crawl(self, source):
         from server.app.modules.curation.spider import CrawlResult, CrawlStatus
 
         return CrawlResult(
@@ -123,19 +123,19 @@ class _FakeSignals:
     def __init__(self, sitemap: dict | None = None) -> None:
         self._sitemap = sitemap or {}
 
-    def extract_from_headers(self, headers):  # noqa: ANN001
+    def extract_from_headers(self, headers):
         return {
             "http_last_modified": headers.get("_lm"),
             "http_etag": headers.get("ETag"),
         }
 
-    def extract_canonical(self, html):  # noqa: ANN001
+    def extract_canonical(self, html):
         return None
 
-    def extract_content_year(self, url, text):  # noqa: ANN001
+    def extract_content_year(self, url, text):
         return None
 
-    async def fetch_sitemap(self, url, fetch_fn):  # noqa: ANN001
+    async def fetch_sitemap(self, url, fetch_fn):
         return dict(self._sitemap)
 
 
@@ -372,7 +372,7 @@ class TestSiteCrawlerErrorHandling:
         site = _FakeSite("https://uji.es")
 
         class _ExplodingSpider(_FakeSpider):
-            async def crawl(self, source):  # noqa: ANN001
+            async def crawl(self, source):
                 raise RuntimeError("DNS resolution failed")
 
         spider = _ExplodingSpider([], {})

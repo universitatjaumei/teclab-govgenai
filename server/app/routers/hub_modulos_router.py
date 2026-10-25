@@ -170,7 +170,7 @@ async def modulos_de_persona(
 
 @router.get("/alcance-de-grupo/{grupo}", response_model=AlcanceDeGrupo)
 async def alcance_de_grupo(
-    grupo: str,
+    grupo: str,  # noqa: ARG001 — la plataforma no guarda grupos: se cuenta el techo, que es igual para todos
     _: UserInfo = Depends(_require_superadmin),
     session: AsyncSession = Depends(get_session),
 ) -> AlcanceDeGrupo:

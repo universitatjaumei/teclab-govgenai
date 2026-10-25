@@ -65,7 +65,8 @@ class TestElBloqueReferenciaEnVezDeCopiar:
             )
 
         mensaje = str(fallo.value)
-        assert "code" in mensaje and "funcion_ref" in mensaje
+        assert "code" in mensaje
+        assert "funcion_ref" in mensaje
 
     def test_should_refuse_an_admin_script_block_without_a_reference(self):
         """Un bloque de script sin función no puede ejecutar nada: antes esto se manifestaba
@@ -191,7 +192,8 @@ class TestElResolutor:
             await ResolvedorDeFuncion(db_session).resolver(funcion.id, 7)
 
         mensaje = str(fallo.value)
-        assert "Extraer gastos" in mensaje and "7" in mensaje
+        assert "Extraer gastos" in mensaje
+        assert "7" in mensaje
 
     @pytest.mark.asyncio
     async def test_should_fail_loudly_with_the_reason_when_the_version_is_suspended(

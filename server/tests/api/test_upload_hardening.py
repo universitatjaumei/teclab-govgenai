@@ -60,7 +60,8 @@ class TestNombreSeguro:
         from server.app.core.uploads import sanitizar_nombre
 
         resultado = sanitizar_nombre("..%2f..%2fetc%2fpasswd")
-        assert "/" not in resultado and "\\" not in resultado
+        assert "/" not in resultado
+        assert "\\" not in resultado
 
 
 # ───────────────────── Lectura con tope ─────────────────────

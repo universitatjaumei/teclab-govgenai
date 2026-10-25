@@ -140,7 +140,7 @@ async def review_interaction(
     user: UserInfo = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
     service: FeedbackService = Depends(get_feedback_service),
-) -> HubInteraction:
+) -> InteractionReviewOut:
     """Anota el veredicto de quien revisa sobre una conversación real (REV.1).
 
     Deploy: edge.

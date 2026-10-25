@@ -12,7 +12,7 @@ import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Protocol
+from typing import Any, cast, Protocol
 
 from server.app.modules.curation.reconciliacion import (
     reconciliar_hallazgos,
@@ -157,7 +157,7 @@ class SiteQualityAnalysisJob:
         site_crawler: _SiteCrawler,
         detectors: list[_Detector],
         watcher: _Watcher | None,
-        selection_repo: _SelectionRepo,
+        selection_repo: _SelectionRepo | None,
         *,
         run_semantic: bool = True,
         finding_repo: Any = None,
@@ -274,7 +274,7 @@ class SiteQualityAnalysisJob:
                     )
                     actualizados += 1
                     summary.documents_reingested += 1
-                except Exception as exc:  # noqa: BLE001
+                except Exception as exc:
                     logger.exception(
                         "Reingesta fallida de %s para el chatbot %s", page.url, chatbot_id
                     )
@@ -347,7 +347,7 @@ class SiteQualityAnalysisJob:
             if getattr(hallazgo, "status", "new") not in ("new", "confirmed"):
                 continue
             if tipo not in por_pagina.setdefault(page_id, []):
-                por_pagina[page_id].append(tipo)
+                por_pagina[page_id].append(cast(str, tipo))
         return por_pagina
 
     # ──────────────────── DIN.4 — retirar lo que desapareció ────────────────────
@@ -522,7 +522,7 @@ class SiteQualityAnalysisJob:
                 try:
                     await retirador.retire_page(sel.chatbot_id, pagina.id)
                     summary.documents_auto_retired += 1
-                except Exception as exc:  # noqa: BLE001
+                except Exception as exc:
                     # Media retirada silenciosa dejaría el corpus en un estado que nadie sabría
                     # reconstruir: el resto sigue y el fallo consta.
                     logger.exception(
@@ -599,15 +599,15 @@ class SiteQualityAnalysisJob:
             await self._finding_repo.upsert(ContentFinding(
                 id=uuid.uuid4(),
                 site_id=site_id,
-                finding_type=tipo,
-                severity=severity,
+                finding_type=cast(Any, tipo),
+                severity=cast(Any, severity),
                 confidence=1.0,
                 detected_at=datetime.now(timezone.utc),
                 page_id=page_id,
                 source_url=source_url,
                 signal=signal or {},
             ))
-        except Exception:  # noqa: BLE001 — el aviso no puede tumbar el job de calidad
+        except Exception:  # el aviso no puede tumbar el job de calidad
             logger.exception("No se pudo registrar el hallazgo %s del sitio %s", tipo, site_id)
 
     async def _avisar_de_la_actualizacion(
@@ -632,7 +632,7 @@ class SiteQualityAnalysisJob:
                     "title": page.title,
                 },
             ))
-        except Exception:  # noqa: BLE001 — el aviso no puede tumbar el job de calidad
+        except Exception:  # el aviso no puede tumbar el job de calidad
             logger.exception("No se pudo registrar el aviso de actualización de %s", page.url)
 
     async def run_for_site(
@@ -718,7 +718,7 @@ class SiteQualityAnalysisJob:
                     emitidos=all_findings,
                     now=datetime.now(timezone.utc),
                 )
-            except Exception as exc:  # noqa: BLE001 — retirar de más es peor que no retirar
+            except Exception as exc:  # retirar de más es peor que no retirar
                 logger.exception("Reconciliation failed for site %s", site_id)
                 summary.errors.append(f"reconciliation: {exc}")
 
@@ -866,7 +866,7 @@ class SiteQualityAnalysisJob:
                     getattr(crawl_summary, "gone_page_ids", []),
                     summary,
                 )
-            except Exception as exc:  # noqa: BLE001 — retirar de menos es mejor que tumbar
+            except Exception as exc:  # retirar de menos es mejor que tumbar
                 logger.exception("Auto-retirada fallida en el sitio %s", site_id)
                 summary.errors.append(f"auto-retirada: {exc}")
 
@@ -883,7 +883,7 @@ class SiteQualityAnalysisJob:
             # hay un test que comprueba que la sesión se confirma.
             try:
                 await session.commit()
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 logger.exception("No se pudo confirmar la pasada del sitio %s", site_id)
                 summary.errors.append(f"commit: {exc}")
 
@@ -910,17 +910,15 @@ class SiteQualityAnalysisJob:
             await self._run_log.registrar(
                 site_id=site_id,
                 section_id=section_id,
-                scope_label=await self._etiqueta_del_ambito(site_id, section_id),
+                scope_label=await self._etiqueta_del_ambito(section_id),
                 started_at=comenzado,
                 finished_at=datetime.now(timezone.utc),
                 summary=summary,
             )
-        except Exception:  # noqa: BLE001
+        except Exception:
             logger.exception("No se pudo anotar la pasada del sitio %s en el diario", site_id)
 
-    async def _etiqueta_del_ambito(
-        self, site_id: uuid.UUID, section_id: uuid.UUID | None
-    ) -> str:
+    async def _etiqueta_del_ambito(self, section_id: uuid.UUID | None) -> str:
         """El nombre de la sección, o «sitio». Se guarda en texto porque el diario es historia:
         si alguien borra la sección, la fila tiene que seguir diciendo qué cubrió."""
         if section_id is None:

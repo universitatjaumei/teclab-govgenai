@@ -4,6 +4,8 @@ Verifican que EvidenceItem y RetrievalResult cumplen el contrato común
 que todas las RetrievalPipeline deben respetar, con independencia de la
 estrategia concreta (RAG, MD_LONG_CONTEXT, MD_AGENT_SELECTOR).
 """
+import dataclasses
+
 import pytest
 
 
@@ -28,7 +30,7 @@ class TestEvidenceItem:
             EvidenceItem,
         )
         item = EvidenceItem(source_id="doc-1", content="Contenido.")
-        with pytest.raises(Exception):
+        with pytest.raises(dataclasses.FrozenInstanceError):
             item.score = 0.9  # type: ignore[misc]  # frozen dataclass
 
     def test_evidence_item_optional_fields_accepted(self):

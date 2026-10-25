@@ -56,6 +56,7 @@ def _run(guion: Path, *args: str, env: dict[str, str] | None = None):
         text=True,
         timeout=60,
         env={**os.environ, **(env or {})},
+        check=False,
     )
 
 
@@ -69,7 +70,9 @@ def test_el_inventario_existe_y_esta_bien_formado() -> None:
     entradas = _entradas()
     assert entradas, "El inventario está vacío."
     for nombre, variable, origen, consumidor in entradas:
-        assert nombre and variable and consumidor, f"Campos vacíos en {nombre!r}"
+        assert nombre, f"Campos vacíos en {nombre!r}"
+        assert variable, f"Campos vacíos en {nombre!r}"
+        assert consumidor, f"Campos vacíos en {nombre!r}"
         assert origen in _ORIGENES, f"Origen desconocido {origen!r} en {nombre}"
         assert variable == variable.upper(), f"{variable} debería ir en mayúsculas"
 
@@ -149,9 +152,8 @@ def test_el_fichero_de_entorno_se_escribe_con_permisos_cerrados() -> None:
     texto = BAJAR.read_text(encoding="utf-8")
     assert "umask 077" in texto, "Falta `umask 077` antes de crear el temporal."
     assert "chmod 600" in texto, "Falta `chmod 600` sobre el fichero final."
-    assert "mktemp" in texto and "mv " in texto, (
-        "Se escribe a un temporal y se mueve: si no, existe un instante con permisos abiertos."
-    )
+    assert "mktemp" in texto, "Se escribe a un temporal y se mueve: si no, existe un instante con permisos abiertos."
+    assert "mv " in texto, "Se escribe a un temporal y se mueve: si no, existe un instante con permisos abiertos."
 
 
 def test_si_falta_un_secreto_no_se_escribe_un_entorno_a_medias() -> None:

@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from typing import Literal
+from typing import Any, cast, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
@@ -267,7 +267,7 @@ async def run_scenario(
     deps = GraphDeps(session=session, embedder=embedding_service, llm=llm)
     grafo = await GraphFactory().build(chatbot_id, deps, llm)
 
-    estado = await grafo.compile().ainvoke({
+    estado = await grafo.compile().ainvoke(cast(Any, {
         "query": escenario.prompt,
         "chatbot_id": str(chatbot_id),
         "language": None,
@@ -292,7 +292,7 @@ async def run_scenario(
         "context_source_language": None,
         "fallback_reason": None,
         "sources": [],
-    })
+    }))
 
     # VIS.5 — el mismo aviso que vería quien pregunta, redactado igual. Se construye aquí y no
     # se copia el booleano: lo que hay que poder revisar es **el texto**, que es lo que llega al

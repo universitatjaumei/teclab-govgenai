@@ -62,7 +62,7 @@ async def get_copilot_service(
             LocalConfigProvider(session),
             organizacion_id=organizacion_unica_de(current_user),
         )
-    except Exception as fallo:  # noqa: BLE001
+    except Exception as fallo:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=(
@@ -74,7 +74,7 @@ async def get_copilot_service(
     if _retriever is None:
         try:
             embeddings = await resolve_embedding_service(session)
-        except Exception as fallo:  # noqa: BLE001
+        except Exception as fallo:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=(
@@ -135,7 +135,7 @@ async def ask_copilot(
 @router.post("/translate", response_model=CopilotTranslateResponse)
 async def translate_copilot(
     body: CopilotTranslateRequest,
-    user: UserInfo = Depends(get_current_user),
+    user: UserInfo = Depends(get_current_user),  # noqa: ARG001 — autoriza: se pide por su efecto
     service: CopilotService = Depends(get_copilot_service),
 ) -> CopilotTranslateResponse:
     """Traduce instrucción NL a configuración estructurada (chart / ETL / script)."""

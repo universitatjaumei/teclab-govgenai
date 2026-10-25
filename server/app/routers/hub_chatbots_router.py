@@ -7,7 +7,7 @@ Módulo: chatbots — ya lo declaraba a nivel de router.
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Literal
+from typing import Any, cast, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field, field_validator
@@ -331,7 +331,7 @@ async def _leer_con_disponibilidad(session, chatbot) -> ChatbotRead:
     return ChatbotRead.model_validate(chatbot).model_copy(
         update={
             "availability": DisponibilidadOut(
-                state=estado.state,
+                state=cast(Any, estado.state),
                 reason=estado.reason,
                 tokens_used=estado.tokens_used,
                 total_token_budget=estado.total_token_budget,
@@ -390,7 +390,7 @@ def _primera_linea(objeto: object) -> str | None:
 
 
 @router.get("/opciones-de-grafo", response_model=OpcionesDeGrafoOut)
-async def opciones_de_grafo(user: UserInfo = Depends(_require_admin)):
+async def opciones_de_grafo(user: UserInfo = Depends(_require_admin)):  # noqa: ARG001 — autoriza: se pide por su efecto
     """Perfiles, modos y estrategias disponibles, con su origen.
 
     Acotado a admin/superadmin como el resto del router. No lleva datos de ninguna organización

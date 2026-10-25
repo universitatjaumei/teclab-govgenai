@@ -52,7 +52,7 @@ class TestUnFalloDeRedNoEsUnaRespuesta:
 
         monkeypatch.setattr(avisos_del_lock.urllib.request, "urlopen", _cae)
 
-        with pytest.raises(Exception) as fallo:
+        with pytest.raises(urllib.error.URLError, match="OSV no responde") as fallo:
             avisos_del_lock._arreglos("PYSEC-2026-3447", "setuptools")
 
         assert not isinstance(fallo.value, AssertionError), (

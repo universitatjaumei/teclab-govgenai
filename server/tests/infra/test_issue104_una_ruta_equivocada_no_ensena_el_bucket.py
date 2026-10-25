@@ -125,6 +125,7 @@ class TestElCaddyfileSigueSiendoValido:
                 "caddy", "validate", "--config", "/etc/caddy/Caddyfile",
             ],
             capture_output=True, text=True, timeout=300,
+            check=False,
         )
         if resultado.returncode != 0 and "Cannot connect to the Docker daemon" in (
             resultado.stderr or ""

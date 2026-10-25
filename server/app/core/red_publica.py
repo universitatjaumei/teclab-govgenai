@@ -166,7 +166,7 @@ async def assert_destino_publico(url: str, *, resolver: Resolvedor | None = None
     resolver = resolver or _resolver_por_dns
     try:
         direcciones = await resolver(host)
-    except Exception as exc:  # noqa: BLE001 — cualquier fallo de resolución es un «no»
+    except Exception as exc:  # cualquier fallo de resolución es un «no»
         raise DestinoNoPublico(
             f"«{host}» no se puede resolver ({type(exc).__name__}), así que no se pide. "
             "Un nombre que no resuelve tampoco se puede rastrear."
@@ -188,7 +188,7 @@ async def _direcciones_publicas(host: str, resolver: Resolvedor) -> list[str]:
     """Las direcciones del nombre, **todas** comprobadas. Levanta si alguna no es pública."""
     try:
         direcciones = await resolver(host)
-    except Exception as exc:  # noqa: BLE001 — cualquier fallo de resolución es un «no»
+    except Exception as exc:  # cualquier fallo de resolución es un «no»
         raise DestinoNoPublico(
             f"«{host}» no se puede resolver ({type(exc).__name__}), así que no se pide. "
             "Un nombre que no resuelve tampoco se puede rastrear."

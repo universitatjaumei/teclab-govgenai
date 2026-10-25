@@ -168,7 +168,8 @@ class TestLoQueElDocumentoTieneQueDecir:
         y la petición explícita de un «sí» a UADTI y OIATI. Es la parte que un resumen
         entusiasta borraría primero."""
         assert "La diferencia honesta con la regla 2" in prosa
-        assert "UADTI" in prosa and "OIATI" in prosa
+        assert "UADTI" in prosa
+        assert "OIATI" in prosa
         assert "no un silencio" in prosa
 
     def test_should_ask_the_uadti_to_contrast_the_rules(self, prosa):
@@ -182,7 +183,8 @@ class TestLoQueElDocumentoTieneQueDecir:
         el primer equipo externo cree que hay un aislamiento que no existe."""
         seccion = documento.split("## 7.")[1].split("## 8.")[0]
         assert "sin sandbox" in seccion
-        assert "No hay" in seccion and "aislamiento" in seccion
+        assert "No hay" in seccion
+        assert "aislamiento" in seccion
         assert "pip install" in seccion
 
     def test_should_state_that_approving_is_not_a_review_outcome(self, prosa):
@@ -218,7 +220,8 @@ class TestLoQueElDocumentoNoPuedeDejarDePreguntar:
     def test_should_frame_rule_two_as_end_or_means(self, prosa):
         """La pregunta acotada. Sin acotarla, la conversación se queda en «es distinto» y no se
         puede contestar."""
-        assert "como fin" in prosa and "como medio" in prosa
+        assert "como fin" in prosa
+        assert "como medio" in prosa
         # Y el argumento que la hace contestable: la función no puede hablar con nada.
         assert "no puede hablar con nada" in prosa
 

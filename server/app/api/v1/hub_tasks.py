@@ -75,7 +75,7 @@ async def export_task(
     markdown_text = _render_markdown(interaction)
 
     if fmt == "pdf":
-        pdf_bytes = _render_pdf(markdown_text, run_id)
+        pdf_bytes = _render_pdf(markdown_text)
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",
@@ -102,7 +102,7 @@ def _render_markdown(interaction: HubInteraction) -> str:
     )
 
 
-def _render_pdf(markdown_text: str, run_id: uuid.UUID) -> bytes:
+def _render_pdf(markdown_text: str) -> bytes:
     """Convierte el Markdown a PDF usando ReportLab."""
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import getSampleStyleSheet

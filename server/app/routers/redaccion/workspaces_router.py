@@ -633,7 +633,7 @@ async def generar_borrador_en_segundo_plano(workspace_id: uuid.UUID) -> None:
                 await marcar_error(workspace_id, bg_session, f"modelo no disponible: {fallo}")
                 return
             await ejecutar_borrador(workspace_id, bg_session, llm_service=redactor)
-    except Exception:  # noqa: BLE001
+    except Exception:
         logging.getLogger(__name__).exception(
             "No se pudo generar el borrador del workspace %s", workspace_id
         )

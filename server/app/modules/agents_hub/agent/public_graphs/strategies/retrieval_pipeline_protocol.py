@@ -55,4 +55,5 @@ class RetrievalPipeline(Protocol):
         chatbot_id: str,
         cfg: "PublicGraphConfig",
         deps: GraphDeps,
+        language: str | None = None,
     ) -> "RetrievalResult": ...

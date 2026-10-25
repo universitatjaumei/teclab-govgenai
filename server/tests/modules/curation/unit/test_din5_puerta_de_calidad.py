@@ -187,7 +187,7 @@ class _Sesion:
     async def execute(self, stmt: Any) -> Any:
         try:
             entidad = stmt.column_descriptions[0]["entity"].__name__
-        except Exception:  # noqa: BLE001
+        except Exception:
             entidad = ""
         if entidad == "HubDocument":
             filas: list = list(self._documentos)
@@ -197,10 +197,10 @@ class _Sesion:
             filas = []
 
         class _R:
-            def scalars(self_inner) -> Any:  # noqa: N805
+            def scalars(self_inner) -> Any:
                 return self_inner
 
-            def all(self_inner) -> list:  # noqa: N805
+            def all(self_inner) -> list:
                 return filas
 
         return _R()

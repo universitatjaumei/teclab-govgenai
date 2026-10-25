@@ -30,7 +30,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 
@@ -594,7 +594,7 @@ class AnonymizationContext:
             serie = result_df[col]
             vacias = serie.isna() | (serie.astype(str).str.strip() == "")
             nueva = serie.astype(object).copy()
-            nueva[~vacias] = serie[~vacias].astype(str).apply(transformar)
+            nueva[~vacias] = cast(pd.Series, serie[~vacias].astype(str)).apply(transformar)
             result_df[col] = nueva
         return result_df
 

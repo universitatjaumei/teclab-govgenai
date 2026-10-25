@@ -522,7 +522,7 @@ async def emitir_turno(
                     uso["completion"] += salida
                     uso["source"] = "provider"
 
-    except Exception:  # noqa: BLE001
+    except Exception:
         # Issue #147: el detalle va al registro, no al cliente. Este manejador ni siquiera
         # registraba, así que el único que no se enteraba de qué había fallado era quien
         # tenía que arreglarlo.
@@ -634,7 +634,7 @@ async def emitir_turno(
                 "reformulada": reformulada,
             },
         )
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.exception(
             "El turno de chat falló después del grafo; el cliente recibe `error`."
         )

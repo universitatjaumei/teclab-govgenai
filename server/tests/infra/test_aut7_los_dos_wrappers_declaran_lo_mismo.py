@@ -36,7 +36,8 @@ def _wrapper_del_sandbox() -> str:
 
     ruta = RAIZ / "services" / "script_sandbox" / "sandbox" / "wrappers.py"
     spec = importlib.util.spec_from_file_location("_wrappers_aut7", ruta)
-    assert spec and spec.loader
+    assert spec
+    assert spec.loader
     modulo = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(modulo)
     return modulo.build_extraction_wrapper(

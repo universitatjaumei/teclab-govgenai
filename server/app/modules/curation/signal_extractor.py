@@ -94,7 +94,7 @@ class CrawlSignalExtractor:
         sitemap_url = url if url.endswith(".xml") else urljoin(url + "/", "sitemap.xml")
         try:
             return await self._parse_sitemap(sitemap_url, fetch_fn, depth=0)
-        except Exception:
+        except Exception:  # noqa: BLE001 — sin sitemap legible, el rastreo sigue por enlaces
             return {}
 
     async def _parse_sitemap(
@@ -119,7 +119,7 @@ class CrawlSignalExtractor:
                     continue
                 try:
                     result.update(await self._parse_sitemap(loc, fetch_fn, depth + 1))
-                except Exception:
+                except Exception:  # noqa: BLE001 — un sitemap hijo roto no invalida los demás
                     continue
             return result
 

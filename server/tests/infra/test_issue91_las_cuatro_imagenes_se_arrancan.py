@@ -64,7 +64,7 @@ class _Responde:
         manejador = self
 
         class _H(BaseHTTPRequestHandler):
-            def do_GET(self):  # noqa: N802 - lo fija BaseHTTPRequestHandler
+            def do_GET(self):  # lo fija BaseHTTPRequestHandler
                 self.send_response(manejador.codigo)
                 self.end_headers()
 
@@ -101,7 +101,7 @@ def _sonda_dice_vivo(puerto: int) -> bool:
     codigo = re.search(r'python -c "(.+?)"', orden, re.DOTALL)
     assert codigo, f"no encuentro el `python -c` dentro del HEALTHCHECK:\n{orden}"
     guion = codigo.group(1).replace("8080", str(puerto))
-    return subprocess.run([sys.executable, "-c", guion], capture_output=True).returncode == 0
+    return subprocess.run([sys.executable, "-c", guion], capture_output=True, check=False).returncode == 0
 
 
 class TestLaSondaDelMcpDistingueVivoDeMuerto:
@@ -178,7 +178,11 @@ def _pasos_del_job(fichero: Path, job: str) -> list[dict]:
 class TestCiArrancaLasCuatro:
     def test_el_job_arranca_el_sandbox(self) -> None:
         corre = "\n".join(p.get("run") or "" for p in _pasos_del_job(CI, "imagen"))
-        assert "govgenai/sandbox:ci" in corre and "docker run" in corre, (
+        assert "govgenai/sandbox:ci" in corre, (
+            "el job `imagen` construye la imagen del sandbox y no la arranca: su verde dice "
+            "«compila», no «arranca»"
+        )
+        assert "docker run" in corre, (
             "el job `imagen` construye la imagen del sandbox y no la arranca: su verde dice "
             "«compila», no «arranca»"
         )

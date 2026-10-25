@@ -69,7 +69,8 @@ class TestLaCascada:
         )
 
         usuario_dia = [limite for limite in limites if limite.subject_type == "user" and limite.ventana == "day"]
-        assert usuario_dia and usuario_dia[0].limite == 5_000
+        assert usuario_dia
+        assert usuario_dia[0].limite == 5_000
 
     def test_should_let_the_chatbot_override_the_org_default(self):
         from server.app.core.quotas import limites_aplicables
@@ -605,7 +606,8 @@ class TestLaIpNoSeGuardaEnClaro:
         )
         del_ip = [limite for limite in limites if limite.subject_type == "ip"]
 
-        assert del_ip and all("1.2.3.4" not in limite.subject_id for limite in del_ip)
+        assert del_ip
+        assert all("1.2.3.4" not in limite.subject_id for limite in del_ip)
 
 
 @pytest.mark.asyncio
@@ -647,7 +649,8 @@ class TestLaIpNoSeGuardaEnClaroEnLaBase:
                         )
                     )
                 ).scalars().all()
-                assert sujetos and not [s for s in sujetos if "203.0.113" in s]
+                assert sujetos
+                assert not [s for s in sujetos if "203.0.113" in s]
         finally:
             await motor.dispose()
 

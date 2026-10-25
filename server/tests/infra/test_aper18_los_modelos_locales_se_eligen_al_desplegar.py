@@ -82,14 +82,22 @@ class TestLaImagenAdmiteElExtra:
 class TestElDespliegueLoPasa:
 
     def test_pasa_el_build_arg(self, paso_de_construccion: str) -> None:
-        assert "--build-arg" in paso_de_construccion and "EXTRAS_APP" in paso_de_construccion, (
+        assert "--build-arg" in paso_de_construccion, (
+            "El workflow no pasa el extra a `docker build`, así que el argumento del "
+            "`Dockerfile` no se puede activar desde el despliegue."
+        )
+        assert "EXTRAS_APP" in paso_de_construccion, (
             "El workflow no pasa el extra a `docker build`, así que el argumento del "
             "`Dockerfile` no se puede activar desde el despliegue."
         )
 
     def test_sale_de_una_variable_del_repositorio(self, paso_de_construccion: str) -> None:
         """La elección es de cada despliegue, así que vive en su configuración y no en el código."""
-        assert "vars." in paso_de_construccion and "EXTRAS" in paso_de_construccion, (
+        assert "vars." in paso_de_construccion, (
+            "El extra no sale de una variable del repositorio: habría que cambiar código para "
+            "cambiar de despliegue."
+        )
+        assert "EXTRAS" in paso_de_construccion, (
             "El extra no sale de una variable del repositorio: habría que cambiar código para "
             "cambiar de despliegue."
         )

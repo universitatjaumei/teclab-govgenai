@@ -135,7 +135,11 @@ class TestLaDocumentacionDejaDePrometerElAgente:
         assert "client_app/` ← SOLO agente de ejecución local" not in texto, (
             "el mapa de módulos sigue describiendo `client_app/` como si existiera"
         )
-        assert "no se hace" in texto and "No lo propongas" in texto, (
+        assert "no se hace" in texto, (
+            "`AGENTS.md` tiene que decir que el agente local **no se hace** y que no se proponga. "
+            "Es una decisión (ESPECIFICACIONES.md §10), no trabajo pendiente."
+        )
+        assert "No lo propongas" in texto, (
             "`AGENTS.md` tiene que decir que el agente local **no se hace** y que no se proponga. "
             "Es una decisión (ESPECIFICACIONES.md §10), no trabajo pendiente."
         )
@@ -147,9 +151,8 @@ class TestLaDocumentacionDejaDePrometerElAgente:
         assert len(seccion) == 2, "falta la §10"
         cuerpo = seccion[1].split("## 11.", 1)[0]
 
-        assert "agente" in cuerpo.lower() and "local" in cuerpo.lower(), (
-            "§10 tiene que decir que no hay agente de ejecución local"
-        )
+        assert "agente" in cuerpo.lower(), "§10 tiene que decir que no hay agente de ejecución local"
+        assert "local" in cuerpo.lower(), "§10 tiene que decir que no hay agente de ejecución local"
 
     def test_should_point_at_the_three_references(self):
         """Y decir dónde está el código, o «se retiró» es «se perdió» para quien lea."""

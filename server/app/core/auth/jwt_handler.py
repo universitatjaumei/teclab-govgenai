@@ -57,14 +57,14 @@ def decode_token(token: str) -> UserInfo:
             settings.jwt_secret_key,
             algorithms=[settings.jwt_algorithm],
         )
-    except ExpiredSignatureError:
-        raise AuthenticationError("Token has expired")
-    except InvalidSignatureError:
-        raise AuthenticationError("Invalid token signature")
-    except DecodeError:
-        raise AuthenticationError("Invalid token format")
+    except ExpiredSignatureError as exc:
+        raise AuthenticationError("Token has expired") from exc
+    except InvalidSignatureError as exc:
+        raise AuthenticationError("Invalid token signature") from exc
+    except DecodeError as exc:
+        raise AuthenticationError("Invalid token format") from exc
     except Exception as e:
-        raise AuthenticationError(f"Token validation failed: {str(e)}")
+        raise AuthenticationError(f"Token validation failed: {str(e)}") from e
 
     missing = [c for c in ("sub", "email") if c not in payload]
     if missing:

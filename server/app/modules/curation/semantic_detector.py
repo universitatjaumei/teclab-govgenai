@@ -71,7 +71,7 @@ def _cosine(a: list[float], b: list[float]) -> float:
     segunda pasada** de un sitio —la primera guardó sus diez hallazgos, la segunda falló al
     guardarlos—. Medido en CUR.7.
     """
-    dot = sum(x * y for x, y in zip(a, b))
+    dot = sum(x * y for x, y in zip(a, b, strict=False))
     na = math.sqrt(sum(x * x for x in a))
     nb = math.sqrt(sum(y * y for y in b))
     if na == 0.0 or nb == 0.0:

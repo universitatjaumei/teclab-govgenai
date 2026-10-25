@@ -369,7 +369,7 @@ async def _aplicar(tabla: anonimizar.Tabla, reglas, semilla: int):
 )
 async def analizar_fichero(
     file: UploadFile = File(...),
-    user: UserInfo = Depends(get_current_user),
+    user: UserInfo = Depends(get_current_user),  # noqa: ARG001 — autoriza: se pide por su efecto
 ) -> AnalisisDeFichero:
     """Propone, para cada columna, qué parece y qué regla aplicarle. No aplica nada."""
     tabla, _datos, _nombre = await _leer_tabla(file)
@@ -401,7 +401,7 @@ async def vista_previa_anonimizacion(
     file: UploadFile = File(...),
     reglas: str = Form(...),
     semilla: int = Form(...),
-    user: UserInfo = Depends(get_current_user),
+    user: UserInfo = Depends(get_current_user),  # noqa: ARG001 — autoriza: se pide por su efecto
 ) -> VistaPrevia:
     """Las primeras filas, antes y después. Se anonimiza el fichero entero, como en la descarga."""
     tabla, _datos, _nombre = await _leer_tabla(file)

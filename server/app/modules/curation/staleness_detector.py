@@ -99,11 +99,13 @@ async def detectar_caducados(
             id_publicacio=doc.id_publicacio,
             title=doc.title,
             source_url=doc.canonical_url,
-            data_revisio_prevista=doc.data_revisio_prevista,
+            data_revisio_prevista=prevista,
             darrera_actualitzacio=doc.last_seen_at or doc.created_at,
-            dies_de_retard=(hoy - doc.data_revisio_prevista).days,
+            dies_de_retard=(hoy - prevista).days,
         )
         for doc in filas
+        # La consulta ya excluye los nulos; esto sólo se lo dice al comprobador de tipos.
+        if (prevista := doc.data_revisio_prevista) is not None
     ]
     return sorted(caducados, key=lambda c: c.dies_de_retard, reverse=True)
 

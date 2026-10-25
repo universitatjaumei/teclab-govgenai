@@ -64,7 +64,8 @@ class TestElAvisoDeTraduccionEntiendeVal:
         )
         assert aviso is not None
         assert "valenciano" in aviso
-        assert " val." not in aviso and " val " not in aviso
+        assert " val." not in aviso
+        assert " val " not in aviso
 
     def test_should_warn_in_valencian_when_the_source_is_spanish(self):
         aviso = _build_translation_warning(
@@ -86,7 +87,7 @@ class TestElAvisoDeTraduccionEntiendeVal:
 class TestPreferOrdenaDeVerdadEnValenciano:
 
     def _item(self, language: str, source_id: str):
-        from server.app.modules.agents_hub.agent.public_graphs.strategies.retrieval_contract import (  # noqa: E501
+        from server.app.modules.agents_hub.agent.public_graphs.strategies.retrieval_contract import (
             EvidenceItem,
         )
 

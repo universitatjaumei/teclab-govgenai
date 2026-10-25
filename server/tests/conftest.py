@@ -146,8 +146,8 @@ def _plantilla_hub() -> str:
         HubOperationalBase,
     )
 
-    import server.app.modules.agents_hub.database.config_models  # noqa: F401
-    import server.app.modules.agents_hub.database.operational_models  # noqa: F401
+    import server.app.modules.agents_hub.database.config_models
+    import server.app.modules.agents_hub.database.operational_models
 
     # FUN.1 — **las tablas de redacción no estaban en la plantilla**. Viven en la misma
     # `HubOperationalBase`, pero `create_all` sólo crea lo que está *importado*: sin esta línea,

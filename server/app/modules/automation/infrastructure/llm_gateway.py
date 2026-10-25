@@ -141,7 +141,7 @@ async def ejecutar_tarea(
                     # Original code used generate_content_stream but concatenated immediately.
                     # generate_content might be simpler if we don't actually stream to UI here.
                     # But sticking to original logic:
-                    response_stream = client.models.generate_content_stream(
+                    response_stream = client.models.generate_content_stream(  # noqa: B023 — se llama en esta iteración
                         model=modelo, contents=prompt
                     )
                     txt = ""
@@ -192,7 +192,7 @@ async def ejecutar_tarea(
             else:
                 return {"error": f"Proveedor no soportado: {proveedor}"}
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — se registra y se reintenta con el siguiente intento
             error_str = str(e)
             logger.warning(
                 "Error con %s (intento %d de %d): %s",
@@ -219,7 +219,7 @@ async def ejecutar_tarea(
                     logger.info(
                         "Diagnostico: %s resuelve a %s, el DNS responde", host_to_check, addr
                     )
-                except Exception as dns_e:
+                except OSError as dns_e:
                     logger.error(
                         "Diagnostico: no se resuelve %s; problema de red confirmado: %s",
                         host_to_check,

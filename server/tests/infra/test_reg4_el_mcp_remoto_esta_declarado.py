@@ -77,7 +77,11 @@ def test_los_hosts_admitidos_se_derivan_de_los_que_sirve_el_proxy() -> None:
     lineas = _activas(COMPOSE, "GOVGENAI_MCP_ALLOWED_HOSTS")
     assert lineas, "Sin hosts admitidos el transporte responde 421 a todo."
     (linea,) = lineas
-    assert "GOVGENAI_HOST" in linea and "GOVGENAI_HOST_INSTITUCIONAL" in linea, (
+    assert "GOVGENAI_HOST" in linea, (
+        "Los dos nombres que sirve el proxy tienen que estar, y derivados de las mismas "
+        "variables que usa Caddy para no divergir."
+    )
+    assert "GOVGENAI_HOST_INSTITUCIONAL" in linea, (
         "Los dos nombres que sirve el proxy tienen que estar, y derivados de las mismas "
         "variables que usa Caddy para no divergir."
     )
@@ -129,7 +133,11 @@ def test_la_imagen_del_mcp_no_arrastra_el_servidor() -> None:
 def test_el_despliegue_esta_escrito_en_el_runbook() -> None:
     """Quien lo despliegue no tiene por qué deducirlo del compose."""
     texto = _texto(RUNBOOK)
-    assert "/mcp" in texto and "MCP" in texto, (
+    assert "/mcp" in texto, (
+        "El runbook de despliegue tiene que decir que existe esta superficie y cómo se conecta "
+        "un cliente."
+    )
+    assert "MCP" in texto, (
         "El runbook de despliegue tiene que decir que existe esta superficie y cómo se conecta "
         "un cliente."
     )

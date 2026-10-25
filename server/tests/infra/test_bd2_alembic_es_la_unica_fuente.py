@@ -137,7 +137,7 @@ class _BaseDesechableMigrada:
         partes = urlsplit(plain)
         try:
             self.admin = psycopg2.connect(urlunsplit(partes._replace(path="/postgres")))
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             pytest.skip(f"Postgres no disponible: {type(exc).__name__}")
         self.admin.autocommit = True
         self.nombre = f"bd2_check_{uuid.uuid4().hex[:12]}"
@@ -162,6 +162,7 @@ class _BaseDesechableMigrada:
             capture_output=True,
             text=True,
             timeout=300,
+            check=False,
         )
 
     def __exit__(self, *_exc):
@@ -230,7 +231,7 @@ class TestLaFronteraEdgeCloudEstaEnLaBase:
         import psycopg2
 
         from server.app.modules.agents_hub.database.base import HubConfigBase, HubOperationalBase
-        import server.app.modules.agents_hub.database.config_models  # noqa: F401
+        import server.app.modules.agents_hub.database.config_models
         import server.app.modules.agents_hub.database.operational_models  # noqa: F401
 
         operacionales = set(HubOperationalBase.metadata.tables)

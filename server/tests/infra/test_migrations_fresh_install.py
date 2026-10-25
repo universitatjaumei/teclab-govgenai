@@ -38,6 +38,7 @@ def test_alembic_upgrade_head_succeeds_on_empty_database(fresh_database: str) ->
         capture_output=True,
         text=True,
         timeout=120,
+        check=False,
     )
 
     assert result.returncode == 0, (
@@ -54,6 +55,7 @@ def _upgrade_head(fresh_database: str) -> None:
         capture_output=True,
         text=True,
         timeout=180,
+        check=False,
     )
     assert result.returncode == 0, result.stderr
 

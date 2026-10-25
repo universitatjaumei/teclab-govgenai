@@ -126,7 +126,7 @@ async def get_llm_spec_service(
             LocalConfigProvider(session),
             organizacion_id=organizacion_unica_de(current_user),
         )
-    except Exception as fallo:  # noqa: BLE001
+    except Exception as fallo:
         raise HTTPException(
             status_code=503,
             detail=f"No hay modelo de redacción disponible: {fallo}",
@@ -254,6 +254,7 @@ async def approve_as_template(
         )
 
     normalized = result.normalized_draft
+    assert normalized is not None, "un borrador válido trae su versión normalizada"
     template_id = uuid.uuid4()
     version_id = uuid.uuid4()
     owner_uuid = _user_to_uuid(user.user_id)
@@ -310,6 +311,7 @@ async def approve_as_workspace(
         )
 
     normalized = result.normalized_draft
+    assert normalized is not None, "un borrador válido trae su versión normalizada"
     template_id = uuid.uuid4()
     version_id = uuid.uuid4()
     workspace_id = uuid.uuid4()

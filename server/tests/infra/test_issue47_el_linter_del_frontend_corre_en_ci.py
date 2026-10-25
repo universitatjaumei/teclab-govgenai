@@ -112,9 +112,8 @@ class TestElLinterCorreYBloquea:
             genera = [
                 i for i, p in enumerate(pasos) if "generate:api" in (p.get("run") or "")
             ]
-            assert genera and min(genera) < min(corre), (
-                f"el trabajo «{nombre}» lintea sin generar antes el cliente de la API"
-            )
+            assert genera, f"el trabajo «{nombre}» lintea sin generar antes el cliente de la API"
+            assert min(genera) < min(corre), f"el trabajo «{nombre}» lintea sin generar antes el cliente de la API"
 
 
 class TestElTechoNoSubeSolo:
@@ -128,7 +127,12 @@ class TestElTechoNoSubeSolo:
     def test_el_techo_es_el_declarado_aqui(self) -> None:
         """Subirlo obliga a tocar este fichero, que es toda la gracia."""
         encontrado = re.search(r"--max-warnings\s+(\d+)", _script_lint())
-        assert encontrado and int(encontrado.group(1)) == TECHO, (
+        assert encontrado, (
+            f"el script fija el techo en {encontrado.group(1) if encontrado else '—'} y aquí "
+            f"está declarado {TECHO}. Si de verdad ha bajado, actualiza los dos; si ha **subido**, "
+            "es que se han colado hallazgos nuevos y eso es lo que el techo venía a impedir."
+        )
+        assert int(encontrado.group(1)) == TECHO, (
             f"el script fija el techo en {encontrado.group(1) if encontrado else '—'} y aquí "
             f"está declarado {TECHO}. Si de verdad ha bajado, actualiza los dos; si ha **subido**, "
             "es que se han colado hallazgos nuevos y eso es lo que el techo venía a impedir."
