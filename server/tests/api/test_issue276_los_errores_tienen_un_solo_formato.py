@@ -176,3 +176,18 @@ def test_el_auditor_no_lleva_el_texto_del_fallo_al_cliente() -> None:
     el log y el cliente no recibe el texto de la excepción."""
     texto = (APP / "routers/redaccion/funciones_router.py").read_text(encoding="utf-8")
     assert '"no_se_pudo_auditar": f"{type(fallo).__name__}: {fallo}"' not in texto
+
+
+# Revisión de la PR #311 — la lista se dejaba pasar entera: sólo la de forma de validación
+# (`[{loc, msg, type}]`) es un contrato conocido; otra cualquiera se saltaba el formato único y
+# quien lee `detail.message` —panel, extensión, MCP— mostraba un fallo genérico.
+def test_una_lista_con_forma_de_validacion_se_conserva() -> None:
+    errores = [{"loc": ["nombre"], "msg": "obligatorio", "type": "value_error"}]
+    assert normalizar_detalle(422, errores) == errores
+
+
+def test_una_lista_cualquiera_entra_en_el_formato_unico() -> None:
+    detalle = normalizar_detalle(400, ["a", "b"])
+    assert detalle["code"] == "BAD_REQUEST"
+    assert detalle["message"] == "Bad Request"
+    assert detalle["errores"] == ["a", "b"]

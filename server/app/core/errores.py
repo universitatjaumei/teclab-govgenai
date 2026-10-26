@@ -71,10 +71,22 @@ def _frase_del_estado(estado: int) -> str:
         return "Error"
 
 
+def _tiene_forma_de_validacion(detalle: list[Any]) -> bool:
+    return bool(detalle) and all(
+        isinstance(error, dict) and "loc" in error and "msg" in error for error in detalle
+    )
+
+
 def normalizar_detalle(estado: int, detalle: Any) -> Any:
-    """`detail` en la forma única. Una lista con forma de validación se devuelve tal cual."""
+    """`detail` en la forma única. Una lista con forma de validación se devuelve tal cual.
+
+    Cualquier otra lista va entera a `errores`, dentro del formato: si pasara sin envolver,
+    quien lee `detail.message` no tendría nada que leer.
+    """
     if isinstance(detalle, list):
-        return detalle
+        if _tiene_forma_de_validacion(detalle):
+            return detalle
+        return {"code": _codigo_del_estado(estado), "message": _frase_del_estado(estado), "errores": detalle}
     if isinstance(detalle, dict):
         normalizado = dict(detalle)
         mensaje = normalizado.pop("message", None) or normalizado.pop("reason", None)

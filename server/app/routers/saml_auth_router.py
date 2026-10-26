@@ -116,13 +116,11 @@ async def saml_acs(
 
     errors = auth.get_errors()
     if errors:
+        # Igual que el `except` de arriba: los códigos y el motivo de python3-saml, al registro.
+        _log.warning("La respuesta SAML no es válida: %s (%s)", errors, auth.get_last_error_reason())
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={
-                "code": "SAML_VALIDATION_FAILED",
-                "errors": errors,
-                "reason": auth.get_last_error_reason(),
-            },
+            detail={"code": "SAML_VALIDATION_FAILED", "message": "La respuesta del proveedor de identidad no es válida."},
         )
     if not auth.is_authenticated():
         raise HTTPException(
