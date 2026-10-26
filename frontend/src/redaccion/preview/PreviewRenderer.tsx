@@ -21,7 +21,7 @@ export function PreviewRenderer({ payload }: Props) {
       </section>
 
       <section data-preview-section="toc" className="preview-toc">
-        <h2>Índice</h2>
+        <h2>{t('preview_index_title')}</h2>
         <ol>
           {(payload.toc ?? []).map((entry, i) => (
             <li key={i} style={{ marginLeft: `${(entry.level - 1) * 1.5}rem` }}>

@@ -249,5 +249,6 @@
   "preview_col_source": "Fuente",
   "preview_col_page": "Página",
   "preview_col_model": "Modelo",
-  "preview_col_prompt_version": "Versión del prompt"
+  "preview_col_prompt_version": "Versión del prompt",
+  "preview_index_title": "Índice"
 }

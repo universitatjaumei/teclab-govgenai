@@ -249,5 +249,6 @@
   "preview_col_source": "Source",
   "preview_col_page": "Page",
   "preview_col_model": "Model",
-  "preview_col_prompt_version": "Prompt version"
+  "preview_col_prompt_version": "Prompt version",
+  "preview_index_title": "Contents"
 }
