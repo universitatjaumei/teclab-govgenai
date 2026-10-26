@@ -70,6 +70,14 @@ _VALID_FINDING_TRANSITIONS: dict[str, set[str]] = {
 }
 
 
+def transiciones_permitidas(estado: str) -> set[str]:
+    """Los estados a los que puede pasar un hallazgo desde `estado`.
+
+    Una sola regla para la transición que se aplica y para las acciones que se ofrecen.
+    """
+    return set(_VALID_FINDING_TRANSITIONS.get(estado, set()))
+
+
 class InvalidFindingTransitionError(ValueError):
     pass
 

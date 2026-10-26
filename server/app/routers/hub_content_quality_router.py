@@ -33,7 +33,7 @@ from server.app.core.auth.tenancy import (
 )
 from server.app.api.deps import get_session
 from server.app.modules.curation.contracts import (
-    _VALID_FINDING_TRANSITIONS,
+    transiciones_permitidas,
     FindingSeverity,
     FindingStatus,
     InvalidFindingTransitionError,
@@ -150,7 +150,7 @@ class HallazgoOut(BaseModel):
         La cola los pintaba con su propia máquina de estado, y se equivocaba: no ofrecía descartar
         un hallazgo confirmado ni reabrir uno descartado, que el servidor sí admite.
         """
-        return cast(list[FindingStatus], sorted(_VALID_FINDING_TRANSITIONS.get(self.status, set())))
+        return cast(list[FindingStatus], sorted(transiciones_permitidas(self.status)))
 
 
 class _TransitionIn(BaseModel):
