@@ -20,7 +20,7 @@ class _StubPipeline:
     def supports(self, source_kind: str) -> bool:
         return source_kind == self._kind
 
-    def extract(self, inp):  # noqa: ANN001
+    def extract(self, inp):
         raise NotImplementedError
 
 

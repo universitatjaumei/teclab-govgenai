@@ -296,7 +296,8 @@ class TestAgrupacion:
         # Se guardan unas cuantas para que se entienda el hueco, no las nueve: el payload
         # es para leerlo, no un volcado.
         assert len(hueco.signal["queries"]) == MAX_QUERIES_REPRESENTATIVAS
-        assert hueco.signal["first_seen"] and hueco.signal["last_seen"]
+        assert hueco.signal["first_seen"]
+        assert hueco.signal["last_seen"]
         assert hueco.signal["top_terms"]
 
     @pytest.mark.asyncio

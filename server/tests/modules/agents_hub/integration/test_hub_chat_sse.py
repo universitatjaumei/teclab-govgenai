@@ -121,10 +121,10 @@ def _run_chat_and_get_done(chatbot, graph, token) -> dict:
     """Ejecuta el endpoint de chat y devuelve el payload del evento done."""
     app = _build_test_app(chatbot)
     with (
-        patch("server.app.api.v1.hub_chat.GraphFactory",
+        patch("server.app.modules.agents_hub.services.turno_de_chat.GraphFactory",
                   return_value=MagicMock(build=AsyncMock(return_value=graph))),
-        patch("server.app.api.v1.hub_chat.resolve_embedding_service", new_callable=AsyncMock),
-        patch("server.app.api.v1.hub_chat.get_model", new_callable=AsyncMock),
+        patch("server.app.modules.agents_hub.services.turno_de_chat.resolve_embedding_service", new_callable=AsyncMock),
+        patch("server.app.modules.agents_hub.services.turno_de_chat.get_model", new_callable=AsyncMock),
     ):
         with TestClient(app) as client:
             with client.stream(
@@ -250,7 +250,7 @@ class TestRetrievalModeDispatch:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        "mode,esperado",
+        ("mode", "esperado"),
         [
             ("RAG", "RagVectorPipeline"),
             ("MD_LONG_CONTEXT", "MdLongContextPipeline"),
@@ -423,13 +423,13 @@ class TestWidgetKeyAuth:
         app = _build_test_app(chatbot)
         with (
             patch(
-                "server.app.api.v1.hub_chat.GraphFactory",
+                "server.app.modules.agents_hub.services.turno_de_chat.GraphFactory",
                 return_value=MagicMock(
                     build=AsyncMock(return_value=_make_mock_graph_with_sources([]))
                 ),
             ),
-            patch("server.app.api.v1.hub_chat.resolve_embedding_service", new_callable=AsyncMock),
-            patch("server.app.api.v1.hub_chat.get_model", new_callable=AsyncMock),
+            patch("server.app.modules.agents_hub.services.turno_de_chat.resolve_embedding_service", new_callable=AsyncMock),
+            patch("server.app.modules.agents_hub.services.turno_de_chat.get_model", new_callable=AsyncMock),
             patch(
                 "server.app.api.v1.hub_chat.resolver_widget_key",
                 new=AsyncMock(return_value=widget_key_row),

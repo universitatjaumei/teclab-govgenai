@@ -97,6 +97,13 @@ def _compute_breaking_changes(
 # Service
 # ---------------------------------------------------------------------------
 
+def _existe(valor, que: str):
+    """Lo que la base garantiza por clave ajena; si falta, el dato está roto y se dice cuál."""
+    if valor is None:
+        raise LookupError(f"falta {que}: el workspace apunta a algo que ya no existe")
+    return valor
+
+
 class TemplateMigrationService:
     def __init__(self, session: AsyncSession) -> None:
         self._ws_repo = WorkspaceRepo(session)
@@ -111,13 +118,16 @@ class TemplateMigrationService:
         if workspace is None:
             raise WorkspaceNotFoundError(f"Workspace {workspace_id} not found")
 
-        current_version = await self._ver_repo.get(workspace.template_version_id)
-        template = await self._tpl_repo.get(current_version.template_id)
+        current_version = _existe(
+            await self._ver_repo.get(workspace.template_version_id), "la versión del workspace"
+        )
+        template = _existe(await self._tpl_repo.get(current_version.template_id), "su plantilla")
 
         if template.current_version_id == workspace.template_version_id:
             return None
 
-        latest_version = await self._ver_repo.get(template.current_version_id)
+        latest_id = _existe(template.current_version_id, "la versión vigente de la plantilla")
+        latest_version = _existe(await self._ver_repo.get(latest_id), "la versión vigente")
         breaking = _compute_breaking_changes(
             current_version.spec_json, latest_version.spec_json
         )
@@ -127,7 +137,7 @@ class TemplateMigrationService:
         )
         return NewVersionNotice(
             current_version_id=workspace.template_version_id,
-            latest_version_id=template.current_version_id,
+            latest_version_id=latest_id,
             changes_summary=summary,
             breaking_changes=breaking,
         )
@@ -147,8 +157,10 @@ class TemplateMigrationService:
                 "Only the workspace owner can trigger migration"
             )
 
-        target_version = await self._ver_repo.get(target_version_id)
-        current_version = await self._ver_repo.get(workspace.template_version_id)
+        target_version = _existe(await self._ver_repo.get(target_version_id), "la versión de destino")
+        current_version = _existe(
+            await self._ver_repo.get(workspace.template_version_id), "la versión del workspace"
+        )
 
         breaking = _compute_breaking_changes(
             current_version.spec_json, target_version.spec_json

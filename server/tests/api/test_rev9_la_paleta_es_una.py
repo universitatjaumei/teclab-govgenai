@@ -64,7 +64,7 @@ def test_should_have_the_index_css_file_where_this_test_expects_it() -> None:
     assert _INDEX_CSS.is_file(), f"no está {_INDEX_CSS}"
 
 
-@pytest.mark.parametrize("campo,variable", sorted(CORRESPONDENCIA.items()))
+@pytest.mark.parametrize(("campo", "variable"), sorted(CORRESPONDENCIA.items()))
 def test_should_default_to_the_colour_the_panel_actually_paints(campo: str, variable: str) -> None:
     """**El test del prompt.** El valor por omisión del contrato tiene que ser el que el panel
     pinta hoy sin tema ninguno.

@@ -7,10 +7,10 @@ Módulo: chatbots — ya lo declaraba a nivel de router.
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Literal
+from typing import Any, cast, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, computed_field, field_validator
 from sqlalchemy import delete as sql_delete
 from sqlalchemy import func
 from sqlalchemy import select
@@ -44,6 +44,9 @@ from server.app.modules.agents_hub.services.embedding_space import (
     EmbeddingSpaceMismatch,
     assert_embedding_space_matches,
 )
+from server.app.modules.agents_hub.services.retrieval.long_context_strategy import (
+    LONG_CONTEXT_TOKEN_LIMIT,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +67,11 @@ class DisponibilidadOut(BaseModel):
     reason: str | None
     tokens_used: int
     total_token_budget: int | None
+
+
+def _puede_ser_hijo(chatbot: Any) -> bool:
+    """Un enrutador no es hijo de nadie, y un hijo no tiene hijos: dos niveles, como al guardar."""
+    return chatbot.kind == "atomic" and chatbot.parent_chatbot_id is None
 
 
 class ChatbotRead(BaseModel):
@@ -128,6 +136,12 @@ class ChatbotRead(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def puede_ser_hijo(self) -> bool:
+        """Si se puede asignar a un enrutador: la jerarquía es de dos niveles (#277)."""
+        return _puede_ser_hijo(self)
 
 
 class ChatbotCreate(BaseModel):
@@ -265,6 +279,10 @@ class CorpusStatsOut(BaseModel):
     by_language: dict[str, int]
     recommended_mode: str
     recommendation_reason: str
+    #: #277 — el límite del modo MD_LONG_CONTEXT y si el corpus cabe. El formulario los comparaba
+    #: con el límite escrito en el cliente; si el límite cambia, cambia aquí y en ningún sitio más.
+    limite_contexto_largo: int
+    cabe_en_contexto_largo: bool
 
 
 class RegenerateChunksOut(BaseModel):
@@ -331,7 +349,7 @@ async def _leer_con_disponibilidad(session, chatbot) -> ChatbotRead:
     return ChatbotRead.model_validate(chatbot).model_copy(
         update={
             "availability": DisponibilidadOut(
-                state=estado.state,
+                state=cast(Any, estado.state),
                 reason=estado.reason,
                 tokens_used=estado.tokens_used,
                 total_token_budget=estado.total_token_budget,
@@ -390,7 +408,7 @@ def _primera_linea(objeto: object) -> str | None:
 
 
 @router.get("/opciones-de-grafo", response_model=OpcionesDeGrafoOut)
-async def opciones_de_grafo(user: UserInfo = Depends(_require_admin)):
+async def opciones_de_grafo(user: UserInfo = Depends(_require_admin)):  # noqa: ARG001 — autoriza: se pide por su efecto
     """Perfiles, modos y estrategias disponibles, con su origen.
 
     Acotado a admin/superadmin como el resto del router. No lleva datos de ninguna organización
@@ -620,7 +638,7 @@ async def update_chatbot(
             )
         )
         total_tokens = int(total_tokens_row.scalar_one() or 0)
-        if total_tokens > 128_000:
+        if total_tokens > LONG_CONTEXT_TOKEN_LIMIT:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=(
@@ -705,7 +723,7 @@ async def get_corpus_stats(
     )
     by_language = {str(lang): int(tokens or 0) for lang, tokens in by_lang_rows.all()}
 
-    context_window = 128_000
+    context_window = LONG_CONTEXT_TOKEN_LIMIT
 
     recommended_mode, recommendation_reason = recommend_retrieval_mode(
         total_tokens=total_tokens,
@@ -718,6 +736,8 @@ async def get_corpus_stats(
         by_language=by_language,
         recommended_mode=recommended_mode,
         recommendation_reason=recommendation_reason,
+        limite_contexto_largo=LONG_CONTEXT_TOKEN_LIMIT,
+        cabe_en_contexto_largo=total_tokens <= LONG_CONTEXT_TOKEN_LIMIT,
     )
 
 

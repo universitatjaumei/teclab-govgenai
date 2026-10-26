@@ -47,7 +47,7 @@ CLAVE_METADATO = "vigencia_no_validada"
 
 
 def vigencia_no_validada(
-    estat_vigencia: str | None,
+    estat_vigencia: str | None,  # noqa: ARG001 — ACT.4 retiró la rama del estado; la firma la comparten los llamantes
     vigencia_validada_el: Any | None,
 ) -> bool:
     """True si el documento no puede presentarse como vigente sin advertirlo.

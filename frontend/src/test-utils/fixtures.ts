@@ -1,5 +1,5 @@
 import type { WorkspaceData } from '@/redaccion/components/WorkspaceEditor'
-import type { PreviewPayload } from '@/redaccion/preview/PreviewRenderer'
+import type { PreviewPayload } from '@/shared/api/generated/model'
 
 interface MockWorkspaceOptions {
   block1State?: string

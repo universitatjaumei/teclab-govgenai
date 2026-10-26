@@ -88,6 +88,7 @@ def _run(*args: str, env: dict[str, str] | None = None):
         [_BASH, str(VOLCADO), *args],
         cwd=RAIZ, capture_output=True, text=True, timeout=60,
         env={**os.environ, **(env or {})},
+        check=False,
     )
 
 
@@ -355,9 +356,8 @@ def test_la_organizacion_tiene_que_ser_un_uuid() -> None:
 def test_la_conexion_no_esta_cableada() -> None:
     texto = _texto()
     assert "DATABASE_URL_SYNC" in texto
-    assert "postgres:5432" not in texto and "localhost" not in texto, (
-        "El DSN se lee del entorno; cablearlo apunta al portátil de quien lo escribió."
-    )
+    assert "postgres:5432" not in texto, "El DSN se lee del entorno; cablearlo apunta al portátil de quien lo escribió."
+    assert "localhost" not in texto, "El DSN se lee del entorno; cablearlo apunta al portátil de quien lo escribió."
 
 
 def test_el_plan_en_seco_enumera_las_dos_listas_y_no_toca_la_base() -> None:
@@ -365,6 +365,7 @@ def test_el_plan_en_seco_enumera_las_dos_listas_y_no_toca_la_base() -> None:
     resultado = _run("--organizacion", "5d0c6a7e-3b1f-4c2a-9e8d-1a2b3c4d5e6f", "--salida", "x.sql",
                      "--dry-run", env={"PATH": solo_bash, "DATABASE_URL_SYNC": ""})
     assert resultado.returncode == 0, resultado.stderr
-    assert "Viajan" in resultado.stdout and "NO viajan" in resultado.stdout
+    assert "Viajan" in resultado.stdout
+    assert "NO viajan" in resultado.stdout
     for tabla in ("hub_documents", "hub_workspaces"):
         assert tabla in resultado.stdout, f"{tabla} no aparece en el plan"

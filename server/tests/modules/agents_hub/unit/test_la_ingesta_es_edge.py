@@ -49,7 +49,8 @@ def test_la_ingesta_se_registra_en_el_edge_y_no_en_el_cloud() -> None:
 
 def test_la_etiqueta_dice_lo_mismo_que_el_registro() -> None:
     texto = (ROUTERS / "hub_ingestion_router.py").read_text(encoding="utf-8")
-    assert "Deploy: edge" in texto and "Deploy: cloud" not in texto
+    assert "Deploy: edge" in texto
+    assert "Deploy: cloud" not in texto
 
 
 def _routers_cloud() -> dict[str, str]:

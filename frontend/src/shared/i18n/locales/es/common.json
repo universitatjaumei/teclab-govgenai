@@ -25,5 +25,8 @@
   "sample_rows": "filas",
   "sample_help": "Si lo aportas, la IA verá los nombres de las columnas y su tipo. Los valores se anonimizan antes de enviarse.",
   "new_version": "Hay una versión nueva del panel.",
-  "reload": "Recargar"
+  "reload": "Recargar",
+  "error_boundary_title": "Algo ha fallado en esta pantalla",
+  "error_boundary_body": "El resto del panel sigue funcionando. Puedes volver a intentarlo o ir a otra sección.",
+  "error_boundary_retry": "Volver a intentarlo"
 }

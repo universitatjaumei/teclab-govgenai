@@ -31,7 +31,8 @@ EJEMPLO = RAIZ / "docs" / "ejemplos" / "funciones" / "presupuesto"
 
 def _modulo(ruta: Path, nombre: str):
     spec = importlib.util.spec_from_file_location(nombre, ruta)
-    assert spec and spec.loader
+    assert spec
+    assert spec.loader
     modulo = importlib.util.module_from_spec(spec)
     sys.modules[nombre] = modulo
     spec.loader.exec_module(modulo)
@@ -250,7 +251,7 @@ class TestElDocumento:
         )
         assert "cap_desc" in neto.columns
         for persona in DATOS.PERSONAS:
-            assert not neto.apply(lambda c: c.str.contains(persona, regex=False)).any().any()
+            assert not neto.apply(lambda c: c.str.contains(persona, regex=False)).any().any()  # noqa: B023
 
         # El Word se abre, lleva el título pedido y la prosa con las cifras puestas.
         word = Document(io.BytesIO(_artefacto(almacen, segunda, "pressupost_uji.docx")))

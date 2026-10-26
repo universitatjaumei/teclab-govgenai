@@ -62,10 +62,15 @@ def test_hay_configuracion_y_declara_su_alcance() -> None:
 
 def test_el_alcance_de_hoy_es_el_nucleo() -> None:
     incluido = _pyright().get("include", [])
-    assert any("app/core" in ruta for ruta in incluido), (
-        f"`app/core` ha salido del alcance ({incluido}). Es lo compartido y lo que más se "
-        "importa: si se reduce el alcance, que sea una decisión escrita y no un descuido."
+    excluido = _pyright().get("exclude", [])
+    # Desde #275 el alcance es `app` entero, que contiene el núcleo; lo que no puede pasar es que
+    # el núcleo acabe en la lista de excluidos.
+    mensaje = (
+        f"`app/core` ha salido del alcance ({incluido}, sin {excluido}). Es lo compartido y lo "
+        "que más se importa: si se reduce el alcance, que sea una decisión escrita y no un descuido."
     )
+    assert any(ruta in ("app", "app/core") for ruta in incluido), mensaje
+    assert not any("app/core" in ruta for ruta in excluido), mensaje
 
 
 def test_pyright_resuelve_los_imports_del_proyecto() -> None:

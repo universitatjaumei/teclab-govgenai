@@ -27,7 +27,7 @@ os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://x:x@localhost/x")
 os.environ.setdefault("DATABASE_URL_SYNC", "postgresql+psycopg2://x:x@localhost/x")
 
 # El conftest añade AI_agents_hub/ a sys.path → el prefijo correcto es server.app.*
-from server.app.main import app  # noqa: E402
+from server.app.main import app
 
 # server/tests/test_openapi_export.py → parents[1] = server/
 _SERVER_ROOT = Path(__file__).parents[1]

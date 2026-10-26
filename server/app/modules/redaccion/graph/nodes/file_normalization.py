@@ -15,6 +15,7 @@ dentro de la cual `/tmp` está permitido.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import tempfile
 from pathlib import Path
@@ -57,7 +58,7 @@ class FileNormalizationNode:
                 continue
 
             ruta = destino / f"{slot_id}{Path(artifact.filename).suffix}"
-            ruta.write_bytes(contenido)
+            await asyncio.to_thread(ruta.write_bytes, contenido)
             normalized[slot_id] = str(ruta)
 
         return {"artifacts_normalized": normalized}

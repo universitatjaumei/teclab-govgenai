@@ -63,9 +63,8 @@ class TestLaImagenNoEsPrivilegiada:
     def test_la_imagen_sigue_anclada_por_version(self, dockerfile: str) -> None:
         """Lo mismo que pide la issue #43, que no se pierda al cambiar de imagen."""
         runtime = re.findall(r"^FROM\s+(\S+)", dockerfile, re.MULTILINE)[-1]
-        assert ":latest" not in runtime and ":" in runtime, (
-            f"«{runtime}» no fija versión"
-        )
+        assert ":latest" not in runtime, f"«{runtime}» no fija versión"
+        assert ":" in runtime, f"«{runtime}» no fija versión"
 
 
 class TestElPuertoEsUnaSolaVerdad:
@@ -94,7 +93,11 @@ class TestElPuertoEsUnaSolaVerdad:
     def test_caddy_reenvia_a_ese_puerto(self) -> None:
         caddy = CADDYFILE.read_text(encoding="utf-8")
         destinos = re.findall(r"reverse_proxy\s+frontend:(\d+)", caddy)
-        assert destinos and set(destinos) == {str(PUERTO)}, (
+        assert destinos, (
+            f"el `Caddyfile` reenvía al frontend por {destinos or 'ningún puerto'}. Es lo que "
+            "sirve `/panel/` en producción: con el puerto viejo, 502."
+        )
+        assert set(destinos) == {str(PUERTO)}, (
             f"el `Caddyfile` reenvía al frontend por {destinos or 'ningún puerto'}. Es lo que "
             "sirve `/panel/` en producción: con el puerto viejo, 502."
         )
@@ -143,7 +146,11 @@ def test_ci_arranca_el_frontend_y_le_pregunta_quien_es() -> None:
     datos = yaml.safe_load(CI.read_text(encoding="utf-8"))
     pasos = datos["jobs"]["imagen"]["steps"]
     guiones = " ".join(p.get("run") or "" for p in pasos)
-    assert "govgenai/frontend:ci" in guiones and "docker run" in guiones, (
+    assert "govgenai/frontend:ci" in guiones, (
+        "el job `imagen` construye la imagen del frontend pero no la arranca, así que nadie "
+        "comprueba de verdad como qué usuario corre."
+    )
+    assert "docker run" in guiones, (
         "el job `imagen` construye la imagen del frontend pero no la arranca, así que nadie "
         "comprueba de verdad como qué usuario corre."
     )

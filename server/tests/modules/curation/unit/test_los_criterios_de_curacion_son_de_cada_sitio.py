@@ -67,10 +67,10 @@ class _Sesion:
         filas = self._paginas if getattr(stmt, "_model_hint", "page") == "page" else []
 
         class _R:
-            def scalars(self_inner) -> Any:  # noqa: N805
+            def scalars(self_inner) -> Any:
                 return self_inner
 
-            def all(self_inner) -> list:  # noqa: N805
+            def all(self_inner) -> list:
                 return filas
 
         return _R()
@@ -151,8 +151,10 @@ async def test_un_portal_donde_la_version_nueva_si_deroga_a_la_vieja():
     como_serie = await _tipos(paginas, version_series_policy="series")
     como_supersesion = await _tipos(paginas, version_series_policy="superseded")
 
-    assert "version_series" in como_serie and "superseded" not in como_serie
-    assert "superseded" in como_supersesion and "version_series" not in como_supersesion
+    assert "version_series" in como_serie
+    assert "superseded" not in como_serie
+    assert "superseded" in como_supersesion
+    assert "version_series" not in como_supersesion
 
 
 @pytest.mark.asyncio

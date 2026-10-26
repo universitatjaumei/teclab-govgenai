@@ -408,3 +408,9 @@ function deepMerge<T extends object>(target: T, source: DeepPartial<T>): T {
 
   return result;
 }
+
+/** Dónde se recuerda el tema elegido en este navegador. El cierre de sesión lo olvida (#278). */
+export const CLAVE_DEL_TEMA = 'chatbot-theme'
+
+/** Se emite al olvidar el tema guardado, para que el `ThemeProvider` montado vuelva al de serie. */
+export const TEMA_OLVIDADO = 'govgenai:tema-olvidado'

@@ -141,7 +141,7 @@ class TestAvisoDeDesplazamiento:
 
         salidas = [hidratar_desplazamiento(t, doc, _fragmento()) for t in trozos]
 
-        assert all(s != t for s, t in zip(salidas, trozos)), (
+        assert all(s != t for s, t in zip(salidas, trozos, strict=True)), (
             "algun trozo del articulo desplazado se quedo sin aviso"
         )
 

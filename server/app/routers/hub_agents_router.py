@@ -8,13 +8,24 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from server.app.api.deps import get_current_user
+from server.app.api.deps import get_current_user, get_session
 from server.app.core.auth.models import UserInfo
+from server.app.core.auth.tenancy import assert_chatbot_org_access
 from server.app.core.storage import StorageService, get_storage_service
+from server.app.modules.agents_hub.database.operational_models import HubInteraction
 from server.app.modules.agents_hub.services.export_service import ExportService
 
 router = APIRouter(prefix="/hub/agents", tags=["hub-agents"])
+
+
+def get_export_service(
+    storage: StorageService = Depends(get_storage_service),
+) -> ExportService:
+    """La exportación a DOCX/ODT, sobre el almacenamiento configurado (#274)."""
+    return ExportService(storage=storage)
 
 
 class ExportRequest(BaseModel):
@@ -37,35 +48,29 @@ async def export_agent_workspace(
     workspace_id: str,
     body: ExportRequest,
     user: UserInfo = Depends(get_current_user),
-    storage: StorageService = Depends(get_storage_service),
+    session: AsyncSession = Depends(get_session),
+    service: ExportService = Depends(get_export_service),
 ) -> ExportOut:
     """Exporta el final_document de un workspace de agentes a DOCX u ODT.
 
     Requiere que el workspace tenga un final_document generado por el grafo LangGraph.
     Deploy: edge
     """
-    from server.app.core.auth.tenancy import assert_chatbot_org_access
-    from server.app.api.deps import get_session
-    from server.app.modules.agents_hub.database.operational_models import HubInteraction
-    from sqlalchemy import select
-
     # SEC.9.6 — antes esta consulta era `where(user_id == user.user_id).limit(1)`: **ignoraba el
     # `workspace_id` de la ruta** y devolvía una interacción cualquiera del usuario, presentada
     # como el workspace pedido. No era sólo un fallo de autorización: el DOCX exportado no era
     # el documento que se había pedido, y nada lo delataba.
-    async for session in get_session():
-        result = await session.execute(
-            select(HubInteraction).where(
-                HubInteraction.id == workspace_id,
-                HubInteraction.user_id == user.user_id,
-            )
+    result = await session.execute(
+        select(HubInteraction).where(
+            HubInteraction.id == workspace_id,
+            HubInteraction.user_id == user.user_id,
         )
-        interaction = result.scalar_one_or_none()
-        if interaction is not None:
-            # `hub_interactions` se acota por su chatbot (docs/MULTITENENCIA.md), así que la
-            # propiedad no basta: la organización manda.
-            await assert_chatbot_org_access(session, interaction.chatbot_id, user)
-        break
+    )
+    interaction = result.scalar_one_or_none()
+    if interaction is not None:
+        # `hub_interactions` se acota por su chatbot (docs/MULTITENENCIA.md), así que la
+        # propiedad no basta: la organización manda.
+        await assert_chatbot_org_access(session, interaction.chatbot_id, user)
 
     if interaction is None:
         raise HTTPException(
@@ -78,7 +83,6 @@ async def export_agent_workspace(
     class _SimpleManifest:
         retrieved_chunks = []
 
-    service = ExportService(storage=storage)
     export_result = await service.export(
         workspace_id=workspace_id,
         final_document=final_document,

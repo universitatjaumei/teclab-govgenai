@@ -1,50 +1,16 @@
 import DOMPurify from 'dompurify'
+import { useTranslation } from 'react-i18next'
 
-export interface TocEntry {
-  level: number
-  title: string
-}
+import type { PreviewBlock, PreviewPayload } from '@/shared/api/generated/model'
 
-export interface PreviewBlock {
-  block_id: string
-  kind: string
-  state: string
-  html: string
-  citations: string[]
-}
-
-export interface PreviewSection {
-  level: number
-  title: string
-  blocks: PreviewBlock[]
-}
-
-export interface PreviewAuditEntry {
-  chunk_id: string
-  source_url: string | null
-  source_filename: string | null
-  page: number | null
-  model_used: string | null
-  prompt_version: string | null
-  approvals: string[]
-}
-
-export interface PreviewPayload {
-  workspace_id: string
-  template_version_id: string
-  cover: PreviewSection
-  toc: TocEntry[]
-  body: PreviewSection[]
-  audit_annex: PreviewAuditEntry[]
-  manifest_id: string
-  generated_at: string
-}
-
+// #277 — los tipos son los del contrato. Aquí había una copia escrita a mano de cada uno, y el
+// payload que devolvía la API se casteaba a ella con `as unknown as`.
 interface Props {
   payload: PreviewPayload
 }
 
 export function PreviewRenderer({ payload }: Props) {
+  const { t } = useTranslation('redaccion')
   const citationIndex = _buildCitationIndex(payload)
 
   return (
@@ -55,9 +21,9 @@ export function PreviewRenderer({ payload }: Props) {
       </section>
 
       <section data-preview-section="toc" className="preview-toc">
-        <h2>Índice</h2>
+        <h2>{t('preview_index_title')}</h2>
         <ol>
-          {payload.toc.map((entry, i) => (
+          {(payload.toc ?? []).map((entry, i) => (
             <li key={i} style={{ marginLeft: `${(entry.level - 1) * 1.5}rem` }}>
               {entry.title}
             </li>
@@ -66,10 +32,10 @@ export function PreviewRenderer({ payload }: Props) {
       </section>
 
       <section data-preview-section="body" className="preview-body">
-        {payload.body.map((section, si) => (
+        {(payload.body ?? []).map((section, si) => (
           <div key={si} className="preview-section">
             <h2>{section.title}</h2>
-            {section.blocks.map((block) => (
+            {(section.blocks ?? []).map((block) => (
               <div key={block.block_id} className="preview-block">
                 {_renderBlock(block, citationIndex)}
               </div>
@@ -79,22 +45,22 @@ export function PreviewRenderer({ payload }: Props) {
       </section>
 
       <section data-preview-section="audit-annex" className="preview-audit">
-        <h2>Anexo de auditoría</h2>
-        {payload.audit_annex.length === 0 ? (
-          <p>Sin citas registradas.</p>
+        <h2>{t('preview_audit_title')}</h2>
+        {(payload.audit_annex ?? []).length === 0 ? (
+          <p>{t('preview_no_citations')}</p>
         ) : (
           <table>
             <thead>
               <tr>
                 <th>#</th>
-                <th>Fuente</th>
-                <th>Página</th>
-                <th>Modelo</th>
-                <th>Versión prompt</th>
+                <th>{t('preview_col_source')}</th>
+                <th>{t('preview_col_page')}</th>
+                <th>{t('preview_col_model')}</th>
+                <th>{t('preview_col_prompt_version')}</th>
               </tr>
             </thead>
             <tbody>
-              {payload.audit_annex.map((entry, i) => (
+              {(payload.audit_annex ?? []).map((entry, i) => (
                 <tr key={entry.chunk_id} id={`audit-${entry.chunk_id}`}>
                   <td>{i + 1}</td>
                   <td>{entry.source_filename ?? entry.source_url ?? '—'}</td>
@@ -117,9 +83,9 @@ export function PreviewRenderer({ payload }: Props) {
 
 function _buildCitationIndex(payload: PreviewPayload): Map<string, number> {
   const index = new Map<string, number>()
-  payload.audit_annex.forEach((entry, i) => {
+  for (const [i, entry] of (payload.audit_annex ?? []).entries()) {
     index.set(entry.chunk_id, i + 1)
-  })
+  }
   return index
 }
 
@@ -129,9 +95,9 @@ function _renderBlock(block: PreviewBlock, citationIndex: Map<string, number>) {
   return (
     <>
       <div dangerouslySetInnerHTML={{ __html: cleanHtml }} />
-      {block.citations.length > 0 && (
+      {(block.citations ?? []).length > 0 && (
         <span className="preview-citations">
-          {block.citations.map((chunkId) => {
+          {(block.citations ?? []).map((chunkId) => {
             const num = citationIndex.get(chunkId) ?? '?'
             return (
               <sup key={chunkId}>

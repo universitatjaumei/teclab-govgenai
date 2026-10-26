@@ -233,6 +233,20 @@ class TestGateDeAcceso:
         assert puede_depurar(con, admin) is True
         assert puede_depurar(sin, admin) is False
 
+    def test_should_reject_the_widget_without_a_session(self):
+        """#275 — el widget llega con su credencial de sitio y **sin sesión**: `user` es `None`.
+
+        Lo destapó pyright al ampliarse a `api/`: la función leía `user.role` sin mirar, así que
+        pedir el bypass desde el widget daba un 500 en vez del 403 que le corresponde.
+        """
+        from types import SimpleNamespace
+
+        from server.app.api.v1.hub_chat import puede_depurar
+
+        peticion = SimpleNamespace(state=SimpleNamespace(pat_scopes=None))
+
+        assert puede_depurar(peticion, None) is False
+
 
 class TestEndpointDeBypass:
 
@@ -324,14 +338,14 @@ class TestEndpointDeBypass:
         grafo.compile = MagicMock(return_value=compilado)
 
         with patch(
-            "server.app.api.v1.hub_chat.GraphFactory",
+            "server.app.modules.agents_hub.services.turno_de_chat.GraphFactory",
             return_value=MagicMock(build=AsyncMock(return_value=grafo)),
         ), patch(
-            "server.app.api.v1.hub_chat.resolve_embedding_service", new_callable=AsyncMock
+            "server.app.modules.agents_hub.services.turno_de_chat.resolve_embedding_service", new_callable=AsyncMock
         ), patch(
-            "server.app.api.v1.hub_chat.assert_embedding_space_matches",
+            "server.app.modules.agents_hub.services.turno_de_chat.assert_embedding_space_matches",
             new_callable=AsyncMock,
-        ), patch("server.app.api.v1.hub_chat.get_model", new_callable=AsyncMock):
+        ), patch("server.app.modules.agents_hub.services.turno_de_chat.get_model", new_callable=AsyncMock):
             resp = cliente.post(
                 f"/api/v1/hub/chat/{chatbot.id}",
                 json={"message": "hola", "debug_bypass": True},

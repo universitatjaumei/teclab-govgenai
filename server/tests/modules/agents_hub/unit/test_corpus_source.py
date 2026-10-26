@@ -131,7 +131,8 @@ class TestListado:
             await _fuente(tmp_path).list_entries()
 
         mensaje = str(exc.value)
-        assert "REG-008" in mensaje and "REG-009" in mensaje
+        assert "REG-008" in mensaje
+        assert "REG-009" in mensaje
 
 
 class TestManifiesto:

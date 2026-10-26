@@ -48,20 +48,16 @@ async def test_should_queue_the_generation_for_the_workspace():
 
     original = router_modulo._get_workspace
     router_modulo._get_workspace = _propietario
-    servicio_original = router_modulo.WorkspaceRunService
-    router_modulo.WorkspaceRunService = MagicMock(
-        return_value=MagicMock(start_run=AsyncMock(return_value=resultado))
-    )
     try:
         salida = await run_workspace(
             workspace_id=workspace_id,
             background_tasks=tareas,
             user=UserInfo(user_id="1", email="admin@example.local", role="superadmin"),
             session=session,
+            svc=MagicMock(start_run=AsyncMock(return_value=resultado)),
         )
     finally:
         router_modulo._get_workspace = original
-        router_modulo.WorkspaceRunService = servicio_original
 
     assert salida.status == "queued"
     assert tareas.encoladas, "el endpoint responde 202 y no encola nada: el informe no se genera"

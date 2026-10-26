@@ -61,7 +61,8 @@ class TestDependenciasQueNoSePuedenCumplir:
             "`b_analisi` depende de un bloque declarado después: cuando le toque, su dependencia "
             "no habrá producido nada y se redactará igual"
         )
-        assert "b_analisi" in problemas[0] and "b_dades" in problemas[0]
+        assert "b_analisi" in problemas[0]
+        assert "b_dades" in problemas[0]
 
     def test_un_ciclo_se_senala(self):
         from server.app.modules.redaccion.services.estructura_del_informe import (

@@ -212,7 +212,7 @@ class ResultadoDelContrato:
 def aplicar_contrato(
     response_text: str,
     sources: list,
-    mode: str,
+    mode: str,  # noqa: ARG001 — el agéntico se distingue por `sources` vacío; `mode` sigue en la firma pública de VAS.1
     no_answer_message: str | None = None,
 ) -> ResultadoDelContrato:
     """El contrato de citas, con el desglose de lo que hizo. **La única implementación.**
@@ -265,7 +265,7 @@ def aplicar_contrato(
 
     anclas_degradadas = sum(
         1
-        for (_t1, u1), (_t2, u2) in zip(antes, tras_degradar)
+        for (_t1, u1), (_t2, u2) in zip(antes, tras_degradar, strict=False)
         if u1 != u2
     )
     urls_finales = {u for _t, u in finales}

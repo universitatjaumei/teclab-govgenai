@@ -46,7 +46,7 @@ def generic_template(cfg: Any, deps: Any, llm: Any = None):
 
     return GenericAnswerTemplateStrategy(
         base_system_prompt=getattr(cfg, "system_prompt", None),
-        retrieval_mode=getattr(cfg, "retrieval_mode", None),
+        retrieval_mode=getattr(cfg, "retrieval_mode", None) or "RAG",
         router_index=getattr(cfg, "router_index", None),
     )
 

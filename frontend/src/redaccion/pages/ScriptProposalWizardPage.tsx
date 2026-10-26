@@ -12,13 +12,10 @@ import {
 } from '@/shared/api/generated/redaccion-scripts/redaccion-scripts'
 import { useCategoriasDeDatos } from '@/shared/api/generated/actividad/actividad'
 import type {
-  AnonymizeTestDataResponse,
+  AnonymizeTestDataRequestKind,
   ColumnSubstitution,
-  DescribeColumnsResponse,
-  ProposeResponse,
+  ServerAppRoutersRedaccionScriptsRouterProposeRequestTargetOwnerKind,
   StorageRef,
-  TestProposalResponse,
-  ValidateTestResultResponse,
 } from '@/shared/api/generated/model'
 import { ScriptCodePreview } from '../components/ScriptCodePreview'
 import { ModelAuditVerdict } from '../components/ModelAuditVerdict'
@@ -27,9 +24,11 @@ import { sustitutoDe } from '../components/sustitutoDe'
 import { SandboxTestResultViewer } from '../components/SandboxTestResultViewer'
 import { InformeAnonimizacion } from '../components/InformeAnonimizacion'
 
-type TargetOwnerKind = 'user' | 'platform'
+// #277 — los dos tipos que son del servidor salen del contrato; el paso del asistente es de la
+// pantalla.
+type TargetOwnerKind = ServerAppRoutersRedaccionScriptsRouterProposeRequestTargetOwnerKind
 type WizardStep = 1 | 2 | 3 | 4 | 5 | 6 | 7
-type TestDataKind = 'xlsx' | 'csv' | 'pdf_text'
+type TestDataKind = AnonymizeTestDataRequestKind
 
 const STEP_COUNT = 7
 
@@ -89,7 +88,7 @@ export function ScriptProposalWizardPage() {
   // dejaría a la persona sin poder declarar y por tanto sin poder compartir.
   const categoriasHook = useCategoriasDeDatos()
   const delServidor = (
-    (categoriasHook.data as unknown as { codigo: string }[] | undefined) ?? []
+    categoriasHook.data ?? []
   ).map(c => c.codigo)
   const categoriasConocidas = delServidor.length > 0 ? delServidor : CATEGORIAS_SEMILLA
 
@@ -102,12 +101,12 @@ export function ScriptProposalWizardPage() {
   const saveHook = useSaveScriptToPrivateTemplate()
   const submitHook = useSubmitScriptForReview()
 
-  const proposal = proposeHook.data as unknown as ProposeResponse | undefined
-  const testResult = testHook.data as unknown as TestProposalResponse | undefined
-  const validated = validateHook.data as unknown as ValidateTestResultResponse | undefined
-  const subida = describeHook.data as unknown as DescribeColumnsResponse | undefined
-  const anonimizado = anonymizeHook.data as unknown as AnonymizeTestDataResponse | undefined
-  const spansPdf = previewHook.data as unknown as { file_ref: StorageRef } | undefined
+  const proposal = proposeHook.data
+  const testResult = testHook.data
+  const validated = validateHook.data
+  const subida = describeHook.data
+  const anonimizado = anonymizeHook.data
+  const spansPdf = previewHook.data
 
   // El fichero original sale de la subida tabular o de la vista previa del PDF; el que se
   // ejecuta es el sintético si se ha anonimizado, y el original si se omitió.

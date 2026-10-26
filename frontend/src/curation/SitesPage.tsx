@@ -146,7 +146,7 @@ export function SitesPage() {
     setReconocimiento(null)
     try {
       const informe = await reconocerMutation.mutateAsync({ data: parametrosDelSondeo() })
-      setReconocimiento(informe as unknown as ReconnaissanceView)
+      setReconocimiento(informe)
     } catch (fallo) {
       setErrorReconocimiento(fallo instanceof Error ? fallo.message : String(fallo))
     }

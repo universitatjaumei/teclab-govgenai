@@ -185,7 +185,7 @@ def _validar_extension(filename: str | None, extensiones: tuple[str, ...]) -> No
         )
 
 
-def _validar_contenido(cabecera: bytes, kind: UploadKind, magic: tuple[bytes, ...]) -> None:
+def _validar_contenido(cabecera: bytes, magic: tuple[bytes, ...]) -> None:
     if not cabecera:
         _rechazar("El fichero está vacío.")
 
@@ -269,7 +269,7 @@ async def validate_upload(
         buffer.write(trozo)
 
     try:
-        _validar_contenido(cabecera, kind, reglas["magic"])
+        _validar_contenido(cabecera, reglas["magic"])
     except HTTPException:
         buffer.close()
         raise

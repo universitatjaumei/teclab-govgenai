@@ -91,6 +91,7 @@
   "confirm": "Confirmar",
   "dismiss": "Descartar",
   "resolve": "Resoldre",
+  "reopen": "Reobrir",
   "no_findings": "No hi ha troballes actives per a aquest lloc",
   "severity_critical": "Crític",
   "severity_warning": "Avís",

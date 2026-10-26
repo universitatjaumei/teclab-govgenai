@@ -216,7 +216,8 @@ async def test_sin_anclaje_se_conserva_el_comportamiento_anterior() -> None:
     await AIAssistDraftNode(llm)(estado)
 
     contexto = llm.generate.await_args_list[0].kwargs["context"]
-    assert "PRIMERA" in contexto and "SEGUNDA" in contexto
+    assert "PRIMERA" in contexto
+    assert "SEGUNDA" in contexto
 
 
 # ----------------------------------------------------------------------

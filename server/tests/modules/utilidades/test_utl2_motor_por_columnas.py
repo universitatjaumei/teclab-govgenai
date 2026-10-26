@@ -92,7 +92,7 @@ class TestUnNombreFalsoTieneLaFormaDelVerdadero:
     """
 
     @pytest.mark.parametrize(
-        "columna, original",
+        ("columna", "original"),
         [("Nombre completo", "Ana García López"), ("Persona", "Joan Puig"), ("Apellidos", "García López")],
     )
     def test_tantas_palabras_como_el_original(self, columna, original):

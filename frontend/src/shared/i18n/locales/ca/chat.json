@@ -19,5 +19,8 @@
   },
   "widget_title": "Assistent",
   "ai_disclaimer": "Assistent creat amb intel·ligència artificial. Les respostes poden contindre errors i no han passat revisió lingüística: contrasta sempre amb la norma citada.",
-  "ai_disclaimer_model": "Assistent creat amb intel·ligència artificial ({{model}}). Les respostes poden contindre errors i no han passat revisió lingüística: contrasta sempre amb la norma citada."
+  "ai_disclaimer_model": "Assistent creat amb intel·ligència artificial ({{model}}). Les respostes poden contindre errors i no han passat revisió lingüística: contrasta sempre amb la norma citada.",
+  "error_unauthorized": "Aquest assistent no està disponible des d'aquesta pàgina.",
+  "error_rate_limited": "Massa preguntes seguides. Espera un moment i torna-ho a provar.",
+  "error_generic": "No s'ha pogut respondre. Torna-ho a provar."
 }

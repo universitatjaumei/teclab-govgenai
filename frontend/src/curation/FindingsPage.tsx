@@ -12,34 +12,32 @@ import { ContentGapsPanel } from './ContentGapsPanel'
 import { PageContentDialog } from './PageContentDialog'
 import { razonDelHallazgo, urlRelacionada } from './razonDelHallazgo'
 import { enlaceExterno } from '@/shared/enlaces/enlaceExterno'
-
-type Severity = 'critical' | 'warning' | 'info'
+import type {
+  HallazgoOut,
+  HallazgoOutAccionesPermitidasItem,
+  HallazgoOutSeverity,
+} from '@/shared/api/generated/model'
 
 interface Version {
   url: string
   date?: string | null
 }
 
-interface Hallazgo {
-  id: string
-  finding_type: string
-  severity: Severity
-  status: string
-  source_url?: string | null
-  detected_at: string
-  page_id?: string | null
-  // CUR.8 — la segunda página de un hallazgo que habla de dos.
-  related_page_id?: string | null
-  signal?: Record<string, unknown> | null
-}
-
 /** Las versiones que un hallazgo de grupo lleva dentro: serie por años o duplicado exacto. */
-function versionesDe(f: Hallazgo): Version[] {
+function versionesDe(f: HallazgoOut): Version[] {
   const versiones = f.signal?.versions
   return Array.isArray(versiones) ? (versiones as Version[]) : []
 }
 
-const SEVERITY_BADGE: Record<Severity, string> = {
+/** El texto del botón que lleva un hallazgo a cada estado. Qué botones hay lo dice el servidor. */
+const ETIQUETA_DE_LA_ACCION = {
+  confirmed: 'confirm',
+  dismissed: 'dismiss',
+  resolved: 'resolve',
+  new: 'reopen',
+} as const satisfies Record<HallazgoOutAccionesPermitidasItem, string>
+
+const SEVERITY_BADGE: Record<HallazgoOutSeverity, string> = {
   critical: 'bg-red-100 text-red-800',
   warning: 'bg-yellow-100 text-yellow-800',
   info: 'bg-blue-100 text-blue-800',
@@ -55,6 +53,9 @@ export function FindingsPage() {
   const { t } = useTranslation('curation')
   const { t: tc } = useTranslation('common')
   const qc = useQueryClient()
+  // `razonDelHallazgo` compone la clave según el tipo del hallazgo, así que la recibe como texto.
+  const traducir = (clave: string, opciones?: Record<string, unknown>) =>
+    t(clave as Parameters<typeof t>[0], opciones)
 
   const [selectedSiteId, setSelectedSiteId] = useState<string>('')
   // CUR.9 — la cola arranca en lo **abierto**. La reconciliación retira los hallazgos que ya no se
@@ -170,7 +171,7 @@ export function FindingsPage() {
                 </tr>
               </thead>
               <tbody>
-                {(findings as Hallazgo[]).map((f) => (
+                {findings.map((f) => (
                   <tr key={f.id} className="border-b align-top">
                     <td className="py-2 pr-3">
                       <span className="text-xs">{t(`type_${f.finding_type}` as Parameters<typeof t>[0])}</span>
@@ -276,19 +277,23 @@ export function FindingsPage() {
                     </td>
                     {/* CUR.8 — la razón, que es lo que hace revisable el hallazgo. */}
                     <td className="py-2 pr-3 text-xs max-w-sm" data-testid={`razon-${f.id}`}>
-                      {razonDelHallazgo(f, t as unknown as (c: string, o?: Record<string, unknown>) => string)}
+                      {razonDelHallazgo(f, traducir)}
                     </td>
                     <td className="py-2 pr-3 text-xs">{new Date(f.detected_at).toLocaleDateString()}</td>
+                    {/* #277 — los botones salen de `acciones_permitidas`: la cola tenía su propia
+                        máquina de estado y no ofrecía descartar un hallazgo confirmado ni reabrir
+                        uno descartado, que el servidor sí admite. */}
                     <td className="py-2 space-x-1">
-                      {f.status === 'new' && (
-                        <>
-                          <button className="text-xs px-1.5 py-0.5 rounded border" onClick={() => handleTransition(f.id, 'confirmed')}>{t('confirm')}</button>
-                          <button className="text-xs px-1.5 py-0.5 rounded border" onClick={() => handleTransition(f.id, 'dismissed')}>{t('dismiss')}</button>
-                        </>
-                      )}
-                      {f.status === 'confirmed' && (
-                        <button className="text-xs px-1.5 py-0.5 rounded border" onClick={() => handleTransition(f.id, 'resolved')}>{t('resolve')}</button>
-                      )}
+                      {f.acciones_permitidas.map((destino) => (
+                        <button
+                          key={destino}
+                          data-testid={`accion-${destino}-${f.id}`}
+                          className="text-xs px-1.5 py-0.5 rounded border"
+                          onClick={() => handleTransition(f.id, destino)}
+                        >
+                          {t(ETIQUETA_DE_LA_ACCION[destino])}
+                        </button>
+                      ))}
                     </td>
                   </tr>
                 ))}

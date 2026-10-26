@@ -18,6 +18,8 @@ uno:
 """
 from __future__ import annotations
 
+import logging
+
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Literal
@@ -60,6 +62,8 @@ from server.app.modules.redaccion.funciones_service import (
     consulta_de_catalogo,
 )
 from server.app.routers.redaccion._actor import user_to_uuid
+
+_log = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/funciones",
@@ -343,10 +347,13 @@ def _auditoria_informativa(fichero: str) -> dict[str, Any]:
 
     try:
         resultado = ScriptSecurityAuditor().audit(codigo).model_dump(mode="json")
-    except Exception as fallo:  # noqa: BLE001 — el registro no depende de esto
+    except Exception:  # noqa: BLE001 — se registra con traza: `_log.exception`
+        # El registro no depende de la auditoría —es informativa—, así que no se rechaza; pero el
+        # fallo se registra con traza y el cliente no recibe el texto de la excepción (#276).
+        _log.exception("El auditor de scripts falló sobre una función externa")
         return {
             "perfil": "informativo",
-            "no_se_pudo_auditar": f"{type(fallo).__name__}: {fallo}",
+            "no_se_pudo_auditar": "el auditor falló; el motivo está en el registro del servidor",
             "findings": [],
         }
 
@@ -398,7 +405,7 @@ async def registrar_funcion_externa(
             finalidad=body.finalidad,
             categorias_datos=list(body.categorias_datos),
         )
-    except Exception as fallo:  # noqa: BLE001 — se traduce a 422 con su motivo
+    except Exception as fallo:  # se traduce a 422 con su motivo
         raise HTTPException(
             status_code=422,
             detail={"code": "DECLARACION_INCOMPLETA", "message": str(fallo)},
@@ -470,6 +477,7 @@ async def registrar_funcion_externa(
     await session.commit()
 
     funcion = await session.get(HubFuncion, funcion_id)
+    assert funcion is not None, "se acaba de crear en esta misma sesión"
     versiones = await _versiones_de(session, funcion_id)
     return _vista_de_funcion(funcion, versiones, principal)
 

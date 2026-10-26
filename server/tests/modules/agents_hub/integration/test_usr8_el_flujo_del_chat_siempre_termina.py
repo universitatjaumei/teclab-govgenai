@@ -145,11 +145,11 @@ def _conversa(chatbot, grafo, extra_patches=()) -> list[tuple[str, dict]]:
     app = _app(chatbot)
     parches = [
         patch(
-            "server.app.api.v1.hub_chat.GraphFactory",
+            "server.app.modules.agents_hub.services.turno_de_chat.GraphFactory",
             return_value=MagicMock(build=AsyncMock(return_value=grafo)),
         ),
-        patch("server.app.api.v1.hub_chat.resolve_embedding_service", new_callable=AsyncMock),
-        patch("server.app.api.v1.hub_chat.get_model", new_callable=AsyncMock),
+        patch("server.app.modules.agents_hub.services.turno_de_chat.resolve_embedding_service", new_callable=AsyncMock),
+        patch("server.app.modules.agents_hub.services.turno_de_chat.get_model", new_callable=AsyncMock),
         *extra_patches,
     ]
     for p in parches:
@@ -248,7 +248,7 @@ class TestElSilencioDespuesDelBucle:
             _grafo_que_emite([_trozo("15.000 euros")]),
             extra_patches=(
                 patch(
-                    "server.app.api.v1.hub_chat.contabilizar_interaccion",
+                    "server.app.modules.agents_hub.services.turno_de_chat.contabilizar_interaccion",
                     new=AsyncMock(side_effect=RuntimeError("la cuota ha reventado")),
                 ),
             ),
@@ -267,7 +267,7 @@ class TestElSilencioDespuesDelBucle:
             _grafo_que_emite([_trozo("15.000 euros")]),
             extra_patches=(
                 patch(
-                    "server.app.api.v1.hub_chat.contabilizar_interaccion",
+                    "server.app.modules.agents_hub.services.turno_de_chat.contabilizar_interaccion",
                     new=AsyncMock(side_effect=RuntimeError("la cuota ha reventado")),
                 ),
             ),

@@ -13,7 +13,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # Perfiles conocidos — se amplía en 9R.2.1
-from typing import Literal as _Literal  # noqa: E402
+from typing import Literal as _Literal
 
 ReportProfileId = _Literal[
     "GENERIC_REPORT",

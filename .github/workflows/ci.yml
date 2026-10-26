@@ -145,8 +145,12 @@ jobs:
       # mecanismo con el que se hace cumplir media especificación. Un import muerto o una
       # comprensión mal leída son justo los defectos que hacen que un guardarraíl mida menos de
       # lo que dice, que es el modo de fallo recurrente de este repositorio.
+      #
+      # **Y `.` desde #275**: con `app/ tests/` quedaban fuera `migrations/` y los guiones, y era
+      # justo donde estaban los 22 errores que midió la auditoría del 2026-10-21 — dos de esos
+      # guiones ya ni importaban.
       - name: Lint (ruff)
-        run: uv run ruff check app/ tests/
+        run: uv run ruff check .
 
       # **Comprobación de tipos, por módulo (issue #49).** El alcance NO está aquí: está en
       # `[tool.pyright]` de `server/pyproject.toml`, que es donde se lee junto con la razón de
@@ -375,7 +379,7 @@ jobs:
 
       # Issue #47 — el linter del frontend existía y **no lo llamaba ningún trabajo**, o sea que
       # estaba apagado: avisaba sólo a quien se acordara de ejecutarlo en local. El backend sí se
-      # lintea (`ruff check app/ tests/`); esto era la mitad que faltaba.
+      # lintea (`ruff check .`); esto era la mitad que faltaba.
       #
       # Va **en este trabajo y no en otro** porque el cliente de la API lo genera Orval y no
       # viaja en el repositorio: aquí ya está generado dos pasos más arriba. En un trabajo propio

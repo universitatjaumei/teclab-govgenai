@@ -1,6 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import i18n from '@/shared/i18n'
+import i18n from './i18n'
 import { injectThemeCSS } from '@/themes/ThemeProvider'
 import { DEFAULT_THEME, mergeThemes } from '@/themes/types'
 import { ChatWidget } from './components/ChatWidget'
@@ -55,6 +55,8 @@ export function mountWidget(container: Element, config: WidgetConfig): () => voi
   void applyChatbotTheme(config)
 
   const handleMessage = (event: MessageEvent) => {
+    // #278 — sólo de la página que lo embebe: un iframe ajeno no le cambia nada al widget.
+    if (event.origin !== window.location.origin) return
     if (event.data?.type === 'govgenai:setLang' && typeof event.data.lang === 'string') {
       i18n.changeLanguage(event.data.lang)
     }

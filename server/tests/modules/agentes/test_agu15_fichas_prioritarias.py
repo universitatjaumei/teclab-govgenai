@@ -72,7 +72,7 @@ class TestLaPrioridad:
     async def test_la_prioritaria_entra_y_va_primero(self, http):
         assert await _documentos(http, [_ejemplo(1), _ejemplo(2), _prioritaria(1)], 2) == ["p1", "e1"]
 
-    @pytest.mark.parametrize("cabecera,marca", [("Prioritario", "Sí"), ("PRIORITARIO", "x"), ("prioritario", "true")])
+    @pytest.mark.parametrize(("cabecera", "marca"), [("Prioritario", "Sí"), ("PRIORITARIO", "x"), ("prioritario", "true")])
     @pytest.mark.asyncio
     async def test_cualquier_grafia(self, http, cabecera, marca):
         fichas = [_ejemplo(1), _ejemplo(2), _prioritaria(1, marca=marca, cabecera=cabecera)]
@@ -104,7 +104,7 @@ class TestSiEncaja:
 
 class TestElTope:
 
-    @pytest.mark.parametrize("presupuesto,prioritarias", [(4, 2), (5, 2), (10, 5)])
+    @pytest.mark.parametrize(("presupuesto", "prioritarias"), [(4, 2), (5, 2), (10, 5)])
     @pytest.mark.asyncio
     async def test_como_mucho_la_mitad(self, http, presupuesto, prioritarias):
         fichas = [_ejemplo(n) for n in range(1, 11)] + [_prioritaria(n) for n in range(1, 11)]

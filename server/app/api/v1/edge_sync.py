@@ -79,6 +79,6 @@ async def get_edge_config():
 
 
 @router.post("/telemetry", status_code=202)
-async def ingest_edge_telemetry(body: EdgeTelemetryBatch):
+async def ingest_edge_telemetry(body: EdgeTelemetryBatch):  # noqa: ARG001 — el contrato se publica antes que la implementación (501)
     """Ingesta telemetría desde un edge node."""
     raise HTTPException(501, "Not implemented")

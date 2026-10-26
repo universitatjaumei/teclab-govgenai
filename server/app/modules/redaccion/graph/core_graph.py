@@ -180,7 +180,7 @@ def _build_init_anonymization_node(
     los hooks pre/post-LLM no operan, comportamiento idéntico al previo a 13.1.
     """
     if pii_detector is None or faker_generator is None:
-        async def _noop(state: WorkspaceState) -> dict:
+        async def _noop(state: WorkspaceState) -> dict:  # noqa: ARG001 — LangGraph llama a cada nodo con el estado
             return {}
         return _noop
     return InitAnonymizationNode(pii_detector, faker_generator)

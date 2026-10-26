@@ -437,7 +437,8 @@ class TestManifiesto:
             )
 
         mensaje = str(error.value)
-        assert "reg-020-ca.md" in mensaje and "reg-020-es.md" in mensaje
+        assert "reg-020-ca.md" in mensaje
+        assert "reg-020-es.md" in mensaje
 
     def test_should_accept_two_language_siblings_sharing_one_url(self):
         """Compartir URL solo es legitimo entre hermanas idiomaticas: la misma norma publicada

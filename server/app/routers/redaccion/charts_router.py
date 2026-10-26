@@ -4,6 +4,7 @@ Deploy: edge
 """
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 import pandas as pd
@@ -23,6 +24,11 @@ router = APIRouter(prefix="/redaccion/charts", tags=["redaccion-charts"],
 )
 
 
+def get_chart_service() -> DeterministicChartService:
+    """El renderizador de gráficos deterministas (#274)."""
+    return DeterministicChartService()
+
+
 class DeterministicPreviewRequest(BaseModel):
     config: ChartConfiguration
     rows: list[dict[str, Any]]
@@ -33,7 +39,10 @@ class DeterministicPreviewRequest(BaseModel):
     summary="Preview determinista de gráfico",
     response_class=Response,
 )
-async def preview_deterministic(body: DeterministicPreviewRequest) -> Response:
+async def preview_deterministic(
+    body: DeterministicPreviewRequest,
+    svc: DeterministicChartService = Depends(get_chart_service),
+) -> Response:
     """Renderiza un gráfico determinista a partir de config + datos en línea.
 
     No persiste nada. Devuelve bytes PNG o SVG.
@@ -42,9 +51,10 @@ async def preview_deterministic(body: DeterministicPreviewRequest) -> Response:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="rows cannot be empty")
 
     df = pd.DataFrame(body.rows)
-    svc = DeterministicChartService()
     try:
-        image_bytes = svc.render(df, body.config)
+        # #274 — matplotlib dibuja en este hilo y tarda: fuera del bucle de eventos, para que un
+        # gráfico grande no deje esperando al resto de peticiones.
+        image_bytes = await asyncio.to_thread(svc.render, df, body.config)
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
 

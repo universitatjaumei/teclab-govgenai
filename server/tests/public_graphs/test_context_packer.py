@@ -99,7 +99,7 @@ class TestIntegracionConElPipeline:
         from server.app.modules.agents_hub.agent.public_graphs.core.config_resolver import (
             PublicGraphConfig,
         )
-        from server.app.modules.agents_hub.agent.public_graphs.strategies.rag_vector_pipeline import (  # noqa: E501
+        from server.app.modules.agents_hub.agent.public_graphs.strategies.rag_vector_pipeline import (
             RagVectorPipeline,
         )
         from server.app.modules.agents_hub.services.retrieval.types import (

@@ -60,7 +60,7 @@ class TestOperationContract:
         assert op.op == "aggregate"
 
     def test_join_op_requires_other_block_ref(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError, match="other_block_ref"):
             JoinOp(on="region")  # type: ignore[call-arg]
 
     def test_pivot_op_basic(self):
@@ -68,7 +68,7 @@ class TestOperationContract:
         assert op.op == "pivot"
 
     def test_filter_op_rejects_unknown_comparator(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError, match="comparator"):
             FilterOp(col="x", comparator="bogus", value=1)  # type: ignore[arg-type]
 
     def test_parse_operations_from_dict_list(self):

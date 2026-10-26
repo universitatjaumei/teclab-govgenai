@@ -33,6 +33,8 @@ Pide la contraseña dos veces —se teclea a ciegas— y no la muestra.
 
 from __future__ import annotations
 
+from sqlmodel import col
+
 import argparse
 import asyncio
 import getpass
@@ -91,7 +93,7 @@ async def _restablecer(email: str, contrasena: str, url: str | None) -> str:
         async with session_factory() as session:
             cuenta = (
                 await session.execute(
-                    select(SuperAdminAccount).where(SuperAdminAccount.email == email)
+                    select(SuperAdminAccount).where(col(SuperAdminAccount.email) == email)
                 )
             ).scalar_one_or_none()
 

@@ -76,7 +76,7 @@
     "chatbot_kind_router": "Router",
     "chatbot_language_fixed_code": "Idioma de la respuesta",
     "chatbot_language_mode": "Modo de idioma",
-    "chatbot_long_context_error": "El corpus excede el límite del modo MD_LONG_CONTEXT (128K tokens). Reduce el corpus o cambia a MD_AGENT_SELECTOR.",
+    "chatbot_long_context_error": "El corpus excede el límite del modo MD_LONG_CONTEXT ({{limite}} tokens). Reduce el corpus o cambia a MD_AGENT_SELECTOR.",
     "chatbot_min_results": "Resultados mínimos de recuperación",
     "chatbot_min_score": "Puntuación mínima de recuperación (0–1)",
     "chatbot_model": "Modelo de lenguaje",
@@ -369,7 +369,13 @@
     "vigencia_table_title": "Pendientes de validar",
     "vigencia_title": "Validación de vigencia",
     "vigencia_validada_por": "Vigencia validada por {{persona}}",
-    "vigencia_validar": "Validar vigencia"
+    "vigencia_validar": "Validar vigencia",
+    "select_placeholder": "-- Seleccionar --",
+    "prompts_usage_all": "Uso: todos",
+    "prompts_usage_chatbot": "Uso: chatbot (prompt base)",
+    "prompts_usage_template": "Uso: plantillas",
+    "prompts_service_all": "Servicio: todos",
+    "search_prompts_placeholder": "Buscar prompt..."
   },
   "login": {
     "title": "Iniciar sesión",

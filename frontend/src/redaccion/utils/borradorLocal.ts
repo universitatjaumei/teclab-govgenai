@@ -44,3 +44,15 @@ export function olvidarBorrador(workspaceId: string, blockId: string): void {
     // Nada que hacer: si no se puede leer tampoco se podrá restaurar.
   }
 }
+
+/** Todos los borradores de este navegador. Al cerrar sesión (#278): en un equipo compartido, quien
+ *  entrara después recuperaba lo que había escrito quien salió. */
+export function olvidarTodosLosBorradores(): void {
+  try {
+    for (const k of Object.keys(window.localStorage)) {
+      if (k.startsWith(`${PREFIJO}:`)) window.localStorage.removeItem(k)
+    }
+  } catch {
+    // Sin acceso al almacenamiento tampoco hubo borradores que dejar atrás.
+  }
+}

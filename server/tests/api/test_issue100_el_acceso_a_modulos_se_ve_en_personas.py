@@ -156,7 +156,7 @@ class TestDarDeAltaConcedeEnElMismoActo:
     def test_un_codigo_vacio_no_pasa(self) -> None:
         from server.app.routers.hub_users_router import UsuarioCreate
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="código de módulo vacío"):
             UsuarioCreate(email="nueva@uji.es", modulos=["informes", "  "])
 
 

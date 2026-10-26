@@ -84,7 +84,8 @@ class TestCuandoSeDescartaLaRespuesta:
         )
         assert isinstance(v, Veredicto)
         assert v.sostenida is False
-        assert v.juzgadas == 2 and v.con_fundamento == 0
+        assert v.juzgadas == 2
+        assert v.con_fundamento == 0
 
     async def test_should_keep_an_answer_with_some_claims_grounded(self):
         """Una respuesta larga con siete de ocho sostenidas es utilizable. Exigir las ocho
@@ -97,7 +98,8 @@ class TestCuandoSeDescartaLaRespuesta:
             juez=juez,
         )
         assert v.sostenida is True
-        assert v.con_fundamento == 1 and v.juzgadas == 2
+        assert v.con_fundamento == 1
+        assert v.juzgadas == 2
 
 
 @pytest.mark.asyncio
@@ -144,7 +146,8 @@ class TestCuandoNoSeDescarta:
     async def test_should_let_through_when_there_are_no_sources(self):
         juez = _JuezFalso([])
         v = await hay_fundamento(texto="cualquier cosa", fuentes=[], juez=juez)
-        assert v.sostenida is True and v.juzgadas == 0
+        assert v.sostenida is True
+        assert v.juzgadas == 0
 
 
 @pytest.mark.asyncio
@@ -171,7 +174,8 @@ class TestQueSeLeDaAlJuez:
             fuentes=[_fuente("Reglament de permanencia")],
             juez=juez,
         )
-        assert v.juzgadas == 1 and v.con_fundamento == 0
+        assert v.juzgadas == 1
+        assert v.con_fundamento == 0
         assert v.sostenida is False
         assert juez.vistas == []
 

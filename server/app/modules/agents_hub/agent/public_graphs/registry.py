@@ -47,8 +47,8 @@ class GraphProfileRegistry:
     def get_profile(self, profile_name: str) -> ProfileFactory:
         try:
             return self._registry[profile_name]
-        except KeyError:
-            raise UnknownProfileError(profile_name)
+        except KeyError as exc:
+            raise UnknownProfileError(profile_name) from exc
 
     def list_profiles(self) -> list[str]:
         return list(self._registry.keys())

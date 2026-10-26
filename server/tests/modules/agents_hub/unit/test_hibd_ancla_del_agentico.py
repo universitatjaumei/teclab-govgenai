@@ -44,7 +44,7 @@ class TestSearchKnowledgeCitaConAncla:
 
     def test_should_keep_the_url_of_the_source_in_the_evidence(self):
         """Si `_source_to_evidence` perdiera la URL, el ancla se caería en silencio."""
-        from server.app.modules.agents_hub.agent.public_graphs.strategies.rag_vector_pipeline import (  # noqa: E501
+        from server.app.modules.agents_hub.agent.public_graphs.strategies.rag_vector_pipeline import (
             _source_to_evidence,
         )
         from server.app.modules.agents_hub.services.retrieval.types import Source

@@ -6,6 +6,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from server.app.core.auth import AuthenticationError, UserInfo, decode_token
 from server.app.core.auth.models import UserRole
 from server.app.core.auth.pat.service import PatInvalidError, PatService
+from server.app.core.auth.saml.identity_service import SamlIdentityService
 from server.app.database.db import AsyncSessionLocal
 
 _PAT_PREFIX = "pat_"
@@ -73,6 +74,18 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
             raise
 
 
+def get_pat_service(session: AsyncSession = Depends(get_session)) -> PatService:
+    """Los tokens personales, sobre la sesión de la petición (#274)."""
+    return PatService(session)
+
+
+def get_saml_identity_service(
+    session: AsyncSession = Depends(get_session),
+) -> SamlIdentityService:
+    """La resolución de identidad que comparten SAML y Google (#274)."""
+    return SamlIdentityService(session)
+
+
 def _unauthorized(detail: str) -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -132,7 +145,7 @@ async def get_current_user(
         try:
             principal = await PatService(session).verify(token)
         except PatInvalidError as e:
-            raise _unauthorized(str(e))
+            raise _unauthorized(str(e)) from e
         request.state.pat_scopes = principal.scopes
         # #214 — **el valor por defecto es el seguro**: un token sólo entra donde la ruta declara
         # qué alcance acepta. Antes, un endpoint que no decía nada aceptaba cualquier token, y
@@ -156,7 +169,7 @@ async def get_current_user(
     try:
         principal = decode_token(token)
     except AuthenticationError as e:
-        raise _unauthorized(str(e))
+        raise _unauthorized(str(e)) from e
 
     _exigir_el_cambio_pendiente(request, principal)
     return principal

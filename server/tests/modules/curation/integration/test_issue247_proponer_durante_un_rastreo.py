@@ -129,7 +129,7 @@ async def test_proponer_una_pagina_ya_rastreada_no_espera_al_final_del_rastreo(f
                 await s.commit()
                 # Un 0 aquí no sería «no esperó»: sería que la fila aún no se veía.
                 resultado["ok"] = actualizadas.rowcount == 1
-            except Exception as exc:  # noqa: BLE001 — lo que se mide es si falla
+            except Exception as exc:  # lo que se mide es si falla
                 resultado["error"] = str(exc)
 
     paginas = {_A: _html("Beques", "Convocatòria oberta."), _B: _html("Tesi", "Dipòsit de la tesi.")}
@@ -165,7 +165,8 @@ async def test_la_senal_de_cambio_sobrevive_a_un_job_que_no_llego_a_procesarla(f
     # La pasada siguiente no ve cambiar nada… y aun así lo entrega, porque sigue pendiente.
     resumen = await rastrear(fabrica, spider_factory=_Spiders(segunda)).crawl_site(sitio)
     paginas = await _ids_por_url(fabrica, sitio)
-    assert resumen.pages_changed == 0 and resumen.pages_new == 0
+    assert resumen.pages_changed == 0
+    assert resumen.pages_new == 0
     assert resumen.changed_page_ids == [paginas[_A]]
     assert resumen.new_page_ids == [paginas[_C]]
 

@@ -243,5 +243,12 @@
     "valorada_como": "Valoració de la promoció",
     "origen_externa": "S'executa fora, registrada ací"
   },
-  "automatizacion_nav_aria": "Navegació d'automatització"
+  "automatizacion_nav_aria": "Navegació d'automatització",
+  "preview_audit_title": "Annex d'auditoria",
+  "preview_no_citations": "Sense cites registrades.",
+  "preview_col_source": "Font",
+  "preview_col_page": "Pàgina",
+  "preview_col_model": "Model",
+  "preview_col_prompt_version": "Versió del prompt",
+  "preview_index_title": "Índex"
 }

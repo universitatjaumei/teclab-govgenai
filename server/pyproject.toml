@@ -339,17 +339,39 @@ MD_AGENT_SELECTOR = "server.app.modules.agents_hub.agent.public_graphs.strategie
 # manifiesto vive dentro de `server/`: sin esa línea, pyright no resuelve **ni uno** de sus
 # propios imports y devuelve 51 errores que no son errores.
 #
-# **SIGUIENTE MÓDULO: `app/routers/`.** Elegido midiendo y no a ojo — el 2026-09-20, con esta
-# misma configuración: `routers` 8 errores en 34 ficheros, `api` 6 en 7, `database` 5 en 4,
-# `modules/automation` 14 en 5, `services` 17 en 8. `routers` sale de los más baratos **y** es
-# donde vive el contrato con el frontend, que es donde un tipo equivocado se paga dos veces.
-# Después, por coste: `api`, `database`, `modules/automation`, `services`.
+# **Desde #275 (2026-10-25) mira `app/` entero**, menos lo que `exclude` nombra fichero a
+# fichero. Antes miraba sólo `app/core`: 0 errores ahí y 238 en el resto. Ampliarlo destapó
+# defectos y no sólo anotaciones: el chat daba 500 en vez de 403 cuando el widget pedía el modo
+# de depuración, el protocolo de los pipelines no declaraba la `language` que el núcleo les pasa
+# siempre, y la migración de plantillas o la transición de hallazgos reventaban con
+# `AttributeError` ante una fila que faltaba en vez de decir cuál.
 #
-# Ampliar es añadir el directorio a `include`, dejarlo en cero y commitearlo aparte. Que el
-# siguiente esté escrito aquí es lo que hace que no dependa de que alguien se acuerde; lo vigila
-# `tests/infra/test_issue49_los_tipos_se_comprueban_por_modulo.py`.
+# Lo excluido, y por qué:
+# * `deterministic_etl.py` (79) y los otros dos ficheros con pandas o seaborn por medio: el
+#   ruido son los stubs, que tipan cada operación como unión de `DataFrame | Series | ndarray`.
+# * `modules/automation/` (12): código muerto sin consumidor, catalogado (I6 de la auditoría
+#   previa); se retira, no se tipa.
+# * El resto son protocolos que no cuadran con sus implementaciones —el adaptador de embeddings,
+#   el despachador de spiders, la factoría de pipelines, las funciones empaquetadas, el nodo de
+#   redacción— y `agentes_router`, cuyas 13 son `str` de la base frente a `Literal` del contrato.
+#
+# **SIGUIENTE: `routers/agentes_router.py`.** Es contrato con el frontend, que es donde un tipo
+# equivocado se paga dos veces. Ampliar es quitar la línea de `exclude`, dejar el fichero en cero
+# y commitearlo; lo vigilan `tests/infra/test_issue49_los_tipos_se_comprueban_por_modulo.py` y
+# `tests/infra/test_issue275_el_lint_y_los_tipos_cubren_el_servidor.py`.
 [tool.pyright]
-include = ["app/core"]
+include = ["app"]
+exclude = [
+    "app/modules/redaccion/services/transformation/deterministic_etl.py",
+    "app/modules/automation",
+    "app/routers/agentes_router.py",
+    "app/modules/agents_hub/services/embedding_service.py",
+    "app/modules/agents_hub/ingestion/corpus/reconciler.py",
+    "app/modules/curation/site_crawler_dispatcher.py",
+    "app/modules/redaccion/pipelines/factory.py",
+    "app/modules/redaccion/funciones_paquete.py",
+    "app/modules/redaccion/graph/nodes/ai_assist_draft.py",
+]
 extraPaths = [".."]
 venvPath = "."
 venv = ".venv"
@@ -374,5 +396,57 @@ typeCheckingMode = "basic"
 # grandes son `I001` (imports sin ordenar, 856), `B008` (llamada en argumento por defecto, 484)
 # y `UP017` (`datetime.UTC`, 305). Adoptarlos es del mismo tipo de trabajo que la issue #48 y
 # merece su propio prompt, no colarse en una subida de dependencias.
+#
+# **Ampliado el 2026-10-25 (#275)** con las seis familias que señaló la auditoría, porque cazan
+# defectos y no estilo: `B` (bugbear), `BLE` (`except Exception` que ni relanza ni registra),
+# `ARG` (argumentos que no se usan), `PLW1510` (`subprocess.run` sin decir si comprueba el
+# código de salida), `RUF100` (`# noqa` de reglas que no saltan) y `PT` (pytest). Medido antes:
+# 1.948 avisos en `app/` y `tests/`, de los que 668 eran `B008` sobre `Depends(...)` —el
+# idioma de FastAPI, no un defecto: se declaran inmutables abajo— y 640 `ARG` en `tests/`, donde
+# un fixture se pide por su efecto y no por su valor. Lo demás se arregló.
+#
+# `I001`, `UP` y el resto del conjunto ampliado siguen fuera: son estilo y no defectos.
 [tool.ruff.lint]
-select = ["E4", "E7", "E9", "F"]
+select = ["E4", "E7", "E9", "F", "B", "BLE", "ARG", "PLW1510", "RUF100", "PT"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = [
+    "fastapi.Body",
+    "fastapi.Cookie",
+    "fastapi.Depends",
+    "fastapi.File",
+    "fastapi.Form",
+    "fastapi.Header",
+    "fastapi.Path",
+    "fastapi.Query",
+    "fastapi.Security",
+    # Las fábricas de dependencias de `api/deps.py`: se llaman **una vez**, al importar, y
+    # devuelven la dependencia que FastAPI evalúa en cada petición. Es justo lo que se quiere.
+    "server.app.api.deps.require_alguno_de",
+    "server.app.api.deps.require_module",
+    "server.app.api.deps.require_pat_scopes",
+    "server.app.api.deps.require_role",
+    "server.app.api.deps.require_scopes",
+    "server.app.api.deps.require_sesion_humana",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Un fixture se pide por su efecto (`db_session`, `monkeypatch` que ya actuó) y un doble imita
+# la firma de lo que sustituye: en tests, un argumento sin usar no es un defecto. Y un test que
+# captura todo lo hace para saltar sin base de datos o para mirar otra cosa que la excepción
+# —el prompt, no el dibujo—, y lo que falla de verdad lo dice su `assert`.
+"tests/**" = ["ARG", "BLE"]
+# Las reglas de pytest son de tests: en `app/` saltaban sobre endpoints que se llaman `test_*`
+# —probar una configuración de modelo, un patrón— y sus `Depends` como si fueran fixtures.
+"app/**" = ["PT"]
+# `env.py` carga `server/.env` antes de importar los modelos: el orden es el contrato.
+"migrations/env.py" = ["E402"]
+# Implementaciones de un protocolo enchufable: la firma la fija el protocolo —las factorías de
+# estrategia reciben `(cfg, deps, llm)` las usen o no, una política de lengua neutra no mira la
+# lengua— y quitarle un argumento rompería la llamada que hace el núcleo.
+"app/modules/agents_hub/agent/public_graphs/strategies/nucleo.py" = ["ARG"]
+"app/modules/agents_hub/agent/public_graphs/strategies/protocols.py" = ["ARG"]
+"app/modules/agents_hub/agent/public_graphs/profiles/*.py" = ["ARG"]
+"app/modules/agents_hub/services/retrieval/*_strategy.py" = ["ARG"]
+"app/modules/curation/spiders/*.py" = ["ARG"]
+"app/modules/redaccion/graph/tracing.py" = ["ARG"]

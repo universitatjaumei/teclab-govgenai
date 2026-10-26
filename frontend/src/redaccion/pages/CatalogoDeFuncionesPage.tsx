@@ -320,7 +320,7 @@ export function CatalogoDeFuncionesPage() {
   const { t } = useTranslation('redaccion')
   const navigate = useNavigate()
   const { data, isLoading } = useListarFunciones()
-  const funciones = (data as unknown as FuncionView[] | undefined) ?? []
+  const funciones = data ?? []
 
   return (
     <section className="space-y-4">

@@ -105,8 +105,8 @@ def _apply_prompt_caching(model, chatbot) -> None:
         return
     enabled = bool(getattr(chatbot, "use_prompt_caching", False))
     ttl = int(getattr(chatbot, "cache_ttl", 3600) or 3600)
-    setattr(model, "_prompt_caching_enabled", enabled)
-    setattr(model, "_prompt_cache_ttl", ttl)
+    model._prompt_caching_enabled = enabled
+    model._prompt_cache_ttl = ttl
 
 def _build_model(config: HubLLMConfig, chatbot=None, max_tokens_override: int | None = None):
     """Construye la instancia LLM a partir del config y su proveedor."""

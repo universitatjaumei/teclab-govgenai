@@ -39,7 +39,8 @@ from pathlib import Path
 import pytest
 
 RAIZ = Path(__file__).resolve().parents[3]
-ROUTER = RAIZ / "server" / "app" / "api" / "v1" / "hub_chat.py"
+# #274 — los manejadores del flujo SSE salieron del endpoint a su servicio.
+ROUTER = RAIZ / "server" / "app" / "modules" / "agents_hub" / "services" / "turno_de_chat.py"
 
 #: `except Exception:` y `except Exception as exc:`. El `as` es opcional a proposito: al
 #: arreglar la issue dejo de hacer falta ligar la excepcion, el patron que lo exigia dejo de

@@ -23,6 +23,8 @@ por dónde entrar. No es que oculte una vulnerabilidad: es que no hay razón par
 """
 from __future__ import annotations
 
+from typing import TypedDict
+
 from starlette.middleware.base import BaseHTTPMiddleware
 
 PRODUCCION = "production"
@@ -65,7 +67,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return respuesta
 
 
-def urls_de_documentacion(entorno: str) -> dict[str, str | None]:
+class UrlsDeDocumentacion(TypedDict):
+    docs_url: str | None
+    redoc_url: str | None
+    openapi_url: str | None
+
+
+def urls_de_documentacion(entorno: str) -> UrlsDeDocumentacion:
     """Los tres argumentos de `FastAPI(...)` que apagan la documentación en producción."""
     if entorno == PRODUCCION:
         return {"docs_url": None, "redoc_url": None, "openapi_url": None}

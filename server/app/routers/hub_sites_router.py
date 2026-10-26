@@ -147,7 +147,7 @@ def get_servicio_de_reconocimiento() -> Any:
 )
 async def reconnoiter_site(
     body: ReconnaissanceRequest,
-    current_user: UserInfo = Depends(_de_curacion),
+    current_user: UserInfo = Depends(_de_curacion),  # noqa: ARG001 — autoriza: se pide por su efecto
     servicio: Any = Depends(get_servicio_de_reconocimiento),
 ):
     """Cuántas páginas tiene un apartado, y cuánto costaría rastrearlo (CUR.6).
@@ -878,7 +878,6 @@ async def ingest_page(
     page_id: uuid.UUID,
     background_tasks: BackgroundTasks,
     current_user: UserInfo = Depends(_de_curacion_y_chatbots),
-    svc: Any = Depends(get_selection_service),
     session: AsyncSession = Depends(get_session),
 ):
     """Ingesta manual de una página concreta en un chatbot (idempotente).

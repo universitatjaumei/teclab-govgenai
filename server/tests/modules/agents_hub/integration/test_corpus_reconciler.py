@@ -335,7 +335,8 @@ class TestIngesta:
         await db_session.commit()
 
         assert informe.omitidos == 1
-        assert informe.ingeridos == 0 and informe.reingeridos == 0
+        assert informe.ingeridos == 0
+        assert informe.reingeridos == 0
         assert embedding.llamadas == 0, "una pasada sin cambios no debe embeber"
 
     @pytest.mark.asyncio
@@ -598,7 +599,8 @@ class TestPoda:
             await _reconciliar(
                 db_session, tmp_path, chatbot_id, census=True, prune=True
             )
-        assert "1" in str(exc.value) and "3" in str(exc.value)
+        assert "1" in str(exc.value)
+        assert "3" in str(exc.value)
 
     @pytest.mark.asyncio
     async def test_should_prune_above_threshold_only_with_force(

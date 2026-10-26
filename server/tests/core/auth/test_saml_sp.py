@@ -128,6 +128,28 @@ def test_acs_tampered_signature_rejected(saml_ctx):
     assert resp.json()["detail"]["code"] == "SAML_VALIDATION_FAILED"
 
 
+def test_acs_validation_errors_do_not_reach_the_client(saml_ctx, monkeypatch):
+    """#276 — el motivo de python3-saml puede llevar trozos de la aserción: va al registro.
+
+    La rama del `except` ya lo hacía; la de `get_errors()`, a unas líneas, lo seguía mandando al
+    navegador, y el normalizador convertía `reason` en el `message` que se pinta.
+    """
+    from onelogin.saml2.auth import OneLogin_Saml2_Auth
+
+    monkeypatch.setattr(OneLogin_Saml2_Auth, "process_response", lambda self, request_id=None: None)
+    monkeypatch.setattr(OneLogin_Saml2_Auth, "get_errors", lambda self: ["invalid_response"])
+    monkeypatch.setattr(
+        OneLogin_Saml2_Auth, "get_last_error_reason", lambda self: "<saml:Assertion>secreto</saml:Assertion>"
+    )
+    client = _build_client(saml_ctx)
+    resp = client.post("/api/v1/auth/saml/acs", data={"SAMLResponse": "x"})
+    assert resp.status_code == 401
+    cuerpo = resp.text
+    assert "secreto" not in cuerpo
+    assert "invalid_response" not in cuerpo
+    assert resp.json()["detail"]["code"] == "SAML_VALIDATION_FAILED"
+
+
 def test_acs_expired_assertion_rejected(saml_ctx):
     saml_response = saml_ctx.make_response(not_before_off=-1200, not_after_off=-600)
     client = _build_client(saml_ctx)

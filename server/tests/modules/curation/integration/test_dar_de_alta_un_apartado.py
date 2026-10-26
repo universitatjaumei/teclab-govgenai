@@ -188,7 +188,7 @@ def test_el_sitio_devuelve_su_configuracion_para_poder_revisarla():
     assert creado["crawl_config"]["url_regex_filter"] == r"/centres/escola-doctorat/"
 
 
-@pytest.mark.parametrize("campo,valor", [
+@pytest.mark.parametrize(("campo", "valor"), [
     ("crawl_depth", 3),
     ("max_pages", 500),
     ("delay_seconds", 5.0),

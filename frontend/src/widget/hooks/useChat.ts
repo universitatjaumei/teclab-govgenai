@@ -25,8 +25,14 @@ export interface NodeStatus {
   msg: string
 }
 
+/** Por qué no llegó la respuesta (#278). Se traduce en el widget; el texto del servidor no se
+ *  pinta: es para quien depura, y el del evento `error` es fijo y en una sola lengua. */
+export type FalloDelChat = 'unauthorized' | 'rate_limited' | 'generic'
+
 export interface UseChatReturn {
   messages: Message[]
+  /** El último fallo, o `null`. Antes se tragaba: el visitante veía una burbuja vacía. */
+  error: FalloDelChat | null
   currentNodeStatus: NodeStatus | null
   isStreaming: boolean
   translationWarning: string | null
@@ -56,6 +62,7 @@ export function useChat(chatbotId: string, apiUrl: string, lang: string, widgetK
   const [translationWarning, setTranslationWarning] = useState<string | null>(null)
   const [sources, setSources] = useState<SourceRef[]>([])
   const [interactionId, setInteractionId] = useState<string | null>(null)
+  const [error, setError] = useState<FalloDelChat | null>(null)
   const isStreamingRef = useRef(false)
   // HIB.C — los turnos previos, en un ref y no leídos del estado.
   //
@@ -80,6 +87,7 @@ export function useChat(chatbotId: string, apiUrl: string, lang: string, widgetK
     setInteractionId(null)
     setTranslationWarning(null)
     setCurrentNodeStatus(null)
+    setError(null)
   }, [])
 
   // Caducidad por inactividad. El temporizador se reinicia con cada turno porque la
@@ -98,6 +106,7 @@ export function useChat(chatbotId: string, apiUrl: string, lang: string, widgetK
     setTranslationWarning(null)
     setSources([])
     setInteractionId(null)
+    setError(null)
     // HIB.C — el historial se toma ANTES de añadir el turno nuevo: enviar la pregunta actual
     // también dentro de `history` haría que el reescritor la tomara como su propio
     // antecedente.
@@ -109,6 +118,18 @@ export function useChat(chatbotId: string, apiUrl: string, lang: string, widgetK
       { role: 'assistant', content: '' },
     ])
 
+    /** El turno termina en fallo: se dice, y no se deja una burbuja vacía esperando. */
+    const fallar = (motivo: FalloDelChat) => {
+      setError(motivo)
+      setMessages(prev => {
+        const last = prev[prev.length - 1]
+        return last?.role === 'assistant' && last.content === '' ? prev.slice(0, -1) : prev
+      })
+      isStreamingRef.current = false
+      setIsStreaming(false)
+      setCurrentNodeStatus(null)
+    }
+
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       if (widgetKey) headers['X-Widget-Key'] = widgetKey
@@ -118,6 +139,18 @@ export function useChat(chatbotId: string, apiUrl: string, lang: string, widgetK
         body: JSON.stringify({ message: text, lang, history: historial }),
       })
 
+      // #278 — un 401, un 429 o un 5xx no traen SSE: antes se pasaban al lector como si lo
+      // fueran y el visitante se quedaba con la burbuja vacía.
+      if (!response.ok) {
+        fallar(
+          response.status === 401 || response.status === 403
+            ? 'unauthorized'
+            : response.status === 429
+              ? 'rate_limited'
+              : 'generic',
+        )
+        return
+      }
       if (!response.body) throw new Error('No response body')
 
       const reader = response.body.getReader()
@@ -146,7 +179,15 @@ export function useChat(chatbotId: string, apiUrl: string, lang: string, widgetK
           if (field === 'event') {
             currentEvent = sseValue
           } else if (field === 'data') {
-            const payload = JSON.parse(sseValue) as Record<string, unknown>
+            let payload: Record<string, unknown>
+            try {
+              payload = JSON.parse(sseValue) as Record<string, unknown>
+            } catch {
+              // Un evento que no se puede leer deja el turno a medias: se dice y se para.
+              await reader.cancel()
+              fallar('generic')
+              return
+            }
             if (currentEvent === 'status') {
               setCurrentNodeStatus({ node: String(payload.node ?? ''), msg: String(payload.msg ?? '') })
             } else if (currentEvent === 'token') {
@@ -185,19 +226,15 @@ export function useChat(chatbotId: string, apiUrl: string, lang: string, widgetK
               setIsStreaming(false)
               setCurrentNodeStatus(null)
             } else if (currentEvent === 'error') {
-              isStreamingRef.current = false
-              setIsStreaming(false)
-              setCurrentNodeStatus(null)
+              fallar('generic')
             }
           }
         }
       }
     } catch {
-      isStreamingRef.current = false
-      setIsStreaming(false)
-      setCurrentNodeStatus(null)
+      fallar('generic')
     }
   }, [chatbotId, apiUrl, lang, widgetKey])
 
-  return { messages, currentNodeStatus, isStreaming, translationWarning, sources, interactionId, sendMessage, resetConversation }
+  return { messages, error, currentNodeStatus, isStreaming, translationWarning, sources, interactionId, sendMessage, resetConversation }
 }

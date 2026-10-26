@@ -68,7 +68,7 @@ def datos_de_version_coherentes(
     code: str | None = None,
     finalidad: str | None = None,
     declarada_por: uuid.UUID | None = None,
-    categorias_datos: list[str] | None = None,
+    categorias_datos: list[str] | None = None,  # noqa: ARG001 — se recibe con el resto de campos de la versión; no condiciona su forma
     version_paquete: str | None = None,
     entry_point: str | None = None,
     entorno_ejecucion: str | None = None,

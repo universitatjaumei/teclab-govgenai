@@ -13,9 +13,9 @@ import {
   useSetWorkspaceFields,
   useUploadWorkspaceInput,
 } from '@/shared/api/generated/redaccion-workspaces/redaccion-workspaces'
-import type { ReportUIContract, WorkspaceOut } from '@/shared/api/generated/model'
 
 import { descargarConAutorizacion } from '@/shared/api/download'
+import { errorDeLaApi } from '@/shared/api/errorDeLaApi'
 import { FocusLayout } from '@/shared/layout/FocusLayout'
 import { useFocusStore } from '@/shared/layout/useFocusStore'
 import { AIBlockReviewPanel } from '../components/AIBlockReviewPanel'
@@ -40,8 +40,10 @@ export function mensajeDeFallo(
   fallo: unknown,
   t: (clave: string) => string,
 ): { texto: string; bloques: string[] } {
-  const detalle = ((fallo as { response?: { data?: { detail?: unknown } } })?.response?.data
-    ?.detail ?? {}) as { missing_slots?: string[]; pending_block_ids?: string[] }
+  const detalle = (errorDeLaApi(fallo) ?? {}) as {
+    missing_slots?: string[]
+    pending_block_ids?: string[]
+  }
 
   if (detalle.missing_slots?.length) {
     return {
@@ -89,19 +91,16 @@ export function WorkspacePage() {
       enabled: !!id,
       // Mientras genera, el estado lo cambia una tarea de fondo: sin refresco, la pantalla
       // se queda en «generando» hasta que alguien recarga a mano.
-      refetchInterval: (query) => {
-        const estado = (query.state.data as WorkspaceOut | undefined)?.status
-        return estado === 'drafting' || estado === 'extracting' ? 3000 : false
-      },
+      refetchInterval: (query) => (query.state.data?.en_curso ? 3000 : false),
     },
   })
-  const workspace = workspaceRaw as unknown as WorkspaceOut | undefined
+  const workspace = workspaceRaw
 
   const { data: contratoRaw } = useGetTemplateUiContract(
     workspace?.template_version_id ?? '',
     { query: { enabled: !!workspace?.template_version_id } },
   )
-  const contrato = contratoRaw as unknown as ReportUIContract | undefined
+  const contrato = contratoRaw
 
   const subir = useUploadWorkspaceInput()
   const guardarCampos = useSetWorkspaceFields()
@@ -111,7 +110,8 @@ export function WorkspacePage() {
   if (isLoading) return <div className="p-4">{tc('loading')}</div>
   if (!workspace) return <div className="p-4">{t('workspace_not_found')}</div>
 
-  const enMarcha = workspace.status === 'drafting' || workspace.status === 'extracting'
+  // #277 — qué estados son «trabajando» lo dice el servidor.
+  const enMarcha = workspace.en_curso
 
   /** Sube lo que el contrato pidiera y lanza la generación. Único camino (INF.1). */
   async function enviar(datos: { fields: Record<string, string>; files: Record<string, File[]> }) {

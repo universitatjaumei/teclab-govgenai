@@ -19,5 +19,8 @@
   },
   "widget_title": "Asistente",
   "ai_disclaimer": "Asistente creado con inteligencia artificial. Las respuestas pueden contener errores y no han pasado revisión lingüística: contrasta siempre con la norma citada.",
-  "ai_disclaimer_model": "Asistente creado con inteligencia artificial ({{model}}). Las respuestas pueden contener errores y no han pasado revisión lingüística: contrasta siempre con la norma citada."
+  "ai_disclaimer_model": "Asistente creado con inteligencia artificial ({{model}}). Las respuestas pueden contener errores y no han pasado revisión lingüística: contrasta siempre con la norma citada.",
+  "error_unauthorized": "Este asistente no está disponible desde esta página.",
+  "error_rate_limited": "Demasiadas preguntas seguidas. Espera un momento y vuelve a intentarlo.",
+  "error_generic": "No se ha podido responder. Inténtalo de nuevo."
 }

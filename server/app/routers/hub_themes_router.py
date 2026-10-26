@@ -590,7 +590,7 @@ async def create_theme(
 async def update_theme(
     theme_id: str,
     data: ThemeUpdate,
-    user: UserInfo = Depends(_require_superadmin),
+    user: UserInfo = Depends(_require_superadmin),  # noqa: ARG001 — autoriza: se pide por su efecto
     session: AsyncSession = Depends(get_session),
     _modulo=_de_plataforma,
 ) -> dict:
@@ -612,7 +612,7 @@ async def update_theme(
 @router.delete("/{theme_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_theme(
     theme_id: str,
-    user: UserInfo = Depends(_require_superadmin),
+    user: UserInfo = Depends(_require_superadmin),  # noqa: ARG001 — autoriza: se pide por su efecto
     session: AsyncSession = Depends(get_session),
     _modulo=_de_plataforma,
 ) -> None:
@@ -630,7 +630,7 @@ async def delete_theme(
 async def apply_theme_to_chatbot(
     theme_id: str,
     chatbot_id: uuid.UUID,
-    user: UserInfo = Depends(_require_superadmin),
+    user: UserInfo = Depends(_require_superadmin),  # noqa: ARG001 — autoriza: se pide por su efecto
     session: AsyncSession = Depends(get_session),
     _modulo=_de_plataforma,
 ) -> dict:

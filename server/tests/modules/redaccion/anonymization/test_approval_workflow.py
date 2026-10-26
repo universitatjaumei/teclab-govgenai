@@ -188,7 +188,7 @@ def approval_app(tmp_path):
             """
 
             class _R:
-                def scalar_one(self_inner) -> int:  # noqa: N805
+                def scalar_one(self_inner) -> int:
                     return 1
 
             return _R()

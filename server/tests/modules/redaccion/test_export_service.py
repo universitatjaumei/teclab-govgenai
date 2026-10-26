@@ -213,6 +213,7 @@ def test_docx_renders_in_libreoffice_when_available(tmp_path):
         [lo, "--headless", "--convert-to", "pdf", "--outdir", str(tmp_path), str(docx_path)],
         capture_output=True,
         timeout=60,
+        check=False,
     )
     assert result.returncode == 0
     pdf_files = list(tmp_path.glob("*.pdf"))

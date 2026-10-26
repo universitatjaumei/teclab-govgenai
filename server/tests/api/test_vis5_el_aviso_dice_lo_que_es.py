@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import pytest
 
-from server.app.api.v1.hub_chat import _build_translation_warning
+from server.app.modules.agents_hub.services.turno_de_chat import _build_translation_warning
 
 
 # ACT.2 (2026-08-28): este fichero estaba escrito con `ca` en las DOS direcciones, y por eso no

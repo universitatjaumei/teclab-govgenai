@@ -52,7 +52,7 @@ class TestLoQueVeElModelo:
             convert_to_openai_tool(herramienta)
 
     @pytest.mark.parametrize(
-        "nombre,inyectado",
+        ("nombre", "inyectado"),
         [
             ("list_documents", "index"),
             ("read_document", "reader"),
@@ -137,7 +137,7 @@ class TestBusquedaDeFragmentos:
 
     @pytest.mark.asyncio
     async def test_should_run_the_search_and_keep_what_it_found_as_evidence(self):
-        from server.app.modules.agents_hub.agent.public_graphs.strategies.retrieval_contract import (  # noqa: E501
+        from server.app.modules.agents_hub.agent.public_graphs.strategies.retrieval_contract import (
             EvidenceItem,
         )
 

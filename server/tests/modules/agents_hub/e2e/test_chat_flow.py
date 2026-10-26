@@ -127,9 +127,9 @@ class TestChatFlowE2E:
         mock_graph = _make_mock_graph_astream_events(raw_events)
 
         with (
-            patch("server.app.api.v1.hub_chat.GraphFactory",
+            patch("server.app.modules.agents_hub.services.turno_de_chat.GraphFactory",
                   return_value=MagicMock(build=AsyncMock(return_value=mock_graph))),
-            patch("server.app.api.v1.hub_chat.resolve_embedding_service",
+            patch("server.app.modules.agents_hub.services.turno_de_chat.resolve_embedding_service",
                   new=AsyncMock(return_value=_SERVICIO_DEL_CORPUS)),
         ):
             async with AsyncClient(
@@ -187,9 +187,9 @@ class TestChatFlowE2E:
         mock_graph = _make_mock_graph_astream_events(raw_events)
 
         with (
-            patch("server.app.api.v1.hub_chat.GraphFactory",
+            patch("server.app.modules.agents_hub.services.turno_de_chat.GraphFactory",
                   return_value=MagicMock(build=AsyncMock(return_value=mock_graph))),
-            patch("server.app.api.v1.hub_chat.resolve_embedding_service",
+            patch("server.app.modules.agents_hub.services.turno_de_chat.resolve_embedding_service",
                   new=AsyncMock(return_value=_SERVICIO_DEL_CORPUS)),
         ):
             async with AsyncClient(
@@ -252,9 +252,9 @@ class TestExportFlowE2E:
         mock_graph = _make_mock_graph_astream_events(raw_events)
 
         with (
-            patch("server.app.api.v1.hub_chat.GraphFactory",
+            patch("server.app.modules.agents_hub.services.turno_de_chat.GraphFactory",
                   return_value=MagicMock(build=AsyncMock(return_value=mock_graph))),
-            patch("server.app.api.v1.hub_chat.resolve_embedding_service",
+            patch("server.app.modules.agents_hub.services.turno_de_chat.resolve_embedding_service",
                   new=AsyncMock(return_value=_SERVICIO_DEL_CORPUS)),
         ):
             async with AsyncClient(
@@ -318,9 +318,9 @@ class TestExportFlowE2E:
         other_headers = {"Authorization": f"Bearer {other_token}"}
 
         with (
-            patch("server.app.api.v1.hub_chat.GraphFactory",
+            patch("server.app.modules.agents_hub.services.turno_de_chat.GraphFactory",
                   return_value=MagicMock(build=AsyncMock(return_value=mock_graph))),
-            patch("server.app.api.v1.hub_chat.resolve_embedding_service",
+            patch("server.app.modules.agents_hub.services.turno_de_chat.resolve_embedding_service",
                   new=AsyncMock(return_value=_SERVICIO_DEL_CORPUS)),
         ):
             async with AsyncClient(

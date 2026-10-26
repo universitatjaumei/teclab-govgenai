@@ -1,4 +1,5 @@
 import { useGetMeApiV1AuthMeGet } from '@/shared/api/generated/auth/auth'
+import { UsuarioActualIdentityRoleAuthority } from '@/shared/api/generated/model'
 
 /**
  * Quién manda sobre el rol en este despliegue (IDE.1).
@@ -10,9 +11,7 @@ import { useGetMeApiV1AuthMeGet } from '@/shared/api/generated/auth/auth'
  * Mientras no se sabe se asume `app`, que es el defecto del servidor: enseñar el aviso durante
  * la carga y quitarlo después haría parpadear una advertencia que puede no aplicar.
  */
-export function useAutoridadDelRol(): 'app' | 'idp' {
+export function useAutoridadDelRol(): UsuarioActualIdentityRoleAuthority {
   const { data } = useGetMeApiV1AuthMeGet()
-  const valor = (data as { identity_role_authority?: unknown } | undefined)
-    ?.identity_role_authority
-  return valor === 'idp' ? 'idp' : 'app'
+  return data?.identity_role_authority ?? UsuarioActualIdentityRoleAuthority.app
 }

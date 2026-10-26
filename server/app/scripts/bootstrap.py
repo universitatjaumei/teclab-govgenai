@@ -18,6 +18,8 @@ Lo invoca `scripts/setup.sh`; también sirve suelto para reparar una instalació
 """
 from __future__ import annotations
 
+from sqlmodel import col
+
 import argparse
 import asyncio
 import getpass
@@ -206,7 +208,7 @@ async def _sembrar(
             if not solo_demo:
                 existente = (
                     await session.execute(
-                        select(SuperAdminAccount).where(SuperAdminAccount.email == email)
+                        select(SuperAdminAccount).where(col(SuperAdminAccount.email) == email)
                     )
                 ).scalar_one_or_none()
 
@@ -351,7 +353,7 @@ async def _sembrar(
             # los despliegues. Sólo con `--con-demo`: un piloto que no las quiera no debe tener
             # que borrarlas después.
             if con_demo:
-                for fichero, documento in _leer_plantillas_demo():
+                for _fichero, documento in _leer_plantillas_demo():
                     creada = await _sembrar_plantilla_demo(
                         session, documento, AUTOR_DEL_SEMBRADO
                     )

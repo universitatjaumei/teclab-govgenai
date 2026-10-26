@@ -34,6 +34,12 @@ export const AuthContext = createContext<AuthState | null>(null)
 export const TOKEN_KEY = 'access_token'
 
 /**
+ * Quién entró por última vez en este navegador. Lo que una persona deja —borradores, organización
+ * elegida, tema— se olvida cuando entra **otra**, no cuando vuelve la misma tras caducar su sesión.
+ */
+export const CLAVE_DE_LA_ULTIMA_PERSONA = 'govgenai:ultima-persona'
+
+/**
  * Los datos de sesión que lleva el token, o `null` si no se puede confiar en él.
  *
  * Devuelve `null` también cuando el token **ha caducado**, y eso no es cortesía: sin esa

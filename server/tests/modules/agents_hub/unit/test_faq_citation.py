@@ -80,7 +80,7 @@ class TestLaCitaDistingueLaAutoridad:
     def test_should_expose_the_label_in_the_serialized_source(self):
         """El frontend tiene que poder pintarlo distinto, así que el dato sale en el JSON
         del evento `done` — no solo en el prompt del modelo."""
-        from server.app.api.v1.hub_chat import _source_to_dict
+        from server.app.modules.agents_hub.services.turno_de_chat import _source_to_dict
 
         serializada = _source_to_dict(self._fuente("faq"))
 
@@ -88,7 +88,7 @@ class TestLaCitaDistingueLaAutoridad:
 
     def test_should_keep_the_existing_shape_for_a_regulation(self):
         """Contrato de CAL.2: el shape que ve el frontend no cambia para lo que ya había."""
-        from server.app.api.v1.hub_chat import _source_to_dict
+        from server.app.modules.agents_hub.services.turno_de_chat import _source_to_dict
 
         serializada = _source_to_dict(self._fuente("regulation"))
 
@@ -97,7 +97,7 @@ class TestLaCitaDistingueLaAutoridad:
 
     def test_should_link_to_the_backing_regulation_when_the_faq_declares_one(self):
         """Lo que hace defendible una respuesta orientativa es poder ir al artículo."""
-        from server.app.api.v1.hub_chat import _source_to_dict
+        from server.app.modules.agents_hub.services.turno_de_chat import _source_to_dict
 
         serializada = _source_to_dict(
             self._fuente("faq", norma_de_respaldo="https://boe.es/ley#art-5")
@@ -148,7 +148,7 @@ class TestTodoEstoEstaEnchufado:
         )
 
     def test_evidence_from_a_faq_source_should_carry_the_warning(self):
-        from server.app.modules.agents_hub.agent.public_graphs.strategies.rag_vector_pipeline import (  # noqa: E501
+        from server.app.modules.agents_hub.agent.public_graphs.strategies.rag_vector_pipeline import (
             _source_to_evidence,
         )
         from server.app.modules.agents_hub.services.retrieval.types import Source
@@ -169,7 +169,7 @@ class TestTodoEstoEstaEnchufado:
         assert "Se justifica con el formulario." in evidencia.content
 
     def test_evidence_from_a_regulation_should_be_untouched(self):
-        from server.app.modules.agents_hub.agent.public_graphs.strategies.rag_vector_pipeline import (  # noqa: E501
+        from server.app.modules.agents_hub.agent.public_graphs.strategies.rag_vector_pipeline import (
             _source_to_evidence,
         )
         from server.app.modules.agents_hub.services.retrieval.types import Source

@@ -969,13 +969,13 @@ def _run_sync(
         )
         try:
             stdout, stderr = proc.communicate(timeout=timeout)
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as exc:
             proc.kill()
             try:
                 proc.communicate(timeout=2)
             except subprocess.TimeoutExpired:
                 pass
-            raise TimeoutError(f"Script exceeded {timeout}s")
+            raise TimeoutError(f"Script exceeded {timeout}s") from exc
 
         return {
             "returncode": proc.returncode if proc.returncode is not None else -1,

@@ -111,7 +111,7 @@ def _llm_que_repite_su_contexto() -> MagicMock:
     servicio = MagicMock()
     servicio.model_name = "modelo-de-prueba"
 
-    async def _generar(prompt: str, context: str) -> str:  # noqa: ARG001
+    async def _generar(prompt: str, context: str) -> str:
         return f"Valoracion basada en: {context}"
 
     servicio.generate = AsyncMock(side_effect=_generar)
@@ -550,7 +550,7 @@ class TestElContextoExisteAntesDeQueNadieLlameAlModelo:
         pendientes = ["__start__"]
         while pendientes:
             actual = pendientes.pop()
-            for siguiente in salientes.get(actual, ()):  # noqa: B007
+            for siguiente in salientes.get(actual, ()):
                 if siguiente in alcanzables or siguiente == "init_anonymization":
                     continue
                 alcanzables.add(siguiente)

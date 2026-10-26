@@ -78,7 +78,7 @@ class PublicationMcpSource:
                     relative_path=ruta,
                     source_url=str(metadatos.get("url_oficial") or ruta),
                 )
-            except Exception as exc:  # ValidationError y CorpusValidationError
+            except Exception as exc:  # noqa: BLE001 — se acumulan todos los errores del paquete y se rechaza entero
                 errores.append(f"  {ruta}: {exc}")
                 continue
 

@@ -298,7 +298,10 @@ class TestGuardaEnConsulta:
         async def _sesion():
             yield session
 
+        from server.app.core.errores import instalar_errores
+
         app = FastAPI()
+        instalar_errores(app)  # el formato de error de producción (#276)
         app.dependency_overrides[get_session] = _sesion
         app.include_router(chat_router, prefix="/api/v1")
         return app
@@ -332,9 +335,9 @@ class TestGuardaEnConsulta:
         token = create_token(UserInfo(user_id="u1", email="u@test.com", role="user", organizacion_ids=(ORG_PRUEBA,)))
 
         with patch(
-            "server.app.api.v1.hub_chat.resolve_embedding_service", new_callable=AsyncMock
+            "server.app.modules.agents_hub.services.turno_de_chat.resolve_embedding_service", new_callable=AsyncMock
         ), patch(
-            "server.app.api.v1.hub_chat.assert_embedding_space_matches",
+            "server.app.modules.agents_hub.services.turno_de_chat.assert_embedding_space_matches",
             new=AsyncMock(side_effect=EmbeddingSpaceMismatch(
                 "El corpus contiene vectores de BAAI/bge-m3 (1024), y el modelo activo es "
                 "gemini-embedding-001 (1024)."
@@ -348,8 +351,8 @@ class TestGuardaEnConsulta:
                 )
 
         assert resp.status_code == 409
-        assert "bge-m3" in resp.json()["detail"]
-        assert "gemini-embedding-001" in resp.json()["detail"]
+        assert "bge-m3" in resp.json()["detail"]["message"]
+        assert "gemini-embedding-001" in resp.json()["detail"]["message"]
 
 
 class TestValidacionAlCrearChatbot:
@@ -399,7 +402,7 @@ class TestValidacionAlCrearChatbot:
                     },
                 )
             assert resp.status_code == 503
-            assert "embedding" in resp.json()["detail"].lower()
+            assert "embedding" in resp.json()["detail"]["message"].lower()
             session.add.assert_not_called()
         finally:
             app.dependency_overrides.pop(get_current_user, None)

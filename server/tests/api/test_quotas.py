@@ -69,7 +69,8 @@ class TestLaCascada:
         )
 
         usuario_dia = [limite for limite in limites if limite.subject_type == "user" and limite.ventana == "day"]
-        assert usuario_dia and usuario_dia[0].limite == 5_000
+        assert usuario_dia
+        assert usuario_dia[0].limite == 5_000
 
     def test_should_let_the_chatbot_override_the_org_default(self):
         from server.app.core.quotas import limites_aplicables
@@ -408,7 +409,7 @@ class TestContabilidadEnLaInteraccion:
     def test_should_read_the_usage_the_provider_declares(self):
         from types import SimpleNamespace
 
-        from server.app.api.v1.hub_chat import _uso_del_evento
+        from server.app.modules.agents_hub.services.turno_de_chat import _uso_del_evento
 
         evento = {
             "data": {
@@ -423,7 +424,7 @@ class TestContabilidadEnLaInteraccion:
         """El proveedor se elige por configuración: no se puede saber cuál responderá."""
         from types import SimpleNamespace
 
-        from server.app.api.v1.hub_chat import _uso_del_evento
+        from server.app.modules.agents_hub.services.turno_de_chat import _uso_del_evento
 
         evento = {
             "data": {
@@ -440,7 +441,7 @@ class TestContabilidadEnLaInteraccion:
     def test_should_report_nothing_when_the_provider_is_silent(self):
         from types import SimpleNamespace
 
-        from server.app.api.v1.hub_chat import _uso_del_evento
+        from server.app.modules.agents_hub.services.turno_de_chat import _uso_del_evento
 
         vacio = SimpleNamespace(usage_metadata=None, response_metadata={})
         assert _uso_del_evento({"data": {"output": vacio}}) == (0, 0)
@@ -454,7 +455,7 @@ class TestContabilidadEnLaInteraccion:
         """
         from pathlib import Path
 
-        texto = Path("app/api/v1/hub_chat.py").read_text(encoding="utf-8")
+        texto = Path("app/modules/agents_hub/services/turno_de_chat.py").read_text(encoding="utf-8")
 
         assert "usage_source" in texto
         assert '"estimated"' in texto
@@ -471,7 +472,7 @@ class TestContabilidadEnLaInteraccion:
         assert columnas["completion_tokens"].nullable
 
     def test_should_estimate_by_length_when_nothing_else_is_available(self):
-        from server.app.api.v1.hub_chat import _tokens_estimados
+        from server.app.modules.agents_hub.services.turno_de_chat import _tokens_estimados
 
         assert _tokens_estimados("") == 0
         assert _tokens_estimados("a" * 400) == 100
@@ -605,7 +606,8 @@ class TestLaIpNoSeGuardaEnClaro:
         )
         del_ip = [limite for limite in limites if limite.subject_type == "ip"]
 
-        assert del_ip and all("1.2.3.4" not in limite.subject_id for limite in del_ip)
+        assert del_ip
+        assert all("1.2.3.4" not in limite.subject_id for limite in del_ip)
 
 
 @pytest.mark.asyncio
@@ -647,7 +649,8 @@ class TestLaIpNoSeGuardaEnClaroEnLaBase:
                         )
                     )
                 ).scalars().all()
-                assert sujetos and not [s for s in sujetos if "203.0.113" in s]
+                assert sujetos
+                assert not [s for s in sujetos if "203.0.113" in s]
         finally:
             await motor.dispose()
 

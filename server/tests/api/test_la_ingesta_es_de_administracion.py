@@ -82,7 +82,7 @@ ESCRITURAS = [
 class TestUnaPersonaSinAdministracionNoEscribeEnElCorpus:
 
     @pytest.mark.parametrize(
-        "metodo,ruta,extra", ESCRITURAS, ids=["vaciar", "borrar", "borrar-trabajo", "subir"]
+        ("metodo", "ruta", "extra"), ESCRITURAS, ids=["vaciar", "borrar", "borrar-trabajo", "subir"]
     )
     @pytest.mark.parametrize("role", ["user", "informer"])
     def test_should_refuse_before_touching_the_database(self, metodo, ruta, extra, role):

@@ -38,7 +38,7 @@ class TestContentFindingContract:
     def test_content_finding_is_frozen(self) -> None:
 
         finding = _make_finding()
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError, match="frozen"):
             finding.status = "confirmed"  # type: ignore[misc]
 
     def test_confidence_accepts_zero(self) -> None:

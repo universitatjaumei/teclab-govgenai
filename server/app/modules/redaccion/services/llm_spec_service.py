@@ -252,7 +252,7 @@ class LLMSpecService:
             InputContract(
                 **data.get("proposed_inputs", {"required_slots": [], "optional_slots": []})
             )
-        except Exception as fallo:  # noqa: BLE001 — pydantic levanta varios tipos
+        except Exception as fallo:  # pydantic levanta varios tipos
             raise PropuestaInvalidaError(str(fallo)) from fallo
         return data
 

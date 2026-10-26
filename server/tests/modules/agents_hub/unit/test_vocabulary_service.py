@@ -213,7 +213,8 @@ class TestRouterIndex:
         ])
         index = await svc.build_router_index()
 
-        assert "Administració" in index and "Acadèmica" in index
+        assert "Administració" in index
+        assert "Acadèmica" in index
         # cada submateria aparece bajo su ámbito
         pos_admin = index.index("Administració")
         pos_dietes = index.index("dietes")
@@ -485,7 +486,8 @@ class TestApplyTerms:
         report = await apply_terms(store, terms, uuid.uuid4())
 
         assert report.created == 2
-        assert report.updated == 0 and report.unchanged == 0
+        assert report.updated == 0
+        assert report.unchanged == 0
 
     @pytest.mark.asyncio
     async def test_should_be_idempotent_on_second_csv_load(self, tmp_path):
@@ -505,7 +507,8 @@ class TestApplyTerms:
         report = await apply_terms(store, terms, org_id)
 
         assert report.unchanged == 2
-        assert report.created == 0 and report.updated == 0
+        assert report.created == 0
+        assert report.updated == 0
         assert store.writes == writes_after_first, "la segunda pasada no debe escribir"
 
     @pytest.mark.asyncio

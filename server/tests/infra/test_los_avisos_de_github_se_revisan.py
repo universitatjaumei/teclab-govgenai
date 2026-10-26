@@ -260,7 +260,7 @@ def test_no_mirar_no_es_no_haber_nada(texto: str) -> None:
     # Se recorre hasta el `fi` que cierra el bloque, no una ventana de N caracteres. Con ventana
     # fija fallaba en falso: la consulta GraphQL ocupa veinte líneas entre el `if !` y su rama de
     # error, y ninguna cifra redonda vale para las dos llamadas a la vez.
-    for i, linea in zip(indices, lineas):
+    for i, linea in zip(indices, lineas, strict=True):
         cierre = next(
             (j for j in range(i + 1, len(todas)) if todas[j].strip() == "fi"), None
         )
@@ -269,7 +269,12 @@ def test_no_mirar_no_es_no_haber_nada(texto: str) -> None:
             f"el guion está roto, o este test ya no sabe leerlo."
         )
         rama = "\n".join(todas[i:cierre])
-        assert "::error::" in rama and "exit 1" in rama, (
+        assert "::error::" in rama, (
+            f"la llamada `{linea.strip()[:70]}` comprueba su error pero su rama no pone el paso "
+            f"en rojo. Hace falta un `::error::` y un `exit 1`: avisar en el registro y seguir "
+            f"adelante deja el job verde, y un verde es lo único que nadie va a mirar."
+        )
+        assert "exit 1" in rama, (
             f"la llamada `{linea.strip()[:70]}` comprueba su error pero su rama no pone el paso "
             f"en rojo. Hace falta un `::error::` y un `exit 1`: avisar en el registro y seguir "
             f"adelante deja el job verde, y un verde es lo único que nadie va a mirar."

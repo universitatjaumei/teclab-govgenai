@@ -52,7 +52,7 @@ def _metadatos() -> dict[str, str]:
     """
     from sqlmodel import SQLModel
 
-    import server.app.database.models  # noqa: F401 — el esquema legado del «Brain»
+    import server.app.database.models  # el esquema legado del «Brain»
     import server.app.main  # noqa: F401 — registra todo lo demás
     from server.app.modules.agents_hub.database.config_models import HubConfigBase
     from server.app.modules.agents_hub.database.operational_models import HubOperationalBase
@@ -91,7 +91,7 @@ async def test_should_have_no_table_without_a_model():
 
     try:
         en_la_base = await _tablas_de_la_base(dsn)
-    except Exception as exc:  # noqa: BLE001 — cualquier fallo de conexión vale igual
+    except Exception as exc:  # cualquier fallo de conexión vale igual
         pytest.skip(f"la base no responde, y este guardarraíl la necesita: {type(exc).__name__}")
 
     declaradas = _metadatos()

@@ -141,7 +141,8 @@ class TestLoQueSeLePideAlModelo:
         prompt = _build_system_prompt("admin")
 
         assert "slot_id" in prompt
-        assert "excel" in prompt and "selector" in prompt, "faltan los tipos de slot"
+        assert "excel" in prompt, "faltan los tipos de slot"
+        assert "selector" in prompt, "faltan los tipos de slot"
 
     def test_should_report_the_model_that_wrote_the_proposal(self):
         """Salía «Modelo: desconocido» en pantalla: `ChatGoogleGenerativeAI` no expone

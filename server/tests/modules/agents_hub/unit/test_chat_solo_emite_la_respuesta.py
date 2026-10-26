@@ -38,7 +38,7 @@ from pathlib import Path
 
 import pytest
 
-FUENTE = Path("app/api/v1/hub_chat.py")
+FUENTE = Path("app/modules/agents_hub/services/turno_de_chat.py")
 
 
 @pytest.fixture(scope="module")
@@ -58,7 +58,7 @@ class TestLaListaDeNodosSeDerivaDelGrafo:
 
     def test_should_derive_the_allowed_nodes_from_the_final_nodes(self, texto: str):
         """`_FINAL_NODES` es la única fuente de verdad de quién produce la respuesta."""
-        from server.app.api.v1.hub_chat import _FINAL_NODES
+        from server.app.modules.agents_hub.services.turno_de_chat import _FINAL_NODES
 
         assert "generate_answer" in _FINAL_NODES
         # El filtro del stream lee esa constante, no una lista propia.
@@ -70,7 +70,7 @@ class TestLaListaDeNodosSeDerivaDelGrafo:
 
         Se comprueba contra el grafo real: los nodos que escriben `answer` en el estado.
         """
-        from server.app.api.v1.hub_chat import _FINAL_NODES
+        from server.app.modules.agents_hub.services.turno_de_chat import _FINAL_NODES
 
         fuente_grafo = Path(
             "app/modules/agents_hub/agent/public_graphs/core/core_graph.py"

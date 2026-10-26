@@ -183,9 +183,9 @@ async def test_should_expose_the_modules_in_auth_me(db_url):
                 session=session,
             )
 
-            assert salida["modulos"] == ["curacion", "informes"]
+            assert salida.modulos == ["curacion", "informes"]
             # Y sigue trayendo lo de antes: nadie que dependiera de `/auth/me` se rompe.
-            assert salida["email"] == "t@uji.es"
-            assert salida["role"] == "user"
+            assert salida.email == "t@uji.es"
+            assert salida.role == "user"
     finally:
         await engine.dispose()

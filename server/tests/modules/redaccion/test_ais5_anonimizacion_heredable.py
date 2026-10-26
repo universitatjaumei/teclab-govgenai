@@ -57,7 +57,7 @@ class TestElOrdenDeProteccion:
 class TestElInformeEndureceYNoRelaja:
 
     @pytest.mark.parametrize(
-        "heredado,pedido,esperado",
+        ("heredado", "pedido", "esperado"),
         [
             # Endurecer siempre vale.
             ("replace", "replace_with_disposition_7", "replace_with_disposition_7"),

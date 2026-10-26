@@ -5,6 +5,10 @@ Expone generación, validación y aprobación de ReportTemplateDraft.
 """
 from __future__ import annotations
 
+import logging
+
+import asyncio
+
 import uuid
 from typing import Literal
 
@@ -46,6 +50,8 @@ from server.app.modules.redaccion.services.llm_spec_service import (
     PropuestaInvalidaError,
 )
 from server.app.modules.redaccion.services.spec_builder import spec_desde_borrador
+
+_log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/redaccion/llm-drafts", tags=["redaccion-llm-drafts"],
     # INF.7 — el modulo se exige a nivel de router: asi no se puede olvidar en un
@@ -124,10 +130,19 @@ async def get_llm_spec_service(
             LocalConfigProvider(session),
             organizacion_id=organizacion_unica_de(current_user),
         )
-    except Exception as fallo:  # noqa: BLE001
+    except ValueError as fallo:
+        # El motivo es nuestro —«no hay configuración LLM por defecto para tier 1»— y es lo que
+        # distingue «esto no está montado» de «esto está roto».
         raise HTTPException(
             status_code=503,
-            detail=f"No hay modelo de redacción disponible: {fallo}",
+            detail={"code": "SIN_MODELO_DE_REDACCION", "message": f"No hay modelo de redacción disponible: {fallo}"},
+        ) from fallo
+    except Exception as fallo:
+        # #276 — cualquier otra cosa puede llevar texto del proveedor: al registro, no al cliente.
+        _log.warning("No se pudo resolver el modelo de redacción", exc_info=True)
+        raise HTTPException(
+            status_code=503,
+            detail={"code": "SIN_MODELO_DE_REDACCION", "message": "No hay modelo de redacción disponible. El motivo está en el registro del servidor."},
         ) from fallo
 
     return LLMSpecService(modelo, nombre_del_modelo(modelo))
@@ -165,7 +180,10 @@ async def describe_sample_file(
     """
     contenido = await read_within_limit(file)
     try:
-        return resumen_de_la_muestra(contenido, file.filename or "sin-nombre")
+        # #274 — pandas lee el Excel en este hilo: fuera del bucle, o bloquea a todo el proceso.
+        return await asyncio.to_thread(
+            resumen_de_la_muestra, contenido, file.filename or "sin-nombre"
+        )
     except MuestraIlegibleError as fallo:
         raise HTTPException(status_code=422, detail=str(fallo)) from fallo
 
@@ -249,6 +267,7 @@ async def approve_as_template(
         )
 
     normalized = result.normalized_draft
+    assert normalized is not None, "un borrador válido trae su versión normalizada"
     template_id = uuid.uuid4()
     version_id = uuid.uuid4()
     owner_uuid = _user_to_uuid(user.user_id)
@@ -305,6 +324,7 @@ async def approve_as_workspace(
         )
 
     normalized = result.normalized_draft
+    assert normalized is not None, "un borrador válido trae su versión normalizada"
     template_id = uuid.uuid4()
     version_id = uuid.uuid4()
     workspace_id = uuid.uuid4()

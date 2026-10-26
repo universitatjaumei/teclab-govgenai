@@ -173,7 +173,7 @@ def test_barh_pone_la_categoria_en_el_eje_y(datos: pd.DataFrame) -> None:
 def test_los_graficos_de_exploracion_estadistica_se_quedan_fuera() -> None:
     """`violin` y `pairplot` no entran: `pairplot` devuelve un grid que no cabe en `fig, ax`."""
     for excluido in ("violin", "pairplot"):
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError, match="chart_type"):
             ChartConfiguration(chart_type=excluido)
 
 

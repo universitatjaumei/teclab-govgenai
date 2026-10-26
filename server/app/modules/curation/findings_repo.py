@@ -12,7 +12,7 @@ from server.app.modules.agents_hub.database.operational_models import HubContent
 from server.app.modules.curation.contracts import (
     ContentFinding,
     InvalidFindingTransitionError,
-    _VALID_FINDING_TRANSITIONS,
+    transiciones_permitidas,
 )
 
 
@@ -83,7 +83,7 @@ class ContentFindingRepo:
         if finding_type is not None:
             stmt = stmt.where(HubContentFinding.finding_type == finding_type)
         result = await self._session.execute(stmt)
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     async def get(self, finding_id: uuid.UUID) -> Optional[HubContentFinding]:
         return await self._session.get(HubContentFinding, finding_id)
@@ -96,7 +96,10 @@ class ContentFindingRepo:
         resolution_note: Optional[str] = None,
     ) -> HubContentFinding:
         orm = await self._session.get(HubContentFinding, finding_id)
-        allowed = _VALID_FINDING_TRANSITIONS.get(orm.status, set())
+        if orm is None:
+            # El router ya comprobó que existe; si no está, es que se borró entre medias.
+            raise LookupError(f"el hallazgo {finding_id} no existe")
+        allowed = transiciones_permitidas(orm.status)
         if new_status not in allowed:
             raise InvalidFindingTransitionError(
                 f"Cannot transition from '{orm.status}' to '{new_status}'"

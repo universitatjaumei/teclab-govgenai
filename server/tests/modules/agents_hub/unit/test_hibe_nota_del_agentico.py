@@ -190,5 +190,5 @@ class TestElPuntuadorDevuelveUnNumeroDeVerdad:
         )
 
         puntua = _puntuador_de_relevancia(_Deps())
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="no tiene fragmentos"):
             await puntua("x", str(uuid.uuid4()))

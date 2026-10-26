@@ -55,7 +55,8 @@ class TestElPanel:
 
     def test_should_find_the_panel_locations(self):
         bloques = _bloques_location(NGINX.read_text(encoding="utf-8"))
-        assert "/panel/" in bloques and "/panel/assets/" in bloques, sorted(bloques)
+        assert "/panel/" in bloques, sorted(bloques)
+        assert "/panel/assets/" in bloques, sorted(bloques)
 
     def test_should_send_the_four_headers_from_every_panel_location(self):
         bloques = _bloques_location(NGINX.read_text(encoding="utf-8"))

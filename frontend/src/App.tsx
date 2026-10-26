@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { noReintentarSiElServidorYaDecidio } from '@/shared/api/reintentos'
 import { Suspense, lazy } from 'react'
 import { AuthProvider, PrivateRoute } from '@/shared/auth'
+import { olvidarLoDeLaPersona } from '@/shared/auth/olvidarLoDeLaPersona'
 import { RutaDeModulo, Aterrizaje, SinAcceso, NoEncontrado } from '@/shared/auth/RutaDeModulo'
 import { AppLayout } from '@/admin/AppLayout'
 import { HubLayout } from '@/admin/HubLayout'
@@ -113,7 +114,7 @@ function App() {
           los tests —que montan en la raíz— dejarían de encontrar sus rutas, y el día que el
           prefijo cambiara habría que acordarse de dos sitios. */}
       <BrowserRouter basename={import.meta.env.BASE_URL}>
-        <AuthProvider alCambiarDeSesion={vaciarCacheDeConsultas}>
+        <AuthProvider alCambiarDeSesion={vaciarCacheDeConsultas} alOlvidarALaPersona={olvidarLoDeLaPersona}>
           <Suspense fallback={<CargandoRuta />}>
             <Routes>
               <Route path="/login" element={<LoginPage />} />

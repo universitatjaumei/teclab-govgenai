@@ -469,7 +469,7 @@ class TestEstrategias:
     @pytest.mark.asyncio
     async def test_should_apply_filter_in_document_index_provider(self, db_session):
         """El indice del selector es la cuarta via: filtrarlo o el titulo delata el documento."""
-        from server.app.modules.agents_hub.agent.public_graphs.strategies.md_agent_selector_pipeline import (  # noqa: E501
+        from server.app.modules.agents_hub.agent.public_graphs.strategies.md_agent_selector_pipeline import (
             DocumentIndexProvider,
         )
 

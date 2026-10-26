@@ -14,7 +14,12 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel
 from sqlalchemy import select
 
-from server.app.api.deps import get_current_user, get_session, require_module
+from server.app.api.deps import (
+    get_current_user,
+    get_pat_service,
+    get_session,
+    require_module,
+)
 from server.app.core.auth.models import UserInfo
 from server.app.core.auth.pat.scopes import UnknownScopeError, allowed_scopes_for
 from server.app.core.auth.pat.service import (
@@ -72,10 +77,10 @@ class PatView(BaseModel):
 async def create_pat(
     body: PatCreateRequest,
     user: UserInfo = Depends(get_current_user),
-    session=Depends(get_session),
+    servicio: PatService = Depends(get_pat_service),
 ) -> PatCreatedResponse:
     try:
-        pat, token = await PatService(session).create(
+        pat, token = await servicio.create(
             owner=user,
             name=body.name,
             scopes=body.scopes,
@@ -86,17 +91,17 @@ async def create_pat(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail={"code": "UNKNOWN_SCOPE", "reason": str(exc)},
-        )
+        ) from exc
     except PatForbiddenError as exc:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={"code": "PAT_FORBIDDEN", "reason": str(exc)},
-        )
+        ) from exc
     except PatOrganizacionDesconocidaError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail={"code": "ORGANIZACION_DESCONOCIDA", "reason": str(exc)},
-        )
+        ) from exc
     return PatCreatedResponse(
         id=pat.id,
         token=token,
@@ -140,9 +145,9 @@ async def pat_opciones(
 @router.get("", response_model=list[PatView], operation_id="listPats")
 async def list_pats(
     user: UserInfo = Depends(get_current_user),
-    session=Depends(get_session),
+    servicio: PatService = Depends(get_pat_service),
 ) -> list[PatView]:
-    pats = await PatService(session).list_for(user)
+    pats = await servicio.list_for(user)
     return [
         PatView(
             id=p.id,
@@ -163,13 +168,13 @@ async def list_pats(
 async def revoke_pat(
     pat_id: uuid.UUID,
     user: UserInfo = Depends(get_current_user),
-    session=Depends(get_session),
+    servicio: PatService = Depends(get_pat_service),
 ) -> Response:
     try:
-        await PatService(session).revoke(user, pat_id)
-    except PatInvalidError:
+        await servicio.revoke(user, pat_id)
+    except PatInvalidError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Access token not found",
-        )
+        ) from exc
     return Response(status_code=status.HTTP_204_NO_CONTENT)

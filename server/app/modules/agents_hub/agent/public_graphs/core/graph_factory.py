@@ -247,7 +247,7 @@ class _BuscadorVectorial:
     def __init__(self, estrategia: Any) -> None:
         self._estrategia = estrategia
 
-    async def search(self, query: str, chatbot_id: str, language: str | None = None) -> list:
+    async def search(self, query: str, chatbot_id: str, language: str | None = None) -> list:  # noqa: ARG002 — se recibe y no se usa, como en el pipeline RAG (ver docstring)
         """`language` se recibe y **no se usa**, igual que hace el pipeline RAG.
 
         Filtrar por él dejaba la búsqueda vacía siempre: los chunks del corpus llevan `val`
@@ -256,7 +256,7 @@ class _BuscadorVectorial:
         y respondía en blanco. La búsqueda vectorial cruza idiomas por sí sola —los
         embeddings son multilingües— y la política de lengua actúa al redactar.
         """
-        from server.app.modules.agents_hub.agent.public_graphs.strategies.rag_vector_pipeline import (  # noqa: E501
+        from server.app.modules.agents_hub.agent.public_graphs.strategies.rag_vector_pipeline import (
             _source_to_evidence,
         )
 

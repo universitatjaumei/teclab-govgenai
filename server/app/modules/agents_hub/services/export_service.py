@@ -30,7 +30,7 @@ class ExportService:
         workspace_id: str,
         final_document: str,
         run_manifest: Any,
-        format: str = "docx",  # noqa: A002
+        format: str = "docx",
         theme: Any = None,
     ) -> ExportResult:
         ext = format.lower()
@@ -91,28 +91,30 @@ class ExportService:
     # ODT
     # ------------------------------------------------------------------
 
-    def _build_odt(self, markdown: str, run_manifest: Any, theme: Any) -> bytes:
+    def _build_odt(self, markdown: str, run_manifest: Any, theme: Any) -> bytes:  # noqa: ARG002 — el ODT aún no aplica tema; el DOCX sí
         from odf.opendocument import OpenDocumentText
         from odf.text import H, P
 
         odt = OpenDocumentText()
+        # odfpy no publica tipos: `text` es el cuerpo del documento.
+        cuerpo: Any = odt.text  # pyright: ignore[reportAttributeAccessIssue]
 
         for elem in _parse_markdown(markdown):
             if elem["type"] == "heading":
                 level = min(elem["level"], 10)
-                odt.text.addElement(H(outlinelevel=level, text=elem["text"]))
+                cuerpo.addElement(H(outlinelevel=level, text=elem["text"]))
             else:
-                odt.text.addElement(P(text=elem["text"]))
+                cuerpo.addElement(P(text=elem["text"]))
 
         chunks = _get_chunks(run_manifest)
         if chunks:
-            odt.text.addElement(H(outlinelevel=1, text="Referencias"))
+            cuerpo.addElement(H(outlinelevel=1, text="Referencias"))
             for i, chunk in enumerate(chunks, 1):
                 ref = f"[{i}] {getattr(chunk, 'source_url', '') or ''}"
                 page = getattr(chunk, "page", None)
                 if page is not None:
                     ref += f", p. {page}"
-                odt.text.addElement(P(text=ref))
+                cuerpo.addElement(P(text=ref))
 
         buf = io.BytesIO()
         odt.save(buf)

@@ -581,5 +581,6 @@ async def test_citation_node_populates_page_from_rich_doc():
     result = await node(state)
 
     citations = result["blocks"]["ai_b1"].citations
-    assert citations is not None and len(citations) >= 1
+    assert citations is not None
+    assert len(citations) >= 1
     assert citations[0].page == 3

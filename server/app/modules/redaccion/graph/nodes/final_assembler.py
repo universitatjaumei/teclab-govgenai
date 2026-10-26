@@ -11,7 +11,7 @@ from server.app.modules.redaccion.contracts.runtime import (
 # INF.2 — los estados aprobados y los tipos de IA vienen de `block_actions`, que es donde vive
 # la política de revisión. Estaban repetidos aquí, y esa copia es la que permitió que el
 # ensamblador y la exportación usaran reglas distintas para la misma pregunta.
-from server.app.modules.redaccion.services.block_actions import (  # noqa: E402
+from server.app.modules.redaccion.services.block_actions import (
     ESTADOS_APROBADOS as _INCLUDABLE_STATUSES,
     TIPOS_DE_IA as _TIPOS_DE_IA,
     bloques_pendientes,

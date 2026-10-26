@@ -7,6 +7,16 @@ import { LanguageBadge, SourceKindBadge, SourceKindIcon } from './DocumentBadges
 import { formatTokens } from './format'
 import { esEnlaceExterno } from '@/shared/enlaces/enlaceExterno'
 
+/** El host de una URL, o la URL tal cual si no se puede leer. `new URL('http://')` lanza, y
+ *  pintarlo dentro de la tabla la dejaba en blanco entera (#278). */
+function hostDe(url: string): string {
+  try {
+    return new URL(url).hostname
+  } catch {
+    return url
+  }
+}
+
 /** Filas por página.
  *
  * La tabla pintaba el corpus entero: con los 297 documentos del piloto son ~4.500 nodos y
@@ -131,7 +141,7 @@ export function DocumentsTable({
                         title={doc.canonical_url}
                       >
                         <Link className="w-3 h-3 shrink-0" />
-                        {new URL(doc.canonical_url).hostname}
+                        {hostDe(doc.canonical_url)}
                       </a>
                     )}
                   </td>

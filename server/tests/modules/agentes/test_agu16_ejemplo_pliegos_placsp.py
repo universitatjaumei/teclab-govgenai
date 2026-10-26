@@ -24,7 +24,8 @@ RUTA = RAIZ / "docs" / "ejemplos" / "agentes" / "pliegos" / "descarga_placsp.py"
 
 def _modulo():
     spec = importlib.util.spec_from_file_location("descarga_placsp", RUTA)
-    assert spec and spec.loader
+    assert spec
+    assert spec.loader
     modulo = importlib.util.module_from_spec(spec)
     sys.modules["descarga_placsp"] = modulo
     spec.loader.exec_module(modulo)
@@ -164,7 +165,7 @@ class TestLaSeleccion:
         assert (exp.capa, exp.entidad) == ("Universidad", "Universidad de Burgos")
 
     @pytest.mark.parametrize(
-        "organo,ancestros,entidad",
+        ("organo", "ancestros", "entidad"),
         [
             # Plataforma catalana agregada: cuelga de «Universitats», sin nodo «UNIVERSIDADES».
             ("Universitat de Barcelona", ("Universitats",), "Universitat de Barcelona"),
@@ -272,7 +273,8 @@ class TestLaDescarga:
         nombre = d.nombre_de_fichero(self._exp(objeto="Suministro / instalación: " + "equipo " * 60), "Memoria")
         assert len(nombre) <= 150
         assert nombre.endswith("… – Memoria.pdf")
-        assert "/" not in nombre and ":" not in nombre
+        assert "/" not in nombre
+        assert ":" not in nombre
 
     def test_guarda_los_pdf_y_anota_lo_demas(self, tmp_path):
         respuestas = {
@@ -453,7 +455,8 @@ class TestLaRevisionDeLaPR227:
         retirados_2024, retirados_2025 = {}, {}
         en_2024 = d.extraer([_feed(_entrada(1, actualizado="2024-11-01T00:00:00+01:00"))], SEL.capas, retirados_2024)
         en_2025 = d.extraer([_feed(lapida)], SEL.capas, retirados_2025)
-        assert en_2025 == [] and retirados_2025
+        assert en_2025 == []
+        assert retirados_2025
         d.guardar_extraccion(en_2025, tmp_path / "e2025.csv", retirados_2025)
         assert d.leer_lapidas(tmp_path / "e2025.csv") == retirados_2025
         assert d.ultimo_estado(en_2024, en_2025, retirados=retirados_2025) == []

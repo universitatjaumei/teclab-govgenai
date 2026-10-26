@@ -7,17 +7,6 @@ interface Props {
   onClose: () => void
 }
 
-interface Contenido {
-  url: string
-  title: string | null
-  status: string
-  content: string
-  token_count: number | null
-  owner: string | null
-  published_at: string | null
-  render_signals: unknown[]
-}
-
 /**
  * El texto **guardado** de una página rastreada (CUR.4).
  *
@@ -33,7 +22,7 @@ export function PageContentDialog({ pageId, onClose }: Props) {
   const { t: tc } = useTranslation('common')
 
   const { data, isLoading } = useGetPageContent(pageId)
-  const pagina = data as unknown as Contenido | undefined
+  const pagina = data
 
   return (
     <div
@@ -88,7 +77,7 @@ export function PageContentDialog({ pageId, onClose }: Props) {
             {t('page_content_note')}
           </p>
 
-          {pagina && pagina.render_signals.length > 0 && (
+          {pagina && (pagina.render_signals?.length ?? 0) > 0 && (
             <p className="text-xs bg-yellow-50 text-yellow-900 rounded p-2">
               {t('page_content_needs_js')}
             </p>

@@ -37,9 +37,16 @@ def test_el_medidor_ve_las_ordenes_de_ci() -> None:
 
 def test_algun_paso_ejecuta_los_tests_del_sandbox() -> None:
     ordenes = "\n".join(_ordenes_de_ci())
-    assert "--directory services/script_sandbox" in ordenes and any(
+    assert "--directory services/script_sandbox" in ordenes, (
+        "ningún paso de CI ejecuta `services/script_sandbox/tests`. Exportar su lock y construir "
+        "su imagen no ejecuta sus tests, y ahí está la prueba de que un guion funciona con el "
+        "pandas del sandbox y no sólo con el del servidor."
+    )
+    assert (
+        any(
         "services/script_sandbox" in linea and "pytest" in linea
         for linea in ordenes.splitlines()
+    )
     ), (
         "ningún paso de CI ejecuta `services/script_sandbox/tests`. Exportar su lock y construir "
         "su imagen no ejecuta sus tests, y ahí está la prueba de que un guion funciona con el "

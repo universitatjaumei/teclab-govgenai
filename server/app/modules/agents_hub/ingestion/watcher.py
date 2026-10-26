@@ -1,14 +1,15 @@
 """Orquestador de ingestión asincrona."""
 
 import asyncio
+import contextlib
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, cast, Protocol
 
-from sqlalchemy import delete, select, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import CursorResult, delete, select, update
+from sqlalchemy.exc import IntegrityError, InvalidRequestError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.app.core.lengua_del_corpus import codi_del_corpus
@@ -231,10 +232,8 @@ class IngestionWatcher:
             except IntegrityError:
                 # Dos jobs concurrentes procesaron el mismo contenido: usar el existente.
                 # Tras el rollback del savepoint, doc puede estar ya desvinculado.
-                try:
+                with contextlib.suppress(InvalidRequestError):
                     self._session.expunge(doc)
-                except Exception:
-                    pass
                 existing_dup = await self._session.execute(
                     select(HubDocument).where(
                         HubDocument.chatbot_id == chatbot_id,
@@ -286,7 +285,8 @@ class IngestionWatcher:
             )
         except Exception:  # pragma: no cover - la ingesta no cae por la config de troceado
             logger.warning(
-                "No se pudo resolver la config de troceado; se usa la de plataforma"
+                "No se pudo resolver la config de troceado; se usa la de plataforma",
+                exc_info=True,
             )
             return self.chunker
 
@@ -371,7 +371,7 @@ class IngestionWatcher:
     def _persistir_chunks(
         self, doc: HubDocument, chunks, vectores, terminos, modelo, dimension, tarea=None
     ) -> None:
-        for ch, embedding in zip(chunks, vectores):
+        for ch, embedding in zip(chunks, vectores, strict=True):
             self._session.add(HubDocumentChunk(
                 chatbot_id=doc.chatbot_id,
                 document_id=doc.id,
@@ -430,7 +430,7 @@ class IngestionWatcher:
             vectores = await self._embed_en_lote([ch.embedding_text for ch in chunks])
 
         seg.avisar("persist", actual=len(chunks))
-        for chunk, embedding in zip(chunks, vectores):
+        for chunk, embedding in zip(chunks, vectores, strict=True):
             db_chunk = HubDocumentChunk(
                 chatbot_id=chatbot_id,
                 content=chunk.content,
@@ -486,6 +486,8 @@ class IngestionWatcher:
 
         error: Exception | None = None
         try:
+            if self._storage is None:
+                raise RuntimeError("el watcher se construyó sin almacenamiento y este job lo necesita")
             crudo = await self._storage.get(job.source_url)
             texto = crudo.decode("utf-8") if isinstance(crudo, bytes) else crudo
             informe = await CorpusReconciler(self._session, self).reconcile(
@@ -562,7 +564,7 @@ async def tomar_job(session: AsyncSession, job_id: uuid.UUID) -> bool:
         .values(status="running", processing_started_at=datetime.now(timezone.utc))
     )
     await session.commit()
-    return (resultado.rowcount or 0) == 1
+    return (cast(CursorResult, resultado).rowcount or 0) == 1
 
 
 async def cleanup_temporary_chunks(session: AsyncSession, ttl_hours: int = 24) -> int:
@@ -585,7 +587,7 @@ async def cleanup_temporary_chunks(session: AsyncSession, ttl_hours: int = 24) -
         )
     )
     await session.commit()
-    return resultado.rowcount or 0
+    return cast(CursorResult, resultado).rowcount or 0
 
 
 #: Cada cuánto pasa la limpieza de temporales. Viven 24 h, así que una pasada cada seis horas los
@@ -614,6 +616,6 @@ async def bucle_de_temporales(
     while True:
         try:
             await una_pasada_de_temporales(session_factory)
-        except Exception:  # noqa: BLE001 — se registra y se reintenta en la siguiente pasada
+        except Exception:  # se registra y se reintenta en la siguiente pasada
             logger.exception("La limpieza de fragmentos temporales falló; se reintenta luego")
         await asyncio.sleep(cada_segundos)

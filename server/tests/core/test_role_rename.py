@@ -36,7 +36,7 @@ def test_should_expose_superadmin_admin_user_roles_only():
     assert {"superadmin", "admin", "user"} <= values
     # El Literal ya no acepta 'partner'.
     assert "partner" not in values
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Invalid role"):
         UserInfo(user_id="1", email="e@test.com", role="partner")
 
 

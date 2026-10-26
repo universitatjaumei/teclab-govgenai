@@ -333,7 +333,7 @@ async def _run(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").strip().splitlines()[0])
     parser.add_argument("--chatbot-id", required=True, type=uuid.UUID, dest="chatbot_id")
     parser.add_argument("--limite", type=int, default=0, help="0 = sin limite")
     parser.add_argument("--concurrencia", type=int, default=8)

@@ -185,7 +185,7 @@ def _entra(modulo_del_fragmento: CopilotModule, modulo_pedido: CopilotModule | N
 def _cosine(a: list[float], b: list[float]) -> float:
     if not a or not b or len(a) != len(b):
         return 0.0
-    dot = sum(x * y for x, y in zip(a, b))
+    dot = sum(x * y for x, y in zip(a, b, strict=False))
     mag_a = sum(x * x for x in a) ** 0.5
     mag_b = sum(y * y for y in b) ** 0.5
     if mag_a == 0 or mag_b == 0:

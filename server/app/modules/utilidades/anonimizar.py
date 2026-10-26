@@ -24,6 +24,8 @@ listado, no cuánto acierta con uno real.
 """
 from __future__ import annotations
 
+from typing import cast
+
 import csv
 import io
 from dataclasses import dataclass, field
@@ -141,16 +143,16 @@ def leer_tabla(datos: bytes, nombre: str) -> Tabla:
             df = pd.read_csv(
                 io.StringIO(texto), sep=separador, dtype=str, keep_default_na=False
             )
-        except Exception as fallo:  # noqa: BLE001 — pandas lanza varios tipos; el motivo va dentro
+        except Exception as fallo:  # pandas lanza varios tipos; el motivo va dentro
             raise FicheroNoValido(f"el CSV no se puede leer: {fallo}") from fallo
         return Tabla(df=df, formato="csv", separador=separador)
 
     try:
         libro = pd.ExcelFile(io.BytesIO(datos), engine="openpyxl")
         df = libro.parse(libro.sheet_names[0], dtype=object)
-    except Exception as fallo:  # noqa: BLE001
+    except Exception as fallo:
         raise FicheroNoValido(f"el Excel no se puede leer: {fallo}") from fallo
-    return Tabla(df=df, formato="xlsx", hojas=len(libro.sheet_names))
+    return Tabla(df=cast(pd.DataFrame, df), formato="xlsx", hojas=len(libro.sheet_names))
 
 
 def _es_texto_libre(valores: list[str], detector: PiiDetector) -> bool:

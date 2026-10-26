@@ -58,10 +58,10 @@ class _Sesion:
         filas = self._paginas if getattr(stmt, "_model_hint", "page") == "page" else []
 
         class _R:
-            def scalars(self_inner) -> Any:  # noqa: N805
+            def scalars(self_inner) -> Any:
                 return self_inner
 
-            def all(self_inner) -> list:  # noqa: N805
+            def all(self_inner) -> list:
                 return filas
 
         return _R()

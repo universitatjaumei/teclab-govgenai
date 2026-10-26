@@ -23,6 +23,7 @@ por el de los dobles.
 from __future__ import annotations
 
 import pytest
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy import text
 
 from server.app.database.db import opciones_de_conexion
@@ -41,7 +42,7 @@ class TestElServidorCortaLaConsultaLarga:
         motor = create_async_engine(db_url, statement_timeout_ms=500)
         try:
             async with motor.connect() as conexion:
-                with pytest.raises(Exception) as exc:
+                with pytest.raises(DBAPIError, match="statement timeout") as exc:
                     await conexion.execute(text("SELECT pg_sleep(5)"))
             # Postgres cancela por tiempo con `QueryCanceled` (SQLSTATE 57014). Se comprueba el
             # motivo y no sólo que haya fallado: un fallo de conexión también levantaría, y daría

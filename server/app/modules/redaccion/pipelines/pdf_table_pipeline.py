@@ -6,6 +6,8 @@ y se usa stream como fallback.
 """
 from __future__ import annotations
 
+import logging
+from typing import Any, cast
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -16,6 +18,8 @@ from server.app.modules.redaccion.pipelines.contracts import (
     ExtractionWarning,
     ExtractedTable,
 )
+
+_log = logging.getLogger(__name__)
 
 
 class PDFTableExtractionPipeline:
@@ -30,7 +34,7 @@ class PDFTableExtractionPipeline:
         if inp.file_ref is None:
             raise ValueError("PDFTableExtractionPipeline requiere file_ref en ExtractionInput.")
 
-        import camelot  # noqa: PLC0415
+        import camelot
 
         file_path = str(Path(inp.file_ref.bucket) / inp.file_ref.key)
         pages = str(inp.options.get("pages", "1"))
@@ -71,7 +75,7 @@ class PDFTableExtractionPipeline:
             )
 
         page_list = (
-            sorted({t.page for t in raw_tables})
+            sorted({int(cast(Any, t).page) for t in raw_tables})
             if raw_tables and raw_tables.n > 0
             else None
         )
@@ -95,9 +99,10 @@ def _read_tables(camelot, path: str, pages: str):
         result = camelot.read_pdf(path, flavor="lattice", pages=pages)
         if result.n > 0:
             return result
-    except Exception:
-        pass
+    except Exception:  # noqa: BLE001 — sin Ghostscript, lattice falla y se prueba stream
+        _log.debug("camelot lattice falló en %s; se prueba stream", path, exc_info=True)
     try:
         return camelot.read_pdf(path, flavor="stream", pages=pages)
-    except Exception:
+    except Exception:  # noqa: BLE001 — camelot lanza tipos propios; el pipeline avisa aguas arriba
+        _log.warning("camelot no pudo leer tablas de %s", path, exc_info=True)
         return None

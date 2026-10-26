@@ -4,6 +4,7 @@ Deploy: cloud
 
 import uuid
 from datetime import datetime, timezone
+from typing import Any, Literal, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
@@ -13,6 +14,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from server.app.api.deps import get_session, get_current_user
 from server.app.core.auth import UserInfo, create_token
+from server.app.core.auth.capacidades import Capacidad, capacidades_de
 from server.app.core.auth.models import UserRole
 from server.app.core.config import get_settings
 from server.app.core.rate_limit import limitar_login
@@ -437,11 +439,25 @@ async def cambiar_mi_password(
     await session.commit()
 
 
-@router.get("/me", response_model=dict)
+class UsuarioActual(BaseModel):
+    """Lo que una sesión necesita saber de sí misma (#277: antes era un `dict` sin contrato)."""
+
+    user_id: str
+    email: str
+    role: str
+    organizacion_ids: list[str]
+    saml_groups: list[str]
+    cambio_pendiente: bool
+    modulos: list[str]
+    identity_role_authority: Literal["app", "idp"]
+    capacidades: list[Capacidad]
+
+
+@router.get("/me", response_model=UsuarioActual)
 async def get_me(
     current_user: UserInfo = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-) -> dict:
+) -> UsuarioActual:
     """La información del usuario autenticado, **con los módulos que tiene concedidos**.
 
     INF.7 — el menú y las rutas del frontend se generan iterando `modulos`. Antes no había nada
@@ -457,8 +473,10 @@ async def get_me(
     """
     from server.app.core.auth.modulos_service import modulos_del_usuario
 
-    return {
+    return UsuarioActual(
         **current_user.to_dict(),
-        "modulos": await modulos_del_usuario(session, current_user),
-        "identity_role_authority": get_settings().identity_role_authority,
-    }
+        modulos=await modulos_del_usuario(session, current_user),
+        identity_role_authority=cast(Any, get_settings().identity_role_authority),
+        # #277 — lo que puede hacer, para que el panel no lo deduzca del rol.
+        capacidades=capacidades_de(current_user),
+    )

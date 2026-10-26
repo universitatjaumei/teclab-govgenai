@@ -6,6 +6,7 @@ consume la respuesta firmada (ACS) y publica la metadata del SP. La emisión del
 de sesión y el provisioning de la identidad llegan en AUTH.2.
 """
 
+import logging
 import threading
 import time
 
@@ -15,7 +16,7 @@ from fastapi.responses import RedirectResponse, Response
 from onelogin.saml2.auth import OneLogin_Saml2_Auth
 from onelogin.saml2.settings import OneLogin_Saml2_Settings
 
-from server.app.api.deps import get_session
+from server.app.api.deps import get_saml_identity_service
 from server.app.core.auth import create_token
 from server.app.core.auth.saml import (
     InvalidSamlConfigError,
@@ -28,6 +29,8 @@ from server.app.core.auth.saml.identity_service import (
     SamlUserInactiveError,
 )
 from server.app.core.config import get_settings
+
+_log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth/saml", tags=["auth-saml"])
 
@@ -80,7 +83,7 @@ async def saml_login(request: Request, relay_state: str | None = None):
     produccion = get_settings().environment == "production"
     respuesta.set_cookie(
         COOKIE_DE_LA_PETICION,
-        auth.get_last_request_id(),
+        auth.get_last_request_id() or "",
         max_age=600,
         path=_RUTA_DE_LA_COOKIE,
         httponly=True,
@@ -91,7 +94,10 @@ async def saml_login(request: Request, relay_state: str | None = None):
 
 
 @router.post("/acs")
-async def saml_acs(request: Request, session=Depends(get_session)):
+async def saml_acs(
+    request: Request,
+    identity: SamlIdentityService = Depends(get_saml_identity_service),
+):
     """Assertion Consumer Service: valida la aserción, resuelve la identidad y emite JWT."""
     _ensure_enabled()
     auth = await _build_auth(request)
@@ -100,21 +106,21 @@ async def saml_acs(request: Request, session=Depends(get_session)):
     try:
         # Con el ID de la petición python3-saml compara `InResponseTo`; sin él, no compara nada.
         auth.process_response(request_id=peticion)
-    except Exception as exc:  # noqa: BLE001 — cualquier fallo de parseo => 401
+    except Exception as exc:  # cualquier fallo de parseo => 401
+        # #276 — el texto de python3-saml puede llevar trozos de la aserción: al registro.
+        _log.warning("La respuesta SAML no se pudo validar", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"code": "SAML_VALIDATION_FAILED", "reason": str(exc)},
-        )
+            detail={"code": "SAML_VALIDATION_FAILED", "message": "La respuesta del proveedor de identidad no es válida."},
+        ) from exc
 
     errors = auth.get_errors()
     if errors:
+        # Igual que el `except` de arriba: los códigos y el motivo de python3-saml, al registro.
+        _log.warning("La respuesta SAML no es válida: %s (%s)", errors, auth.get_last_error_reason())
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={
-                "code": "SAML_VALIDATION_FAILED",
-                "errors": errors,
-                "reason": auth.get_last_error_reason(),
-            },
+            detail={"code": "SAML_VALIDATION_FAILED", "message": "La respuesta del proveedor de identidad no es válida."},
         )
     if not auth.is_authenticated():
         raise HTTPException(
@@ -134,23 +140,22 @@ async def saml_acs(request: Request, session=Depends(get_session)):
             detail={"code": "SAML_REUTILIZADA"},
         )
 
-    identity = SamlIdentityService(session)
     try:
         user_info = await identity.resolve_session(
-            auth.get_nameid(), auth.get_attributes()
+            auth.get_nameid() or "", auth.get_attributes()
         )
     except SamlMissingEmailError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"code": "SAML_MISSING_EMAIL", "reason": str(exc)},
-        )
+        ) from exc
     except SamlUserInactiveError as exc:
         # 403 y no 401: el IdP la autenticó bien, es esta plataforma la que no la deja pasar.
         # Con un 401 quien lo vea buscará el fallo en el IdP, que es donde no está.
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={"code": "USER_INACTIVE", "reason": str(exc)},
-        )
+        ) from exc
 
     token = create_token(user_info)
     return_url = get_settings().saml_frontend_return_url
@@ -176,7 +181,7 @@ async def saml_metadata():
             build_saml_settings(sp_only=True), sp_validation_only=True
         )
     except InvalidSamlConfigError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     metadata = saml_settings.get_sp_metadata()
     errors = saml_settings.validate_metadata(metadata)

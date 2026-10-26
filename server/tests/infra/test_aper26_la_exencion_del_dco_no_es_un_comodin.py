@@ -109,6 +109,7 @@ def veredictos(tmp_path_factory: pytest.TempPathFactory) -> dict[str, tuple[int,
         hecho = subprocess.run(
             ["bash", guion.as_posix()], cwd=repo, env=entorno,
             capture_output=True, text=True, timeout=120,
+            check=False,
         )
         salidas[rotulo] = (hecho.returncode, hecho.stdout + hecho.stderr)
     return salidas

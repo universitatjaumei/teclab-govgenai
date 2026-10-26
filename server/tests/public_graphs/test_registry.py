@@ -59,7 +59,7 @@ class TestGraphProfileRegistry:
         factory_b = _make_factory("b")
         self.registry.register_profile("PUBLIC_KB_RICH", factory_a)
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="PUBLIC_KB_RICH"):
             self.registry.register_profile("PUBLIC_KB_RICH", factory_b)
 
         assert self.registry.get_profile("PUBLIC_KB_RICH") is factory_a, (

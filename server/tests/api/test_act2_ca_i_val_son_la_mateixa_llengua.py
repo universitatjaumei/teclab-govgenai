@@ -18,7 +18,7 @@ Por qué se normaliza en la FRONTERA y no en el corpus: los fragmentos son 60.85
 lengua la fija el contrato del corpus, donde `val` es el código. La detección es un solo punto.
 """
 
-from server.app.api.v1.hub_chat import _build_translation_warning
+from server.app.modules.agents_hub.services.turno_de_chat import _build_translation_warning
 from server.app.modules.agents_hub.services.language_detector import detect_language
 
 VALENCIA = (
@@ -64,7 +64,8 @@ class TestElAvisoDeTraduccionEntiendeVal:
         )
         assert aviso is not None
         assert "valenciano" in aviso
-        assert " val." not in aviso and " val " not in aviso
+        assert " val." not in aviso
+        assert " val " not in aviso
 
     def test_should_warn_in_valencian_when_the_source_is_spanish(self):
         aviso = _build_translation_warning(
@@ -86,7 +87,7 @@ class TestElAvisoDeTraduccionEntiendeVal:
 class TestPreferOrdenaDeVerdadEnValenciano:
 
     def _item(self, language: str, source_id: str):
-        from server.app.modules.agents_hub.agent.public_graphs.strategies.retrieval_contract import (  # noqa: E501
+        from server.app.modules.agents_hub.agent.public_graphs.strategies.retrieval_contract import (
             EvidenceItem,
         )
 

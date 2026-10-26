@@ -136,7 +136,7 @@ class LocalDirectorySource:
                         base=del_manifiesto.get(ruta),
                     )
                 )
-            except Exception as exc:  # FAQ, ValidationError y CorpusValidationError
+            except Exception as exc:  # noqa: BLE001 — se acumulan todos los errores del paquete y se rechaza entero
                 errores.append(f"  {ruta}: {exc}")
 
         if errores:
@@ -198,5 +198,5 @@ class MarkdownSubido:
         # del selector del panel se quedaba sin normalizar a `val` (#265b).
         return [type(entrada).model_validate({**entrada.model_dump(), **cambios})]
 
-    async def read_body(self, entry: CorpusDocumentEntry) -> str:
+    async def read_body(self, entry: CorpusDocumentEntry) -> str:  # noqa: ARG002 — una fuente de un solo documento no necesita la entrada para leerlo
         return parse_frontmatter(self._texto)[1]

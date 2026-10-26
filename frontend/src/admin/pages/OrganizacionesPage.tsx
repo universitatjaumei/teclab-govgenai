@@ -12,6 +12,7 @@ import {
   useDeleteOrganizacionApiV1HubOrganizacionesOrganizacionIdDelete,
   getListOrganizacionesApiV1HubOrganizacionesGetQueryKey,
 } from '@/shared/api/generated/hub-organizaciones/hub-organizaciones'
+import { errorDeLaApi } from '@/shared/api/errorDeLaApi'
 import type { OrganizacionRead } from '@/shared/api/generated/model'
 
 /**
@@ -20,9 +21,7 @@ import type { OrganizacionRead } from '@/shared/api/generated/model'
  * se traducen.
  */
 function pendienteDelFallo(fallo: unknown): Record<string, number> | null {
-  const detalle = (fallo as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
-  if (!detalle || typeof detalle !== 'object' || !('pendiente' in detalle)) return null
-  const pendiente = (detalle as { pendiente?: unknown }).pendiente
+  const pendiente = errorDeLaApi(fallo)?.pendiente
   return pendiente && typeof pendiente === 'object' ? (pendiente as Record<string, number>) : null
 }
 

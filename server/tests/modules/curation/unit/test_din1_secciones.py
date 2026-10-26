@@ -154,7 +154,7 @@ class TestCasa:
     """La pertenencia se **deriva**, y con las dos clases de patrón."""
 
     @pytest.mark.parametrize(
-        "url, esperado",
+        ("url", "esperado"),
         [
             ("https://www.uji.es/jornadas/2026", True),
             ("https://www.uji.es/jornadas", True),
@@ -171,7 +171,7 @@ class TestCasa:
         assert casa(seccion, url) is esperado
 
     @pytest.mark.parametrize(
-        "url, esperado",
+        ("url", "esperado"),
         [
             ("https://www.uji.es/jornades/2026/inici", True),
             ("https://www.uji.es/va/jornades/2026", True),
@@ -250,9 +250,9 @@ class TestElPatronSeValidaAlGuardar:
 
         repo = WebSectionRepo(_SesionQueNoDeberiaEscribir())
 
-        with pytest.raises(PatronInvalido):
-            import asyncio
+        import asyncio
 
+        with pytest.raises(PatronInvalido):
             asyncio.run(
                 repo.create(
                     site_id=uuid.uuid4(),

@@ -122,7 +122,8 @@ async def test_se_guarda_el_texto_y_no_el_html():
 
     contenido = campos["markdown_content"]
     assert "Convocatoria oberta fins al 30 de setembre." in contenido
-    assert "<div" not in contenido and "<script" not in contenido
+    assert "<div" not in contenido
+    assert "<script" not in contenido
     assert "color:#fff" not in contenido
 
 

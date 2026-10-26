@@ -243,5 +243,12 @@
     "valorada_como": "Promotion assessment",
     "origen_externa": "Runs elsewhere, registered here"
   },
-  "automatizacion_nav_aria": "Automation navigation"
+  "automatizacion_nav_aria": "Automation navigation",
+  "preview_audit_title": "Audit annex",
+  "preview_no_citations": "No citations recorded.",
+  "preview_col_source": "Source",
+  "preview_col_page": "Page",
+  "preview_col_model": "Model",
+  "preview_col_prompt_version": "Prompt version",
+  "preview_index_title": "Contents"
 }

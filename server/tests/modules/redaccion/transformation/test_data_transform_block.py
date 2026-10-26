@@ -56,7 +56,7 @@ def _state_with_source_rows(rows: list[dict]) -> WorkspaceState:
 class TestDataTransformContract:
 
     def test_deterministic_requires_operations(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError, match="operations is required"):
             DataTransformBlockConfig(
                 mode="deterministic",
                 source_block_ref=BlockReference(block_id="b_data"),
@@ -64,7 +64,7 @@ class TestDataTransformContract:
             )
 
     def test_ai_requires_nl_instruction(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError, match="nl_instruction is required"):
             DataTransformBlockConfig(
                 mode="ai",
                 source_block_ref=BlockReference(block_id="b_data"),

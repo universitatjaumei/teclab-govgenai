@@ -219,9 +219,8 @@ def test_los_dos_nombres_sirven_el_mismo_reparto() -> None:
 
 def test_la_api_y_la_salud_siguen_en_la_aplicacion() -> None:
     cuerpo = _fragmento(_texto(CADDYFILE), "govgenai_rutas")
-    assert "handle /api/*" in cuerpo and "reverse_proxy app:8000" in cuerpo, (
-        "El widget incrustado en el bucket llama a https://<host>/api/v1/…"
-    )
+    assert "handle /api/*" in cuerpo, "El widget incrustado en el bucket llama a https://<host>/api/v1/…"
+    assert "reverse_proxy app:8000" in cuerpo, "El widget incrustado en el bucket llama a https://<host>/api/v1/…"
     assert "handle /health" in cuerpo, (
         "La comprobación de salud del despliegue y la de la vigilancia miran ahí."
     )
@@ -358,6 +357,7 @@ def test_caddy_valida_la_configuracion_compuesta(tmp_path: Path) -> None:
             capture_output=True,
             text=True,
             timeout=300,
+            check=False,
         )
         return r.returncode, (r.stdout or "") + (r.stderr or "")
 

@@ -6,6 +6,7 @@ desarrollo.
 """
 import uuid
 import pytest
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select
 
 
@@ -68,7 +69,7 @@ class TestHubChatbotModel:
             sources=[],
         )
         seeded_session.add(chatbot)
-        with pytest.raises(Exception):
+        with pytest.raises(IntegrityError, match="hub_chatbots"):
             await seeded_session.flush()
 
     @pytest.mark.asyncio

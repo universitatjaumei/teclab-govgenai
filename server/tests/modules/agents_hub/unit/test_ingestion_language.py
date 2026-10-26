@@ -28,7 +28,7 @@ class TestProcessSourceLanguageDetection:
 
         watcher = IngestionWatcher(
             session=mock_session,
-            embedding_service=AsyncMock(embed=AsyncMock(return_value=[0.1] * 1024)),
+            embedding_service=AsyncMock(embed=AsyncMock(return_value=[0.1] * 1024), embed_batch=None),
         )
 
         with patch(
@@ -66,7 +66,7 @@ class TestProcessSourceLanguageDetection:
 
         watcher = IngestionWatcher(
             session=mock_session,
-            embedding_service=AsyncMock(embed=AsyncMock(return_value=[0.1] * 1024)),
+            embedding_service=AsyncMock(embed=AsyncMock(return_value=[0.1] * 1024), embed_batch=None),
         )
 
         with patch(
@@ -94,7 +94,7 @@ class TestProcessSourceLanguageDetection:
 
         watcher = IngestionWatcher(
             session=mock_session,
-            embedding_service=AsyncMock(embed=AsyncMock(return_value=[0.1] * 1024)),
+            embedding_service=AsyncMock(embed=AsyncMock(return_value=[0.1] * 1024), embed_batch=None),
         )
 
         with patch(

@@ -135,7 +135,7 @@ class TestNadieMandaALeerLoQueNoEsta:
         )
 
     @pytest.mark.parametrize(
-        "documento,ruta", sorted(_CITAS_HISTORICAS), ids=lambda v: str(v)
+        ("documento", "ruta"), sorted(_CITAS_HISTORICAS), ids=lambda v: str(v)
     )
     def test_should_keep_the_historical_exemptions_honest(self, documento: str, ruta: str):
         """Una exención que ya no se usa es una excepción heredada, y esas nunca se revisan."""

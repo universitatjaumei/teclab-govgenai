@@ -154,7 +154,7 @@ class TestLaFormaDeCadaOrigen:
         self._registrar()  # no levanta
 
     @pytest.mark.parametrize(
-        "falta, trozo",
+        ("falta", "trozo"),
         [("code", "código"), ("finalidad", "finalidad"), ("declarada_por", "declara")],
     )
     def test_should_refuse_a_self_service_version_that_is_missing_its_papers(

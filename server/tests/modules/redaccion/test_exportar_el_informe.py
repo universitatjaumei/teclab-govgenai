@@ -55,7 +55,7 @@ def api(monkeypatch):
 
     workspace_id = uuid.uuid4()
 
-    async def _payload_falso(self, wid):  # noqa: ANN001
+    async def _payload_falso(self, wid):
         return PreviewPayload(
             workspace_id=wid,
             template_version_id=uuid.uuid4(),
@@ -90,7 +90,7 @@ def api(monkeypatch):
         owner_id = uuid.uuid4()
         status = "assembled"
 
-    async def _get_workspace(wid, user, session):  # noqa: ANN001
+    async def _get_workspace(wid, user, session):
         return _Workspace()
 
     monkeypatch.setattr(workspaces_router, "_get_workspace", _get_workspace)

@@ -61,7 +61,7 @@ def _obligatorios(args: ast.arguments) -> set[str]:
     sin_defecto = posicionales[: len(posicionales) - con_defecto] if con_defecto else posicionales
     solo_clave = [
         a.arg
-        for a, d in zip(args.kwonlyargs, args.kw_defaults)
+        for a, d in zip(args.kwonlyargs, args.kw_defaults, strict=True)
         if d is None
     ]
     return {a.arg for a in sin_defecto} | set(solo_clave)
@@ -177,7 +177,8 @@ class TestLasToolsDeVerificacionesDeclaranSusCampos:
         """La regresión de REG.7, vigilada también aquí."""
         for tool in ("verificar_citas", "consultar_vigencia", "auditar_codigo"):
             nombres = _nombres(_args_de(VERIFICACIONES, tool))
-            assert "cuerpo" not in nombres and "peticion" not in nombres, tool
+            assert "cuerpo" not in nombres, tool
+            assert "peticion" not in nombres, tool
 
     def test_should_describe_each_field(self):
         fuente = VERIFICACIONES.read_text(encoding="utf-8")

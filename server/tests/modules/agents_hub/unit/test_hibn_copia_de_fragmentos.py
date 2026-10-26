@@ -37,7 +37,8 @@ class TestElPermisoDeCopiaSeComprobaSobreLosDatos:
             techo_destino=8000,
             fragmentos=[_fragmento(), _fragmento()],
         )
-        assert v.copiable and v.motivo is None
+        assert v.copiable
+        assert v.motivo is None
 
     def test_should_refuse_to_copy_a_different_document(self):
         v = se_puede_copiar(
@@ -87,7 +88,8 @@ class TestElPermisoDeCopiaSeComprobaSobreLosDatos:
             fragmentos=[_fragmento(), _fragmento(parent=gigante)],
         )
         assert not v.copiable
-        assert "9000" in v.motivo and "UPDATE" in v.motivo
+        assert "9000" in v.motivo
+        assert "UPDATE" in v.motivo
 
     def test_should_refuse_when_the_source_has_no_chunks(self):
         v = se_puede_copiar(

@@ -62,7 +62,7 @@ class _ClienteFalso:
     async def __aexit__(self, *_):
         return False
 
-    async def post(self, url, json=None, headers=None):  # noqa: A002
+    async def post(self, url, json=None, headers=None):
         self.peticiones.append((url, json, headers or {}))
         return _RespuestaFalsa(self._payload)
 

@@ -93,7 +93,7 @@ def test_la_que_se_renombra_dice_de_que_a_que() -> None:
 
 
 @pytest.mark.parametrize(
-    "spec,vacia",
+    ("spec", "vacia"),
     [
         ({}, True),
         (None, True),
@@ -179,6 +179,5 @@ def test_el_sembrado_lee_los_ficheros_y_no_la_base_de_nadie() -> None:
     assert "plantillas_demo" in bootstrap, "El sembrado tiene que leer los ficheros del catálogo"
     assert "--con-demo" in bootstrap, "Falta el interruptor explícito"
     # Idempotencia por nombre, y sin actualizar la existente.
-    assert "if existente is not None:" in bootstrap and "return False" in bootstrap, (
-        "El sembrado tiene que ser idempotente y no pisar una plantilla que alguien ya usó"
-    )
+    assert "if existente is not None:" in bootstrap, "El sembrado tiene que ser idempotente y no pisar una plantilla que alguien ya usó"
+    assert "return False" in bootstrap, "El sembrado tiene que ser idempotente y no pisar una plantilla que alguien ya usó"

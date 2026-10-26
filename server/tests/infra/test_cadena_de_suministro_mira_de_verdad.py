@@ -290,7 +290,12 @@ def test_npm_audit_bloquea_y_conserva_su_informe(job: dict[str, Any]) -> None:
         "Sobre el árbol de producción: una vulnerabilidad en la cadena de construcción no viaja "
         "al navegador de nadie. Mezclarlas hace que el número deje de significar algo."
     )
-    assert "set -o pipefail" in run and "PIPESTATUS" in run, (
+    assert "set -o pipefail" in run, (
+        "El informe se conserva con `tee` y el código de salida se recupera con `PIPESTATUS`. "
+        "Sin las dos cosas, encender la puerta cuesta perder el informe justo cuando el paso se "
+        "pone rojo — que es cuando el artefacto tiene que llevarlo."
+    )
+    assert "PIPESTATUS" in run, (
         "El informe se conserva con `tee` y el código de salida se recupera con `PIPESTATUS`. "
         "Sin las dos cosas, encender la puerta cuesta perder el informe justo cuando el paso se "
         "pone rojo — que es cuando el artefacto tiene que llevarlo."
@@ -360,7 +365,12 @@ def test_el_fichero_de_aceptados_existe_y_lo_vigila_un_test() -> None:
 
 def test_la_version_de_gitleaks_esta_pinada(job: dict[str, Any]) -> None:
     version = job.get("env", {}).get("GITLEAKS_VERSION", "")
-    assert version and version[0].isdigit(), (
+    assert version, (
+        "`GITLEAKS_VERSION` tiene que ser una versión concreta. Resolver «latest» en cada "
+        "ejecución, en el job que vigila la cadena de suministro, es exactamente lo que este "
+        "job existe para no hacer."
+    )
+    assert version[0].isdigit(), (
         "`GITLEAKS_VERSION` tiene que ser una versión concreta. Resolver «latest» en cada "
         "ejecución, en el job que vigila la cadena de suministro, es exactamente lo que este "
         "job existe para no hacer."

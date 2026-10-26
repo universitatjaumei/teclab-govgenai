@@ -70,7 +70,7 @@ const WORKSPACE = {
 
 /** Un 409 de la exportación, con la forma que devuelve el servidor. */
 const CONFLICTO_409 = {
-  response: { status: 409, data: { detail: { pending_block_ids: ['v_matricula', 'v_tesis'] } } },
+  response: { status: 409, data: { detail: { code: 'CONFLICT', message: 'Conflict', pending_block_ids: ['v_matricula', 'v_tesis'] } } },
 }
 
 beforeAll(async () => {

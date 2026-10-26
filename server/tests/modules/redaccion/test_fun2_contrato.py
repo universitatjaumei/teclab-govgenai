@@ -258,7 +258,8 @@ class TestLaEntradaSeValidaAntesDelSandbox:
             )
 
         mensaje = str(fallo.value)
-        assert "umbral" in mensaje and "num" in mensaje.lower()
+        assert "umbral" in mensaje
+        assert "num" in mensaje.lower()
 
     def test_should_refuse_a_file_in_a_slot_that_the_contract_does_not_declare(self):
         """Un slot de más es tan sospechoso como uno de menos: o alguien cambió el contrato sin

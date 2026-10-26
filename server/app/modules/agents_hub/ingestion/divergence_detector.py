@@ -128,7 +128,7 @@ def agrupar_divergencias(copias: list[CopiaDeDocumento]) -> list[Divergencia]:
         por_norma[copia.id_publicacio or copia.canonical_url].append(copia)
 
     divergencias: list[Divergencia] = []
-    for clave, grupo in por_norma.items():
+    for grupo in por_norma.values():
         if len({c.content_hash for c in grupo}) < 2:
             continue
 
@@ -265,7 +265,7 @@ def render_divergencias(divergencias: list[Divergencia]) -> str:
         motivo = (
             "no se puede determinar cual es la vigente"
             if d.indeterminat
-            else f"la vigente es {d.hash_vigent[:8]}"
+            else f"la vigente es {(d.hash_vigent or '')[:8]}"
         )
         aviso = " [VIGENCIA EN DISPUTA]" if d.vigencia_en_disputa else ""
         lineas.append(

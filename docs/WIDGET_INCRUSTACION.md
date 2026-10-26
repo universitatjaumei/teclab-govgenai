@@ -15,8 +15,13 @@
   data-lang="es"
   data-title="Assistent normativa"
 ></div>
-<script src="/widget.iife.js" defer></script>
+<script src="https://<HOST>/widget.iife.js" defer></script>
 ```
+
+**Las dos URL van absolutas**, con el host de la instancia. El fragmento se pega en otra web, y
+una ruta relativa apunta a esa web y no a la plataforma. El panel lo genera ya así (#279), con el
+origen desde el que se sirve; la plataforma no tiene un ajuste de «URL pública», así que si el
+panel se abre por una dirección interna, el fragmento la lleva y hay que corregirla a mano.
 
 | Atributo | Obligatorio | Qué hace |
 |---|---|---|
@@ -26,6 +31,28 @@
 | `data-lang` | No | `es` por omisión |
 | `data-model` | No | Sólo para el aviso del pie: lo declara la página, no el servidor |
 | `data-title` | **Sí si publicas más de un asistente** | Nombre en la cabecera del chat. Sin él, la traducción genérica («Asistente») |
+
+## La política de seguridad de contenido (CSP) de la página anfitriona
+
+Si la web que incrusta el widget envía una cabecera `Content-Security-Policy`, tiene que permitir
+tres cosas, o el widget no arranca o arranca sin estilo, **sin ningún error visible en la página**:
+
+| Directiva | Qué añadir | Por qué |
+|---|---|---|
+| `script-src` | `https://<HOST>` | Carga `widget.iife.js` desde la instancia |
+| `connect-src` | `https://<HOST>` | Las llamadas a la API: tema, preguntas por SSE, valoraciones |
+| `style-src` | `'unsafe-inline'` | El widget inyecta elementos `<style>` con las variables del tema y el CSS propio del chatbot |
+
+```
+Content-Security-Policy: script-src 'self' https://<HOST>; connect-src 'self' https://<HOST>; style-src 'self' 'unsafe-inline'
+```
+
+`'unsafe-inline'` en `style-src` es una concesión de la página anfitriona, y conviene saberlo
+antes de integrar: el tema se aplica escribiendo CSS en tiempo de ejecución, así que no hay un
+fichero de estilos que se pueda listar por hash. Una web sin CSP no tiene que hacer nada.
+
+El widget, por su parte, sólo atiende mensajes `postMessage` del propio origen de la página: un
+`iframe` de terceros no puede cambiarle el idioma (#278).
 
 ## Por qué `data-title` no es cosmético
 
@@ -75,9 +102,12 @@ En orden, porque el primero explica la mayoría de los casos:
    que falta se traduce en un *preflight* rechazado — **no** en un error visible en la página.
 2. **Contenido mixto.** Si la página se sirve por HTTPS y `data-api-url` es `http://`, el
    navegador bloquea la llamada sin avisar en la interfaz. Mírala en la consola.
-3. **Credencial revocada o de otro chatbot.** Responde 401/403; el widget no rompe la página.
+3. **Credencial revocada o de otro chatbot.** Responde 401/403, y el widget lo dice: «este
+   asistente no está disponible desde esta página». No rompe la página.
 4. **El chatbot no es `public_anon`.** La credencial de sitio no abre ningún otro tipo, a
    propósito.
+5. **La CSP de la página.** Ver la sección de arriba: la consola del navegador dice qué
+   directiva bloqueó qué.
 
 **El widget nunca puede romper la lectura de la página.** Si el servidor no responde, se queda
 sin abrir y la norma se sigue leyendo: es el requisito que D.6.1 pone por escrito, y la razón de

@@ -28,6 +28,10 @@ vi.mock('@/shared/api/generated/redaccion-llm-drafts/redaccion-llm-drafts', () =
 vi.mock('@/shared/auth', () => ({
   useAuth: () => ({ user: { role: 'superadmin', email: 'x@uji.es', user_id: '1' } }),
 }))
+// #277 — la pantalla pregunta capacidades a `/auth/me`; se simulan las del rol del test.
+vi.mock('@/shared/auth/useCapacidad', async () =>
+  (await import('@/test-utils/capacidades')).dobleDeUseCapacidad(() => 'superadmin'),
+)
 
 const MUESTRA = {
   nombre_del_fichero: 'saldos.csv',

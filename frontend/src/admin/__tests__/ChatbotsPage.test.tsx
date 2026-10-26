@@ -76,6 +76,7 @@ afterEach(() => {
 
 const DEMO_CHATBOT: ChatbotRead = {
   id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+  puede_ser_hijo: true,
   name: 'Bot Demo',
   organizacion_id: '00000000-0000-0000-0000-000000000010',
   llm_config_id: '00000000-0000-0000-0000-000000000001',
@@ -133,6 +134,8 @@ const DEMO_CORPUS_STATS: CorpusStatsOut = {
   by_language: { es: 100000, ca: 20000 },
   recommended_mode: 'MD_AGENT_SELECTOR',
   recommendation_reason: 'Recomendado MD_AGENT_SELECTOR para este tamaño de corpus.',
+  limite_contexto_largo: 128000,
+  cabe_en_contexto_largo: true,
 }
 
 function renderPage(chatbots: ChatbotRead[] = [], children: ChatbotRead[] = [], corpusStats?: CorpusStatsOut) {
@@ -215,6 +218,21 @@ describe('ChatbotsPage', () => {
     await openEditDialog()
     const snippet = screen.getByTestId('install-snippet')
     expect(snippet.textContent).toContain(`data-chatbot-id="${DEMO_CHATBOT.id}"`)
+  })
+
+  // #279 — el fragmento se pega en OTRA web: una ruta relativa apuntaba a la anfitriona. Con la
+  // imagen de producción `VITE_API_URL` va vacía, y salía `data-api-url="/api/v1"`.
+  it('should_give_absolute_urls_in_the_install_snippet', async () => {
+    vi.stubEnv('VITE_API_URL', '')
+    try {
+      await openEditDialog()
+      const texto = screen.getByTestId('install-snippet').textContent ?? ''
+      expect(texto).toContain(`data-api-url="${window.location.origin}/api/v1"`)
+      expect(texto).toContain(`src="${window.location.origin}/widget.iife.js"`)
+      expect(texto).not.toContain('ejemplo.com')
+    } finally {
+      vi.unstubAllEnvs()
+    }
   })
 
   it('should_show_kind_selector_in_form', async () => {

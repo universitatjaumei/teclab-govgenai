@@ -67,7 +67,7 @@ class TestLasSeisPuertasLaEscriben:
         ("login de administrador", "server/app/routers/auth_router.py", "login_admin"),
     )
 
-    @pytest.mark.parametrize("nombre,fichero,funcion", _PUERTAS)
+    @pytest.mark.parametrize(("nombre", "fichero", "funcion"), _PUERTAS)
     def test_el_endpoint_anota_la_entrada(self, nombre: str, fichero: str, funcion: str) -> None:
         import inspect
 

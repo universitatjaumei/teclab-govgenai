@@ -91,7 +91,6 @@ def _safe_json_parse(text: str) -> Dict[str, Any]:
     Parsea JSON permitiendo casos con ruido minimo.
     """
     import json
-    import re
 
     if not text:
         return {"fields": [], "format_ok": False}
@@ -112,13 +111,13 @@ def _safe_json_parse(text: str) -> Dict[str, Any]:
                     if isinstance(item, dict):
                         try:
                             score = float(item.get("score", 0))
-                        except Exception:
+                        except (TypeError, ValueError):
                             score = 0.0
 
                         ph = item.get("page_hint")
                         try:
                             page_hint = int(ph) if ph is not None else None
-                        except Exception:
+                        except (TypeError, ValueError):
                             page_hint = None
 
                         fields.append(
@@ -130,7 +129,7 @@ def _safe_json_parse(text: str) -> Dict[str, Any]:
                         )
             return {"fields": fields, "format_ok": True}
         return {"fields": [], "format_ok": False}
-    except Exception:
+    except Exception:  # noqa: BLE001 — salida del modelo mal formada: `format_ok` lo dice
         return {"fields": [], "format_ok": False}
 
 
@@ -197,7 +196,7 @@ async def extraer_datos_precision(
         # Serializar ejemplos de manera bonita
         try:
             ejemplos_str = json.dumps(ejemplos_validacion, ensure_ascii=False, indent=2)
-        except Exception:
+        except (TypeError, ValueError):
             ejemplos_str = str(ejemplos_validacion)
 
         prompt_extraccion += f"\n\n>>> EJEMPLO DE FORMATO ESPERADO (Del primer archivo de este lote):\n{ejemplos_str}"
@@ -408,74 +407,6 @@ async def generar_script_determinista(
         raise RuntimeError(f"Error generando script con {provider_info}: {error_msg}")
 
 
-def supervisar_codigo(
-    script_codigo: str, campos_objetivo: List[str], config: Dict[str, Any]
-) -> Dict[str, Any]:
-    """Auditoria estatica basica (no usa LLM salvo si quisieramos, aqui es python puro)."""
-    riesgos = []
-    palabras_peligrosas = [
-        "eval(",
-        "exec(",
-        "os.system",
-        "subprocess",
-        "shutil.rmtree",
-        "__import__",
-    ]
-    for p in palabras_peligrosas:
-        if p in script_codigo:
-            riesgos.append(f"CRITICO: Uso de funcion peligrosa '{p}' detectada.")
-
-    whitelist_libs = {
-        "fitz",
-        "pdfplumber",
-        "pandas",
-        "re",
-        "json",
-        "unicodedata",
-        "datetime",
-        "math",
-        "collections",
-        "typing",
-        "io",
-        "openpyxl",
-    }
-
-    try:
-        imports = re.findall(
-            r"^(?:import|from)\s+([a-zA-Z0-9_]+)", script_codigo, re.MULTILINE
-        )
-        librerias_detectadas = set(imports)
-        librerias_desconocidas = librerias_detectadas - whitelist_libs
-        if librerias_desconocidas:
-            for lib in librerias_desconocidas:
-                riesgos.append(
-                    f"ADVERTENCIA: Libreria '{lib}' no esta en la lista blanca."
-                )
-    except Exception as e:
-        riesgos.append(f"Error al analizar imports: {str(e)}")
-
-    nivel_riesgo = (
-        "Alto"
-        if any("CRITICO" in r for r in riesgos)
-        else ("Medio" if riesgos else "Bajo")
-    )
-    aprobado = len(riesgos) == 0
-    confianza = 1.0 if aprobado else (0.5 if nivel_riesgo == "Medio" else 0.0)
-
-    analisis = "Analisis Estatico de Seguridad:\n"
-    if aprobado:
-        analisis += (
-            "Sin funciones peligrosas detectadas.\nTodas las librerias son conocidas."
-        )
-    else:
-        analisis += "\n".join([f"- {r}" for r in riesgos])
-
-    return {
-        "aprobado": aprobado,
-        "nivel_riesgo": nivel_riesgo,
-        "analisis_seguridad": analisis,
-        "puntuacion_confianza": confianza,
-    }
 
 
 async def generar_reporte_forense(
@@ -633,7 +564,7 @@ async def filtrar_datos_irrelevantes(
     # 3. Preparar entrada
     try:
         datos_str = json.dumps(datos_crudos, ensure_ascii=False)
-    except Exception:
+    except (TypeError, ValueError):
         datos_str = str(datos_crudos)
 
     # 4. Inyectar en Prompt
@@ -765,9 +696,9 @@ Reglas:
         data["pagina"] = int(ph) if isinstance(ph, (int, float)) else None
         try:
             data["confidence"] = float(data.get("confidence", 0.0))
-        except Exception:
+        except (TypeError, ValueError):
             data["confidence"] = 0.0
 
         return data
-    except Exception:
+    except Exception:  # noqa: BLE001 — salida del modelo mal formada: `format_ok` lo dice
         return {"valor": "", "pagina": None, "confidence": 0.0, "format_ok": False}

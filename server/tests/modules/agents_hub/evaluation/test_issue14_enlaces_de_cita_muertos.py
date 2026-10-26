@@ -116,12 +116,12 @@ class TestElMedidorNoMienteSolo:
         esperando indefinidamente **sin decir por qué**. Un cuelgue silencioso es peor que un
         error: parece que está trabajando.
         """
-        import pytest as _pytest
+        import pytest
 
         async def fetch(url: str) -> tuple[int, str]:  # pragma: no cover
             raise AssertionError("no debería llegar a pedirse nada")
 
-        with _pytest.raises(ValueError, match="al menos 1"):
+        with pytest.raises(ValueError, match="al menos 1"):
             await comprobar_enlaces(["https://x.es/a.html"], fetch, concurrencia=0)
 
     async def test_sin_urls_no_hay_hallazgos_y_tampoco_peticiones(self):
@@ -148,14 +148,14 @@ class TestNoMideUnSistemaQueNoExiste:
     """
 
     def test_sin_el_sitio_configurado_se_niega_a_medir(self):
-        import pytest as _pytest
+        import pytest
 
         from server.app.modules.agents_hub.evaluation.verificar_enlaces import (
             comprobar_que_mide_lo_desplegado,
         )
 
         for vacio in (None, "", "   "):
-            with _pytest.raises(SystemExit, match="CORPUS_SITE_BASE_URL"):
+            with pytest.raises(SystemExit, match="CORPUS_SITE_BASE_URL"):
                 comprobar_que_mide_lo_desplegado(vacio, sin_sitio_publicado=False)
 
     def test_con_el_sitio_configurado_sigue_adelante(self):

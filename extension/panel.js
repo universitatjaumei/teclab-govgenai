@@ -115,7 +115,8 @@ async function llamar(conf, ruta, opciones) {
   });
   if (!respuesta.ok) {
     const detalle = cuerpo && cuerpo.detail;
-    const mensaje = typeof detalle === 'string' ? detalle : (detalle && detalle.message) || texto('fallo');
+    // #276 — el servidor manda siempre `{code, message}`.
+    const mensaje = (detalle && detalle.message) || texto('fallo');
     throw new Error(mensaje);
   }
   return cuerpo;

@@ -20,6 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from server.app.core.cors import politica_cors
 from server.app.core.version import version
+from server.app.core.errores import instalar_errores
 from server.app.core.security_headers import (
     SecurityHeadersMiddleware,
     urls_de_documentacion,
@@ -207,7 +208,7 @@ def _start_quality_scheduler():
             settings.content_quality_interval_hours,
         )
         return scheduler
-    except Exception:
+    except Exception:  # noqa: BLE001 — se registra con traza: `_log.exception`
         # AIS.8 — `exception` y no `print(exc)`. Esto se tragaba el fallo con una línea sin
         # traza: el planificador es lo que mantiene vigilado el corpus, así que arrancar sin él
         # es una degradación silenciosa que sólo se nota semanas después, cuando alguien
@@ -360,7 +361,7 @@ async def _sincronizar_funciones_de_paquete() -> None:
 
 
 @asynccontextmanager
-async def _arranque(app: FastAPI):
+async def _arranque(app: FastAPI):  # noqa: ARG001 — FastAPI pasa la aplicación al lifespan
     # Lo primero, antes de que nada tenga algo que decir: si se configurara después, los
     # mensajes del propio arranque —que son los que más falta hacen cuando algo va mal— se
     # perderían o saldrían con el formato de otro.
@@ -485,6 +486,9 @@ app = FastAPI(
 )
 
 app.add_middleware(SecurityHeadersMiddleware, entorno=ENTORNO)
+
+# #276 — un solo formato de error para toda la API: `{"detail": {"code", "message", …}}`.
+instalar_errores(app)
 
 # SEC.3: los orígenes salen de la configuración y no del código. En producción no hay
 # comodín ni aunque la variable de entorno lo traiga; el porqué está en `core/cors.py`.

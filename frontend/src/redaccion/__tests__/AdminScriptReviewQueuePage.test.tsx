@@ -32,6 +32,10 @@ vi.mock('@/shared/api/generated/hub-redaccion/hub-redaccion', () => ({
 vi.mock('@/shared/auth', () => ({
   useAuth: () => ({ user: { role: 'superadmin', email: 'admin@example.local' } }),
 }))
+// #277 — la pantalla pregunta capacidades a `/auth/me`; se simulan las del rol del test.
+vi.mock('@/shared/auth/useCapacidad', async () =>
+  (await import('@/test-utils/capacidades')).dobleDeUseCapacidad(() => 'superadmin'),
+)
 
 const PROPUESTA = {
   proposal_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',

@@ -25,7 +25,8 @@ def test_should_serve_nothing_when_not_configured(monkeypatch):
 def test_should_not_hardcode_the_upstream_url():
     texto = Path("app/main.py").read_text(encoding="utf-8")
     bloque = texto.split("async def instancia")[1][:1600]
-    assert "http://" not in bloque and "https://" not in bloque
+    assert "http://" not in bloque
+    assert "https://" not in bloque
 
 
 def test_should_document_the_variable():

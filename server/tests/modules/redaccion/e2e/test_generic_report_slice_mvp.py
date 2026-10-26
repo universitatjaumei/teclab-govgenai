@@ -237,7 +237,7 @@ def test_required_inputs_are_validated():
     RED: ModuleNotFoundError because the service module does not exist yet.
     """
     # This import is the RED gate — it MUST raise ModuleNotFoundError.
-    from server.app.modules.redaccion.services.workspace_run_service import (  # noqa: F401
+    from server.app.modules.redaccion.services.workspace_run_service import (
         WorkspaceRunService,
     )
 
@@ -262,7 +262,7 @@ def test_excel_data_is_extracted_before_ai_drafting():
     GREEN: run() must return a WorkspaceRunResult with
            extraction_completed=True and ai_drafting_started=True.
     """
-    from server.app.modules.redaccion.services.workspace_run_service import (  # noqa: F401
+    from server.app.modules.redaccion.services.workspace_run_service import (
         WorkspaceRunService,
     )
 
@@ -286,7 +286,7 @@ def test_ai_block_requires_review():
     RED: ModuleNotFoundError because WorkspaceRunService does not exist yet.
     GREEN: run() must produce blocks in the expected HITL state.
     """
-    from server.app.modules.redaccion.services.workspace_run_service import (  # noqa: F401
+    from server.app.modules.redaccion.services.workspace_run_service import (
         WorkspaceRunService,
     )
 
@@ -347,7 +347,7 @@ def test_run_manifest_is_generated_at_end_of_slice():
     GREEN: run() must return a result with manifest_id set and a
            DraftingRunManifest retrievable via GET /redaccion/workspaces/{id}/manifest.
     """
-    from server.app.modules.redaccion.services.workspace_run_service import (  # noqa: F401
+    from server.app.modules.redaccion.services.workspace_run_service import (
         WorkspaceRunService,
     )
 

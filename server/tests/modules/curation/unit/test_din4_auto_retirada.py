@@ -210,10 +210,10 @@ class _Sesion:
             ]
 
         class _R:
-            def scalars(self_inner) -> Any:  # noqa: N805
+            def scalars(self_inner) -> Any:
                 return self_inner
 
-            def all(self_inner) -> list:  # noqa: N805
+            def all(self_inner) -> list:
                 return filas
 
         return _R()
@@ -237,7 +237,7 @@ def _da_el_watcher(watcher: Any) -> Any:
 def _entidad_de(stmt: Any) -> str:
     try:
         return stmt.column_descriptions[0]["entity"].__name__
-    except Exception:  # noqa: BLE001 — un doble de sentencia sin descripción
+    except Exception:  # un doble de sentencia sin descripción
         return ""
 
 
@@ -259,7 +259,7 @@ def _columnas_de(stmt: Any) -> list[str]:
                 return []
             columnas.append(clave)
         return columnas
-    except Exception:  # noqa: BLE001
+    except Exception:
         return []
 
 
@@ -670,7 +670,8 @@ class TestSalvaguardaDeProporcion:
 
         assert retirador.retiradas == []
         detenida = hallazgos.de_tipo("retirada_masiva_detenida")
-        assert detenida and detenida[0].signal["ambito"] == 10
+        assert detenida
+        assert detenida[0].signal["ambito"] == 10
 
 
 # ──────────────────── La puerta que nadie había abierto ────────────────────

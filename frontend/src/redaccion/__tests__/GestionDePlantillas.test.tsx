@@ -31,6 +31,10 @@ vi.mock('@/shared/api/generated/hub-redaccion/hub-redaccion', () => ({
 vi.mock('@/shared/auth', () => ({
   useAuth: () => ({ user: { role: 'superadmin', email: 'admin@example.local' } }),
 }))
+// #277 — la pantalla pregunta capacidades a `/auth/me`; se simulan las del rol del test.
+vi.mock('@/shared/auth/useCapacidad', async () =>
+  (await import('@/test-utils/capacidades')).dobleDeUseCapacidad(() => 'superadmin'),
+)
 
 const PLANTILLA = {
   id: 'tpl-1',
@@ -207,6 +211,9 @@ describe('gestión de plantillas', () => {
   it('should_negar_la_pantalla_a_quien_no_es_administrador', async () => {
     vi.resetModules()
     vi.doMock('@/shared/auth', () => ({ useAuth: () => ({ user: { role: 'user' } }) }))
+    vi.doMock('@/shared/auth/useCapacidad', async () =>
+      (await import('@/test-utils/capacidades')).dobleDeUseCapacidad(() => 'user'),
+    )
     const { ReportTemplateBuilderPage: Pagina } = await import(
       '../pages/ReportTemplateBuilderPage'
     )

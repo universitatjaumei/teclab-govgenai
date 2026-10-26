@@ -19,5 +19,8 @@
   },
   "widget_title": "Assistant",
   "ai_disclaimer": "Assistant built with artificial intelligence. Answers may contain errors and have not been checked by a language service: always check against the regulation cited.",
-  "ai_disclaimer_model": "Assistant built with artificial intelligence ({{model}}). Answers may contain errors and have not been checked by a language service: always check against the regulation cited."
+  "ai_disclaimer_model": "Assistant built with artificial intelligence ({{model}}). Answers may contain errors and have not been checked by a language service: always check against the regulation cited.",
+  "error_unauthorized": "This assistant isn't available from this page.",
+  "error_rate_limited": "Too many questions in a row. Wait a moment and try again.",
+  "error_generic": "The answer could not be produced. Please try again."
 }

@@ -206,7 +206,7 @@ def descubrir() -> dict[str, FuncionEmpaquetada]:
         distribucion = _nombre_de_distribucion(punto)
         try:
             cargado = punto.load()
-        except Exception as exc:  # noqa: BLE001 — se reenvía con contexto y se aborta
+        except Exception as exc:  # se reenvía con contexto y se aborta
             raise PaqueteIncoherente(
                 f"el entry point «{punto.name}» de «{distribucion}» no se puede cargar: {exc}. "
                 "El arranque se detiene a propósito."

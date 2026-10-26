@@ -63,6 +63,7 @@ def _correr(*argumentos: str) -> subprocess.CompletedProcess:
         text=True,
         encoding="utf-8",
         errors="replace",
+        check=False,
     )
 
 
@@ -190,6 +191,7 @@ class TestElAuditorDelLockLeeLoQueTieneQueLeer:
             [sys.executable, str(RAIZ / "scripts" / "avisos_del_lock.py"),
              str(vacio), "--salida", str(tmp_path / "s.json")],
             capture_output=True, text=True, encoding="utf-8", errors="replace",
+            check=False,
         )
         assert res.returncode == 1, res.stdout
         assert not (tmp_path / "s.json").exists(), "ha escrito un informe de un export vacío"

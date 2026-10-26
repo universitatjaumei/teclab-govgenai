@@ -12,7 +12,7 @@ from __future__ import annotations
 # AIS.3 — la definición se fue a `core/identidad.py`: la importaba `core/auth/modulos_service.py`,
 # o sea la autorización dependiendo del router de un módulo. Se re-exporta porque es el nombre con
 # el que la conocen los seis sitios de este módulo que la usan.
-from server.app.core.identidad import user_to_uuid  # noqa: E402,F401
+from server.app.core.identidad import user_to_uuid
 
 
 def nombre_del_modelo(modelo) -> str:

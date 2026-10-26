@@ -87,7 +87,7 @@ def _declarados_en_base(manifiesto: Path) -> set[str]:
 
 
 @pytest.mark.parametrize(
-    "dockerfile,manifiesto", IMAGENES, ids=lambda p: p.parent.name or "raiz"
+    ("dockerfile", "manifiesto"), IMAGENES, ids=lambda p: p.parent.name or "raiz"
 )
 def test_lo_que_el_cmd_invoca_esta_en_las_dependencias_base(
     dockerfile: Path, manifiesto: Path

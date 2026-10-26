@@ -244,7 +244,7 @@ class VectorRetrievalStrategy:
             sources.append(Source(
                 document_id=doc.id if doc else uuid.uuid4(),
                 title=title,
-                url=url,
+                url=url or "",
                 excerpt=excerpt,
                 score=score,
                 metadata={

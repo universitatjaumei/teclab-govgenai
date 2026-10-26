@@ -35,6 +35,7 @@ from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.app.api.deps import (
+    get_pat_service,
     get_session,
     require_module,
     require_scopes,
@@ -958,7 +959,7 @@ async def obtener_modelo_de_redaccion(
     )
     try:
         return await get_model_for_tier(1, LocalConfigProvider(session), organizacion_id=organizacion)
-    except Exception as fallo:  # noqa: BLE001 — sin modelo no hay propuesta, y el motivo va en el mensaje
+    except Exception as fallo:  # sin modelo no hay propuesta, y el motivo va en el mensaje
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=(
@@ -998,7 +999,7 @@ async def proponer_prompt(
                 lengua=body.lengua,
             )
         )
-    except Exception as fallo:  # noqa: BLE001 — el proveedor puede fallar de muchas maneras
+    except Exception as fallo:  # el proveedor puede fallar de muchas maneras
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="El modelo no ha respondido. Inténtalo de nuevo en un momento.",
@@ -1101,7 +1102,7 @@ async def emitir_token_del_guion(
     body: TokenDelGuionCreate,
     user: UserInfo = Depends(require_sesion_humana()),
     modulos: list[str] = Depends(modulos_concedidos),
-    session: AsyncSession = Depends(get_session),
+    servicio: PatService = Depends(get_pat_service),
 ) -> TokenDelGuionEmitido:
     """Un token con **un solo alcance**, `agentes:indice`, para el guion que mantiene el índice.
 
@@ -1110,7 +1111,7 @@ async def emitir_token_del_guion(
     y no sirve para publicar, retirar ni emitir otros tokens.
     """
     try:
-        pat, token = await PatService(session).create(
+        pat, token = await servicio.create(
             owner=user,
             name=body.nombre,
             scopes=[AGENTES_INDICE_WRITE],
@@ -1133,7 +1134,7 @@ async def emitir_token_del_guion(
 @router.get("/tokens", response_model=list[TokenDelGuion])
 async def tokens_del_guion(
     user: UserInfo = Depends(require_sesion_humana()),
-    session: AsyncSession = Depends(get_session),
+    servicio: PatService = Depends(get_pat_service),
 ) -> list[TokenDelGuion]:
     """Los tokens del guion de quien pregunta, vigentes. Para saber cuáles hay y revocarlos."""
     return [
@@ -1144,7 +1145,7 @@ async def tokens_del_guion(
             creado_en=p.created_at,
             ultimo_uso_en=p.last_used_at,
         )
-        for p in await PatService(session).list_for(user)
+        for p in await servicio.list_for(user)
         if _es_del_guion(p)
     ]
 
@@ -1153,10 +1154,9 @@ async def tokens_del_guion(
 async def revocar_token_del_guion(
     token_id: uuid.UUID,
     user: UserInfo = Depends(require_sesion_humana()),
-    session: AsyncSession = Depends(get_session),
+    servicio: PatService = Depends(get_pat_service),
 ) -> Response:
     """Revoca un token del guion propio. El de otra persona no existe para quien pregunta."""
-    servicio = PatService(session)
     if not any(p.id == token_id and _es_del_guion(p) for p in await servicio.list_for(user)):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Token no encontrado")
     try:
@@ -1535,7 +1535,7 @@ async def conectar_la_extension(
     body: PeticionDeConexion,
     user: UserInfo = Depends(require_sesion_humana()),
     modulos: list[str] = Depends(modulos_concedidos),
-    session: AsyncSession = Depends(get_session),
+    servicio: PatService = Depends(get_pat_service),
 ) -> ConexionEmitida:
     """Un token que **sólo sirve para consultar**, para la extensión de quien lo pide.
 
@@ -1552,7 +1552,7 @@ async def conectar_la_extension(
             },
         )
     try:
-        pat, token = await PatService(session).create(
+        pat, token = await servicio.create(
             owner=user,
             name=NOMBRE_DE_LA_CONEXION,
             scopes=[AGENTES_CONSULTA],
@@ -1567,7 +1567,7 @@ async def conectar_la_extension(
 @router_catalogo.get("/extension/conexiones", response_model=list[ConexionDeLaExtension])
 async def conexiones_de_la_extension(
     user: UserInfo = Depends(require_sesion_humana()),
-    session: AsyncSession = Depends(get_session),
+    servicio: PatService = Depends(get_pat_service),
 ) -> list[ConexionDeLaExtension]:
     """Las conexiones vigentes de quien pregunta, para saber dónde está conectada y revocarlas."""
     return [
@@ -1578,7 +1578,7 @@ async def conexiones_de_la_extension(
             ultimo_uso_en=p.last_used_at,
             caduca_en=p.expires_at,
         )
-        for p in await PatService(session).list_for(user)
+        for p in await servicio.list_for(user)
         if _es_de_la_extension(p) and _vigente(p)
     ]
 
@@ -1587,10 +1587,9 @@ async def conexiones_de_la_extension(
 async def revocar_conexion_de_la_extension(
     conexion_id: uuid.UUID,
     user: UserInfo = Depends(require_sesion_humana()),
-    session: AsyncSession = Depends(get_session),
+    servicio: PatService = Depends(get_pat_service),
 ) -> Response:
     """Revoca una conexión propia. La de otra persona no existe para quien pregunta."""
-    servicio = PatService(session)
     if not any(p.id == conexion_id and _es_de_la_extension(p) for p in await servicio.list_for(user)):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conexión no encontrada")
     try:

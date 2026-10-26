@@ -390,7 +390,7 @@ async def test_should_persistir_la_revision_del_modelo_con_la_propuesta(monkeypa
 
     guardadas: list[Any] = []
 
-    async def _save(self, proposal):  # noqa: ANN001
+    async def _save(self, proposal):
         guardadas.append(proposal)
 
     monkeypatch.setattr(repos.ScriptProposalRepo, "save", _save)
@@ -433,7 +433,7 @@ async def test_should_guardar_null_cuando_no_hubo_revision(monkeypatch) -> None:
 
     guardadas: list[Any] = []
 
-    async def _save(self, proposal):  # noqa: ANN001
+    async def _save(self, proposal):
         guardadas.append(proposal)
 
     monkeypatch.setattr(repos.ScriptProposalRepo, "save", _save)

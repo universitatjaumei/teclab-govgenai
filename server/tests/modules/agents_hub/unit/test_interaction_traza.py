@@ -181,16 +181,16 @@ class TestElEndpointLaEscribeDeVerdad:
     def test_should_call_the_trace_builder_when_persisting_the_interaction(self):
         from pathlib import Path
 
-        texto = Path("app/api/v1/hub_chat.py").read_text(encoding="utf-8")
+        texto = Path("app/modules/agents_hub/services/turno_de_chat.py").read_text(encoding="utf-8")
 
         assert "construye_traza(" in texto
         # Y con los valores reales, no con los que ya tenía a mano.
         for argumento in (
-            "cfg=core_graph.cfg",
+            "cfg=turno.grafo.cfg",
             "fuentes=final_sources",
             "best_score=best_score",
             "gate_passed=gate_passed",
-            "turn_index=len(request.history) + 1",
+            "turn_index=numero_de_turno",
             "latency_ms=",
             "first_token_ms=primer_token_ms",
         ):
@@ -200,8 +200,8 @@ class TestElEndpointLaEscribeDeVerdad:
         """La latencia que importa es la que espera quien pregunta."""
         from pathlib import Path
 
-        texto = Path("app/api/v1/hub_chat.py").read_text(encoding="utf-8")
+        texto = Path("app/modules/agents_hub/services/turno_de_chat.py").read_text(encoding="utf-8")
         inicio = texto.index("inicio = perf_counter()")
-        primer_evento = texto.index("async for event in compiled.astream_events")
+        primer_evento = texto.index("async for event in turno.compilado.astream_events")
 
         assert inicio < primer_evento

@@ -41,7 +41,8 @@ def _cargar_auditor_del_sandbox() -> ModuleType:
         return ya
 
     spec = importlib.util.spec_from_file_location(_NOMBRE_MODULO, _AUDITOR_SANDBOX)
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     modulo = importlib.util.module_from_spec(spec)
     # `@dataclass` resuelve las anotaciones contra `sys.modules[cls.__module__]`, así que
     # el módulo tiene que estar registrado antes de ejecutarlo.

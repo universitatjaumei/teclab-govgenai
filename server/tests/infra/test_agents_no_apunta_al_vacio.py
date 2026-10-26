@@ -106,7 +106,7 @@ _IMPERATIVOS = {
 
 class TestElImperativoSeQuedaEnLasReglas:
 
-    @pytest.mark.parametrize("nombre,marcador", sorted(_IMPERATIVOS.items()))
+    @pytest.mark.parametrize(("nombre", "marcador"), sorted(_IMPERATIVOS.items()))
     def test_should_keep_the_rule_in_agents_md(self, agents: str, nombre: str, marcador: str):
         assert marcador in agents, (
             f"la regla «{nombre}» ha desaparecido de `AGENTS.md`. Puede seguir explicada en otro "

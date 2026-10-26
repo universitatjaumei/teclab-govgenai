@@ -161,7 +161,8 @@ class TestEmptyAndThin:
         detector, repo = _make_detector([page])
         await detector.analyze(self.SITE)
         empties = repo.of_type("empty")
-        assert empties and empties[0].severity == "critical"
+        assert empties
+        assert empties[0].severity == "critical"
 
     @pytest.mark.asyncio
     async def test_thin_below_threshold(self) -> None:
@@ -183,7 +184,8 @@ class TestEmptyAndThin:
         detector, repo = _make_detector([page], thin_token_threshold=120)
         await detector.analyze(self.SITE)
         thins = repo.of_type("thin")
-        assert thins and thins[0].severity == "warning"
+        assert thins
+        assert thins[0].severity == "warning"
 
 
 # ───────────────────────── Tests: stale ─────────────────────────
@@ -253,7 +255,8 @@ class TestStale:
         detector, repo = _make_detector([page], stale_days=365)
         await detector.analyze(self.SITE)
         stale = repo.of_type("stale")
-        assert stale and "date" in stale[0].signal
+        assert stale
+        assert "date" in stale[0].signal
 
     @pytest.mark.asyncio
     async def test_stale_severity_is_info(self) -> None:
@@ -279,7 +282,8 @@ class TestCrawlError:
         detector, repo = _make_detector([page])
         await detector.analyze(self.SITE)
         errs = repo.of_type("crawl_error")
-        assert errs and errs[0].severity == "critical"
+        assert errs
+        assert errs[0].severity == "critical"
         assert errs[0].page_id == page.id
 
     @pytest.mark.asyncio
@@ -303,7 +307,8 @@ class TestOrphanPage:
         detector, repo = _make_detector([page], documents=[doc])
         await detector.analyze(self.SITE)
         orphans = repo.of_type("orphan_page")
-        assert orphans and orphans[0].page_id == page.id
+        assert orphans
+        assert orphans[0].page_id == page.id
         assert orphans[0].severity == "warning"
 
     @pytest.mark.asyncio

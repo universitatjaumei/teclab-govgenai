@@ -96,7 +96,7 @@ export function PromptsPage() {
   // cualquier hook que lo metiera en sus dependencias se recalculaba siempre. Mismo caso que en
   // `ActivityPromptsPage`.
   const chatbots: ChatbotRead[] = useMemo(
-    () => (chatbotsRaw as unknown as ChatbotRead[] | undefined) ?? [],
+    () => chatbotsRaw ?? [],
     [chatbotsRaw],
   )
 
@@ -214,9 +214,9 @@ export function PromptsPage() {
             onChange={(e) => setUsageFilter(e.target.value as PromptUsageFilter)}
             className="border rounded px-2 py-1.5 text-xs bg-background"
           >
-            <option value="all">Uso: todos</option>
-            <option value="chatbot_system">Uso: chatbot (prompt base)</option>
-            <option value="template">Uso: plantillas</option>
+            <option value="all">{t('hub.prompts_usage_all')}</option>
+            <option value="chatbot_system">{t('hub.prompts_usage_chatbot')}</option>
+            <option value="template">{t('hub.prompts_usage_template')}</option>
           </select>
 
           <select
@@ -225,7 +225,7 @@ export function PromptsPage() {
             onChange={(e) => setChatbotFilter(e.target.value)}
             className="border rounded px-2 py-1.5 text-xs bg-background"
           >
-            <option value="all">Servicio: todos</option>
+            <option value="all">{t('hub.prompts_service_all')}</option>
             {chatbots.map((cb) => (
               <option key={cb.id} value={cb.id}>
                 {cb.name}
@@ -237,7 +237,7 @@ export function PromptsPage() {
             aria-label={t('hub.search_prompts_aria')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar prompt..."
+            placeholder={t('hub.search_prompts_placeholder')}
             className="border rounded px-2 py-1.5 text-xs bg-background"
           />
 

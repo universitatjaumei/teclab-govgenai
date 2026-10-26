@@ -117,9 +117,8 @@ class TestNadieConvierteConDocling:
         pipeline = Path(
             "app/modules/redaccion/pipelines/pdf_text_pipeline.py"
         ).read_text(encoding="utf-8")
-        assert "import docling" not in pipeline and "from docling" not in pipeline, (
-            "el pipeline de PDF de redacción sigue usando Docling"
-        )
+        assert "import docling" not in pipeline, "el pipeline de PDF de redacción sigue usando Docling"
+        assert "from docling" not in pipeline, "el pipeline de PDF de redacción sigue usando Docling"
 
 
 class TestElContratoDeRedaccionNoCambia:

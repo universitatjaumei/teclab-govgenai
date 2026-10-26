@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, cast
 
 from server.app.modules.redaccion.contracts.runtime import ExtractionWarning, WorkspaceState
 from server.app.modules.redaccion.pipelines.contracts import ExtractionInput, StorageRef
@@ -159,7 +159,7 @@ class DeterministicExtractionNode:
             if funcion_ref is not None:
                 try:
                     ejecutable = await self._resolver_funcion(funcion_ref)
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 — el fallo se convierte en aviso del bloque
                     # EN ALTO y con el motivo: una función retirada o suspendida no puede
                     # dejar el bloque vacío en silencio (la lección de los perfiles sin
                     # configurar).
@@ -191,13 +191,13 @@ class DeterministicExtractionNode:
                     )
                 else:
                     inp = ExtractionInput(
-                        source_kind=source_kind,
+                        source_kind=cast(Any, source_kind),
                         file_ref=file_ref,
                         options=opciones,
                     )
                     pipeline = self._factory.get(source_kind)
                     result = await _extraer(pipeline, inp)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 — el fallo se convierte en aviso del bloque
                 new_warnings.append(ExtractionWarning(
                     block_id=block_id, message=str(exc), kind="extraction_error",
                 ))

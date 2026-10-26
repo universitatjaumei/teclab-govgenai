@@ -157,7 +157,7 @@ class MdAgentSelectorPipeline:
         self,
         query: str,
         chatbot_id: str,
-        cfg,
+        cfg,  # noqa: ARG002 — la firma la fija el protocolo del pipeline
         deps,
         language: str | None = None,
     ) -> RetrievalResult:

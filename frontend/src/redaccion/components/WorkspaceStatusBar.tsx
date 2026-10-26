@@ -1,6 +1,5 @@
 import { useTranslation } from 'react-i18next'
 import { useGetWorkspaceById } from '@/shared/api/generated/hub-redaccion/hub-redaccion'
-import type { WorkspaceOut } from '@/shared/api/generated/model'
 import { StatusBadge } from '@/shared/components/StatusBadge'
 import { mapWorkspaceStatusToUserLabel } from '../utils/statusLabels'
 
@@ -17,7 +16,7 @@ export function WorkspaceStatusBar({ workspaceId }: Props) {
   const { t } = useTranslation('common')
   const { t: tR } = useTranslation('redaccion')
   const { data: workspaceRaw, isLoading } = useGetWorkspaceById(workspaceId)
-  const workspace = workspaceRaw as unknown as WorkspaceOut | undefined
+  const workspace = workspaceRaw
 
   if (isLoading) return <div>{t('loading')}</div>
   if (!workspace) return null

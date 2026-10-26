@@ -75,6 +75,7 @@ def _run(falsos: Path, *, correo="a+b@uji.es", codigo="200", respuesta='{"name":
     resultado = subprocess.run(
         [_BASH, str(VIGILANCIA), "--project", "p", "--host", "h.example", "--email", correo],
         cwd=RAIZ, capture_output=True, text=True, timeout=60, env=entorno,
+        check=False,
     )
     argumentos = registro.read_text(encoding="utf-8") if registro.exists() else ""
     return resultado, argumentos

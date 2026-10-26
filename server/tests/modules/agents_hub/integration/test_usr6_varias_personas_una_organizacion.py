@@ -121,7 +121,8 @@ class TestDosPersonasLaMismaOrganizacion:
         sesion_una = await _entra(db_session, una, PASSWORD_UNA)
         sesion_otra = await _entra(db_session, otra, PASSWORD_OTRA)
 
-        assert sesion_una.role == "admin" and sesion_otra.role == "admin"
+        assert sesion_una.role == "admin"
+        assert sesion_otra.role == "admin"
         assert sesion_una.organizacion_ids == (str(uji.id),)
         assert sesion_otra.organizacion_ids == (str(uji.id),)
         assert sesion_una.user_id != sesion_otra.user_id, (

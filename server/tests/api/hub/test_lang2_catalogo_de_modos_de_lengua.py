@@ -166,4 +166,4 @@ def _sin_base_de_datos():
     Se deja dicho como fixture vacía porque su ausencia es la observación: si algún día este
     endpoint necesitara `get_session`, es que el catálogo dejó de ser contrato.
     """
-    yield
+    return

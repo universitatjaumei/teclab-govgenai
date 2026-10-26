@@ -238,7 +238,7 @@ describe('IDE.4 — alta y edición', () => {
     // servidor respondía 409 y la mutación no tenía `onError`. El mismo defecto que FIX.1.
     mutar.mockImplementation((_vars: unknown, opciones?: { onError?: (e: unknown) => void }) =>
       opciones?.onError?.({
-        response: { data: { detail: 'Ya hay una persona con el correo ya@uji.es' } },
+        response: { data: { detail: { code: 'CONFLICT', message: 'Ya hay una persona con el correo ya@uji.es' } } },
       })
     )
     renderPage()

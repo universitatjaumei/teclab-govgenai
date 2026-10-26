@@ -155,7 +155,7 @@ async def test_should_viajar_el_contenido_en_base64_por_http(monkeypatch) -> Non
         def json(self) -> dict:
             return {"result": {"tables": [], "metrics": [], "free_text": None}}
 
-    async def _post(self, ruta: str, payload: dict, script_timeout: int):  # noqa: ANN001
+    async def _post(self, ruta: str, payload: dict, script_timeout: int):
         enviado.update(payload)
         return _Respuesta()
 

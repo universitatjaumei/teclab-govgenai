@@ -12,11 +12,27 @@ import {
   getGetResolvedThemeApiV1HubThemesResolvedGetQueryKey,
 } from '@/shared/api/generated/hub-themes/hub-themes'
 import { useListOrganizacionesApiV1HubOrganizacionesGet } from '@/shared/api/generated/hub-organizaciones/hub-organizaciones'
-import { useAuth } from '@/shared/auth'
+import { useCapacidad } from '@/shared/auth/useCapacidad'
+import { UsuarioActualCapacidadesItem } from '@/shared/api/generated/model'
+import type { ThemeResponse, ThemeResponseConfig } from '@/shared/api/generated/model'
 import { useChatbotsDeLaOrganizacion } from '@/shared/organizacion/useChatbotsDeLaOrganizacion'
 
 type Nivel = 'plataforma' | 'organizacion' | 'chatbot'
 type Config = Record<string, Record<string, unknown>>
+
+/**
+ * Un grupo de la configuración de un tema —`colors`, `branding`…—, o vacío.
+ *
+ * El contrato tipa `config` como objeto abierto porque lo es: junto a los grupos lleva campos de
+ * texto (`name`, `customCSS`) y admite claves de más. Se comprueba aquí, en tiempo de ejecución,
+ * en vez de castear la respuesta entera (#277).
+ */
+function grupoDe(config: ThemeResponseConfig | undefined, nombre: string): Record<string, unknown> {
+  const grupo = config?.[nombre]
+  return grupo && typeof grupo === 'object' && !Array.isArray(grupo)
+    ? (grupo as Record<string, unknown>)
+    : {}
+}
 
 /** Lo que acepta el servidor (SEC.6 + PLAT/marca): sin SVG y sin WebP, y por qué. */
 const FORMATOS = 'image/png,image/jpeg'
@@ -42,21 +58,13 @@ const TIPOGRAFIAS = [
   "'JetBrains Mono', monospace",
 ]
 
-interface Tema {
-  id: string
-  name: string
-  organizacion_id: string | null
-  chatbot_id: string | null
-  config: Config
-}
-
 /** El tema de un nivel, o `null` si ese nivel no tiene uno propio todavía. */
 function temaDelNivel(
-  temas: Tema[],
+  temas: ThemeResponse[],
   nivel: Nivel,
   organizacionId: string,
   chatbotId: string
-): Tema | null {
+): ThemeResponse | null {
   if (nivel === 'plataforma') {
     return temas.find((t) => !t.organizacion_id && !t.chatbot_id) ?? null
   }
@@ -90,8 +98,7 @@ function temaDelNivel(
 export function IdentidadVisualPage() {
   const { t } = useTranslation('admin')
   const qc = useQueryClient()
-  const { user } = useAuth()
-  const esSuperadmin = user?.role === 'superadmin'
+  const { tiene: veLaPlataforma } = useCapacidad(UsuarioActualCapacidadesItem.identidadplataforma)
 
   const { data: temas = [], isLoading } = useGetThemesApiV1HubThemesGet()
   /**
@@ -107,7 +114,7 @@ export function IdentidadVisualPage() {
   const { data: organizaciones = [] } = useListOrganizacionesApiV1HubOrganizacionesGet()
   const { data: chatbots = [] } = useChatbotsDeLaOrganizacion()
 
-  const niveles: Nivel[] = esSuperadmin
+  const niveles: Nivel[] = veLaPlataforma
     ? ['plataforma', 'organizacion', 'chatbot']
     : ['organizacion', 'chatbot']
 
@@ -127,7 +134,7 @@ export function IdentidadVisualPage() {
   /** El fichero elegido, para poder decirlo en su propia línea y no en la del botón. */
   const [nombreFichero, setNombreFichero] = useState<string | null>(null)
 
-  const lista = temas as unknown as Tema[]
+  const lista = temas
   const orgElegida = organizacionId || String(organizaciones[0]?.id ?? '')
   const botElegido = chatbotId || String(chatbots[0]?.id ?? '')
 
@@ -175,7 +182,7 @@ export function IdentidadVisualPage() {
 
   /** Lo que este nivel define, más lo editado sin guardar. Nunca lo del padre. */
   function propios(grupo: string): Record<string, unknown> {
-    return { ...(propio?.config?.[grupo] ?? {}), ...(edicion[grupo] ?? {}) }
+    return { ...grupoDe(propio?.config, grupo), ...(edicion[grupo] ?? {}) }
   }
 
   /**
@@ -191,7 +198,7 @@ export function IdentidadVisualPage() {
     return [
       ...new Set([
         ...Object.keys(delContrato[grupo] ?? {}),
-        ...Object.keys(padre?.config?.[grupo] ?? {}),
+        ...Object.keys(grupoDe(padre?.config, grupo)),
         ...Object.keys(propios(grupo)),
       ]),
     ]
@@ -200,7 +207,7 @@ export function IdentidadVisualPage() {
   function valor(grupo: string, campo: string): string {
     const mio = propios(grupo)[campo]
     if (mio !== undefined) return String(mio)
-    const heredado = padre?.config?.[grupo]?.[campo]
+    const heredado = grupoDe(padre?.config, grupo)[campo]
     if (heredado !== undefined && heredado !== null) return String(heredado)
     // Último recurso: el valor por omisión del contrato. No se anuncia como «heredado de» un
     // nivel, porque no viene de ninguno: decir «heredado de Plataforma» cuando no hay tema de
@@ -215,7 +222,7 @@ export function IdentidadVisualPage() {
    */
   function esHeredado(grupo: string, campo: string): boolean {
     if (propios(grupo)[campo] !== undefined) return false
-    const arriba = padre?.config?.[grupo]?.[campo]
+    const arriba = grupoDe(padre?.config, grupo)[campo]
     return arriba !== undefined && arriba !== null
   }
 
@@ -303,7 +310,7 @@ export function IdentidadVisualPage() {
   }
 
   const marca = (propios('branding') ?? {}) as { logoUrl?: string; logoAlt?: string }
-  const marcaHeredada = (padre?.config?.branding ?? {}) as { logoUrl?: string; logoAlt?: string }
+  const marcaHeredada = grupoDe(padre?.config, 'branding') as { logoUrl?: string; logoAlt?: string }
   const logoUrl = marca.logoUrl ?? marcaHeredada.logoUrl
   const logoAlt = marca.logoAlt ?? marcaHeredada.logoAlt
 

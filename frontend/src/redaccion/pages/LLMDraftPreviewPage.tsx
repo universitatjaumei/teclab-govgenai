@@ -13,12 +13,9 @@ import {
 // venía de un `DataTransformBlock` que también se duplicaba sin diferencia. La versión nueva lo
 // reconoce y emite un solo esquema, así que el formato del dato **no ha cambiado**; lo que
 // cambia es el nombre que genera Orval. Comprobado comparando los tres ficheros generados.
-import type {
-  ReportTemplateDraft,
-  ReportTemplateDraftValidationResult,
-  MuestraDeDatos,
-} from '@/shared/api/generated/model'
-import { useAuth } from '@/shared/auth'
+import type { ReportTemplateDraft, MuestraDeDatos } from '@/shared/api/generated/model'
+import { useCapacidad } from '@/shared/auth/useCapacidad'
+import { UsuarioActualCapacidadesItem } from '@/shared/api/generated/model'
 import {
   aplicarArreglo,
   arregloMecanico,
@@ -30,8 +27,7 @@ export function LLMDraftPreviewPage() {
   const { t } = useTranslation('common')
   const { t: tR } = useTranslation('redaccion')
   const navigate = useNavigate()
-  const { user } = useAuth()
-  const isAdmin = user?.role === 'superadmin' || user?.role === 'admin'
+  const { tiene: puedePublicar } = useCapacidad(UsuarioActualCapacidadesItem.plantillaspublicar)
 
   const [promptText, setPromptText] = useState('')
   const [draftName, setDraftName] = useState('')
@@ -42,7 +38,10 @@ export function LLMDraftPreviewPage() {
   // Para quien **no** puede elegir —el selector solo se ofrece a admin y superadmin— el defecto
   // tiene que ser el informe suelto: publicar una plantilla es una decision de plataforma, y
   // dejarla como defecto invisible haria que un trabajador creara plantillas sin saberlo.
-  const [mode, setMode] = useState<'template' | 'workspace'>(isAdmin ? 'template' : 'workspace')
+  // El defecto se deriva y no se fija al montar: la capacidad llega de `/auth/me` después del
+  // primer render, y un `useState(defecto)` se quedaría con el valor de antes de saberla.
+  const [modoElegido, setMode] = useState<'template' | 'workspace' | null>(null)
+  const mode = modoElegido ?? (puedePublicar ? 'template' : 'workspace')
 
   /**
    * INF.4 — la estructura del fichero sobre el que va el informe.
@@ -66,7 +65,7 @@ export function LLMDraftPreviewPage() {
     describirFichero(
       { data: { file: fichero } },
       {
-        onSuccess: (resumen) => setMuestra(resumen as unknown as MuestraDeDatos),
+        onSuccess: (resumen) => setMuestra(resumen),
         onError: (fallo: unknown) =>
           setErrorDeMuestra((fallo as Error)?.message || t('error')),
       },
@@ -85,7 +84,7 @@ export function LLMDraftPreviewPage() {
    * se podía tirar: había que volver a escribir el prompt entero. Con una copia local, corregir
    * una referencia y revalidar cuesta una llamada barata a `/validate` y ninguna al modelo.
    */
-  const propuestaDelModelo = proposedRaw as unknown as ReportTemplateDraft | undefined
+  const propuestaDelModelo = proposedRaw
 
   // **El estado inicial se siembra aquí, y no es un detalle**: si la propuesta ya está en el
   // primer render —una respuesta cacheada, o un test que la inyecta— el `if` de abajo no
@@ -95,7 +94,7 @@ export function LLMDraftPreviewPage() {
   const [borrador, setBorrador] = useState<ReportTemplateDraft | null>(
     propuestaDelModelo ?? null,
   )
-  const validation = validationRaw as unknown as ReportTemplateDraftValidationResult | undefined
+  const validation = validationRaw
   const isApproving = isApprovingTemplate || isApprovingWorkspace
   const canApprove = !!borrador && !isValidating && (!validation || validation.ok === true)
 
@@ -112,7 +111,7 @@ export function LLMDraftPreviewPage() {
 
   useEffect(() => {
     if (borrador) {
-      validateMutate({ data: borrador as unknown as ReportTemplateDraft })
+      validateMutate({ data: borrador })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [borrador])
@@ -157,7 +156,7 @@ export function LLMDraftPreviewPage() {
     setErrorDeAprobacion('')
     // Se aprueba **el borrador corregido**, no lo que devolvió el modelo.
     const name = draftName || tR('draft_default_name')
-    const data = { draft: borrador as unknown as ReportTemplateDraft, name }
+    const data = { draft: borrador, name }
     const alFallar = {
       onError: (fallo: unknown) =>
         setErrorDeAprobacion((fallo as Error)?.message || t('error')),
@@ -344,7 +343,7 @@ export function LLMDraftPreviewPage() {
               plantilla se reusa y su parte determinista se ejecuta igual cada vez; un informe
               suelto se tira. Es la diferencia entre pagar el LLM una vez y pagarlo cada mes,
               que es el principio determinista-primero del proyecto. */}
-          {isAdmin && (
+          {puedePublicar && (
             <div className="space-y-2" data-testid="eleccion-de-modo">
               <div className="flex gap-2">
                 <button

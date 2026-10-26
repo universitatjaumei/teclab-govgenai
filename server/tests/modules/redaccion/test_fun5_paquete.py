@@ -188,7 +188,8 @@ class TestLaSincronizacionAlArrancar:
             await sincronizar_paquetes(db_session)
 
         mensaje = str(fallo.value)
-        assert "govgenai-roto" in mensaje and "roto" in mensaje
+        assert "govgenai-roto" in mensaje
+        assert "roto" in mensaje
         despues = (
             await db_session.execute(select(func.count()).select_from(HubFuncion))
         ).scalar_one()
@@ -320,7 +321,8 @@ class TestElAnclajePorMayor:
 
         mensaje = str(fallo.value)
         assert "contar_filas" in mensaje
-        assert "1" in mensaje and "2" in mensaje
+        assert "1" in mensaje
+        assert "2" in mensaje
 
     @pytest.mark.asyncio
     async def test_should_fail_out_loud_when_nothing_is_installed(self, db_session, puntos):
@@ -425,7 +427,8 @@ class TestLaEjecucionDelPaquete:
 
         assert resultado.free_text == "dos filas"
         principal = asyncio.current_task().get_name()
-        assert hilos and hilos[0] != principal
+        assert hilos
+        assert hilos[0] != principal
 
 
 # ─────────────────────────── El catálogo ───────────────────────────

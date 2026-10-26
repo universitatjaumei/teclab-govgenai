@@ -100,7 +100,7 @@ async def _modelo_de(
         modelo = await get_model_for_tier(
             resuelta.tier, proveedor, organizacion_id=organizacion_id
         )
-    except Exception as fallo:  # noqa: BLE001
+    except Exception as fallo:
         raise HTTPException(
             status_code=503,
             detail=(

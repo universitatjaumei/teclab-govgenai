@@ -8,6 +8,7 @@ import uuid
 from datetime import date, datetime, timezone
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func, select, text
 
 
@@ -103,7 +104,7 @@ class TestPersistencia:
 
     @pytest.mark.asyncio
     async def test_rechaza_nivell_acces_fuera_de_la_enumeracion(self, db_session):
-        with pytest.raises(Exception):
+        with pytest.raises(IntegrityError, match="check"):  # noqa: PT012 — la violación salta en el flush del alta o en el commit
             await _documento(db_session, nivell_acces="inventado")
             await db_session.commit()
 
@@ -141,7 +142,7 @@ class TestForeignKeyDeChunks:
     @pytest.mark.asyncio
     async def test_should_reject_chunk_with_dangling_document_id(self, db_session):
         chatbot_id = uuid.uuid4()
-        with pytest.raises(Exception):
+        with pytest.raises(IntegrityError, match="hub_document_chunks"):
             await self._chunk(db_session, chatbot_id, uuid.uuid4())
 
     @pytest.mark.asyncio
@@ -364,7 +365,7 @@ class TestReclasificacion:
             reclassify_documents,
         )
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="sin columnas"):
             await reclassify_documents(
                 db_session, "rang", "a", "b", chatbot_ids=[uuid.uuid4()]
             )

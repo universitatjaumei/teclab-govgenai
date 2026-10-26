@@ -79,10 +79,38 @@ describe('Widget main', () => {
     window.dispatchEvent(
       new MessageEvent('message', {
         data: { type: 'govgenai:setLang', lang: 'en' },
+        origin: window.location.origin,
       }),
     )
 
     expect(changeLanguageSpy).toHaveBeenCalledWith('en')
+    cleanup?.()
+  })
+
+  // #278 — el `listener` no miraba el origen: cualquier iframe de la página podía cambiarle el
+  // idioma, y el siguiente tipo de mensaje que se añadiera heredaría el mismo agujero.
+  test('should_ignore_a_message_from_another_origin', async () => {
+    changeLanguageSpy = vi.spyOn(i18n, 'changeLanguage')
+
+    const container = document.createElement('div')
+    container.setAttribute('data-chatbot-id', 'abc-123')
+    container.setAttribute('data-lang', 'es')
+    document.body.appendChild(container)
+
+    let cleanup: (() => void) | undefined
+    await act(async () => {
+      cleanup = mountWidget(container, readConfig(container)!)
+    })
+    changeLanguageSpy.mockClear()
+
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { type: 'govgenai:setLang', lang: 'en' },
+        origin: 'https://otra-web.example',
+      }),
+    )
+
+    expect(changeLanguageSpy).not.toHaveBeenCalled()
     cleanup?.()
   })
 

@@ -213,8 +213,8 @@ def test_frontend_nginx_conf_serves_spa_fallback() -> None:
     nginx_conf = _ROOT / "frontend" / "nginx.conf"
     content = nginx_conf.read_text(encoding="utf-8")
 
-    assert "try_files" in content and "index.html" in content, \
-        "El SPA routing requiere fallback a index.html"
+    assert "try_files" in content, "El SPA routing requiere fallback a index.html"
+    assert "index.html" in content, "El SPA routing requiere fallback a index.html"
 
 
 # ---------------------------------------------------------------------------

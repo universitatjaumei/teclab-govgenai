@@ -155,7 +155,11 @@ class TestNoDespliegaAlMezclarse:
             if linea.lstrip().startswith("#")
         )
         prosa = " ".join(prosa.split())
-        assert "seguridad" in prosa and "rama por omisión" in prosa, (
+        assert "seguridad" in prosa, (
+            "dependabot.yml no advierte de que las actualizaciones de seguridad no obedecen a "
+            "`target-branch`."
+        )
+        assert "rama por omisión" in prosa, (
             "dependabot.yml no advierte de que las actualizaciones de seguridad no obedecen a "
             "`target-branch`."
         )

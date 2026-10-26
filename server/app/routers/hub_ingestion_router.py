@@ -6,7 +6,7 @@ Módulo: chatbots — la ingesta alimenta el corpus de un chatbot.
 
 import uuid
 from datetime import date, datetime, timezone
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import (
     APIRouter,
@@ -19,7 +19,7 @@ from fastapi import (
     UploadFile,
     status,
 )
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -60,6 +60,10 @@ class AnalyzeHtmlRequest(BaseModel):
 # cola", no tumbar el listado entero con un 500 de validación de respuesta.
 
 
+#: Un trabajo en estos estados no se puede borrar: lo está procesando el watcher.
+ESTADOS_EN_CURSO = ("pending", "running")
+
+
 class IngestionJob(BaseModel):
     """Trabajo de ingesta tal y como lo pinta la tabla técnica del panel."""
 
@@ -83,6 +87,12 @@ class IngestionJob(BaseModel):
     processing_started_at: datetime | None = None
     processing_completed_at: datetime | None = None
     created_at: datetime
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def acciones_permitidas(self) -> list[Literal["borrar"]]:
+        """«borrar» si no está en curso: la misma regla con la que `delete_ingestion_job` da 409."""
+        return [] if self.status in ESTADOS_EN_CURSO else ["borrar"]
 
 
 class IngestionJobsOut(BaseModel):
@@ -215,26 +225,31 @@ async def _get_llm_service(
     return LangChainLLMAdapter(model)
 
 
+def get_html_analyzer_service(llm_service=Depends(_get_llm_service)) -> Any:
+    """El analizador de HTML, con el modelo de la petición (#274)."""
+    from server.app.modules.agents_hub.services.html_analyzer_service import (
+        HtmlAnalyzerService,
+    )
+
+    return HtmlAnalyzerService(llm_service=llm_service)
+
+
 @router.post("/analyze-html", status_code=status.HTTP_200_OK, response_model=AnalyzeHtmlOut)
 async def analyze_html(
     body: AnalyzeHtmlRequest,
-    current_user: UserInfo = Depends(_ESCRIBE_EN_EL_CORPUS),
-    llm_service=Depends(_get_llm_service),
+    current_user: UserInfo = Depends(_ESCRIBE_EN_EL_CORPUS),  # noqa: ARG001 — autoriza: se pide por su efecto
+    service=Depends(get_html_analyzer_service),
 ):
     """Propone selectores CSS para el contenido principal de un HTML institucional."""
-    from server.app.modules.agents_hub.services.html_analyzer_service import (
-        HtmlAnalyzerService,
-        EmptyHtmlError,
-    )
+    from server.app.modules.agents_hub.services.html_analyzer_service import EmptyHtmlError
 
-    service = HtmlAnalyzerService(llm_service=llm_service)
     try:
         result = await service.analyze(html=body.html, url_hint=body.url_hint)
-    except EmptyHtmlError:
+    except EmptyHtmlError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="El HTML no puede estar vacío.",
-        )
+        ) from exc
     return {
         "proposed_selectors": result.proposed_selectors,
         "confidence": result.confidence,
@@ -809,7 +824,7 @@ async def delete_ingestion_job(
     if not job or job.chatbot_id != chatbot_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job no encontrado.")
 
-    if job.status in ("pending", "running"):
+    if job.status in ESTADOS_EN_CURSO:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="No se puede eliminar un job en curso.",

@@ -112,6 +112,7 @@ class TestNadieCargaLaPilaSinQuererlo:
             text=True,
             cwd="..",
             timeout=600,
+            check=False,
         )
         assert resultado.returncode == 0, resultado.stderr[-800:]
         assert resultado.stdout.strip().endswith("False"), (

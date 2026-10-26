@@ -51,7 +51,7 @@ def test_config_base_contains_only_config_models() -> None:
 
 def test_operational_base_contains_only_operational_models() -> None:
     from server.app.modules.agents_hub.database.base import HubOperationalBase
-    import server.app.modules.agents_hub.database.operational_models  # noqa: F401
+    import server.app.modules.agents_hub.database.operational_models
     import server.app.modules.redaccion.database.models  # noqa: F401 — tablas redaccion (edge)
 
     tables = set(HubOperationalBase.metadata.tables.keys())

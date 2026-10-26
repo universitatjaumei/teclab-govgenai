@@ -40,7 +40,7 @@ class TestMultiLanguageDocumentCoexistence:
 
         watcher = IngestionWatcher(
             session=session,
-            embedding_service=AsyncMock(embed=AsyncMock(return_value=[0.1] * 10)),
+            embedding_service=AsyncMock(embed=AsyncMock(return_value=[0.1] * 10), embed_batch=None),
         )
 
         with patch(
@@ -101,7 +101,7 @@ class TestMultiLanguageDocumentCoexistence:
 
         watcher = IngestionWatcher(
             session=session,
-            embedding_service=AsyncMock(embed=AsyncMock(return_value=[0.1] * 10)),
+            embedding_service=AsyncMock(embed=AsyncMock(return_value=[0.1] * 10), embed_batch=None),
         )
 
         with patch(
@@ -140,7 +140,7 @@ class TestMultiLanguageDocumentCoexistence:
 
         watcher = IngestionWatcher(
             session=session,
-            embedding_service=AsyncMock(embed=AsyncMock(return_value=[0.1] * 10)),
+            embedding_service=AsyncMock(embed=AsyncMock(return_value=[0.1] * 10), embed_batch=None),
         )
 
         with patch(

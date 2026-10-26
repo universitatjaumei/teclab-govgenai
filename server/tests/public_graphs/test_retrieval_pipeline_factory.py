@@ -26,7 +26,7 @@ class TestRetrievalPipelineFactory:
         from server.app.modules.agents_hub.agent.public_graphs.strategies.retrieval_pipeline_factory import (
             get_pipeline,
         )
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Unknown retrieval mode"):
             get_pipeline("")
 
     def test_factory_returns_distinct_instances(self):

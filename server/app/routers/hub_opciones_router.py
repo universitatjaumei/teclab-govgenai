@@ -88,7 +88,7 @@ _LENGUAS: tuple[tuple[str, str], ...] = (
 
 @router.get("/lengua", response_model=OpcionesDeLengua, operation_id="opcionesDeLengua")
 async def opciones_de_lengua(
-    user: UserInfo = Depends(_require_admin),
+    user: UserInfo = Depends(_require_admin),  # noqa: ARG001 — autoriza: se pide por su efecto
 ) -> OpcionesDeLengua:
     """Los modos de política de lengua y las lenguas que se pueden fijar.
 

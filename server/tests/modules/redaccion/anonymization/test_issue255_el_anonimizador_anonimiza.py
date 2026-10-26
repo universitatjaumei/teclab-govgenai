@@ -131,7 +131,8 @@ def test_el_informe_dice_que_se_sustituyo_y_no_lleva_valores(test_app):
     guardado = state["proposals"][str(proposal.id)].anonymization_report_json
     assert guardado["sustituidas"] == informe["sustituidas"]
     texto = str(guardado)
-    assert IBAN_1 not in texto and "Juan" not in texto
+    assert IBAN_1 not in texto
+    assert "Juan" not in texto
 
 
 def test_mantener_una_columna_que_el_servidor_veia_personal_pide_aceptarlo(test_app):

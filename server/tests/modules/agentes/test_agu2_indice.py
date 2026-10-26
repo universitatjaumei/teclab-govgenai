@@ -244,7 +244,7 @@ class TestCarga:
         assert quedan == 2
 
     @pytest.mark.parametrize(
-        "fichas, motivo",
+        ("fichas", "motivo"),
         [
             (lambda: [_ficha(1, "contrato"), _ficha(1, "viaje")], "repetida"),
             (lambda: [_ficha(1, "contrato", url="http://intranet/doc")], "https"),
@@ -369,7 +369,7 @@ class TestHoja:
         )
         assert f.metadatos == {"Materia": "Contratación"}
 
-    @pytest.mark.parametrize("valor, esperado", [("no", False), ("No vigente", False), ("", True), ("1", True), ("x", True)])
+    @pytest.mark.parametrize(("valor", "esperado"), [("no", False), ("No vigente", False), ("", True), ("1", True), ("x", True)])
     def test_la_vigencia_se_entiende_como_la_escribe_una_persona(self, valor, esperado):
         from server.app.modules.agentes.indice import desde_tabla
 

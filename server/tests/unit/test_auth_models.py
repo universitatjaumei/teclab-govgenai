@@ -43,13 +43,13 @@ class TestUserInfoModel:
     def test_user_info_rejects_legacy_partner_role(self) -> None:
         from server.app.core.auth.models import UserInfo
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Invalid role"):
             UserInfo(user_id="123", email="test@test.com", role="partner")
 
     def test_user_info_invalid_role_raises_error(self) -> None:
         from server.app.core.auth.models import UserInfo
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Invalid role"):
             UserInfo(user_id="123", email="test@test.com", role="superuser")
 
 

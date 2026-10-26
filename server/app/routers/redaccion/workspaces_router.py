@@ -43,6 +43,7 @@ from server.app.modules.redaccion.services.workspace_run_service import (
     WorkspaceRunService,
 )
 from server.app.modules.redaccion.contracts.preview import PreviewPayload
+from server.app.modules.redaccion.services.export_service import ExportService
 from server.app.modules.redaccion.services.preview_builder import (
     PendingBlocksError,
     PreviewBuilderService,
@@ -54,6 +55,37 @@ from server.app.modules.redaccion.database.repos import (
     WorkspaceBlockRepo,
     WorkspaceRepo,
 )
+
+def get_workspace_run_service(
+    session: AsyncSession = Depends(get_session),
+) -> WorkspaceRunService:
+    """El arranque de la ejecución de un workspace, sobre la sesión de la petición (#274)."""
+    return WorkspaceRunService(session=session)
+
+
+def get_preview_builder(
+    session: AsyncSession = Depends(get_session),
+    storage: StorageService = Depends(get_storage_service),
+) -> PreviewBuilderService:
+    """La vista previa del informe, que es también de lo que sale el DOCX."""
+    return PreviewBuilderService(
+        workspace_repo=WorkspaceRepo(session),
+        block_repo=WorkspaceBlockRepo(session),
+        template_version_repo=ReportTemplateVersionRepo(session),
+        manifest_repo=RunManifestRepo(session),
+        # PRO.5 — la imagen de los gráficos vive en el almacén, no en la base de datos.
+        storage_service=storage,
+        # #243 — la portada lleva el nombre de la plantilla.
+        template_repo=ReportTemplateRepo(session),
+    )
+
+
+def get_export_service(
+    builder: PreviewBuilderService = Depends(get_preview_builder),
+) -> ExportService:
+    """La exportación a DOCX, sobre la misma vista previa que ve quien revisa."""
+    return ExportService(builder=builder)
+
 
 router = APIRouter(
     prefix="/redaccion/workspaces",
@@ -509,6 +541,7 @@ async def run_workspace(
     background_tasks: BackgroundTasks,
     user: UserInfo = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
+    svc: WorkspaceRunService = Depends(get_workspace_run_service),
 ) -> RunStartedOut:
     """Encola la ejecución del DraftingCoreGraph para el workspace.
 
@@ -525,7 +558,6 @@ async def run_workspace(
     # convertía el 202 en un 500 y la generación no llegaba a encolarse nunca.
     estado_previo = workspace.status
 
-    svc = WorkspaceRunService(session=session)
     try:
         # session.get ya está hecho por _get_workspace; start_run lo repite a
         # través del repo. En MVP es aceptable: el coste de un get adicional
@@ -601,7 +633,7 @@ async def generar_borrador_en_segundo_plano(workspace_id: uuid.UUID) -> None:
                 await marcar_error(workspace_id, bg_session, f"modelo no disponible: {fallo}")
                 return
             await ejecutar_borrador(workspace_id, bg_session, llm_service=redactor)
-    except Exception:  # noqa: BLE001
+    except Exception:
         logging.getLogger(__name__).exception(
             "No se pudo generar el borrador del workspace %s", workspace_id
         )
@@ -666,7 +698,7 @@ async def get_workspace_preview(
     workspace_id: uuid.UUID,
     user: UserInfo = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-    storage: StorageService = Depends(get_storage_service),
+    builder: PreviewBuilderService = Depends(get_preview_builder),
 ) -> PreviewPayload:
     """Devuelve el PreviewPayload para vista previa e impresión.
 
@@ -675,7 +707,6 @@ async def get_workspace_preview(
     """
     await _get_workspace(workspace_id, user, session)
 
-    builder = _constructor_de_vista_previa(session, storage)
     try:
         return await builder.build_payload(workspace_id)
     except PendingBlocksError as exc:
@@ -683,19 +714,6 @@ async def get_workspace_preview(
             status_code=409,
             detail={"pending_block_ids": exc.pending_block_ids},
         ) from exc
-
-
-def _constructor_de_vista_previa(session: AsyncSession, storage: Any):
-    return PreviewBuilderService(
-        workspace_repo=WorkspaceRepo(session),
-        block_repo=WorkspaceBlockRepo(session),
-        template_version_repo=ReportTemplateVersionRepo(session),
-        manifest_repo=RunManifestRepo(session),
-        # PRO.5 — la imagen de los gráficos vive en el almacén, no en la base de datos.
-        storage_service=storage,
-        # #243 — la portada lleva el nombre de la plantilla.
-        template_repo=ReportTemplateRepo(session),
-    )
 
 
 _TIPO_DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -714,7 +732,7 @@ async def export_workspace(
     workspace_id: uuid.UUID,
     user: UserInfo = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-    storage: StorageService = Depends(get_storage_service),
+    exportador: ExportService = Depends(get_export_service),
 ) -> Response:
     """Descarga el informe como DOCX.
 
@@ -730,11 +748,8 @@ async def export_workspace(
     """
     await _get_workspace(workspace_id, user, session)
 
-    from server.app.modules.redaccion.services.export_service import ExportService
-
-    builder = _constructor_de_vista_previa(session, storage)
     try:
-        contenido = await ExportService(builder=builder).export(workspace_id, format="docx")
+        contenido = await exportador.export(workspace_id, format="docx")
     except PendingBlocksError as exc:
         raise HTTPException(
             status_code=409,

@@ -22,7 +22,7 @@ def get_langfuse_client() -> Langfuse | None:
     )
 
 
-def create_callback_handler(session_id: str, user_id: str) -> CallbackHandler | None:
+def create_callback_handler(session_id: str, user_id: str) -> CallbackHandler | None:  # noqa: ARG001 — Langfuse los recibe por `metadata` del grafo
     """Crea un CallbackHandler de LangFuse para inyectar en el grafo LangGraph."""
     if not os.getenv("LANGFUSE_SECRET_KEY"):
         return None

@@ -82,7 +82,8 @@ def _lista_del_sandbox() -> frozenset[str]:
     """
     ruta = SANDBOX / "sandbox" / "auditor.py"
     spec = importlib.util.spec_from_file_location("_sandbox_auditor_aut9", ruta)
-    assert spec and spec.loader
+    assert spec
+    assert spec.loader
     modulo = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = modulo
     try:

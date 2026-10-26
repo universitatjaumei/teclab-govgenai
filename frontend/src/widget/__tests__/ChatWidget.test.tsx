@@ -857,3 +857,73 @@ describe('ChatWidget', () => {
     })
   })
 })
+
+// #278 — el widget tragaba todos los fallos: no miraba `response.ok`, pasaba un 401 o un 429 al
+// lector de SSE, y el evento `error` sólo reiniciaba banderas. El visitante veía una burbuja vacía.
+describe('ChatWidget — los fallos se dicen (#278)', () => {
+  async function preguntar() {
+    renderOpen(<ChatWidget {...DEFAULT_PROPS} />)
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Hola' } })
+    fireEvent.click(screen.getByRole('button', { name: /enviar/i }))
+  }
+
+  const respuestaDeError = (status: number) =>
+    new Response(JSON.stringify({ detail: { code: 'X', message: 'interno' } }), { status })
+
+  test('should_say_the_assistant_is_not_available_on_a_401', async () => {
+    fetchMock.mockResolvedValueOnce(respuestaDeError(401))
+    await preguntar()
+
+    expect(await screen.findByTestId('widget-error')).toHaveTextContent(
+      i18n.t('chat:error_unauthorized'),
+    )
+    expect(screen.queryByTestId('turn-assistant')).not.toBeInTheDocument()
+  })
+
+  test('should_ask_to_wait_on_a_429', async () => {
+    fetchMock.mockResolvedValueOnce(respuestaDeError(429))
+    await preguntar()
+
+    expect(await screen.findByTestId('widget-error')).toHaveTextContent(
+      i18n.t('chat:error_rate_limited'),
+    )
+  })
+
+  test('should_not_show_the_server_text_of_a_500', async () => {
+    fetchMock.mockResolvedValueOnce(respuestaDeError(500))
+    await preguntar()
+
+    const aviso = await screen.findByTestId('widget-error')
+    expect(aviso).toHaveTextContent(i18n.t('chat:error_generic'))
+    expect(aviso).not.toHaveTextContent('interno')
+  })
+
+  test('should_stop_and_say_so_on_a_malformed_event', async () => {
+    const encoder = new TextEncoder()
+    const roto = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode('event: token\ndata: {esto no es json\n\n'))
+        controller.close()
+      },
+    })
+    fetchMock.mockResolvedValueOnce(new Response(roto))
+    await preguntar()
+
+    expect(await screen.findByTestId('widget-error')).toHaveTextContent(
+      i18n.t('chat:error_generic'),
+    )
+    // Y se puede volver a preguntar: el turno no se queda «en curso».
+    expect(screen.getByRole('textbox')).not.toBeDisabled()
+  })
+
+  test('should_say_so_when_the_server_sends_an_error_event', async () => {
+    fetchMock.mockResolvedValueOnce(
+      makeSseResponse([{ event: 'error', data: { message: "S'ha produït un error" } }]),
+    )
+    await preguntar()
+
+    expect(await screen.findByTestId('widget-error')).toHaveTextContent(
+      i18n.t('chat:error_generic'),
+    )
+  })
+})

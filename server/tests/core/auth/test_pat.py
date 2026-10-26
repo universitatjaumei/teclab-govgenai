@@ -42,7 +42,8 @@ async def test_create_returns_plaintext_and_stores_hash(db):
     assert token.startswith("pat_")
     assert pat.token_hash != token
     assert pat.token_hash == hashlib.sha256(token.encode()).hexdigest()
-    assert pat.token_prefix and pat.token_prefix in token
+    assert pat.token_prefix
+    assert pat.token_prefix in token
 
 
 @pytest.mark.asyncio

@@ -59,7 +59,8 @@ def test_should_say_where_each_strategy_comes_from() -> None:
     r = _opciones()
 
     del_nucleo = [e for e in r.estrategias["merge"] if e.nombre == "passthrough"]
-    assert del_nucleo and del_nucleo[0].origen == "nucleo"
+    assert del_nucleo
+    assert del_nucleo[0].origen == "nucleo"
 
     de_paquete = [e for e in r.estrategias["merge"] if e.nombre == "dedup_por_documento"]
     assert de_paquete, "Falta la estrategia del paquete demo: ¿está instalado?"

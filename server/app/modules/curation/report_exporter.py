@@ -123,6 +123,7 @@ class WebQualityReportExporter:
                     ],
                     capture_output=True,
                     timeout=30,
+                    check=False,
                 )
                 if result.returncode == 0 and os.path.exists(pdf_path):
                     with open(pdf_path, "rb") as fh:

@@ -33,6 +33,7 @@ def _run(*args: str, env: dict[str, str] | None = None) -> subprocess.CompletedP
         text=True,
         timeout=60,
         env={**os.environ, **(env or {})},
+        check=False,
     )
 
 

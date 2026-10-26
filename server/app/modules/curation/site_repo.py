@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, cast
 
-from sqlalchemy import select, update
+from sqlalchemy import CursorResult, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.app.modules.agents_hub.database.operational_models import (
@@ -236,7 +236,7 @@ class CrawledPageRepo:
         )
         result = await self.session.execute(stmt)
         await self.session.flush()
-        return result.rowcount or 0
+        return cast(CursorResult, result).rowcount or 0
 
     async def get_by_canonical(
         self, site_id: uuid.UUID, canonical_url: str

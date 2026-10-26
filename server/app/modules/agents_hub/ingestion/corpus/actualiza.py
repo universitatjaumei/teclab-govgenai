@@ -36,16 +36,20 @@ Uso:
 """
 from __future__ import annotations
 
+from typing import Any
+
 import argparse
 import asyncio
 import sys
 import uuid
 from dataclasses import dataclass
+import io
 from pathlib import Path
 
 import yaml
 
-sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if isinstance(sys.stdout, io.TextIOWrapper):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 
 @dataclass(frozen=True)
@@ -127,7 +131,7 @@ def resumen(nom: str, chatbot_id, informe) -> str:
 
 async def _pasada(
     paquetes: list[Paquete], *, dry_run: bool, verbose: bool, sense_diari: bool = False
-):
+) -> dict[tuple[str, uuid.UUID], Any]:
     """Reconcilia todos los paquetes y devuelve {(nom, chatbot_id): informe}."""
     from server.app.core import config  # noqa: F401
     from server.app.modules.agents_hub.database.config_models import HubChatbot
@@ -241,7 +245,7 @@ async def _divergencias(paquetes: list[Paquete]) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").strip().split("\n")[0])
     parser.add_argument("--descriptor", required=True, type=Path)
     parser.add_argument(
         "--confirmar",

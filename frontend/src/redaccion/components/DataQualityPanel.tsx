@@ -1,6 +1,5 @@
 import { useTranslation } from 'react-i18next'
 import { useGetWorkspaceWarnings } from '@/shared/api/generated/hub-redaccion/hub-redaccion'
-import type { ExtractionWarningOut } from '@/shared/api/generated/model'
 
 const SEVERITY_CLASSES: Record<string, string> = {
   error: 'bg-destructive/10 text-destructive border-destructive/30',
@@ -15,7 +14,7 @@ interface Props {
 export function DataQualityPanel({ workspaceId }: Props) {
   const { t } = useTranslation('common')
   const { data: warningsRaw, isLoading } = useGetWorkspaceWarnings(workspaceId)
-  const warnings = (warningsRaw as unknown as ExtractionWarningOut[] | undefined) ?? []
+  const warnings = warningsRaw ?? []
 
   if (isLoading) return <div>{t('loading')}</div>
   if (warnings.length === 0) return null

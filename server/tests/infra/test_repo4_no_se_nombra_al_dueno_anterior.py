@@ -166,7 +166,7 @@ def test_el_equipo_de_codeowners_es_de_la_organizacion_correcta() -> None:
 
 
 @pytest.mark.parametrize(
-    "ruta,debe_decir",
+    ("ruta", "debe_decir"),
     [
         ("CONTRIBUTING.md", "no hay fork privilegiado"),
         ("CONTRIBUTING.md", "Alojar no es"),

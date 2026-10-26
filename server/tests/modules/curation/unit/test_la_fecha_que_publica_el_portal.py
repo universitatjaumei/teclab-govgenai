@@ -123,12 +123,12 @@ def test_por_defecto_ningun_sitio_declara_selector():
 
 def test_un_formato_de_fecha_absurdo_se_rechaza_al_guardarlo():
     """Si no, el fallo sale en cada página del rastreo y lejos del formulario."""
-    import pytest as _pytest
+    import pytest
     from pydantic import ValidationError
 
     from server.app.modules.curation.selection_contracts import CrawlConfig
 
-    with _pytest.raises(ValidationError):
+    with pytest.raises(ValidationError):
         CrawlConfig(content_date_selector=".x", content_date_format="no es un formato")
 
 
@@ -180,10 +180,10 @@ async def test_stale_usa_la_fecha_de_la_pagina_y_lo_dice():
             filas = self._paginas if getattr(stmt, "_model_hint", "page") == "page" else []
 
             class _R:
-                def scalars(self_inner) -> Any:  # noqa: N805
+                def scalars(self_inner) -> Any:
                     return self_inner
 
-                def all(self_inner) -> list:  # noqa: N805
+                def all(self_inner) -> list:
                     return filas
 
             return _R()

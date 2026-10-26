@@ -217,9 +217,8 @@ def test_la_comprobacion_de_docs_mide_la_api_y_no_el_frontend() -> None:
     assert "/api/v1/openapi.json" in texto, (
         "La comprobación externa va bajo el prefijo de la API."
     )
-    assert "docker exec govgenai_app" in texto and "localhost:8000/docs" in texto, (
-        "La comprobación autoritativa es dentro del contenedor, que es donde actúa SEC.7."
-    )
+    assert "docker exec govgenai_app" in texto, "La comprobación autoritativa es dentro del contenedor, que es donde actúa SEC.7."
+    assert "localhost:8000/docs" in texto, "La comprobación autoritativa es dentro del contenedor, que es donde actúa SEC.7."
 
 
 def test_hay_comprobacion_posterior_y_reversion() -> None:
@@ -381,14 +380,14 @@ def test_refrescar_los_metadatos_usa_un_rol_propio_y_no_el_de_administrador() ->
     assert not admin, (
         f"No se concede administración de instancias: basta un rol propio. {admin}"
     )
-    assert "--permissions=" in texto and "--stage=GA" in texto, (
-        "El rol propio se crea desde el guion, para que el aprovisionamiento sea repetible."
-    )
+    assert "--permissions=" in texto, "El rol propio se crea desde el guion, para que el aprovisionamiento sea repetible."
+    assert "--stage=GA" in texto, "El rol propio se crea desde el guion, para que el aprovisionamiento sea repetible."
 
 
 def test_la_cuenta_de_despliegue_no_es_de_editor_ni_de_propietario() -> None:
     texto = _texto(PROVISION)
-    assert "roles/editor" not in texto and "roles/owner" not in texto
+    assert "roles/editor" not in texto
+    assert "roles/owner" not in texto
     for rol in ("roles/artifactregistry.writer", "roles/iap.tunnelResourceAccessor"):
         assert rol in texto, f"Falta el rol mínimo {rol}"
 

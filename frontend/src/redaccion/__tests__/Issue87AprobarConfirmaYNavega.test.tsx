@@ -43,6 +43,10 @@ vi.mock('@/shared/auth', async () => {
   const actual = await vi.importActual<typeof import('@/shared/auth')>('@/shared/auth')
   return { ...actual, useAuth: vi.fn() }
 })
+// #277 — la pantalla pregunta capacidades a `/auth/me`; se simulan las del rol del test.
+vi.mock('@/shared/auth/useCapacidad', async () =>
+  (await import('@/test-utils/capacidades')).dobleDeUseCapacidad(() => vi.mocked(useAuth)()?.user?.role),
+)
 
 import { LLMDraftPreviewPage } from '../pages/LLMDraftPreviewPage'
 import {

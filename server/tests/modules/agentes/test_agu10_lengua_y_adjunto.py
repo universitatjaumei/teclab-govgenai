@@ -52,7 +52,7 @@ class TestLaDeclaracion:
         [en_catalogo] = (await c.get("/api/v1/agentes/catalogo")).json()
         assert en_catalogo["adjunto"] == "opcional"
 
-    @pytest.mark.parametrize("campo,valor", [("lengua_respuesta", "fr"), ("adjunto", "a veces")])
+    @pytest.mark.parametrize(("campo", "valor"), [("lengua_respuesta", "fr"), ("adjunto", "a veces")])
     @pytest.mark.asyncio
     async def test_solo_los_valores_que_hay(self, http, campo, valor):
         from server.tests.modules.agentes._comun import declaracion

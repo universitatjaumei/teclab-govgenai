@@ -106,7 +106,8 @@ class TestUnir:
         evento = eventos[0]
         assert evento.actor == usuario.user_id
         assert evento.herramienta == "utilidades/pdf/unir"
-        assert "2 PDF" in evento.finalidad and "3 páginas" in evento.finalidad
+        assert "2 PDF" in evento.finalidad
+        assert "3 páginas" in evento.finalidad
         # El nombre del expediente dice de quién es: no puede estar en ningún campo.
         campos = " ".join(str(v) for v in vars(evento).values())
         assert "maria" not in campos.lower()
@@ -259,4 +260,5 @@ async def test_the_validation_buffer_is_closed_once_read(monkeypatch):
     leidos = await utilidades_router._leer_pdfs([_subida(_pdf(1)), _subida(_pdf(2))])
 
     assert len(leidos) == 2
-    assert entregados and all(b.closed for b in entregados)
+    assert entregados
+    assert all(b.closed for b in entregados)

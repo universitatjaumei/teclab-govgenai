@@ -91,6 +91,7 @@
   "confirm": "Confirm",
   "dismiss": "Dismiss",
   "resolve": "Resolve",
+  "reopen": "Reopen",
   "no_findings": "No active findings for this site",
   "severity_critical": "Critical",
   "severity_warning": "Warning",

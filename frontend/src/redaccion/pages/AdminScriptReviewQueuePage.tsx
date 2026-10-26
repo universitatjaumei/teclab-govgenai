@@ -8,12 +8,10 @@ import {
   useRejectScriptProposal,
 } from '@/shared/api/generated/redaccion-scripts/redaccion-scripts'
 import { useListTemplates } from '@/shared/api/generated/hub-redaccion/hub-redaccion'
-import type {
-  PendingProposalOut,
-  AdminRetestResponse,
-  TemplateOut,
-} from '@/shared/api/generated/model'
-import { useAuth } from '@/shared/auth'
+import type { PendingProposalOut } from '@/shared/api/generated/model'
+import { useCapacidad } from '@/shared/auth/useCapacidad'
+import { UsuarioActualCapacidadesItem } from '@/shared/api/generated/model'
+import { primeraRutaConcedida, useModulos } from '@/shared/auth/useModulos'
 import { ModelAuditVerdict } from '../components/ModelAuditVerdict'
 import { InformeAnonimizacion } from '../components/InformeAnonimizacion'
 
@@ -30,10 +28,10 @@ function ProposalCard({ proposal }: ProposalCardProps) {
 
   const { data: plantillasRaw } = useListTemplates()
   const plantillasGlobales = (
-    (plantillasRaw as unknown as TemplateOut[] | undefined) ?? []
+    plantillasRaw ?? []
   ).filter(tmpl => tmpl.is_global)
 
-  const retestResult = retestHook.data as unknown as AdminRetestResponse | undefined
+  const retestResult = retestHook.data
   const canApprove = !!retestResult && targetTemplateId.trim().length > 0
 
   function handleRetest() {
@@ -144,14 +142,16 @@ function ProposalCard({ proposal }: ProposalCardProps) {
 
 export function AdminScriptReviewQueuePage() {
   const { t } = useTranslation('scripts')
-  const { user } = useAuth()
-  const isAdmin = user?.role === 'superadmin' || user?.role === 'admin'
+  const { tiene: puedeRevisar, cargando } = useCapacidad(UsuarioActualCapacidadesItem.scriptsrevisar)
+  const { modulos } = useModulos()
 
   const listHook = useListPendingScripts()
-  const proposals = listHook.data as unknown as PendingProposalOut[] | undefined
+  const proposals = listHook.data
 
-  if (!isAdmin) {
-    return <Navigate to="/hub" replace />
+  if (cargando) return null
+  if (!puedeRevisar) {
+    // A una ruta que esta persona tiene: `/hub` podía no estar entre sus módulos (#277).
+    return <Navigate to={primeraRutaConcedida(modulos)} replace />
   }
 
   return (

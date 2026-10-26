@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Response
-from pydantic import BaseModel, Field, ValidationError, field_validator
+from pydantic import BaseModel, Field, ValidationError, computed_field, field_validator
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -48,6 +48,7 @@ from server.app.modules.redaccion.services.campos_manuales import (
 )
 from server.app.modules.redaccion.services.block_actions import (
     _DESTINO_DE_LA_ACCION,
+    AccionDeBloque,
     acciones_del_informe,
     acciones_permitidas,
 )
@@ -87,7 +88,7 @@ class BlockStateOut(BaseModel):
     # esta lista y no compara `status` con literales: comparándolos, un bloque de IA que falla
     # no era ni «pendiente» ni «aprobado» para la pantalla, así que bloqueaba el informe sin
     # ofrecer salida. Regla maestra nº2. Detalle en `services/block_actions.py`.
-    acciones_permitidas: list[str] = []
+    acciones_permitidas: list[AccionDeBloque] = []
 
 
 def _estado_del_bloque(block: Any) -> BlockStateOut:
@@ -110,6 +111,10 @@ def _estado_del_bloque(block: Any) -> BlockStateOut:
     )
 
 
+#: Los estados en los que el grafo está trabajando sobre el informe.
+ESTADOS_EN_CURSO = ("drafting", "extracting")
+
+
 class WorkspaceOut(BaseModel):
     id: uuid.UUID
     template_version_id: uuid.UUID
@@ -130,6 +135,16 @@ class WorkspaceOut(BaseModel):
     # panel deducía «se puede ensamblar» de que ningún bloque tuviera acciones, que también es
     # cierto antes de generar y después de ensamblar.
     acciones_permitidas: list[str] = []
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def en_curso(self) -> bool:
+        """Si una tarea de fondo lo está generando ahora (#277).
+
+        La pantalla lo deducía de `status` para dos cosas —no dejar lanzar otra generación y
+        refrescar mientras dura— y es el servidor quien sabe qué estados son «trabajando».
+        """
+        return self.status in ESTADOS_EN_CURSO
 
 
 class BlockPatchRequest(BaseModel):
@@ -796,6 +811,13 @@ async def get_workspace_warnings(
     ]
 
 
+def get_template_migration_service(
+    session: AsyncSession = Depends(get_session),
+) -> TemplateMigrationService:
+    """La migración de un workspace a otra versión de su plantilla (#274)."""
+    return TemplateMigrationService(session)
+
+
 @router.get(
     "/workspaces/{workspace_id}/template-update-notice",
     response_model=NewVersionNotice,
@@ -804,14 +826,13 @@ async def get_workspace_warnings(
 async def template_update_notice(
     workspace_id: uuid.UUID,
     _user: UserInfo = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session),
+    service: TemplateMigrationService = Depends(get_template_migration_service),
 ) -> NewVersionNotice | Response:
     """Devuelve aviso de nueva versión disponible, o 204 si ya está alineado."""
-    service = TemplateMigrationService(session)
     try:
         notice = await service.detect_new_version(workspace_id)
-    except WorkspaceNotFoundError:
-        raise HTTPException(status_code=404, detail="Workspace not found")
+    except WorkspaceNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Workspace not found") from exc
 
     if notice is None:
         return Response(status_code=204)
@@ -827,28 +848,27 @@ async def migrate_workspace(
     workspace_id: uuid.UUID,
     body: MigrateRequest,
     user: UserInfo = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session),
+    service: TemplateMigrationService = Depends(get_template_migration_service),
 ) -> MigrateResponse:
     """Crea workspace nuevo contra target_version_id, archiva el antiguo."""
-    service = TemplateMigrationService(session)
     try:
         new_workspace = await service.migrate_workspace(
             workspace_id,
             body.target_version_id,
             user_to_uuid(user.user_id),
         )
-    except WorkspaceNotFoundError:
-        raise HTTPException(status_code=404, detail="Workspace not found")
-    except WorkspaceOwnershipError:
+    except WorkspaceNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Workspace not found") from exc
+    except WorkspaceOwnershipError as exc:
         raise HTTPException(
             status_code=403,
             detail="Only the workspace owner can trigger migration",
-        )
+        ) from exc
     except CompatibilityConflictError as exc:
         raise HTTPException(
             status_code=409,
             detail={"compatibility_errors": exc.compatibility_errors},
-        )
+        ) from exc
 
     return MigrateResponse(new_workspace_id=new_workspace.id)
 
@@ -946,7 +966,7 @@ async def publish_template_version(
     try:
         spec = ReportTemplateSpec.model_validate(body.spec_json)
     except ValidationError as exc:
-        raise HTTPException(status_code=422, detail=json.loads(exc.json()))
+        raise HTTPException(status_code=422, detail=json.loads(exc.json())) from exc
 
     # SEG.5 — un bloque que ninguna sección enumera no se pinta. Se rechaza aquí porque es el
     # único momento en que avisar sirve de algo: después, el informe sale con las secciones

@@ -90,8 +90,9 @@ class HubReportTemplate(HubOperationalBase):
         """
         return self.owner_kind == "platform"
 
-    @is_global.expression
-    def is_global(cls):  # noqa: N805 - la firma la fija SQLAlchemy
+    @is_global.inplace.expression
+    @classmethod
+    def _is_global_expression(cls):
         return cls.owner_kind == "platform"
 
     # Sin FK a hub_report_template_versions para evitar circularidad; se aplica en app

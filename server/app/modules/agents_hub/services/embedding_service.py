@@ -94,7 +94,7 @@ class LocalEmbeddingService:
             self._model = SentenceTransformer(self.MODEL_NAME)
         return self._model
 
-    async def embed(self, text: str, purpose: str = PURPOSE_QUERY) -> list[float]:
+    async def embed(self, text: str, purpose: str = PURPOSE_QUERY) -> list[float]:  # noqa: ARG002 — el modelo local no distingue el propósito (ver docstring)
         """`purpose` se acepta y se ignora: el modelo local no lo distingue.
 
         Se acepta —en vez de omitirlo— para que quien llame no tenga que preguntar qué
@@ -107,7 +107,7 @@ class LocalEmbeddingService:
         return await asyncio.to_thread(_encode, text)
 
     async def embed_batch(
-        self, texts: list[str], purpose: str = PURPOSE_DOCUMENT
+        self, texts: list[str], purpose: str = PURPOSE_DOCUMENT  # noqa: ARG002 — el modelo local no distingue el propósito (ver docstring)
     ) -> list[list[float]]:
         """Un `encode` para toda la lista (RAG.7).
 

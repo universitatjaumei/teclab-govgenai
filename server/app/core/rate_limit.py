@@ -147,7 +147,7 @@ def _regla(variable: str, por_defecto: str) -> str:
     return os.getenv(variable, por_defecto)
 
 
-def limitar(request: Request, *, ambito: str, clave: str, regla: str) -> None:
+def limitar(*, ambito: str, clave: str, regla: str) -> None:
     """429 si esta clave ha gastado su cupo en la ventana."""
     permitida, espera = limitador.permitir(f"{ambito}:{clave}", regla)
     if not permitida:
@@ -161,7 +161,6 @@ def limitar(request: Request, *, ambito: str, clave: str, regla: str) -> None:
 def limitar_login(request: Request) -> None:
     """Por IP: en el login todavía no se sabe quién llama, y esa es la gracia del ataque."""
     limitar(
-        request,
         ambito="login",
         clave=ip_de(request),
         regla=_regla("RATE_LIMIT_LOGIN", LIMITE_LOGIN_POR_DEFECTO),
@@ -176,7 +175,6 @@ def limitar_chat(request: Request, *, actor_id: str | None, chatbot_id) -> None:
     la cuota se le carga al actor y no al dueño del token.
     """
     limitar(
-        request,
         ambito=f"chat:{chatbot_id}",
         clave=actor_id or ip_de(request),
         regla=_regla("RATE_LIMIT_CHAT", LIMITE_CHAT_POR_DEFECTO),

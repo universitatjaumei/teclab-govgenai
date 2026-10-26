@@ -138,8 +138,8 @@ def test_sandbox_dockerfile_cmd_does_not_invoke_uv_run() -> None:
     assert cmd_lines, "El Dockerfile no tiene instrucción CMD"
     assert not any("uv run" in line for line in cmd_lines), \
         f"El CMD no debe usar 'uv run' en runtime: {cmd_lines}"
-    assert "PATH=" in content and ".venv/bin" in content, \
-        "El venv del sandbox debe estar en PATH para que uvicorn se resuelva directo"
+    assert "PATH=" in content, "El venv del sandbox debe estar en PATH para que uvicorn se resuelva directo"
+    assert ".venv/bin" in content, "El venv del sandbox debe estar en PATH para que uvicorn se resuelva directo"
 
 
 # ---------------------------------------------------------------------------
@@ -193,6 +193,7 @@ def test_sandbox_main_does_not_call_gettempdir_when_env_var_set() -> None:
         capture_output=True,
         text=True,
         timeout=30,
+        check=False,
     )
     assert result.returncode == 0, (
         "Importar sandbox.main con SANDBOX_TMP_DIR puesta no debe fallar "

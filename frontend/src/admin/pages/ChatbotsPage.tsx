@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import type { ChatbotRead, CorpusStatsOut } from '@/shared/api/generated/model'
+import type { ChatbotRead, LLMConfigRead } from '@/shared/api/generated/model'
 import {
   useCreateChatbotApiV1HubChatbotsPost,
   useUpdateChatbotApiV1HubChatbotsChatbotIdPatch,
@@ -74,25 +74,7 @@ function paraElContrato(valor: string): string | null {
 // consecuencia funcional: no había forma de cambiar de modelo, y guardar cualquier edición
 // reasignaba el chatbot a esa configuración sin decirlo. Ahora salen del contrato.
 
-type LlmConfigOption = {
-  id: string
-  provider: string
-  model_name: string
-  label?: string | null
-  is_default?: boolean
-}
-
-type OrganizacionOption = { id: string; name: string }
-
-type EstrategiaOpcion = { nombre: string; descripcion?: string | null; origen: string }
-type OpcionesDeGrafo = {
-  perfiles: { nombre: string; configurable: boolean; descripcion?: string | null }[]
-  modos: { nombre: string; descripcion?: string | null }[]
-  estrategias: Record<string, EstrategiaOpcion[]>
-  ejes: string[]
-}
-
-function etiquetaModelo(config: LlmConfigOption): string {
+function etiquetaModelo(config: LLMConfigRead): string {
   // El `model_name` exacto va SIEMPRE, aunque haya etiqueta. Es lo que distingue
   // `gemini-2.0-flash` de `gemini-2.5-flash`, y lo que deja ver de un vistazo que
   // `gemini-2.5-flash-preview-tts` es de texto a voz y no sirve para chatear.
@@ -127,19 +109,19 @@ export function ChatbotsPage() {
   const [selectedChildId, setSelectedChildId] = useState('')
 
   const { data: chatbotsRaw, isLoading } = useChatbotsDeLaOrganizacion()
-  const chatbots: ChatbotRead[] = (chatbotsRaw as unknown as ChatbotRead[] | undefined) ?? []
+  const chatbots: ChatbotRead[] = chatbotsRaw ?? []
 
   // FIX.1: los dos catálogos que antes eran constantes escritas a mano.
   const { data: configsRaw } = useListLlmConfigsApiV1HubLlmConfigsGet()
-  const llmConfigs = (configsRaw as unknown as LlmConfigOption[] | undefined) ?? []
+  const llmConfigs = configsRaw ?? []
   const { data: orgsRaw } = useListOrganizacionesApiV1HubOrganizacionesGet()
-  const organizaciones = (orgsRaw as unknown as OrganizacionOption[] | undefined) ?? []
+  const organizaciones = orgsRaw ?? []
 
   // PLG.3 — el catalogo de lo que ESTA INSTALACION ofrece. Antes eran cuatro literales
   // escritos en este fichero; ahora la lista depende de los paquetes instalados y solo el
   // servidor la conoce.
   const { data: opcionesRaw } = useOpcionesDeGrafoApiV1HubChatbotsOpcionesDeGrafoGet()
-  const opciones = opcionesRaw as unknown as OpcionesDeGrafo | undefined
+  const opciones = opcionesRaw
   const modosDisponibles = opciones?.modos ?? []
   const perfilesDisponibles = opciones?.perfiles ?? []
   const ejes = opciones?.ejes ?? []
@@ -222,13 +204,13 @@ export function ChatbotsPage() {
     editing?.id ?? '',
     { query: { enabled: dialogOpen && !!editing && selectedKind === 'router' } },
   )
-  const children: ChatbotRead[] = (childrenRaw as unknown as ChatbotRead[] | undefined) ?? []
+  const children: ChatbotRead[] = childrenRaw ?? []
 
   const { data: corpusStatsRaw } = useGetCorpusStatsApiV1HubChatbotsChatbotIdCorpusStatsGet(
     editing?.id ?? '',
     { query: { enabled: dialogOpen && !!editing } },
   )
-  const corpusStats = corpusStatsRaw as unknown as CorpusStatsOut | undefined
+  const corpusStats = corpusStatsRaw
 
   const assignChildMutation = useAssignChildApiV1HubChatbotsChatbotIdChildrenPost({
     mutation: {
@@ -332,14 +314,17 @@ export function ChatbotsPage() {
   }
 
   function installSnippet(id: string): string {
-    const base = import.meta.env.VITE_API_URL ?? 'https://tu-api.ejemplo.com'
+    // #279 — la URL absoluta de la instancia: el panel se sirve desde ella, y el fragmento se pega
+    // en **otra** web, así que una ruta relativa apuntaba a la web anfitriona. Con la imagen,
+    // `VITE_API_URL` va vacía y salía `data-api-url="/api/v1"`.
+    const base = import.meta.env.VITE_API_URL || window.location.origin
     return [
       `<div id="govgenai-widget"`,
       `     data-chatbot-id="${id}"`,
       `     data-lang="es"`,
       `     data-api-url="${base}/api/v1">`,
       `</div>`,
-      `<script src="${base}/widget.iife.js"></script>`,
+      `<script src="${base}/widget.iife.js" defer></script>`,
     ].join('\n')
   }
 
@@ -362,7 +347,7 @@ export function ChatbotsPage() {
     if (
       values.kind === 'atomic' &&
       values.retrieval_mode === 'MD_LONG_CONTEXT' &&
-      (corpusStats?.total_tokens ?? 0) > 128_000
+      corpusStats?.cabe_en_contexto_largo === false
     ) {
       return
     }
@@ -438,14 +423,14 @@ export function ChatbotsPage() {
   const showLongContextHardError =
     selectedKind === 'atomic' &&
     watch('retrieval_mode') === 'MD_LONG_CONTEXT' &&
-    (corpusStats?.total_tokens ?? 0) > 128_000
+    corpusStats?.cabe_en_contexto_largo === false
 
   const assignableChildren = chatbots.filter(
     (cb) =>
       cb.id !== editing?.id &&
-      cb.kind === 'atomic' &&
-      cb.organizacion_id === (editing?.organizacion_id ?? organizaciones[0]?.id) &&
-      cb.parent_chatbot_id === null,
+      // #277 — la regla de los dos niveles la aplica el servidor al guardar, y la dice aquí.
+      cb.puede_ser_hijo &&
+      cb.organizacion_id === (editing?.organizacion_id ?? organizaciones[0]?.id),
   )
 
   return (
@@ -773,7 +758,9 @@ export function ChatbotsPage() {
                     )}
                     {showLongContextHardError && (
                       <p className="text-destructive text-xs mt-1">
-                        {t('hub.chatbot_long_context_error')}
+                        {t('hub.chatbot_long_context_error', {
+                  limite: corpusStats?.limite_contexto_largo.toLocaleString(),
+                })}
                       </p>
                     )}
                     <div className="pt-2">
@@ -948,7 +935,7 @@ export function ChatbotsPage() {
                       onChange={(e) => setSelectedChildId(e.target.value)}
                       className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
                     >
-                      <option value="">-- Seleccionar --</option>
+                      <option value="">{t('hub.select_placeholder')}</option>
                       {assignableChildren.map((cb) => (
                         <option key={cb.id} value={cb.id}>{cb.name}</option>
                       ))}

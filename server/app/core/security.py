@@ -20,5 +20,6 @@ def verify_password(password: str, hashed_password: str) -> bool:
     hashed_bytes = hashed_password.encode("utf-8")
     try:
         return bcrypt.checkpw(pwd_bytes, hashed_bytes)
-    except Exception:
+    except ValueError:
+        # Un hash que no es de bcrypt («Invalid salt»): esa contraseña no coincide con nada.
         return False

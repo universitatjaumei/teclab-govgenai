@@ -85,6 +85,7 @@ const TOKEN =
 function unChatbot(): ChatbotRead {
   return {
     id: CHATBOT_ID,
+    puede_ser_hijo: true,
     name: 'Assistent normatiu',
     organizacion_id: '00000000-0000-0000-0000-000000000010',
     llm_config_id: '00000000-0000-0000-0000-000000000001',

@@ -36,7 +36,8 @@ class TestElTextoDelPrompt:
         fragmento = fragmento[: fragmento.index("CITATION_BLOCK")]
 
         assert "never" in fragmento.lower()
-        assert "TABLE" in fragmento and "CHART" in fragmento
+        assert "TABLE" in fragmento
+        assert "CHART" in fragmento
 
     def test_should_show_a_correct_example(self):
         """Un ejemplo mínimo evita la ambigüedad mejor que una frase más."""

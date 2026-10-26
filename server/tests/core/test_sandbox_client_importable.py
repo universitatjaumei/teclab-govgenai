@@ -27,6 +27,7 @@ def test_should_importar_sandbox_client_sin_nada_cargado_antes() -> None:
         cwd=str(_RAIZ),
         capture_output=True,
         text=True,
+        check=False,
     )
 
     assert proceso.returncode == 0, proceso.stderr
@@ -43,6 +44,7 @@ def test_should_importar_el_paquete_de_pipelines_sin_nada_cargado_antes() -> Non
         cwd=str(_RAIZ),
         capture_output=True,
         text=True,
+        check=False,
     )
 
     assert proceso.returncode == 0, proceso.stderr
