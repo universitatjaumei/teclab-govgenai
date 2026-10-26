@@ -23,6 +23,11 @@ function AvisoDeFallo({ reintentar }: { reintentar: () => void }) {
 
 interface Props {
   children: ReactNode
+  /**
+   * Al cambiar, se retira el aviso de fallo. Con `key` se remontaba la pantalla en cada
+   * navegación, hubiera fallado o no, y se perdía el estado de los layouts anidados.
+   */
+  clave?: string
 }
 
 interface Estado {
@@ -34,6 +39,10 @@ export class ErrorBoundary extends Component<Props, Estado> {
 
   static getDerivedStateFromError(fallo: Error): Estado {
     return { fallo }
+  }
+
+  componentDidUpdate(anteriores: Props) {
+    if (this.state.fallo && anteriores.clave !== this.props.clave) this.setState({ fallo: null })
   }
 
   componentDidCatch(fallo: Error, info: ErrorInfo) {

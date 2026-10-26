@@ -40,7 +40,7 @@ axiosInstance.interceptors.response.use(undefined, (error: AxiosError<{ detail?:
   // #278 — un 401 con token es que la sesión ya no vale: se cierra, en vez de dejar cada
   // pantalla fallando hasta que alguien recargue.
   if (error.response?.status === 401) {
-    avisaDeSesionCaducada(error.config?.url, Boolean(error.config?.headers?.Authorization));
+    avisaDeSesionCaducada(error.config?.url, error.config?.headers?.Authorization);
   }
   const errorDelServidor = errorDeLaApi(error);
   if (errorDelServidor) {

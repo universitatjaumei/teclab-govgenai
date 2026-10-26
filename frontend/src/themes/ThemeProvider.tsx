@@ -10,6 +10,7 @@ import React, {
 import {
   CLAVE_DEL_TEMA,
   DEFAULT_THEME,
+  TEMA_OLVIDADO,
   validateTheme,
   mergeThemes,
   type ThemeConfig,
@@ -200,6 +201,12 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
   useEffect(() => {
     injectThemeCSS(theme);
   }, [theme]);
+
+  useEffect(() => {
+    const volverAlDeSerie = () => setThemeState(initialTheme || DEFAULT_THEME);
+    window.addEventListener(TEMA_OLVIDADO, volverAlDeSerie);
+    return () => window.removeEventListener(TEMA_OLVIDADO, volverAlDeSerie);
+  }, [initialTheme]);
 
   const setTheme = useCallback((newTheme: ThemeConfig) => {
     const validation = validateTheme(newTheme);

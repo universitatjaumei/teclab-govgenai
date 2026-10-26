@@ -180,8 +180,8 @@ export function AppLayout() {
 
       <main className="flex-1 overflow-auto p-6">
         {/* #278 — si una pantalla revienta al pintarse, cae ella y no el panel: el menú queda
-            fuera. La clave por ruta lo rearma al navegar a otra sección. */}
-        <ErrorBoundary key={location.pathname}>
+            fuera. Al navegar a otra ruta se retira el aviso. */}
+        <ErrorBoundary clave={location.pathname}>
           <Outlet />
         </ErrorBoundary>
       </main>

@@ -1,3 +1,5 @@
+import { TOKEN_KEY } from './authState'
+
 /**
  * El aviso de que el servidor ya no acepta la sesión (#278).
  *
@@ -11,13 +13,21 @@ export const SESION_CADUCADA = 'govgenai:sesion-caducada'
 /**
  * Las rutas cuyo 401 significa «esas credenciales no valen» y no «la sesión caducó»: el login
  * mismo y el cambio de contraseña con la actual equivocada. Cerrar la sesión ahí echaría a quien
- * sólo se ha equivocado al teclear.
+ * sólo se ha equivocado al teclear. Por segmento entero: `/hub/login-history` no es un login.
  */
-const SU_401_ES_DE_CREDENCIALES = ['/login', '/auth/me/password']
+function suFalloEsDeCredenciales(url: string): boolean {
+  const ruta = url.split('?')[0]
+  return /\/login(\/|$)/.test(ruta) || ruta.endsWith('/auth/me/password')
+}
 
-export function avisaDeSesionCaducada(url: string | undefined, conToken: boolean): boolean {
-  if (!conToken) return false
-  if (url && SU_401_ES_DE_CREDENCIALES.some((ruta) => url.includes(ruta))) return false
+/**
+ * Avisa si el 401 es de la sesión **vigente**. Una petición que salió con el token anterior —la
+ * persona volvió a entrar mientras estaba en vuelo— no tiene que cerrar la sesión nueva.
+ */
+export function avisaDeSesionCaducada(url: string | undefined, autorizacion: unknown): boolean {
+  if (typeof autorizacion !== 'string' || !autorizacion) return false
+  if (autorizacion !== `Bearer ${localStorage.getItem(TOKEN_KEY)}`) return false
+  if (url && suFalloEsDeCredenciales(url)) return false
   window.dispatchEvent(new Event(SESION_CADUCADA))
   return true
 }
