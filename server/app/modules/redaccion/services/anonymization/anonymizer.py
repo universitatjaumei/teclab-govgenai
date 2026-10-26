@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
 from dataclasses import dataclass, field
 from typing import Any, cast
 
@@ -63,12 +64,16 @@ def _try_load_spacy_model(model: str = "es_core_news_md") -> Any:
 
 
 _NLP_CACHE: dict[str, Any] = {}
+# La anonimización corre en hilos (`asyncio.to_thread`): sin cerrojo, dos peticiones en frío
+# cargaban dos copias del modelo a la vez.
+_NLP_CERROJO = threading.Lock()
 
 
 def _get_nlp(model: str) -> Any:
-    if model not in _NLP_CACHE:
-        _NLP_CACHE[model] = _try_load_spacy_model(model)
-    return _NLP_CACHE[model]
+    with _NLP_CERROJO:
+        if model not in _NLP_CACHE:
+            _NLP_CACHE[model] = _try_load_spacy_model(model)
+        return _NLP_CACHE[model]
 
 
 #: Tipos que la politica por defecto sustituye en texto libre.
