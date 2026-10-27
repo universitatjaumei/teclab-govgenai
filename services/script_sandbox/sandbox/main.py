@@ -55,14 +55,24 @@ app = FastAPI(title="script-sandbox", version="0.1.0")
 #: (`runner._matar_el_grupo`). Cuesta rendimiento: las ejecuciones esperan en cola.
 _UNA_A_LA_VEZ = threading.Lock()
 
+#: Lo más que una ejecución espera turno (#296). Sin techo, una petición encolada detrás de un
+#: guion largo agotaba la espera del cliente —un 500 en el servidor— y se ejecutaba igualmente
+#: después, para nadie. Pasado este tiempo se contesta 503 `SANDBOX_BUSY` sin ejecutar nada. El
+#: cliente (`server/app/core/sandbox_client.py`, `ESPERA_EN_COLA_SEGUNDOS`) cuenta con él.
+ESPERA_EN_COLA_SEGUNDOS = 30
+
 
 def _en_exclusiva(endpoint):
     """Envuelve un endpoint para que corra con el cerrojo. `wraps` conserva la firma para FastAPI."""
 
     @functools.wraps(endpoint)
     def _envuelto(*args, **kwargs):
-        with _UNA_A_LA_VEZ:
+        if not _UNA_A_LA_VEZ.acquire(timeout=ESPERA_EN_COLA_SEGUNDOS):
+            return _err(503, "SANDBOX_BUSY")
+        try:
             return endpoint(*args, **kwargs)
+        finally:
+            _UNA_A_LA_VEZ.release()
 
     return _envuelto
 _AUDITOR = ScriptSecurityAuditor()

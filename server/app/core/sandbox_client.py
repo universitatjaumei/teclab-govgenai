@@ -46,6 +46,12 @@ class SandboxUnavailableError(Exception):
     """El microservicio script-sandbox no responde tras los reintentos configurados."""
 
 
+#: Lo más que el sandbox deja esperar turno antes de contestar 503 `SANDBOX_BUSY` (#296). Es el
+#: `ESPERA_EN_COLA_SEGUNDOS` de `services/script_sandbox/sandbox/main.py`: el cliente lo suma a
+#: su espera de lectura para no rendirse antes de que el sandbox conteste.
+ESPERA_EN_COLA_SEGUNDOS = 30
+
+
 # ---------------------------------------------------------------------------
 # Protocol — contrato que ambas implementaciones satisfacen
 # ---------------------------------------------------------------------------
@@ -439,6 +445,16 @@ class HttpSandboxClient:
                 [],
             )
 
+        if resp.status_code == 503:
+            return (
+                _extraction_with_warning(
+                    "SANDBOX_BUSY",
+                    "El sandbox está ocupado con otra ejecución. Vuelve a intentarlo en un momento.",
+                    self._PIPELINE_ID,
+                ),
+                [],
+            )
+
         if resp.status_code == 504:
             return (
                 _extraction_with_warning(
@@ -510,8 +526,8 @@ class HttpSandboxClient:
     async def _post_with_retry(
         self, path: str, payload: dict, script_timeout: int
     ) -> httpx.Response:
-        """POST con reintento en ConnectError. La read timeout excede el timeout del script."""
-        read_timeout = max(script_timeout + 30, 60)
+        """POST con reintento en ConnectError. La read timeout excede la cola más el guion."""
+        read_timeout = max(script_timeout + ESPERA_EN_COLA_SEGUNDOS + 30, 60)
         # httpx.Timeout(default, connect=x) sets default for read/write/pool and overrides connect.
         timeout = httpx.Timeout(read_timeout, connect=self._connect_timeout)
         last_exc: Exception | None = None
@@ -520,6 +536,11 @@ class HttpSandboxClient:
             try:
                 async with httpx.AsyncClient(base_url=self._base_url, timeout=timeout) as client:
                     return await client.post(path, json=payload)
+            except httpx.ReadTimeout as exc:
+                # #296 — no se reintenta: el sandbox puede estar ejecutándolo todavía.
+                raise SandboxUnavailableError(
+                    f"El sandbox '{self._base_url}' no contestó en {read_timeout}s."
+                ) from exc
             except httpx.ConnectError as exc:
                 last_exc = exc
                 if attempt >= self._max_retries:
