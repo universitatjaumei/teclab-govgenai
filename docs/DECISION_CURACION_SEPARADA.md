@@ -134,8 +134,9 @@ como propiedad de la organización, no del asistente.
 
 ### Sobre `CorpusSelectionService`
 
-Es el punto exacto donde la materia prima se convierte en corpus, y hoy está enterrado en
-`ingestion/quality/selection_service.py` como si fuera un detalle de la ingesta. Es lo
+Es el punto exacto donde la materia prima se convierte en corpus, y cuando se escribió esto
+estaba enterrado en `ingestion/quality/selection_service.py` como si fuera un detalle de la
+ingesta. Hoy vive en `server/app/modules/curation/selection_service.py`. Es lo
 contrario: es **el paso de publicación**, el momento en que un humano decide que una página
 entra. Debe ser explícito y visible en la interfaz de curación.
 

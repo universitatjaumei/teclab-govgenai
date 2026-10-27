@@ -11,7 +11,8 @@
 
 Lo leído: `client_app/app/services/deterministic_etl_service.py` (350 l.),
 `client_app/app/services/etl_service.py` (424 l.) y `client_app/app/modules/factory/etl_factory.py`
-(369 l.).
+(369 l.). **`client_app/` se retiró el 2026-09-04**: estas rutas se leen en el historial
+(`git log --diff-filter=D -- client_app/`) o en la carpeta `AutomatIA` que cita `AGENTS.md`.
 
 ## Lo que descubrió la comparación
 

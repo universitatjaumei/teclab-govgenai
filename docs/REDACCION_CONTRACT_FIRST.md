@@ -286,7 +286,7 @@ El módulo `server/app/modules/redaccion/services/anonymization/` proporciona
 detección y sustitución determinista de PII (regex + spaCy NER + anclajes
 de formulario), reutilizado por dos flujos:
 
-1. **TestDataAnonymizerService** (`services/test_data_anonymizer.py`) —
+1. **TestDataAnonymizerService** (`redaccion/services/test_data_anonymizer.py`) —
    anonimiza datos de prueba sintéticos para el workflow de scripts
    (`/api/v1/redaccion/scripts/{id}/anonymize-test-data`). Obligatorio
    cuando `target_owner_kind = 'platform'`.

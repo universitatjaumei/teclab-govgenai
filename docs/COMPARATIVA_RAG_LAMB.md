@@ -1,6 +1,7 @@
 # Comparativa del diseño RAG: Gov Gen AI Platform vs LAMB
 
-> **Fecha**: 2026-07-15
+> **Fecha**: 2026-07-15. Es una foto: las rutas de este repositorio que cita son las de esa
+> fecha, y algunas ya no existen.
 > **Fuentes**: análisis del código real de ambos proyectos — `AI_agents_hub` (este repo) y LAMB (`C:\Users\fabra\Documents\LAMB_MOODLE\lamb`, backend + `lamb-kb-server-stable` + `Documentation/lamb_architecture_v2.md` v2.6).
 > **Finalidad**: valorar si el planteamiento RAG de este proyecto es comparable al de LAMB, identificar qué incorporar, y decidir si conviene seguir invirtiendo en RAG frente a la deriva del sector hacia sistemas agénticos.
 
