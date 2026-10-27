@@ -85,7 +85,12 @@ class _Sesion:
         return self._pagina if ident == self._pagina.id else None
 
     async def execute(self, stmt: Any) -> Any:
-        documentos = self._documentos
+        # La página, si se pide (#282: el job las carga con un `IN`); si no, los documentos.
+        try:
+            entidad = stmt.column_descriptions[0]["entity"].__name__
+        except Exception:
+            entidad = ""
+        documentos = [self._pagina] if entidad == "HubCrawledPage" else self._documentos
 
         class _R:
             def scalars(self_inner) -> Any:

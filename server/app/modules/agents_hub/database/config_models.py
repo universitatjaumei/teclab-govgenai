@@ -88,9 +88,9 @@ class HubLLMConfig(HubConfigBase):
         String(50), ForeignKey("hub_providers.id"), nullable=False
     )
     model_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    temperature: Mapped[float] = mapped_column(default=0.1)
-    top_p: Mapped[float] = mapped_column(default=1.0)
-    max_tokens: Mapped[int] = mapped_column(Integer, default=12000)
+    temperature: Mapped[float] = mapped_column(default=0.1, nullable=False)
+    top_p: Mapped[float] = mapped_column(default=1.0, nullable=False)
+    max_tokens: Mapped[int] = mapped_column(Integer, default=12000, nullable=False)
     api_key_secret_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     tier: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     label: Mapped[str] = mapped_column(String(255), nullable=False, default="")
@@ -199,10 +199,12 @@ class HubProviderCredential(HubConfigBase):
     #: Cambia la del catálogo. Un municipio con su propio Ollama en su propia red.
     base_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
 
 
@@ -220,7 +222,7 @@ class HubOrganizacion(HubConfigBase):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     partner_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     # AIS.5 — la política de anonimización de los informes de esta organización.
     #
     # Vive aquí y no en el informe porque el usuario lo dijo así: el modo «depende del contrato
@@ -302,10 +304,12 @@ class HubOrganizacion(HubConfigBase):
         Integer, nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
 
     chatbots: Mapped[list["HubChatbot"]] = relationship(
@@ -359,10 +363,12 @@ class HubVocabularyTerm(HubConfigBase):
     vigent: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     substituit_per_codi: Mapped[str | None] = mapped_column(String(80), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
 
 
@@ -425,9 +431,9 @@ class HubChatbot(HubConfigBase):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     system_prompt: Mapped[str] = mapped_column(Text, nullable=False)
-    sources: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
-    theme_config: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    sources: Mapped[list[str]] = mapped_column(ARRAY(String), default=list, nullable=False)
+    theme_config: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     retrieval_mode: Mapped[str] = mapped_column(String(30), nullable=False, default="RAG")
     # HIB.Q — tres, no ocho, y el defecto está AQUÍ y no sólo en la plataforma: `_apply_layer`
     # aplica los valores no nulos de cada capa, así que una columna NOT NULL del chatbot gana
@@ -545,10 +551,12 @@ class HubChatbot(HubConfigBase):
         index=True,
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
 
     organizacion: Mapped["HubOrganizacion"] = relationship(back_populates="chatbots")
@@ -583,7 +591,7 @@ class HubPromptTemplate(HubConfigBase):
     slug: Mapped[str] = mapped_column(String(100), nullable=False)  # ej: system_base
     language: Mapped[str] = mapped_column(String(10), nullable=False)  # ca | es | en
     template_text: Mapped[str] = mapped_column(Text, nullable=False)
-    version: Mapped[int] = mapped_column(Integer, default=1)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     default_tier: Mapped[int | None] = mapped_column(Integer, nullable=True)
     override_tier: Mapped[int | None] = mapped_column(Integer, nullable=True)
 

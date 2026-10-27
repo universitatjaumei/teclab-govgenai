@@ -792,7 +792,12 @@ def _resultado_local(sub: dict, pipeline_id: str) -> ExtractionResult:
     try:
         data = json.loads(sub["stdout"])
     except (json.JSONDecodeError, ValueError):
-        data = {}
+        # Con la salida del guion en stderr no debería pasar; si pasa, se dice (#282).
+        return _extraction_with_warning(
+            "SCRIPT_OUTPUT_UNREADABLE",
+            "La salida del guion no se pudo leer como resultado.",
+            pipeline_id,
+        )
 
     return _parse_extraction_json({"result": data}, pipeline_id)
 
@@ -900,11 +905,17 @@ file_path = {file_path!r}
 raw_text = {raw_text!r}
 options = {options!r}
 output_dir = {output_dir!r}
+# El guion imprime a stderr: stdout es sólo del resultado (#282). Antes un `print` de depuración
+# iba al mismo stdout que el JSON, el JSON dejaba de leerse y el resultado salía vacío sin aviso.
+import sys as _sys
+_salida_del_resultado = _sys.stdout
+_sys.stdout = _sys.stderr
+del _sys
 # --- script de usuario ---
 {code}
 # --- fin script de usuario ---
 _r = globals().get("result", {{}})
-print(json.dumps(_r, default=str))
+_salida_del_resultado.write(json.dumps(_r, default=str))
 """
 
 

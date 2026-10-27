@@ -3,7 +3,8 @@
 Todos los wrappers:
 - Usan `repr()` para serializar valores Python (literales True/False/None).
 - Inyectan el código de usuario como texto Python literal entre marcadores.
-- Imprimen el resultado al stdout (extraction) o lo escriben a fichero (chart/etl).
+- Imprimen el resultado al stdout (extraction) o lo escriben a fichero (chart/etl). En la
+  extracción, lo que imprime el guion va a stderr: stdout es sólo del resultado.
 """
 from __future__ import annotations
 
@@ -44,12 +45,19 @@ raw_text = {raw_text!r}
 options = {options!r}
 output_dir = {output_dir!r}
 
+# El guion imprime a stderr: stdout es sólo del resultado (#282). Antes un `print` de depuración
+# iba al mismo stdout que el JSON, el JSON dejaba de leerse y el resultado salía vacío sin aviso.
+import sys as _sys
+_salida_del_resultado = _sys.stdout
+_sys.stdout = _sys.stderr
+del _sys
+
 # --- script de usuario ---
 {code}
 # --- fin script de usuario ---
 
 _r = globals().get("result", {{}})
-print(json.dumps(_r, default=str))
+_salida_del_resultado.write(json.dumps(_r, default=str))
 """
 
 

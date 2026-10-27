@@ -302,7 +302,10 @@ def _ejecutar_extraccion(
         try:
             data: dict = json.loads(result.stdout)
         except (json.JSONDecodeError, ValueError):
-            data = {}
+            # Con la salida del guion en stderr no debería pasar; si pasa, se dice (#282).
+            return _err(
+                500, "SCRIPT_OUTPUT_UNREADABLE", stdout_truncated=_truncate(result.stdout)
+            )
 
         # Se recogen **después** de comprobar el código de salida: un guion que revienta a mitad
         # puede haber dejado un fichero a medio escribir, y entregarlo sería peor que no

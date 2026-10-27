@@ -189,12 +189,15 @@ class IngestionWatcher:
                     HubDocument.language == language,
                 )
             )
-            for old_doc in old_result.scalars():
+            # Los fragmentos de todos los documentos que se reemplazan, en un solo DELETE (#282).
+            viejos = list(old_result.scalars())
+            if viejos:
                 await self._session.execute(
                     delete(HubDocumentChunk).where(
-                        HubDocumentChunk.document_id == old_doc.id
+                        HubDocumentChunk.document_id.in_([d.id for d in viejos])
                     )
                 )
+            for old_doc in viejos:
                 await self._session.delete(old_doc)
 
             source_kind = (

@@ -277,7 +277,7 @@ que dejó de estar declarado**: así quedaron 36 tablas de modelos retirados en 
 sin que nada lo dijera, y tres columnas `nullable=True` en su migración y `NOT NULL` en su modelo
 durante semanas, también en producción.
 
-Tres consecuencias prácticas:
+Cuatro consecuencias prácticas:
 
 - **Un modelo nuevo o cambiado va con su migración en el mismo commit.** `alembic check` corre en
   CI después de `alembic upgrade head` y se pone rojo si los modelos y la cadena difieren.
@@ -285,6 +285,9 @@ Tres consecuencias prácticas:
 - **`nullable=` se escribe explícito** en las columnas que importan. `Mapped[datetime]` sin él es
   `NOT NULL` por deducción de la anotación, y así nacieron las tres columnas divergentes: el
   modelo lo deducía y la migración a mano decía otra cosa.
+- **Datos y esquema, en migraciones separadas, y cada `op.execute` repetible** (`IF [NOT]
+  EXISTS`, `ON CONFLICT`): una migración que falla a medias se reintenta. Lo vigila
+  `test_issue282_deuda_menor_del_backend.py` para las posteriores a #282.
 - **Si la base no está migrada, la primera consulta falla con claridad.** Es mejor que una tabla
   aparecida en silencio. Para arrancar en local: `uv run alembic upgrade head`.
 

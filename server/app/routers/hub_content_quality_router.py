@@ -25,7 +25,7 @@ from fastapi import (
 from pydantic import BaseModel, Field, computed_field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from server.app.api.deps import require_module
+from server.app.api.deps import require_module, get_quality_job
 from server.app.core.auth.models import UserInfo
 from server.app.core.auth.tenancy import (
     assert_chatbot_org_access,
@@ -49,20 +49,6 @@ from server.app.modules.curation.report_contracts import (
 )
 
 router = APIRouter(tags=["hub-content-quality"])
-
-# ──────────────────────── Job de calidad inyectable ────────────────────────
-
-_quality_job: Any = None
-
-
-def set_quality_job(job: Any) -> None:
-    global _quality_job
-    _quality_job = job
-
-
-def get_quality_job() -> Any:
-    return _quality_job
-
 
 # ──────────────────────── Dependencias ────────────────────────
 
