@@ -19,6 +19,7 @@ La regla que hace esto revisable, y que estos tests defienden:
 from __future__ import annotations
 
 import pytest
+from server.tests.dobles import modelo_de_chat
 
 
 class _ProveedorSinFilas:
@@ -199,7 +200,7 @@ class TestCatalogo:
 async def test_should_usar_el_servicio_el_prompt_resuelto() -> None:
     """Si un administrador cambia el texto, es el que llega al modelo."""
     from dataclasses import dataclass
-    from unittest.mock import AsyncMock, MagicMock
+    from unittest.mock import AsyncMock
 
     from server.app.modules.redaccion.services.script_proposal_service import (
         ScriptProposalService,
@@ -209,7 +210,7 @@ async def test_should_usar_el_servicio_el_prompt_resuelto() -> None:
     class _Respuesta:
         content: str
 
-    llm = MagicMock()
+    llm = modelo_de_chat()
     llm.ainvoke = AsyncMock(return_value=_Respuesta(content="result = {}"))
 
     servicio = ScriptProposalService(

@@ -18,6 +18,7 @@ import pytest
 
 from server.app.core.auth.models import UserInfo
 from server.app.routers.hub_ingestion_router import router as ingestion_router
+from server.tests.dobles import almacenamiento
 
 ORG = str(uuid.UUID("00000000-0000-0000-0000-0000000000a1"))
 CHATBOT = uuid.UUID("00000000-0000-0000-0000-00000000c0c0")
@@ -60,7 +61,7 @@ def _cliente(principal: UserInfo, session):
     app = FastAPI()
     app.dependency_overrides[get_current_user] = lambda: principal
     app.dependency_overrides[get_session] = _s
-    app.dependency_overrides[get_storage_service] = lambda: MagicMock()
+    app.dependency_overrides[get_storage_service] = lambda: almacenamiento()
     app.include_router(ingestion_router, prefix="/api/v1")
     return TestClient(app, raise_server_exceptions=False)
 

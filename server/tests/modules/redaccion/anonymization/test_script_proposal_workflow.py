@@ -14,10 +14,11 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pandas as pd
 import pytest
+from server.tests.dobles import modelo_de_chat
 
 
 # ---------------------------------------------------------------------------
@@ -34,7 +35,7 @@ async def test_propose_generates_code_and_audit_result() -> None:
     class _FakeResponse:
         content: str
 
-    llm = MagicMock()
+    llm = modelo_de_chat()
     llm.ainvoke = AsyncMock(
         return_value=_FakeResponse(
             content=(
@@ -70,7 +71,7 @@ async def test_propose_rejects_when_llm_outputs_forbidden_import() -> None:
     class _FakeResponse:
         content: str
 
-    llm = MagicMock()
+    llm = modelo_de_chat()
     llm.ainvoke = AsyncMock(
         return_value=_FakeResponse(
             content=(

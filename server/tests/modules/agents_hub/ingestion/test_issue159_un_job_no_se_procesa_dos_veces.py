@@ -26,7 +26,6 @@ from __future__ import annotations
 
 import uuid
 
-import pytest
 from sqlalchemy import select
 
 from server.app.modules.agents_hub.database.operational_models import HubIngestionJob
@@ -129,21 +128,6 @@ class TestElCandadoDecideEnUnaSolaOperacion:
         assert job.processing_started_at == primera_marca, (
             "el segundo intento ha pisado la marca de inicio del primero"
         )
-
-
-@pytest.fixture
-async def db_session(db_url: str):
-    """Una sesión contra la base desechable del conftest."""
-    from server.app.modules.agents_hub.database.connection import (
-        create_async_engine,
-        create_session_factory,
-    )
-
-    motor = create_async_engine(db_url)
-    fabrica = create_session_factory(motor)
-    async with fabrica() as sesion:
-        yield sesion
-    await motor.dispose()
 
 
 async def test_el_job_de_prueba_se_guarda_de_verdad(db_session) -> None:

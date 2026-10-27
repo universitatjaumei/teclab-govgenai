@@ -17,6 +17,7 @@ import io
 
 import pytest
 from fastapi import HTTPException, UploadFile
+from server.tests.dobles import almacenamiento
 
 
 def _upload(nombre: str, contenido: bytes = b"x") -> UploadFile:
@@ -142,8 +143,7 @@ class TestSubidaDeInputDeWorkspace:
         session.get = AsyncMock(return_value=workspace)
         session.commit = AsyncMock()
 
-        storage = MagicMock()
-        storage.put = AsyncMock()
+        storage = almacenamiento()
 
         app = FastAPI()
 

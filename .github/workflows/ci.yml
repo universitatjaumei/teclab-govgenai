@@ -385,9 +385,9 @@ jobs:
       # viaja en el repositorio: aquí ya está generado dos pasos más arriba. En un trabajo propio
       # habría que repetir la generación entera para linterar.
       #
-      # `--max-warnings 33` está en el script, con su razón escrita en `eslint.config.js`: los
-      # errores están **en cero** y los 33 avisos son los defectos de hooks que quedan por
-      # arreglar. El techo hace que un hallazgo **nuevo** tumbe el job aunque los viejos sigan.
+      # `--max-warnings 0` está en el script, con su razón escrita en `eslint.config.js`: el
+      # techo bajó con cada arreglo y desde #281 no queda ningún aviso, así que uno nuevo tumba
+      # el job.
       - name: ESLint
         working-directory: frontend
         run: npm run lint

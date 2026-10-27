@@ -19,6 +19,7 @@ from server.app.modules.redaccion.contracts.template import (
     ReviewPolicy,
 )
 from server.app.modules.redaccion.contracts.ui import ReportUIContract
+from server.tests.dobles import almacenamiento
 
 
 # ---------------------------------------------------------------------------
@@ -178,7 +179,7 @@ class TestFileNormalizationNode:
 
         from server.app.modules.redaccion.graph.nodes.file_normalization import FileNormalizationNode
 
-        storage = AsyncMock()
+        storage = almacenamiento()
         storage.get = AsyncMock(return_value=b"%PDF-1.4 contenido")
         artifact = _make_artifact(storage_path="bucket/reports/2026/report.pdf")
         state = _make_state(inputs={"doc_principal": artifact})

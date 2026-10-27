@@ -28,6 +28,7 @@ import server.app.main  # noqa: F401
 from server.app.core.storage import get_storage_service
 from server.app.api.deps import get_session
 from server.app.routers.hub_ingestion_router import router as ingestion_router
+from server.tests.dobles import almacenamiento
 
 ORG = "00000000-0000-0000-0000-00000000dead"
 
@@ -118,7 +119,7 @@ def _app(storage=None):
 
     app = FastAPI()
     app.dependency_overrides[get_session] = _sesion
-    app.dependency_overrides[get_storage_service] = lambda: storage or AsyncMock()
+    app.dependency_overrides[get_storage_service] = lambda: storage or almacenamiento()
     app.include_router(ingestion_router, prefix="/api/v1")
     return app, session
 

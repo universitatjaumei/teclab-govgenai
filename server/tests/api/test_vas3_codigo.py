@@ -34,8 +34,6 @@ import uuid
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlmodel.ext.asyncio.session import AsyncSession
 
 import server.app.main  # noqa: F401
 
@@ -49,16 +47,6 @@ CON_MODULO_FUERA = "import csv\n\nlector = csv.reader([])\n"
 CON_EVAL = "resultado = eval('2 + 2')\n"
 
 CENTINELA = "CENTINELA_DEL_CODIGO_AUDITADO"
-
-
-@pytest.fixture
-async def db_session(db_url):
-    engine = create_async_engine(db_url)
-    try:
-        async with AsyncSession(engine) as session:
-            yield session
-    finally:
-        await engine.dispose()
 
 
 def _principal(org: uuid.UUID | None = ORG) -> UserInfo:
@@ -209,7 +197,7 @@ class TestElCodigoNoSeGuarda:
                 json={"codigo": f"# {CENTINELA}\n{LIMPIO}"},
             )
 
-        filas = (await db_session.exec(select(HubActividadIA))).scalars().all()
+        filas = (await db_session.execute(select(HubActividadIA))).scalars().all()
         assert filas, "la auditoría sí registra evento"
         entero = " ".join(str(f.__dict__) for f in filas)
         assert CENTINELA not in entero
@@ -234,7 +222,7 @@ class TestElEventoDeRegistro:
                 json={"codigo": CON_EVAL, "finalidad": "Revisar un script de la UADTI"},
             )
 
-        fila = (await db_session.exec(select(HubActividadIA))).scalars().one()
+        fila = (await db_session.execute(select(HubActividadIA))).scalars().one()
         assert fila.organizacion_id == ORG
         # La finalidad declarada se conserva, con el nivel de riesgo delante: el contrato de
         # REG.1 no tiene campo de nivel y no se le añade uno que sólo esta operación rellenaría
@@ -256,7 +244,7 @@ class TestElEventoDeRegistro:
         async with _cliente(db_session) as c:
             await c.post("/api/v1/verificaciones/codigo", json={"codigo": CON_EVAL})
 
-        fila = (await db_session.exec(select(HubActividadIA))).scalars().one()
+        fila = (await db_session.execute(select(HubActividadIA))).scalars().one()
         entero = f"{fila.finalidad} {fila.categorias_datos} {fila.agente}"
         assert "CRITICAL" in entero, (
             f"el nivel de riesgo no consta en el evento: {fila.__dict__}"
@@ -272,7 +260,7 @@ class TestElEventoDeRegistro:
         async with _cliente(db_session) as c:
             await c.post("/api/v1/verificaciones/codigo", json={"codigo": LIMPIO})
 
-        fila = (await db_session.exec(select(HubActividadIA))).scalars().one()
+        fila = (await db_session.execute(select(HubActividadIA))).scalars().one()
         assert fila.finalidad
 
     async def test_should_refuse_when_the_organisation_cannot_be_determined(

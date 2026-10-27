@@ -1,4 +1,6 @@
-"""Dobles de chatbot que no hay que retocar cada vez que se añade una columna.
+"""Dobles compartidos: el chatbot que se completa solo y los clientes externos con su firma.
+
+## El chatbot
 
 **El problema que resuelve.** Los tests del chat doblan el chatbot con
 `MagicMock(spec=HubChatbot)`, y un `MagicMock` inventa un valor para **cualquier** atributo
@@ -12,12 +14,35 @@ probando.
 Ha pasado tres veces seguidas. La cuarta se evita aquí: en vez de enumerar a mano los
 campos, se leen del ORM y se rellena **solo lo que el test no haya declarado**, con el
 mismo valor por defecto que tendría una fila recién creada.
+
+## Los clientes externos (#281)
+
+Un `MagicMock()` a pelo acepta **cualquier** llamada, y así un test de Langfuse siguió en verde
+mientras el SDK renombraba `score` a `create_score` y producción fallaba en cada valoración. Los
+dobles de lo que habla con fuera —el modelo de chat y el almacenamiento— se crean con
+`create_autospec` sobre la clase real: un método que no existe, o una llamada con otros
+argumentos, es un `AttributeError` o un `TypeError` en el test, no en producción. Los métodos
+`async` salen como `AsyncMock` sin declararlo. El cliente HTTP no está aquí porque no se dobla:
+los tests usan el `httpx.AsyncClient` de verdad con `respx` o un `MockTransport`.
 """
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, create_autospec
 
+from langchain_core.language_models import BaseChatModel
+
+from server.app.core.storage import StorageService
 from server.app.modules.agents_hub.database.config_models import HubChatbot
+
+
+def modelo_de_chat():
+    """Un modelo de chat de LangChain, que es lo que devuelve `model_factory`."""
+    return create_autospec(BaseChatModel, instance=True)
+
+
+def almacenamiento():
+    """El `StorageService` que se inyecta con `get_storage_service`."""
+    return create_autospec(StorageService, instance=True)
 
 
 def _valor_por_defecto(columna):

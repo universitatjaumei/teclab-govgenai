@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 
-import { payloadDeProveedor } from '../LLMConfigsPage'
+import { payloadDeProveedor } from '../payloadDeProveedor'
 
 /**
  * SEC.9.2 — la clave del proveedor dejó de viajar en el contrato, porque cualquier administrador

@@ -32,6 +32,7 @@ from server.app.modules.agents_hub.agent.public_graphs.strategies.retrieval_cont
 from server.app.modules.agents_hub.agent.public_graphs.strategies.retrieval_pipeline_protocol import (
     GraphDeps,
 )
+from server.tests.dobles import modelo_de_chat
 
 
 def _cfg(**over) -> PublicGraphConfig:
@@ -88,7 +89,7 @@ def _graph(cfg, items, llm=None, deps=None, template=None) -> CoreGraph:
 
 
 def _llm(text: str) -> MagicMock:
-    llm = MagicMock()
+    llm = modelo_de_chat()
     llm.ainvoke = AsyncMock(return_value=MagicMock(content=text))
     return llm
 
@@ -230,7 +231,7 @@ class TestAgenticLoop:
         segunda = MagicMock(content="Según [Reglamento](https://ej.es/reg), sí.", tool_calls=[])
         con_tools = MagicMock()
         con_tools.ainvoke = AsyncMock(side_effect=[primera, segunda])
-        llm = MagicMock()
+        llm = modelo_de_chat()
         llm.bind_tools = MagicMock(return_value=con_tools)
 
         loop = AgenticLoop(reader=reader, tools=["read_document"])
@@ -254,7 +255,7 @@ class TestAgenticLoop:
         )
         con_tools = MagicMock()
         con_tools.ainvoke = AsyncMock(return_value=siempre_tool)
-        llm = MagicMock()
+        llm = modelo_de_chat()
         llm.bind_tools = MagicMock(return_value=con_tools)
         reader = MagicMock()
         reader.list_index = AsyncMock(return_value="índice")

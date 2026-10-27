@@ -31,19 +31,6 @@ from server.tests.modules.redaccion.anonymization import (
 test_app = _propuesta.test_app
 _seed_proposal = _propuesta._seed_proposal
 
-@pytest.fixture
-async def db_session(db_url: str):
-    from server.app.modules.agents_hub.database.connection import (
-        create_async_engine,
-        create_session_factory,
-    )
-
-    motor = create_async_engine(db_url)
-    async with create_session_factory(motor)() as s:
-        yield s
-    await motor.dispose()
-
-
 CSV = "Nombre,IBAN,Importe\nJuan Pérez,ES7621000418401234567891,10\n".encode("utf-8")
 
 

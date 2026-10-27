@@ -7,13 +7,6 @@ import type { ReportUIContract, UIFieldDescriptor } from '@/shared/api/generated
 import { DynamicUploadSlots } from './DynamicUploadSlots'
 import { DynamicFieldRenderer } from './DynamicFieldRenderer'
 
-export function getLocalizedLabel(
-  dict: Record<string, string>,
-  locale: string,
-): string {
-  return dict[locale] ?? dict['es'] ?? dict['en'] ?? Object.values(dict)[0] ?? ''
-}
-
 function buildZodSchema(fields: UIFieldDescriptor[]) {
   const shape: Record<string, z.ZodTypeAny> = {}
   for (const f of fields) {

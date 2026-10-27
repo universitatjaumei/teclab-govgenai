@@ -21,6 +21,7 @@ from server.app.modules.redaccion.contracts.template import (
     ReviewPolicy,
 )
 from server.app.modules.redaccion.contracts.ui import ReportUIContract
+from server.tests.dobles import modelo_de_chat
 
 
 # ---------------------------------------------------------------------------
@@ -96,7 +97,7 @@ def _make_state(**overrides) -> WorkspaceState:
 
 
 def _mock_llm(return_text: str = "Generated text.", model: str = "claude-test") -> MagicMock:
-    llm = MagicMock()
+    llm = modelo_de_chat()
     llm.model_name = model
     llm.generate = AsyncMock(return_value=return_text)
     return llm
@@ -169,7 +170,7 @@ class TestAIAssistDraftNode:
     async def test_ai_node_handles_llm_error_gracefully(self) -> None:
         from server.app.modules.redaccion.graph.nodes.ai_assist_draft import AIAssistDraftNode
 
-        llm = MagicMock()
+        llm = modelo_de_chat()
         llm.model_name = "claude-test"
         llm.generate = AsyncMock(side_effect=RuntimeError("LLM unavailable"))
 

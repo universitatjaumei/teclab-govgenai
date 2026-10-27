@@ -15,6 +15,7 @@ reconciliador del corpus— se prueba contra BD real en
 """
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
+from server.tests.dobles import almacenamiento
 
 
 # SEC.2: el chat y la ingesta exigen que el principal gestione la organizacion del
@@ -131,8 +132,7 @@ class TestUploadEndpointStorageIntegration:
         """El endpoint /upload llama a storage.put con una clave que termina en .pdf."""
         from fastapi.testclient import TestClient
 
-        mock_storage = AsyncMock()
-        mock_storage.put = AsyncMock()
+        mock_storage = almacenamiento()
         mock_session, _ = self._make_mock_session()
 
         app = _build_upload_app(mock_session, mock_storage)
@@ -166,8 +166,7 @@ class TestUploadEndpointStorageIntegration:
         """
         from fastapi.testclient import TestClient
 
-        mock_storage = AsyncMock()
-        mock_storage.put = AsyncMock()
+        mock_storage = almacenamiento()
         mock_session, _ = self._make_mock_session()
 
         app = _build_upload_app(mock_session, mock_storage)
@@ -196,8 +195,7 @@ class TestUploadEndpointStorageIntegration:
         """El handler no crea ficheros en /tmp directamente (usa StorageService)."""
         from fastapi.testclient import TestClient
 
-        mock_storage = AsyncMock()
-        mock_storage.put = AsyncMock()
+        mock_storage = almacenamiento()
         mock_session, _ = self._make_mock_session()
 
         app = _build_upload_app(mock_session, mock_storage)

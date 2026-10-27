@@ -31,19 +31,6 @@ from __future__ import annotations
 
 import uuid
 
-import pytest
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlmodel.ext.asyncio.session import AsyncSession
-
-
-@pytest.fixture
-async def db_session(db_url):
-    engine = create_async_engine(db_url)
-    try:
-        async with AsyncSession(engine) as session:
-            yield session
-    finally:
-        await engine.dispose()
 
 
 async def _organizacion(session, partner_id: str = "uji") -> uuid.UUID:

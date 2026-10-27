@@ -216,7 +216,31 @@ async def db_url(_plantilla_hub: str):
             )
             cur.execute(f'DROP DATABASE IF EXISTS "{db_name}"')
         admin.close()
-        admin.close()
+
+
+@pytest.fixture
+async def db_session(db_url: str):
+    """Una sesión sobre la BD desechable del test, configurada como la de la aplicación.
+
+    `create_session_factory` es la de `api/deps.get_session` (#272): no expira los objetos al
+    hacer commit. Sin `drop_all`: la BD entera se borra al acabar el test.
+
+    **Una sola definición (#281).** Había diecisiete: diez iguales salvo en el nombre
+    de las variables, y seis con un `AsyncSession(engine)` a secas que sí expiraba al hacer
+    commit: los tests de una misma API probaban sesiones distintas de la que usa la aplicación.
+    La de `modules/agents_hub/e2e/` se queda porque va sobre el motor propio de esos tests.
+    """
+    from server.app.modules.agents_hub.database.connection import (
+        create_async_engine,
+        create_session_factory,
+    )
+
+    motor = create_async_engine(db_url)
+    try:
+        async with create_session_factory(motor)() as sesion:
+            yield sesion
+    finally:
+        await motor.dispose()
 
 
 @pytest.fixture(autouse=True)

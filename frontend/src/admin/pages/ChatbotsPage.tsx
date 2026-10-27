@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { ChatbotRead, LLMConfigRead } from '@/shared/api/generated/model'
 import {
@@ -167,7 +167,7 @@ export function ChatbotsPage() {
     },
   })
 
-  const { register, handleSubmit, reset, watch, setValue, setError, formState: { errors } } = useForm<FormValues>({
+  const { register, handleSubmit, reset, control, setValue, setError, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(chatbotCreateSchema),
     defaultValues: {
       name: '',
@@ -196,8 +196,13 @@ export function ChatbotsPage() {
       unavailable_message: '',
     },
   })
-  const selectedKind = watch('kind')
-  const claveHint = ETIQUETAS_DE_MODO[watch('retrieval_mode')]?.hintKey
+  // `useWatch` y no `watch`: el compilador de React no puede memorizar un componente que llama
+  // a `watch`, y lo salta entero.
+  const [selectedKind, retrievalMode, usePromptCaching, languageMode, estrategiasPuestas] = useWatch({
+    control,
+    name: ['kind', 'retrieval_mode', 'use_prompt_caching', 'language_mode', 'estrategias'],
+  })
+  const claveHint = ETIQUETAS_DE_MODO[retrievalMode]?.hintKey
   const retrievalHint = claveHint ? t(claveHint) : undefined
 
   const { data: childrenRaw, isLoading: isLoadingChildren } = useListChildrenApiV1HubChatbotsChatbotIdChildrenGet(
@@ -422,7 +427,7 @@ export function ChatbotsPage() {
   const isPending = createMutation.isPending || updateMutation.isPending
   const showLongContextHardError =
     selectedKind === 'atomic' &&
-    watch('retrieval_mode') === 'MD_LONG_CONTEXT' &&
+    retrievalMode === 'MD_LONG_CONTEXT' &&
     corpusStats?.cabe_en_contexto_largo === false
 
   const assignableChildren = chatbots.filter(
@@ -675,12 +680,12 @@ export function ChatbotsPage() {
                       <span className="text-muted-foreground"> — {corpusStats.total_tokens.toLocaleString()} tokens</span>
                     </p>
                     <p className="text-xs text-muted-foreground">{corpusStats.recommendation_reason}</p>
-                    {selectedKind === 'atomic' && watch('retrieval_mode') !== corpusStats.recommended_mode && (
+                    {selectedKind === 'atomic' && retrievalMode !== corpusStats.recommended_mode && (
                       <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
                         Has elegido un modo distinto del recomendado para este corpus.
                       </p>
                     )}
-                    {selectedKind === 'atomic' && watch('retrieval_mode') === 'RAG' && (
+                    {selectedKind === 'atomic' && retrievalMode === 'RAG' && (
                       <div className="pt-1">
                         <button
                           type="button"
@@ -712,7 +717,7 @@ export function ChatbotsPage() {
                       </select>
                       {retrievalHint && <p className="text-xs text-muted-foreground mt-1">{retrievalHint}</p>}
                     </div>
-                    {watch('retrieval_mode') === 'RAG' && (
+                    {retrievalMode === 'RAG' && (
                       <div>
                         <label htmlFor="chatbot-top-k" className="text-sm font-medium">{t('hub.chatbot_top_k')}</label>
                         <input
@@ -727,7 +732,7 @@ export function ChatbotsPage() {
                         <p className="text-xs text-muted-foreground mt-1">{t('hub.chatbot_top_k_hint')}</p>
                       </div>
                     )}
-                    {watch('retrieval_mode') === 'MD_LONG_CONTEXT' && (
+                    {retrievalMode === 'MD_LONG_CONTEXT' && (
                       <div className="rounded-md border bg-muted/40 p-3 space-y-2">
                         <div className="flex items-center gap-2">
                           <input
@@ -740,7 +745,7 @@ export function ChatbotsPage() {
                             {t('hub.chatbot_prompt_caching')}
                           </label>
                         </div>
-                        {watch('use_prompt_caching') && (
+                        {usePromptCaching && (
                           <div>
                             <label htmlFor="chatbot-cache-ttl" className="text-sm font-medium">{t('hub.chatbot_cache_ttl')}</label>
                             <input
@@ -792,7 +797,7 @@ export function ChatbotsPage() {
                             trae el contrato, con el código del corpus (`val`, no `ca`). */}
                         <SelectorDeModoDeLengua
                           idPrefijo="chatbot-language"
-                          valor={watch('language_mode') ?? 'prefer'}
+                          valor={languageMode ?? 'prefer'}
                           onChange={(v) =>
                             setValue('language_mode', v, { shouldDirty: true })
                           }
@@ -808,7 +813,7 @@ export function ChatbotsPage() {
                               {t('hub.chatbot_estrategias')}
                             </p>
                             {ejes.map(eje => {
-                              const puestas = watch('estrategias') ?? {}
+                              const puestas = estrategiasPuestas ?? {}
                               const disponibles = opciones?.estrategias?.[eje] ?? []
                               return (
                                 <div key={eje}>

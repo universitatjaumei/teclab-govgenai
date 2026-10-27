@@ -32,6 +32,7 @@ from server.app.modules.redaccion.contracts.template import (
 )
 from server.app.modules.redaccion.contracts.ui import ReportUIContract
 from server.app.modules.redaccion.graph.nodes.ai_assist_draft import AIAssistDraftNode
+from server.tests.dobles import modelo_de_chat
 
 
 def _ahora() -> datetime:
@@ -93,7 +94,7 @@ def _estado(spec: ReportTemplateSpec, bloques: dict) -> WorkspaceState:
 
 def _llm_espia() -> MagicMock:
     """Un modelo que guarda el contexto de **cada** llamada, para poder compararlos."""
-    llm = MagicMock()
+    llm = modelo_de_chat()
     llm.model_name = "modelo-de-prueba"
     llm.generate = AsyncMock(return_value="Valoración redactada.")
     return llm

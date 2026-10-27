@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 from unittest.mock import AsyncMock, MagicMock
+from server.tests.dobles import modelo_de_chat
 
 
 _MINIMAL_DRAFT_JSON = {
@@ -24,7 +25,7 @@ _MINIMAL_DRAFT_JSON = {
 def _mock_llm(response_json=None) -> MagicMock:
     if response_json is None:
         response_json = _MINIMAL_DRAFT_JSON
-    llm = MagicMock()
+    llm = modelo_de_chat()
     resp = MagicMock()
     resp.content = json.dumps(response_json)
     llm.ainvoke = AsyncMock(return_value=resp)

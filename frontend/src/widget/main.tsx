@@ -1,7 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import i18n from './i18n'
-import { injectThemeCSS } from '@/themes/ThemeProvider'
+import { injectThemeCSS } from '@/themes/injectThemeCSS'
 import { DEFAULT_THEME, mergeThemes } from '@/themes/types'
 import { ChatWidget } from './components/ChatWidget'
 

@@ -89,19 +89,6 @@ def test_curar_un_sitio_no_pide_chatbots(ruta):
 # --- Por HTTP, con una persona de rol `user` ---------------------------------------------------
 
 
-@pytest.fixture
-async def db_session(db_url: str):
-    from server.app.modules.agents_hub.database.connection import (
-        create_async_engine,
-        create_session_factory,
-    )
-
-    motor = create_async_engine(db_url)
-    async with create_session_factory(motor)() as s:
-        yield s
-    await motor.dispose()
-
-
 def _app(db_session, principal: UserInfo, modulos: list[str]) -> FastAPI:
     from server.app.api.deps import get_current_user, modulos_concedidos
     from server.app.api.deps import get_session

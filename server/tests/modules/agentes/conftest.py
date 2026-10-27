@@ -1,8 +1,7 @@
 """Fixtures del catálogo de agentes de unidad (#172).
 
-Copia deliberada de la de `tests/modules/agents_hub/conftest.py`, como las de `curation` y
-`redaccion`: los agentes viven en tablas operacionales, que están en la base desechable
-de cada test.
+Los agentes viven en tablas operacionales, en la base desechable de cada test, y se leen con
+el `db_session` del conftest raíz (#281). Aquí van el orden de importación y el cliente HTTP.
 """
 from __future__ import annotations
 
@@ -14,21 +13,6 @@ from __future__ import annotations
 import langchain_text_splitters  # noqa: F401  ← debe ir primero
 
 import pytest
-
-
-@pytest.fixture
-async def db_session(db_url: str):
-    """Sesión sobre la BD desechable. Sin drop_all: la BD entera se borra al final."""
-    from server.app.modules.agents_hub.database.connection import (
-        create_async_engine,
-        create_session_factory,
-    )
-
-    engine = create_async_engine(db_url)
-    session_factory = create_session_factory(engine)
-    async with session_factory() as session:
-        yield session
-    await engine.dispose()
 
 
 @pytest.fixture

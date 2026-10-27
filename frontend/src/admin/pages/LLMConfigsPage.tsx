@@ -19,6 +19,7 @@ import {
   getListProvidersApiV1HubLlmConfigsProvidersGetQueryKey,
 } from '@/shared/api/generated/hub-llm-configs/hub-llm-configs'
 import type { LLMConfigRead, HubProviderOut } from '@/shared/api/generated/model'
+import { payloadDeProveedor } from './payloadDeProveedor'
 
 const TIERS = [1, 2, 3] as const
 const DEFAULT_MAX_TOKENS = 12000
@@ -461,23 +462,6 @@ const providerSchema = z.object({
   api_key: z.string().optional().nullable(),
 })
 type ProviderFormValues = z.infer<typeof providerSchema>
-
-/**
- * Lo que se manda al guardar un proveedor (SEC.9.2).
- *
- * Dejar el campo de la clave vacío significa «no la cambies», **no «bórrala»**. Desde que la
- * clave dejó de viajar en el contrato, el formulario arranca vacío al editar, así que sin esto
- * cambiarle el nombre a un proveedor le borraría la credencial — y el fallo no aparecería al
- * guardar, sino en la siguiente llamada al modelo.
- *
- * Función pura y exportada a propósito: es una decisión con consecuencias y así se puede fijar
- * con un test.
- */
-export function payloadDeProveedor(values: ProviderFormValues) {
-  if (values.api_key) return values
-  const { api_key: _omitida, ...resto } = values
-  return resto
-}
 
 function ProvidersSection({ providers, isLoading }: { providers: HubProviderOut[], isLoading: boolean }) {
   const { t } = useTranslation('admin')

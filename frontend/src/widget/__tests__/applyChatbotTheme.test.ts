@@ -5,7 +5,7 @@ import { applyChatbotTheme, type WidgetConfig } from '../main'
  * Hallazgo #3 de MAN.2: el widget publico no consumia ningun tema de chatbot/organizacion.
  *
  * `applyChatbotTheme` es la unica pieza de logica nueva en `main.tsx` -- el resto es
- * `injectThemeCSS`, ya cubierto donde vive (`ThemeProvider.tsx`). Lo que hace falta fijar
+ * `injectThemeCSS`, ya cubierto donde vive (`injectThemeCSS.ts`). Lo que hace falta fijar
  * aqui es el contrato con el backend: cabecera `X-Widget-Key` solo si hay credencial de
  * sitio (SEC.8.5), y que un 403/404/red caida deja el widget con los colores por defecto
  * en vez de romper el montaje.

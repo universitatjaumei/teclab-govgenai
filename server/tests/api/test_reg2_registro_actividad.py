@@ -21,8 +21,6 @@ from datetime import datetime, timezone
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlmodel.ext.asyncio.session import AsyncSession
 
 import server.app.main  # noqa: F401
 
@@ -82,22 +80,6 @@ def _cliente(session, org: str = ORG_A, scopes: list[str] | None = None) -> Asyn
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 
 
-@pytest.fixture
-async def db_session(db_url):
-    """Sesion sobre la BD desechable del test.
-
-    La plantilla de `conftest` ya ejecuta `create_all` de las dos bases declarativas, asi que
-    `hub_actividad_ia` existe sin crearla aqui: si algun dia el modelo dejara de estar importado
-    en `operational_models`, estos tests se pondrian rojos, que es lo que se quiere.
-    """
-    engine = create_async_engine(db_url)
-    try:
-        async with AsyncSession(engine) as session:
-            yield session
-    finally:
-        await engine.dispose()
-
-
 # ─────────────────────────── El camino bueno ───────────────────────────────
 
 class TestRegistrarUnUso:
@@ -120,7 +102,7 @@ class TestRegistrarUnUso:
         async with _cliente(db_session, org=ORG_A, scopes=["actividad:write"]) as c:
             await c.post("/api/v1/actividad", json=_evento())
 
-        fila = (await db_session.exec(select(HubActividadIA))).scalars().one()
+        fila = (await db_session.execute(select(HubActividadIA))).scalars().one()
         assert str(fila.organizacion_id) == ORG_A
 
     async def test_should_keep_two_tokens_writing_to_their_own_organisation(self, db_session):
@@ -133,7 +115,7 @@ class TestRegistrarUnUso:
         async with _cliente(db_session, org=ORG_B, scopes=["actividad:write"]) as c:
             await c.post("/api/v1/actividad", json=_evento(herramienta="copilot"))
 
-        filas = (await db_session.exec(select(HubActividadIA))).scalars().all()
+        filas = (await db_session.execute(select(HubActividadIA))).scalars().all()
         por_org = {str(f.organizacion_id): f.herramienta for f in filas}
 
         assert por_org == {ORG_A: "claude-cowork", ORG_B: "copilot"}

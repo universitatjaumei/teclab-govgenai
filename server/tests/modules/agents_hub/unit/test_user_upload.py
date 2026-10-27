@@ -103,16 +103,3 @@ class TestUserUploadIngestion:
         assert vivos == {reciente.id, permanente.id}
 
 
-@pytest.fixture
-async def db_session(db_url: str):
-    """Una sesion contra la base desechable del conftest."""
-    from server.app.modules.agents_hub.database.connection import (
-        create_async_engine,
-        create_session_factory,
-    )
-
-    motor = create_async_engine(db_url)
-    fabrica = create_session_factory(motor)
-    async with fabrica() as sesion:
-        yield sesion
-    await motor.dispose()

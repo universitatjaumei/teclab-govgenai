@@ -13,6 +13,7 @@ import pytest
 
 from server.app.modules.redaccion.services.transformation.etl_service import ETLService
 from server.app.modules.redaccion.services.transformation.operations import FilterOp
+from server.tests.dobles import modelo_de_chat
 
 
 def _df() -> pd.DataFrame:
@@ -48,7 +49,7 @@ class TestETLService:
                 {"op": "filter", "col": "units", "comparator": ">", "value": 15},
             ],
         })
-        llm = MagicMock()
+        llm = modelo_de_chat()
         llm.ainvoke = AsyncMock(return_value=_llm_response(ops_json))
 
         svc = ETLService(llm=llm, model_name="claude-test")

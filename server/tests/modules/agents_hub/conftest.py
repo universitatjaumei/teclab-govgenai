@@ -1,8 +1,7 @@
-"""Fixtures de agents_hub: orden de importación de torch + sesión sobre la BD desechable.
+"""Fixtures de agents_hub: el orden de importación de torch que exige Windows.
 
-La fixture `db_url` (BD desechable por test) vive en el conftest raíz `tests/conftest.py`
-para que todos los directorios puedan usarla; aquí solo se añade `db_session` y el orden
-de importación que exige Windows.
+`db_url` y `db_session` (la BD desechable por test y su sesión) viven en el conftest raíz
+`tests/conftest.py` para que todos los directorios puedan usarlas; la sesión, desde #281.
 """
 from __future__ import annotations
 
@@ -20,19 +19,5 @@ from __future__ import annotations
 # conftest, garantiza que torch entra antes que cualquier motor de BD.
 import langchain_text_splitters  # noqa: F401  ← debe ir primero
 
-import pytest
 
 
-@pytest.fixture
-async def db_session(db_url: str):
-    """Sesión sobre la BD desechable. Sin drop_all: la BD entera se borra al final."""
-    from server.app.modules.agents_hub.database.connection import (
-        create_async_engine,
-        create_session_factory,
-    )
-
-    engine = create_async_engine(db_url)
-    session_factory = create_session_factory(engine)
-    async with session_factory() as session:
-        yield session
-    await engine.dispose()

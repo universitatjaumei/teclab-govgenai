@@ -39,6 +39,7 @@ from server.app.modules.agents_hub.agent.public_graphs.strategies.retrieval_cont
 from server.app.modules.agents_hub.agent.public_graphs.strategies.retrieval_pipeline_protocol import (
     GraphDeps,
 )
+from server.tests.dobles import modelo_de_chat
 
 _UMBRAL = 0.5
 
@@ -109,7 +110,7 @@ def _grafo(cfg, tandas, reformulador=None):
     language.filter_items = MagicMock(side_effect=lambda lang, elementos: elementos)
     language.should_warn_translation = MagicMock(return_value=False)
 
-    llm = MagicMock()
+    llm = modelo_de_chat()
     llm.ainvoke = AsyncMock(return_value=MagicMock(content="respuesta"))
 
     grafo = CoreGraph(
@@ -314,7 +315,7 @@ class TestUnaConsultaAMediasNoSeUsa:
         truncada = MagicMock(content="Cont")
         truncada.response_metadata = {"finish_reason": "MAX_TOKENS"}
         truncada.additional_kwargs = {}
-        llm = MagicMock()
+        llm = modelo_de_chat()
         llm.ainvoke = AsyncMock(return_value=truncada)
 
         assert await reformular_al_vocabulario_normativo("compra de 6.500 euros", llm) is None
@@ -328,7 +329,7 @@ class TestUnaConsultaAMediasNoSeUsa:
         completa = MagicMock(content="contracte menor de subministrament")
         completa.response_metadata = {"finish_reason": "STOP"}
         completa.additional_kwargs = {}
-        llm = MagicMock()
+        llm = modelo_de_chat()
         llm.ainvoke = AsyncMock(return_value=completa)
 
         assert await reformular_al_vocabulario_normativo("compra de 6.500 euros", llm) == (
@@ -345,7 +346,7 @@ class TestUnaConsultaAMediasNoSeUsa:
         truncada = MagicMock(content="I si")
         truncada.response_metadata = {"finish_reason": "MAX_TOKENS"}
         truncada.additional_kwargs = {}
-        llm = MagicMock()
+        llm = modelo_de_chat()
         llm.ainvoke = AsyncMock(return_value=truncada)
 
         original = "i si és a l'estranger?"

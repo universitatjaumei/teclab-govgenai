@@ -28,8 +28,6 @@ from datetime import datetime, timezone
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlmodel.ext.asyncio.session import AsyncSession
 
 import server.app.main  # noqa: F401
 
@@ -37,16 +35,6 @@ from server.app.api.deps import get_current_user
 from server.app.core.auth.models import UserInfo
 
 NORMA = "https://normativa.uji.es/html/reglament-permanencia.html"
-
-
-@pytest.fixture
-async def db_session(db_url):
-    engine = create_async_engine(db_url)
-    try:
-        async with AsyncSession(engine) as session:
-            yield session
-    finally:
-        await engine.dispose()
 
 
 def _principal(*orgs: uuid.UUID) -> UserInfo:
@@ -425,7 +413,7 @@ class TestSinEventoDeRegistro:
         doc = await _documento(db_session, cb)
 
         antes = (
-            await db_session.exec(select(func.count()).select_from(HubActividadIA))
+            await db_session.execute(select(func.count()).select_from(HubActividadIA))
         ).scalar_one()
 
         async with _cliente(db_session, _principal(org)) as c:
@@ -434,7 +422,7 @@ class TestSinEventoDeRegistro:
             )
 
         despues = (
-            await db_session.exec(select(func.count()).select_from(HubActividadIA))
+            await db_session.execute(select(func.count()).select_from(HubActividadIA))
         ).scalar_one()
         assert despues == antes
 

@@ -124,21 +124,3 @@ def pdf_with_tables(tmp_path: Path) -> Path:
     return path
 
 
-@pytest.fixture
-async def db_session(db_url: str):
-    """Sesión sobre la BD desechable, para los tests de redacción que tocan tablas.
-
-    Copia deliberada de la de `tests/modules/curation/conftest.py`, por el mismo motivo que
-    aquélla lo era de la de `agents_hub`: las entidades viven en `HubOperationalBase` y necesitan
-    el mismo motor. Sin `drop_all`: la BD entera se borra al final del test.
-    """
-    from server.app.modules.agents_hub.database.connection import (
-        create_async_engine,
-        create_session_factory,
-    )
-
-    engine = create_async_engine(db_url)
-    session_factory = create_session_factory(engine)
-    async with session_factory() as session:
-        yield session
-    await engine.dispose()
