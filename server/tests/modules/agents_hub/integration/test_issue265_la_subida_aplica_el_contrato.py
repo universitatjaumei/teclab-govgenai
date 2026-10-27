@@ -146,7 +146,7 @@ class TestLaSubidaAplicaLosMetadatosDelContrato:
 
         assert await _documentos(db_session, chatbot_id) == []
         assert job.status == "completed"
-        assert "us_assistents=no" in (job.error_message or "")
+        assert any("us_assistents=no" in a for a in job.processing_stats["avisos"])
 
     @pytest.mark.asyncio
     async def test_should_leave_a_single_job_row(self, db_session):

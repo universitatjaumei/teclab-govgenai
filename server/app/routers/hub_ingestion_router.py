@@ -90,6 +90,16 @@ class IngestionJob(BaseModel):
 
     @computed_field  # type: ignore[prop-decorator]
     @property
+    def avisos(self) -> list[str]:
+        """Lo que un trabajo completado no ingirió, y por qué (#285).
+
+        Va aparte de `error_message`, que es sólo de los fallidos: con las notas ahí, un
+        completado con una omisión deliberada —`us_assistents: no`— se leía como un fallo.
+        """
+        return [str(a) for a in (self.processing_stats or {}).get("avisos", [])]
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
     def acciones_permitidas(self) -> list[Literal["borrar"]]:
         """«borrar» si no está en curso: la misma regla con la que `delete_ingestion_job` da 409."""
         return [] if self.status in ESTADOS_EN_CURSO else ["borrar"]
@@ -621,30 +631,28 @@ async def delete_document(
     }
 
 
-def _assert_cumple_el_contrato(content: bytes, filename: str | None) -> None:
+async def _assert_cumple_el_contrato(
+    content: bytes,
+    filename: str | None,
+    *,
+    url_por_defecto: str,
+    canonical_url: str | None,
+    language: str | None,
+) -> None:
     """El `.md` tiene que ser una entrada válida de corpus, no un Markdown cualquiera.
 
-    Se usa el **mismo** validador que `corpus.load` (`entry_from_frontmatter`), para que subir
-    por el panel y cargar por consola no admitan cosas distintas — dos definiciones del
-    contrato acaban divergiendo, y la que se relaja gana.
+    **Se valida lo que se va a ingerir** (#285): la misma `MarkdownSubido` que leerá el trabajo,
+    con la URL y el idioma del formulario. Antes se repetía aquí, a mano, lo que hace
+    `source._entrada` y sin esos dos campos, así que un idioma que el contrato rechaza pasaba la
+    puerta y fallaba después, en el trabajo, donde ya no hay nadie delante.
 
     Se reportan **todos** los campos que fallan, no el primero: quien prepara un documento
-    necesita la lista completa para corregirla de una pasada. Es el criterio que
-    `assert_vocabulary` ya aplica en la carga masiva.
+    necesita la lista completa para corregirla de una pasada.
     """
     from pydantic import ValidationError
 
-    from server.app.modules.agents_hub.ingestion.corpus.faq import (
-        FaqFormatoInvalido,
-        assert_formato_faq,
-        debe_validarse_como_faq,
-    )
-    from server.app.modules.agents_hub.ingestion.corpus.frontmatter import (
-        parse_frontmatter,
-    )
-    from server.app.modules.agents_hub.ingestion.corpus.manifest import (
-        entry_from_frontmatter,
-    )
+    from server.app.modules.agents_hub.ingestion.corpus.faq import FaqFormatoInvalido
+    from server.app.modules.agents_hub.ingestion.corpus.source import MarkdownSubido
 
     try:
         texto = content.decode("utf-8")
@@ -654,30 +662,21 @@ def _assert_cumple_el_contrato(content: bytes, filename: str | None) -> None:
             detail="El fichero no es texto UTF-8.",
         ) from None
 
-    metadatos, cuerpo = parse_frontmatter(texto)
-    nombre = filename or "documento.md"
-
-    # FAQ.1: si se declara FAQ, tiene que tener forma de FAQ. Se comprueba aquí y no al
-    # trocear porque el fallo es mudo: una FAQ en negritas se ingiere sin protestar y
-    # responde peor a partir de entonces.
-    if debe_validarse_como_faq(metadatos):
-        try:
-            assert_formato_faq(cuerpo)
-        except FaqFormatoInvalido as mal_formada:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail={
-                    "code": "FAQ_FORMAT_INVALID",
-                    "message": str(mal_formada),
-                },
-            ) from mal_formada
-
     try:
-        entry_from_frontmatter(
-            metadatos,
-            relative_path=nombre,
-            source_url=str(metadatos.get("url_oficial") or nombre),
-        )
+        await MarkdownSubido(
+            filename or "documento.md",
+            texto,
+            url_por_defecto=url_por_defecto,
+            canonical_url=canonical_url,
+            language=language,
+        ).list_entries()
+    except FaqFormatoInvalido as mal_formada:
+        # FAQ.1: si se declara FAQ, tiene que tener forma de FAQ. El fallo es mudo al trocear:
+        # una FAQ en negritas se ingiere sin protestar y responde peor a partir de entonces.
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail={"code": "FAQ_FORMAT_INVALID", "message": str(mal_formada)},
+        ) from mal_formada
     except ValidationError as exc:
         problemas = [
             {
@@ -700,10 +699,7 @@ def _assert_cumple_el_contrato(content: bytes, filename: str | None) -> None:
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail={
-                "code": "CORPUS_CONTRACT_VIOLATION",
-                "message": str(exc),
-            },
+            detail={"code": "CORPUS_CONTRACT_VIOLATION", "message": str(exc)},
         ) from exc
 
 
@@ -756,9 +752,21 @@ async def upload_document(
     content = validado.read()
     validado.close()
 
+    # Generar el UUID explícitamente para poder construir la storage key antes del commit
+    # (mapped_column default= es un default SQL, no Python; job.id sería None hasta el flush).
+    # Va antes de validar porque la clave es la URL por defecto de lo que se ingiere.
+    job_id = uuid.uuid4()
+    storage_key = f"ingestion/{chatbot_id}/{job_id}.md"
+
     # El contrato se comprueba AQUÍ, con la persona delante y sabiendo qué subió. Validarlo
     # al procesar en background significaría enterarse por un job fallido.
-    _assert_cumple_el_contrato(content, file.filename)
+    await _assert_cumple_el_contrato(
+        content,
+        file.filename,
+        url_por_defecto=storage_key,
+        canonical_url=canonical_url or None,
+        language=language,
+    )
 
     documentos_actuales = await session.scalar(
         select(func.count())
@@ -767,10 +775,6 @@ async def upload_document(
     )
     assert_within_document_quota(documentos_actuales or 0)
 
-    # Generar el UUID explícitamente para poder construir la storage key antes del commit
-    # (mapped_column default= es un default SQL, no Python; job.id sería None hasta el flush)
-    job_id = uuid.uuid4()
-    storage_key = f"ingestion/{chatbot_id}/{job_id}.md"
     await storage.put(storage_key, content)
 
     job = HubIngestionJob(

@@ -68,6 +68,7 @@ const JOB: IngestionJob = {
   language: 'es',
   status: 'completed',
   acciones_permitidas: ['borrar'],
+  avisos: [],
   chunks_processed: 12,
   error_message: null,
   created_at: '2024-01-01T00:00:00Z',

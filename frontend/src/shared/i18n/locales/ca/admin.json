@@ -286,6 +286,7 @@
     "substitute_doc": "Substituir document",
     "substituting": "Substituint",
     "upload_rechazo": {
+      "VALIDACION": "La petició no és vàlida:",
       "CORPUS_CONTRACT_VIOLATION": "El document no compleix el contracte del corpus. Regenera'l amb el pipeline de curació i torna a pujar-lo.",
       "CORPUS_ACCEPTS_MARKDOWN_ONLY": "Al corpus només entra Markdown (.md). Converteix abans l'original al pipeline de curació i puja'n l'eixida."
     },

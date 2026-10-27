@@ -132,8 +132,13 @@ class IngestionWatcher:
         title: str | None = None,
         crawled_page_id: uuid.UUID | None = None,
         seguimiento: SeguimientoDeJob | None = None,
+        confirmar: bool = True,
     ) -> tuple[HubDocument, int]:
         """Crea/actualiza un HubDocument. Genera chunks SOLO si retrieval_mode == 'RAG'.
+
+        `confirmar=False` deja el commit a quien llama (#285): la subida del panel aplica los
+        metadatos del corpus **después**, y si confirmaba aquí un fallo posterior dejaba el
+        documento buscable y sin vigencia, `us_assistents` ni `source_kind`.
 
         Returns:
             (HubDocument, chunks_created_count) — idempotente por content_hash.
@@ -261,7 +266,10 @@ class IngestionWatcher:
                 delete(HubDocumentChunk).where(HubDocumentChunk.document_id == doc.id)
             )
 
-        await self._session.commit()
+        if confirmar:
+            await self._session.commit()
+        else:
+            await self._session.flush()
         return doc, n_chunks
 
     async def _chunker_para(self, chatbot_id: uuid.UUID) -> MarkdownChunker:
@@ -493,7 +501,9 @@ class IngestionWatcher:
                 raise RuntimeError("el watcher se construyó sin almacenamiento y este job lo necesita")
             crudo = await self._storage.get(job.source_url)
             texto = crudo.decode("utf-8") if isinstance(crudo, bytes) else crudo
-            informe = await CorpusReconciler(self._session, self).reconcile(
+            informe = await CorpusReconciler(
+                self._session, self, confirmar_cada_documento=False
+            ).reconcile(
                 MarkdownSubido(
                     job.original_filename or Path(job.source_url).name,
                     texto,
@@ -507,9 +517,14 @@ class IngestionWatcher:
             )
             job.status = "completed"
             job.chunks_processed = informe.fragmentos
-            # Lo que no se ingirió, y por qué: `us_assistents: no` se omite sin error.
-            job.error_message = "; ".join(informe.motivos_omision) or None
-            job.processing_stats = seguimiento.resumen()
+            # Lo que no se ingirió, y por qué —`us_assistents: no`, una copia que no se pudo
+            # hacer—, como **avisos** y no como error (#285): un completado con `error_message`
+            # se leía en el panel igual que un fallo.
+            job.error_message = None
+            job.processing_stats = {
+                **seguimiento.resumen(),
+                "avisos": list(informe.motivos_omision),
+            }
             job.processing_completed_at = datetime.now(timezone.utc)
         except Exception as e:
             logger.error("Job %s falló: %s", job_id, e, exc_info=True)

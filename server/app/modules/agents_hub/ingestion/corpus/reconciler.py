@@ -341,9 +341,16 @@ def _compartir(
 class CorpusReconciler:
     """Reconcilia una fuente de corpus contra los documentos de un chatbot."""
 
-    def __init__(self, session: AsyncSession, watcher) -> None:
+    def __init__(
+        self, session: AsyncSession, watcher, *, confirmar_cada_documento: bool = True
+    ) -> None:
+        """`confirmar_cada_documento=False` es de la subida del panel (#285): un documento, una
+        transacción, y si algo falla después de ingerir no queda nada a medias. La consola
+        confirma cada uno porque un corpus entero no cabe en una transacción, y lo que una
+        interrupción deje a medias lo recoge `_repescar`."""
         self._session = session
         self._watcher = watcher
+        self._confirmar = confirmar_cada_documento
 
     async def _buscar(
         self, chatbot_id: uuid.UUID, entry: CorpusDocumentEntry, url: str
@@ -430,6 +437,19 @@ class CorpusReconciler:
                 informe.motivos_omision.append(
                     f"{entry.relative_path}: us_assistents=no ({entry.motiu_exclusio})"
                 )
+                # #285 — si sustituye a una versión que sí respondía, esa versión se retira.
+                # Sin esto la entrada se omitía y la anterior seguía viva: sólo un censo poda,
+                # y una subida del panel no lo es.
+                anterior = await self._buscar(chatbot_id, entry, url)
+                if anterior is not None and anterior.us_assistents != "no":
+                    informe.retirados += 1
+                    informe.detalle.append(
+                        f"- {entry.id_publicacio or entry.relative_path} (us_assistents=no)"
+                    )
+                    emparejados.add(anterior.id)
+                    if not dry_run:
+                        _aplicar(anterior, entry, title)
+                        await refrescar_puente_bilingue(self._session, anterior)
                 continue
 
             existente = await self._buscar(chatbot_id, entry, url)
@@ -461,9 +481,12 @@ class CorpusReconciler:
                 # es peor que no prometerlo.
                 copiado = None
                 if not dry_run:
-                    copiado, motivo = await self._copiar_fragmentos(
+                    copiado, motivo, n_copiados = await self._copiar_fragmentos(
                         entry, chatbot_id, content_hash, title, url
                     )
+                    # #285 — lo copiado también son fragmentos del trabajo: sin contarlos, una
+                    # subida que copiaba miles acababa con `chunks_processed=0`.
+                    informe.fragmentos += n_copiados
                     if motivo:
                         informe.motivos_omision.append(
                             f"{entry.relative_path}: no se pudo copiar ({motivo}); se embebe"
@@ -619,8 +642,8 @@ class CorpusReconciler:
         content_hash: str,
         title: str,
         url: str,
-    ) -> tuple[HubDocument | None, str | None]:
-        """El documento destino con los fragmentos del gemelo, o (None, motivo)."""
+    ) -> tuple[HubDocument | None, str | None, int]:
+        """El documento destino, el motivo si no se pudo y cuántos fragmentos se copiaron."""
         from server.app.modules.agents_hub.agent.public_graphs.core.config_resolver import (
             get_effective_public_graph_config,
         )
@@ -630,7 +653,7 @@ class CorpusReconciler:
 
         gemelo = await self._gemelo_con_fragmentos(chatbot_id, content_hash)
         if gemelo is None:
-            return None, None
+            return None, None, 0
         origen, fragmentos = gemelo
 
         # El permiso se decide sobre los DATOS y no sobre la configuracion (HIB.N): la
@@ -641,7 +664,7 @@ class CorpusReconciler:
             estrategia = str(cfg.chunking_strategy)
             techo = int(getattr(cfg, "parent_max_tokens", 8000) or 8000)
         except Exception:  # noqa: BLE001  # pragma: no cover - sin config no se arriesga una copia
-            return None, "no se pudo resolver la configuracion de troceado del destino"
+            return None, "no se pudo resolver la configuracion de troceado del destino", 0
 
         veredicto = se_puede_copiar(
             hash_origen=origen.content_hash,
@@ -651,7 +674,7 @@ class CorpusReconciler:
             fragmentos=fragmentos,
         )
         if not veredicto.copiable:
-            return None, veredicto.motivo
+            return None, veredicto.motivo, 0
 
         doc = HubDocument(
             chatbot_id=chatbot_id,
@@ -684,7 +707,7 @@ class CorpusReconciler:
         for fragmento in copiados:
             self._session.add(HubDocumentChunk(**fragmento))
         await self._session.flush()
-        return doc, None
+        return doc, None, len(copiados)
 
     async def _ingerir(
         self,
@@ -705,6 +728,7 @@ class CorpusReconciler:
             prefetched_content=body,
             title=title,
             seguimiento=seguimiento,
+            confirmar=self._confirmar,
         )
         informe.fragmentos += fragmentos
         # Los metadatos se aplican aquí y no en el watcher: el watcher es la tubería

@@ -32,7 +32,13 @@ def _slug_de(documento) -> str | None:
     Viaja en `doc_metadata['relative_path']` desde la ingesta. No se deriva de
     `canonical_url` porque para los 234 documentos publicados esa URL es la del PDF del
     portal, que no dice nada del nombre de la página.
+
+    **Lo subido por el panel no tiene página** (#285): el sitio se genera del repositorio del
+    corpus, y el `relative_path` de una subida es el nombre con que llegó el fichero
+    —`documento (1).md`—, así que la cita daba un 404. Se cita su URL, como sin sitio.
     """
+    if getattr(documento, "source_kind", None) == "upload":
+        return None
     metadatos = getattr(documento, "doc_metadata", None) or {}
     ruta = metadatos.get("relative_path")
     if not ruta:
