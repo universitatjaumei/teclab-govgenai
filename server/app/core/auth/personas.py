@@ -313,8 +313,9 @@ async def borrar(session, fila: HubUser) -> None:
     concesiones = (
         await session.execute(
             select(HubModuleGrant).where(
-                HubModuleGrant.subject_type == "usuario",
-                HubModuleGrant.subject_id == str(fila.id),
+                HubModuleGrant.subject_type == TIPO_USUARIO,
+                # La misma clave con que se guardan (`_preparar_concesiones`), no el id a secas.
+                HubModuleGrant.subject_id == str(user_to_uuid(str(fila.id))),
             )
         )
     ).scalars().all()

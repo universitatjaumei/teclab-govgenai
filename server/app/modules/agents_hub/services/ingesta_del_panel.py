@@ -5,6 +5,7 @@ la subida y los códigos de estado; aquí, las consultas, los borrados y los `co
 """
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime, timezone
 
@@ -18,6 +19,8 @@ from server.app.modules.agents_hub.database.operational_models import (
     HubDocumentChunk,
     HubIngestionJob,
 )
+
+_log = logging.getLogger(__name__)
 
 
 async def trabajos(session, chatbot_id: uuid.UUID) -> list[HubIngestionJob]:
@@ -178,13 +181,25 @@ async def trabajo_del_chatbot(
     return trabajo
 
 
-async def _borrar_fuente(storage: StorageService, trabajo: HubIngestionJob) -> None:
-    """El fichero subido, sólo si es una clave de almacenamiento y no una URL."""
-    if not trabajo.source_url.startswith(("http://", "https://")):
+async def _borrar_fuentes(storage: StorageService, claves: list[str]) -> None:
+    """Los ficheros subidos, **después** del commit (revisión de la PR #314).
+
+    El almacenamiento no es transaccional: borrar antes y que el commit fallara dejaba filas
+    apuntando a una fuente que ya no existe. Después, un fallo aquí no deshace un borrado que sí
+    ocurrió: se registra y lo recoge `barrer_fuentes_huerfanas`, como al borrar un chatbot.
+    """
+    for clave in claves:
         try:
-            await storage.delete(trabajo.source_url)
+            await storage.delete(clave)
         except FileNotFoundError:
             pass
+        except Exception:  # noqa: BLE001 — se registra; el barrido lo recoge
+            _log.warning("No se pudo borrar la fuente %s; lo recogerá el barrido", clave, exc_info=True)
+
+
+def _clave_de_la_fuente(trabajo: HubIngestionJob) -> list[str]:
+    """La clave del fichero subido, si es del almacenamiento y no una URL."""
+    return [] if trabajo.source_url.startswith(("http://", "https://")) else [trabajo.source_url]
 
 
 async def borrar_trabajo(session, trabajo: HubIngestionJob, storage: StorageService) -> int:
@@ -203,9 +218,9 @@ async def borrar_trabajo(session, trabajo: HubIngestionJob, storage: StorageServ
             sa_delete(HubDocumentChunk).where(HubDocumentChunk.document_id == documento.id)
         )
         await session.delete(documento)
-    await _borrar_fuente(storage, trabajo)
     await session.delete(trabajo)
     await session.commit()
+    await _borrar_fuentes(storage, _clave_de_la_fuente(trabajo))
     return len(documentos_del_trabajo)
 
 
@@ -222,9 +237,11 @@ async def vaciar(session, chatbot_id: uuid.UUID, storage: StorageService) -> tup
     trabajos_del_chatbot_ = (
         await session.execute(select(HubIngestionJob).where(HubIngestionJob.chatbot_id == chatbot_id))
     ).scalars().all()
+    claves: list[str] = []
     for trabajo in trabajos_del_chatbot_:
-        await _borrar_fuente(storage, trabajo)
+        claves += _clave_de_la_fuente(trabajo)
         await session.delete(trabajo)
 
     await session.commit()
+    await _borrar_fuentes(storage, claves)
     return len(documentos_del_chatbot), len(trabajos_del_chatbot_)

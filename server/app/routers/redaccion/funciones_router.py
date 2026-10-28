@@ -400,10 +400,9 @@ async def listar_funciones(
     Nunca las no publicadas de otra organización — eso lo decide `consulta_de_catalogo`, que es
     la misma frontera que usa el resolutor, escrita una sola vez.
     """
-    organizacion = None if principal.is_superadmin else organizacion_unica_de(principal)
     return [
         _vista_de_funcion(funcion, await catalogo.versiones_de(session, funcion.id), principal)
-        for funcion in await catalogo.catalogo(session, principal, organizacion)
+        for funcion in await catalogo.catalogo(session, principal)
     ]
 
 
@@ -421,8 +420,7 @@ async def cola_de_revision(
     **Estar en la cola no impide usar la versión**: eso es lo que distingue una revisión
     posterior de una aprobación previa, y es lo que la Instrucció exige en el nivel 2.
     """
-    organizacion = None if principal.is_superadmin else organizacion_unica_de(principal)
-    por_funcion, versiones = await catalogo.en_revision(session, principal, organizacion)
+    por_funcion, versiones = await catalogo.en_revision(session, principal)
     if not por_funcion:
         return []
 

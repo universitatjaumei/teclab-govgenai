@@ -66,3 +66,89 @@ def test_el_router_no_toca_la_base(router):
         f"{router} toca la base desde el handler: {llamadas}. La consulta va a un servicio, y el "
         "router le pasa la sesión."
     )
+
+
+# ── Revisión de la PR #314 ────────────────────────────────────────────────────────────────
+
+
+class _Registro:
+    def __init__(self):
+        self.orden: list[str] = []
+
+
+class _SesionQueApunta:
+    def __init__(self, registro, filas=()):
+        self._registro = registro
+        self._filas = list(filas)
+
+    async def execute(self, _consulta):
+        filas = self._filas
+
+        class _R:
+            def scalars(self_inner):
+                return self_inner
+
+            def all(self_inner):
+                return filas
+
+        return _R()
+
+    async def delete(self, _fila):
+        return None
+
+    async def commit(self):
+        self._registro.orden.append("commit")
+
+
+class _AlmacenQueApunta:
+    def __init__(self, registro):
+        self._registro = registro
+
+    async def delete(self, clave):
+        self._registro.orden.append(f"borra {clave}")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operacion", ["borrar_trabajo", "vaciar"])
+async def test_los_ficheros_se_borran_despues_del_commit(operacion):
+    """El almacenamiento no es transaccional: si el commit falla después de borrar el fichero,
+    quedan filas que apuntan a una fuente que ya no existe."""
+    import uuid
+    from types import SimpleNamespace
+
+    from server.app.modules.agents_hub.services import ingesta_del_panel
+
+    registro = _Registro()
+    trabajo = SimpleNamespace(
+        chatbot_id=uuid.uuid4(), source_url="ingestion/x/y.md", canonical_url=None
+    )
+    sesion = _SesionQueApunta(registro, filas=[trabajo] if operacion == "vaciar" else [])
+    almacen = _AlmacenQueApunta(registro)
+
+    if operacion == "borrar_trabajo":
+        await ingesta_del_panel.borrar_trabajo(sesion, trabajo, almacen)
+    else:
+        await ingesta_del_panel.vaciar(sesion, trabajo.chatbot_id, almacen)
+
+    assert registro.orden[0] == "commit", registro.orden
+    assert "borra ingestion/x/y.md" in registro.orden
+
+
+def test_la_regla_del_superadministrador_se_escribe_una_vez():
+    """El catálogo de funciones la decidía en el router y otra vez en el servicio."""
+    import inspect
+
+    from server.app.modules.redaccion import funciones_catalogo
+
+    for funcion in (funciones_catalogo.catalogo, funciones_catalogo.en_revision):
+        assert "organizacion_id" not in inspect.signature(funcion).parameters, funcion.__name__
+
+
+def test_las_concesiones_de_una_persona_se_buscan_con_la_misma_clave_que_se_guardan():
+    import inspect
+
+    from server.app.core.auth import personas
+
+    fuente = inspect.getsource(personas.borrar)
+    assert "TIPO_USUARIO" in fuente
+    assert "user_to_uuid" in fuente

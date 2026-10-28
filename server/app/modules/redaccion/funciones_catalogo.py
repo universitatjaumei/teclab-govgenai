@@ -13,6 +13,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.app.core.auth.models import UserInfo
+from server.app.core.auth.tenancy import organizacion_unica_de
 from server.app.modules.redaccion.database.models import (
     HubFuncion,
     HubFuncionVersion,
@@ -124,9 +125,7 @@ async def confirmar_registro(session: AsyncSession, funcion: HubFuncion) -> HubF
     return releida
 
 
-async def catalogo(
-    session: AsyncSession, principal: UserInfo, organizacion_id: uuid.UUID | None
-) -> list[HubFuncion]:
+async def catalogo(session: AsyncSession, principal: UserInfo) -> list[HubFuncion]:
     """Las suyas y las publicadas; todas para el superadministrador.
 
     Nunca las no publicadas de otra organización — eso lo decide `consulta_de_catalogo`, que es
@@ -135,18 +134,20 @@ async def catalogo(
     if principal.is_superadmin:
         consulta = select(HubFuncion).order_by(HubFuncion.created_at, HubFuncion.id)
     else:
-        consulta = consulta_de_catalogo(organizacion_id=organizacion_id)
+        consulta = consulta_de_catalogo(organizacion_id=organizacion_unica_de(principal))
     return list((await session.execute(consulta)).scalars().all())
 
 
 async def en_revision(
-    session: AsyncSession, principal: UserInfo, organizacion_id: uuid.UUID | None
+    session: AsyncSession, principal: UserInfo
 ) -> tuple[dict[uuid.UUID, HubFuncion], list[HubFuncionVersion]]:
     """Las funciones de quien revisa y sus versiones vivas, más recientes primero."""
     if principal.is_superadmin:
         consulta = select(HubFuncion).order_by(HubFuncion.created_at, HubFuncion.id)
     else:
-        consulta = select(HubFuncion).where(HubFuncion.organizacion_id == organizacion_id)
+        consulta = select(HubFuncion).where(
+            HubFuncion.organizacion_id == organizacion_unica_de(principal)
+        )
     por_funcion = {f.id: f for f in (await session.execute(consulta)).scalars().all()}
     if not por_funcion:
         return {}, []
