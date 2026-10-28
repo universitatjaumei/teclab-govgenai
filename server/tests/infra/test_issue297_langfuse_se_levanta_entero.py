@@ -40,3 +40,19 @@ def test_should_be_optional_and_together(servicios, nombre):
 def test_should_not_put_the_application_behind_the_profile(servicios):
     """La aplicación no depende de Langfuse: si dependiera, el perfil dejaría de ser opcional."""
     assert "langfuse" not in servicios["app"].get("depends_on", {})
+
+
+def test_should_not_require_the_profile_secrets_to_start_the_platform():
+    """Revisión de la PR #313: Compose interpola el fichero entero, perfiles inactivos incluidos.
+    Un `${CLICKHOUSE_PASSWORD:?}` hacía fallar el `up` de una instalación cuyo `.env` es anterior
+    a #297, aplicación incluida, aunque nadie hubiera pedido el perfil."""
+    texto = (RAIZ / "docker-compose.prod.yml").read_text(encoding="utf-8")
+    assert "CLICKHOUSE_PASSWORD:?" not in texto
+
+
+def test_should_still_refuse_to_start_clickhouse_without_a_password(servicios):
+    """Sin `:?`, la exigencia se hace al levantar el perfil: ClickHouse no arranca sin ella."""
+    guarda = " ".join(servicios["clickhouse"]["entrypoint"])
+    assert "CLICKHOUSE_PASSWORD" in guarda
+    assert "exit 1" in guarda
+    assert guarda.rstrip().endswith("exec /entrypoint.sh")
