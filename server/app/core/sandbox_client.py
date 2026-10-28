@@ -51,6 +51,9 @@ class SandboxUnavailableError(Exception):
 #: su espera de lectura para no rendirse antes de que el sandbox conteste.
 ESPERA_EN_COLA_SEGUNDOS = 30
 
+# #282 — lo mismo desde los dos clientes, el HTTP y el local.
+_SALIDA_ILEGIBLE = "La salida del guion no se pudo leer como resultado."
+
 
 # ---------------------------------------------------------------------------
 # Protocol — contrato que ambas implementaciones satisfacen
@@ -465,6 +468,14 @@ class HttpSandboxClient:
                 [],
             )
 
+        if error_code == "SCRIPT_OUTPUT_UNREADABLE":
+            return (
+                _extraction_with_warning(
+                    "SCRIPT_OUTPUT_UNREADABLE", _SALIDA_ILEGIBLE, self._PIPELINE_ID
+                ),
+                [],
+            )
+
         # 500 SCRIPT_EXECUTION_ERROR
         return (
             _extraction_with_warning(
@@ -807,7 +818,7 @@ def _con_aviso_de_no_declarados(resultado: ExtractionResult, descartados: int) -
 def _resultado_local(sub: dict, pipeline_id: str) -> ExtractionResult:
     if sub["returncode"] != 0:
         return _extraction_with_warning(
-            "SCRIPT_EXECUTION_ERROR", sub["stderr"][:500], pipeline_id
+            "SCRIPT_EXECUTION_ERROR", sub["stderr"][-500:], pipeline_id
         )
 
     try:
@@ -815,9 +826,7 @@ def _resultado_local(sub: dict, pipeline_id: str) -> ExtractionResult:
     except (json.JSONDecodeError, ValueError):
         # Con la salida del guion en stderr no debería pasar; si pasa, se dice (#282).
         return _extraction_with_warning(
-            "SCRIPT_OUTPUT_UNREADABLE",
-            "La salida del guion no se pudo leer como resultado.",
-            pipeline_id,
+            "SCRIPT_OUTPUT_UNREADABLE", _SALIDA_ILEGIBLE, pipeline_id
         )
 
     return _parse_extraction_json({"result": data}, pipeline_id)

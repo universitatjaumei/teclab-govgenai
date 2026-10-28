@@ -81,6 +81,43 @@ async def test_should_say_so_when_the_output_cannot_be_read():
     assert [a.code for a in resultado.warnings] == ["SCRIPT_OUTPUT_UNREADABLE"]
 
 
+@pytest.mark.asyncio
+async def test_should_say_the_same_from_the_http_client():
+    """Revisión de la PR #313: el cliente HTTP no conocía el 500 nuevo y lo daba como
+    `SCRIPT_EXECUTION_ERROR` con el JSON en crudo. Los dos clientes dicen lo mismo."""
+    import httpx
+    import respx
+
+    from server.app.core.sandbox_client import HttpSandboxClient, _resultado_local
+
+    base = "http://script-sandbox:5000"
+    with respx.mock:
+        respx.post(f"{base}/execute-extraction").mock(
+            return_value=httpx.Response(
+                500, json={"code": "SCRIPT_OUTPUT_UNREADABLE", "stdout_truncated": "{\"a\": "}
+            )
+        )
+        http = await HttpSandboxClient(base_url=base, max_retries=0).execute_extraction_script(
+            code="result = {}", file_path=None, raw_text=None, options={}
+        )
+    local = _resultado_local({"returncode": 0, "stdout": "{\"a\": ", "stderr": ""}, "p")
+
+    assert [(a.code, a.message) for a in http.warnings] == [
+        (a.code, a.message) for a in local.warnings
+    ]
+
+
+def test_should_keep_the_end_of_the_error_where_the_traceback_is():
+    """Revisión de la PR #313: con los `print` del guion en stderr, quedarse con su principio
+    enseñaba los `print` y cortaba el traceback, que va al final."""
+    from server.app.core.sandbox_client import _resultado_local
+
+    stderr = "depurando\n" * 200 + "KeyError: 'falta'"
+    resultado = _resultado_local({"returncode": 1, "stdout": "", "stderr": stderr}, "p")
+
+    assert resultado.warnings[0].message.endswith("KeyError: 'falta'")
+
+
 class TestUnSoloTrabajoDeCalidad:
     """Dos `_quality_job` globales idénticos, uno por router, y dos registros en el arranque."""
 
@@ -147,6 +184,44 @@ def test_should_load_the_pages_of_a_quality_pass_in_one_query():
     """Una consulta por página en los trabajos de fondo: se cargan todas con un `IN`."""
     ruta = APP / "modules" / "curation" / "quality_job.py"
     assert _gets_dentro_de_bucles(ruta) == [], "hay `session.get` dentro de un bucle"
+
+
+def test_should_not_query_the_documents_page_by_page():
+    """Revisión de la PR #313: el mismo bucle seguía pidiendo los documentos de cada página."""
+    texto = (APP / "modules" / "curation" / "quality_job.py").read_text(encoding="utf-8")
+    assert "HubDocument.crawled_page_id == " not in texto
+
+
+class _SesionQueCuentaParametros:
+    def __init__(self):
+        self.lotes: list[int] = []
+
+    async def execute(self, stmt):
+        self.lotes.append(len(stmt.whereclause.right.value))
+
+        class _R:
+            def scalars(self_inner):
+                return self_inner
+
+            def all(self_inner):
+                return []
+
+        return _R()
+
+
+@pytest.mark.asyncio
+async def test_should_split_a_huge_in_into_batches():
+    """Revisión de la PR #313: asyncpg no admite más de 32.767 parámetros por consulta, y el
+    primer rastreo de un portal grande puede traer más páginas nuevas que eso."""
+    import uuid
+
+    from server.app.modules.curation.quality_job import _paginas_por_id
+
+    sesion = _SesionQueCuentaParametros()
+    await _paginas_por_id(sesion, [uuid.uuid4() for _ in range(40_000)])
+
+    assert sum(sesion.lotes) == 40_000
+    assert max(sesion.lotes) < 32_767
 
 
 def test_should_declare_nullable_on_every_column():

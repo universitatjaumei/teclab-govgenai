@@ -105,9 +105,10 @@ def _audit_or_error(code: str) -> JSONResponse | None:
 
 
 def _truncate(text: str, max_chars: int = _STDERR_CAP) -> str:
+    """El final: lo que imprime el guion va a stderr (#282) y el traceback queda detrás."""
     if not text:
         return ""
-    return text[:max_chars]
+    return text[-max_chars:]
 
 
 def _write_script(content: str, suffix: str = ".py") -> Path:

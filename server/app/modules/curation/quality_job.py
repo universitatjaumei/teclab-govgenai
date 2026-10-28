@@ -66,12 +66,39 @@ async def _paginas_por_id(session: Any, ids) -> dict:
 
     from server.app.modules.agents_hub.database.operational_models import HubCrawledPage
 
+    paginas: dict = {}
+    for lote in _en_lotes(ids):
+        # recorrido-acotado: sólo las páginas cuyos ids trae la pasada, las que antes se pedían una a una.
+        filas = await session.execute(select(HubCrawledPage).where(HubCrawledPage.id.in_(lote)))
+        paginas.update({pagina.id: pagina for pagina in filas.scalars().all()})
+    return paginas
+
+
+async def _documentos_por_pagina(session: Any, ids) -> dict:
+    """Los documentos del corpus de cada página, con un `IN` en vez de una consulta por página."""
+    from sqlalchemy import select
+
+    from server.app.modules.agents_hub.database.operational_models import HubDocument
+
+    documentos: dict = {}
+    for lote in _en_lotes(ids):
+        # recorrido-acotado: los documentos de las páginas que cambiaron en esta pasada.
+        filas = await session.execute(
+            select(HubDocument).where(HubDocument.crawled_page_id.in_(lote))
+        )
+        for doc in filas.scalars().all():
+            documentos.setdefault(doc.crawled_page_id, []).append(doc)
+    return documentos
+
+
+# asyncpg no admite más de 32.767 parámetros por consulta, y un `IN` usa uno por id: el primer
+# rastreo de un portal grande puede traer más páginas que eso.
+_LOTE = 5_000
+
+
+def _en_lotes(ids) -> list[list]:
     unicos = [i for i in dict.fromkeys(ids) if i]
-    if not unicos:
-        return {}
-    # recorrido-acotado: sólo las páginas cuyos ids trae la pasada, las que antes se pedían una a una.
-    filas = await session.execute(select(HubCrawledPage).where(HubCrawledPage.id.in_(unicos)))
-    return {pagina.id: pagina for pagina in filas.scalars().all()}
+    return [unicos[i : i + _LOTE] for i in range(0, len(unicos), _LOTE)]
 
 
 class _SiteCrawler(Protocol):
@@ -240,13 +267,8 @@ class SiteQualityAnalysisJob:
         if not changed_page_ids or (self._watcher is None and self._watcher_factory is None):
             return
 
-        from sqlalchemy import select
-
-        from server.app.modules.agents_hub.database.operational_models import (
-            HubDocument,
-        )
-
         paginas = await _paginas_por_id(session, changed_page_ids)
+        documentos_de = await _documentos_por_pagina(session, changed_page_ids)
         for page_id in changed_page_ids:
             page = paginas.get(page_id)
             if page is None:
@@ -265,11 +287,7 @@ class SiteQualityAnalysisJob:
                 )
                 continue
 
-            documentos = (
-                await session.execute(
-                    select(HubDocument).where(HubDocument.crawled_page_id == page_id)
-                )
-            ).scalars().all()
+            documentos = documentos_de.get(page_id, [])
             # Un asistente puede tener la página una vez; varios pueden tenerla cada uno.
             chatbots = {doc.chatbot_id for doc in documentos}
             if not chatbots:
