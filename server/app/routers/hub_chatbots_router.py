@@ -21,7 +21,6 @@ from server.app.api.deps import get_datos_del_cliente, require_module, require_r
 from server.app.core.auth.models import UserInfo
 from server.app.core.datos_del_cliente import DatosDelCliente
 from server.app.modules.agents_hub.agent.public_graphs.validacion import (
-    MODOS_QUE_BUSCAN_POR_FRAGMENTOS,
     validar_estrategias,
     validar_modo,
     validar_perfil,
@@ -30,6 +29,7 @@ from server.app.core.auth.tenancy import assert_org_access
 from server.app.modules.agents_hub.database.config_models import HubChatbot
 from server.app.api.deps import get_session
 from server.app.modules.agents_hub.services import configuracion_de_chatbots as configuracion
+from server.app.modules.agents_hub.services.modos_de_recuperacion import MODOS_QUE_BUSCAN_POR_FRAGMENTOS
 from server.app.modules.agents_hub.services.embedding_resolver import (
     resolve_embedding_service,
 )

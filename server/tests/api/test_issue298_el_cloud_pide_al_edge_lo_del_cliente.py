@@ -166,3 +166,49 @@ async def test_el_tamano_para_md_long_context_lo_dice_el_puerto(sesion, mundo, t
         r = await c.patch(f"/api/v1/hub/chatbots/{mundo['bot']}", json={"retrieval_mode": "MD_LONG_CONTEXT"})
 
     assert r.status_code == esperado, r.text
+
+
+# ── Revisión de la PR #314 ────────────────────────────────────────────────────────────────
+
+
+def test_sin_edge_el_puerto_se_niega_en_vez_de_contestar_vacio(monkeypatch):
+    """Con `DEPLOY_MODE=cloud` los datos del cliente no están en esta base: la implementación
+    local contestaría «no tiene nada», el 409 no saltaría y la organización se borraría."""
+    from fastapi import HTTPException
+
+    from server.app.api.deps import get_datos_del_cliente
+
+    monkeypatch.setenv("DEPLOY_MODE", "cloud")
+    with pytest.raises(HTTPException) as fallo:
+        get_datos_del_cliente(session=object(), storage=object())
+    assert fallo.value.status_code == 503
+
+
+def test_un_solo_punto_de_lectura_de_un_chatbot():
+    """La lectura con 404 y frontera es `tenancy.assert_chatbot_org_access`; no tres copias con
+    tres mensajes distintos, y el servicio edge de ingesta no lee modelos de configuración."""
+    from pathlib import Path
+
+    servicios = Path(__file__).resolve().parents[2] / "app" / "modules" / "agents_hub" / "services"
+    for nombre in ("configuracion_de_chatbots.py", "ingesta_del_panel.py"):
+        assert "session.get(HubChatbot" not in (servicios / nombre).read_text(encoding="utf-8"), nombre
+    assert "config_models" not in (servicios / "ingesta_del_panel.py").read_text(encoding="utf-8")
+
+
+def test_el_watcher_no_carga_los_grafos_para_leer_dos_modos():
+    from pathlib import Path
+
+    watcher = (
+        Path(__file__).resolve().parents[2] / "app" / "modules" / "agents_hub" / "ingestion" / "watcher.py"
+    ).read_text(encoding="utf-8")
+    assert "public_graphs.validacion" not in watcher
+
+
+def test_la_especificacion_dice_donde_se_cumple_i18():
+    from pathlib import Path
+
+    especificacion = (Path(__file__).resolve().parents[3] / "docs" / "ESPECIFICACIONES.md").read_text(
+        encoding="utf-8"
+    )
+    [fila] = [linea for linea in especificacion.splitlines() if linea.startswith("| I18 |")]
+    assert "datos_del_cliente_local.py" in fila

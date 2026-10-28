@@ -27,7 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.app.api.deps import get_current_user, require_role
 from server.app.core.auth import UserInfo
-from server.app.core.auth.tenancy import assert_org_access, organizacion_unica_de
+from server.app.core.auth.tenancy import assert_chatbot_org_access, organizacion_unica_de
 from server.app.core.storage import FsspecStorageService, get_storage_service
 from server.app.core.uploads import (
     UploadKind,
@@ -274,9 +274,7 @@ async def _chatbot_autorizado(session, chatbot_id, principal):
     sin cerrar, cualquier administrador podía leer los trabajos de ingesta —y por tanto las
     URL y los nombres de fichero del corpus— de cualquier organización.
     """
-    chatbot = await ingesta.chatbot_o_404(session, chatbot_id)
-    assert_org_access(principal, chatbot.organizacion_id)
-    return chatbot
+    return await assert_chatbot_org_access(session, chatbot_id, principal)
 
 
 @router.get("/{chatbot_id}/jobs", response_model=IngestionJobsOut)

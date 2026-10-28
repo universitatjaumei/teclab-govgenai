@@ -85,7 +85,25 @@ def get_datos_del_cliente(
     La implementación local comparte la sesión de la petición —FastAPI da la misma instancia a
     quien pida `get_session` en una petición—, así que la purga queda en la transacción del
     borrado. Se importa aquí dentro porque es edge: los routers cloud sólo ven el protocolo.
+
+    **Con `DEPLOY_MODE=cloud` se niega** (revisión de la PR #314): los datos del cliente no están en
+    esta base, y la implementación local contestaría «no tiene nada». Una organización con sitios e
+    informes se borraría sin el 409, y cualquier corpus cabría en `MD_LONG_CONTEXT`. Hasta que haya
+    implementación remota, un 503 es lo único honesto.
     """
+    import os
+
+    if os.getenv("DEPLOY_MODE", "all").lower() == "cloud":
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "code": "EDGE_NO_DISPONIBLE",
+                "message": (
+                    "Esta instalación sólo sirve la configuración: los datos del cliente están en "
+                    "el edge, y todavía no hay forma de preguntárselos desde aquí."
+                ),
+            },
+        )
     from server.app.api.datos_del_cliente_local import DatosDelClienteLocal
 
     return DatosDelClienteLocal(session, storage)

@@ -13,19 +13,11 @@ from sqlalchemy import delete as sa_delete
 from sqlalchemy import func, select
 
 from server.app.core.storage import StorageService
-from server.app.modules.agents_hub.database.config_models import HubChatbot
 from server.app.modules.agents_hub.database.operational_models import (
     HubDocument,
     HubDocumentChunk,
     HubIngestionJob,
 )
-
-
-async def chatbot_o_404(session, chatbot_id: uuid.UUID) -> HubChatbot:
-    chatbot = await session.get(HubChatbot, chatbot_id)
-    if chatbot is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chatbot not found")
-    return chatbot
 
 
 async def trabajos(session, chatbot_id: uuid.UUID) -> list[HubIngestionJob]:
@@ -129,16 +121,13 @@ async def copias_en_otros_chatbots(
 
     **Se busca por `canonical_url`, no por `content_hash`.** Si una copia ha derivado, su hash es
     distinto y buscar por hash no la encontraría — justo el caso en el que más importa avisar.
+
+    Los chatbots de la organización son configuración: se piden a `ConfigProvider`, como manda
+    la frontera edge-cloud, y no a `HubChatbot` (revisión de la PR #314).
     """
-    hermanos = list(
-        (
-            await session.execute(
-                select(HubChatbot.id).where(HubChatbot.organizacion_id == organizacion_id)
-            )
-        )
-        .scalars()
-        .all()
-    )
+    from server.app.modules.agents_hub.services.config_provider import LocalConfigProvider
+
+    hermanos = [c.id for c in await LocalConfigProvider(session).list_chatbots(organizacion_id)]
     return [
         copia
         for copia in (

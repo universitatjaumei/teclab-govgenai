@@ -32,6 +32,7 @@ from server.app.modules.agents_hub.ingestion.markdown_utils import (
     estimate_tokens,
     extract_title_from_markdown,
 )
+from server.app.modules.agents_hub.services.modos_de_recuperacion import MODOS_QUE_BUSCAN_POR_FRAGMENTOS
 
 logger = logging.getLogger(__name__)
 
@@ -68,11 +69,6 @@ def _procedencia(embedding_service: Any) -> tuple[str, int, str | None]:
 
 class StorageService(Protocol):
     async def get(self, key: str) -> bytes: ...
-
-
-from server.app.modules.agents_hub.agent.public_graphs.validacion import (  # noqa: E402
-    MODOS_QUE_BUSCAN_POR_FRAGMENTOS,
-)
 
 
 class ChatbotConfigProvider(Protocol):

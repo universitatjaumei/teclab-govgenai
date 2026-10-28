@@ -9,9 +9,7 @@ from server.app.modules.agents_hub.database.operational_models import (
     HubDocument,
     HubDocumentChunk,
 )
-from server.app.modules.agents_hub.agent.public_graphs.validacion import (
-    MODOS_QUE_BUSCAN_POR_FRAGMENTOS,
-)
+from server.app.modules.agents_hub.services.modos_de_recuperacion import MODOS_QUE_BUSCAN_POR_FRAGMENTOS
 from server.app.modules.agents_hub.ingestion.watcher import IngestionWatcher
 
 

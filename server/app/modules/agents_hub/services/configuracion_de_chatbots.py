@@ -14,7 +14,11 @@ from fastapi import HTTPException, status
 from sqlalchemy import delete as sql_delete
 from sqlalchemy import select
 
-from server.app.core.auth.tenancy import assert_org_access, scope_query_to_orgs
+from server.app.core.auth.tenancy import (
+    assert_chatbot_org_access,
+    assert_org_access,
+    scope_query_to_orgs,
+)
 from server.app.core.datos_del_cliente import CorpusRetirado, DatosDelCliente
 from server.app.modules.agents_hub.database.config_models import (
     HubChatbot,
@@ -42,22 +46,15 @@ async def exigir_configuracion_utilizable(
         )
 
 
-async def chatbot_o_404(session, chatbot_id: uuid.UUID, principal=None) -> HubChatbot:
-    """Único punto de lectura de un chatbot, y por eso el único sitio donde comprobar.
+async def chatbot_o_404(session, chatbot_id: uuid.UUID, principal) -> HubChatbot:
+    """Único punto de lectura de un chatbot en este router, y por eso el único sitio donde comprobar.
 
-    SEC.2: `principal` es opcional por compatibilidad con las llamadas internas que no vienen
-    de una petición, pero **todo endpoint debe pasarlo**. Hay un guardarraíl en
-    `tests/api/test_tenant_isolation.py` que falla si aparece una segunda lectura directa de
-    `HubChatbot` en este fichero, porque saltarse esta función es reabrir el hallazgo A2.
+    Es `tenancy.assert_chatbot_org_access`, la misma que usan el router del corpus y la ingesta
+    (revisión de la PR #314: había tres copias con tres mensajes distintos). Hay un guardarraíl en
+    `tests/api/test_tenant_isolation.py` que falla si aparece una lectura directa de `HubChatbot` en
+    este fichero, porque saltarse esta función es reabrir el hallazgo A2.
     """
-    chatbot = await session.get(HubChatbot, chatbot_id)
-    if not chatbot:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Chatbot not found"
-        )
-    if principal is not None:
-        assert_org_access(principal, chatbot.organizacion_id)
-    return chatbot
+    return await assert_chatbot_org_access(session, chatbot_id, principal)
 
 
 async def listar(session, principal, organizacion_id: uuid.UUID | None) -> list[HubChatbot]:
