@@ -86,7 +86,7 @@ def get_datos_del_cliente(
     quien pida `get_session` en una petición—, así que la purga queda en la transacción del
     borrado. Se importa aquí dentro porque es edge: los routers cloud sólo ven el protocolo.
     """
-    from server.app.modules.agents_hub.services.datos_del_cliente_local import DatosDelClienteLocal
+    from server.app.api.datos_del_cliente_local import DatosDelClienteLocal
 
     return DatosDelClienteLocal(session, storage)
 

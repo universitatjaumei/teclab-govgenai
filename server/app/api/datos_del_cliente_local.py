@@ -1,4 +1,5 @@
-"""`DatosDelCliente` sobre la base local. Deploy: edge (#298).
+"""`DatosDelCliente` sobre la base local. Deploy: edge (#298); vive en `api/` porque abarca el
+corpus y la redacción, y un módulo no importa de otro (AIS.3).
 
 Es lo que contesta el edge cuando el cloud pregunta por el corpus de un chatbot o por los datos de
 una organización. Hoy viven en la misma base y en el mismo proceso, así que se contesta con la
