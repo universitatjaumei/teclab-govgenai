@@ -43,3 +43,42 @@ async def test_should_turn_a_read_timeout_into_unavailable():
         await _cliente().execute_extraction_script(
             code="result = {}", file_path=None, raw_text=None, options={}
         )
+
+
+def test_should_wait_as_long_as_the_sandbox_does():
+    """Revisión de la PR #313: la espera en cola está escrita en el sandbox y en el cliente. Si
+    el sandbox esperase más que lo que el cliente cuenta, volvería el `ReadTimeout` de #296."""
+    import re
+    from pathlib import Path
+
+    from server.app.core.sandbox_client import ESPERA_EN_COLA_SEGUNDOS
+
+    main = Path(__file__).resolve().parents[3] / "services" / "script_sandbox" / "sandbox" / "main.py"
+    [del_sandbox] = re.findall(r"^ESPERA_EN_COLA_SEGUNDOS\s*=\s*(\d+)", main.read_text(encoding="utf-8"), re.M)
+
+    assert int(del_sandbox) == ESPERA_EN_COLA_SEGUNDOS
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_should_say_the_sandbox_is_busy_when_drawing_a_chart():
+    """Revisión de la PR #313: gráficos y ETL pasan por el mismo cerrojo que la extracción."""
+    from server.app.modules.redaccion.services.charts.chart_renderer import ChartRenderError
+
+    respx.post(f"{_BASE}/execute-chart").mock(
+        return_value=httpx.Response(503, json={"code": "SANDBOX_BUSY"})
+    )
+
+    with pytest.raises(ChartRenderError, match="ocupado"):
+        await _cliente().execute_chart_script(code="plt.plot([1])", dataframe_csv="x\n1\n")
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_should_say_the_sandbox_is_busy_when_transforming():
+    respx.post(f"{_BASE}/execute-etl").mock(
+        return_value=httpx.Response(503, json={"code": "SANDBOX_BUSY"})
+    )
+
+    with pytest.raises(ValueError, match="ocupado"):
+        await _cliente().execute_etl_script(code="def transform(df): return df", dataframe_csv="x\n1\n")

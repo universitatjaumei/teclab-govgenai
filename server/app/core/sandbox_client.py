@@ -54,6 +54,9 @@ ESPERA_EN_COLA_SEGUNDOS = 30
 # #282 — lo mismo desde los dos clientes, el HTTP y el local.
 _SALIDA_ILEGIBLE = "La salida del guion no se pudo leer como resultado."
 
+# #296 — el 503 del sandbox, igual para extracción, gráficos y ETL: los tres esperan el mismo turno.
+_OCUPADO = "El sandbox está ocupado con otra ejecución. Vuelve a intentarlo en un momento."
+
 
 # ---------------------------------------------------------------------------
 # Protocol — contrato que ambas implementaciones satisfacen
@@ -450,11 +453,7 @@ class HttpSandboxClient:
 
         if resp.status_code == 503:
             return (
-                _extraction_with_warning(
-                    "SANDBOX_BUSY",
-                    "El sandbox está ocupado con otra ejecución. Vuelve a intentarlo en un momento.",
-                    self._PIPELINE_ID,
-                ),
+                _extraction_with_warning("SANDBOX_BUSY", _OCUPADO, self._PIPELINE_ID),
                 [],
             )
 
@@ -506,8 +505,10 @@ class HttpSandboxClient:
         if resp.status_code == 200:
             return resp.content
 
-        body_text = resp.text[:300]
         from server.app.modules.redaccion.services.charts.chart_renderer import ChartRenderError
+        if resp.status_code == 503:
+            raise ChartRenderError(_OCUPADO)
+        body_text = resp.text[:300]
         raise ChartRenderError(f"Sandbox error {resp.status_code}: {body_text}")
 
     async def execute_etl_script(
@@ -528,6 +529,8 @@ class HttpSandboxClient:
         if resp.status_code == 200:
             return resp.text
 
+        if resp.status_code == 503:
+            raise ValueError(_OCUPADO)
         raise ValueError(f"Sandbox ETL error {resp.status_code}: {resp.text[:300]}")
 
     # ------------------------------------------------------------------
