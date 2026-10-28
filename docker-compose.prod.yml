@@ -200,7 +200,7 @@ services:
   clickhouse:
     image: clickhouse/clickhouse-server:24.12-alpine
     container_name: govgenai_clickhouse
-    # Revisión de la PR #313 — la contraseña no va con `:?`: Compose interpola el fichero entero,
+    # Revisión de la PR #313 — la contraseña va sin `:?` (ni `:-`, NUEVO-9): Compose interpola todo,
     # perfiles inactivos incluidos, y un `.env` anterior a #297 tumbaba el `up` de todos los
     # servicios, la aplicación también. Se exige aquí, al levantar el perfil, y no antes.
     entrypoint:
@@ -213,7 +213,7 @@ services:
     environment:
       CLICKHOUSE_DB: default
       CLICKHOUSE_USER: ${CLICKHOUSE_USER:-clickhouse}
-      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
     volumes:
       - clickhouse_data_prod:/var/lib/clickhouse
       - ./scripts/clickhouse/cluster.xml:/etc/clickhouse-server/config.d/cluster.xml:ro
@@ -266,10 +266,10 @@ services:
     environment:
       # #269 — `:?` en cada secreto: sin él Langfuse arrancaba con los suyos vacíos.
       DATABASE_URL: postgresql://${POSTGRES_USER:?falta POSTGRES_USER}:${POSTGRES_PASSWORD:?falta POSTGRES_PASSWORD}@postgres:5432/langfuse
-      CLICKHOUSE_MIGRATION_URL: clickhouse://${CLICKHOUSE_USER:-clickhouse}:${CLICKHOUSE_PASSWORD:-}@clickhouse:9000
+      CLICKHOUSE_MIGRATION_URL: clickhouse://${CLICKHOUSE_USER:-clickhouse}:${CLICKHOUSE_PASSWORD}@clickhouse:9000
       CLICKHOUSE_URL: http://clickhouse:8123
       CLICKHOUSE_USER: ${CLICKHOUSE_USER:-clickhouse}
-      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse-events
