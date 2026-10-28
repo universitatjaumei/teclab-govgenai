@@ -55,7 +55,7 @@ async def test_el_borrado_registra_cuanto_corpus_se_llevo(monkeypatch, caplog):
 
     datos = _DatosQueRetiran(CorpusRetirado(documentos=7, fragmentos=413))
 
-    monkeypatch.setattr(router_mod, "_get_chatbot_or_404", _sin_404)
+    monkeypatch.setattr(router_mod.configuracion, "chatbot_o_404", _sin_404)
 
     with caplog.at_level(logging.INFO, logger=router_mod.__name__):
         await router_mod.delete_chatbot(
@@ -80,7 +80,7 @@ async def test_el_rastro_dice_quien_lo_borro(monkeypatch, caplog):
 
     datos = _DatosQueRetiran(CorpusRetirado(documentos=1, fragmentos=2))
 
-    monkeypatch.setattr(router_mod, "_get_chatbot_or_404", _sin_404)
+    monkeypatch.setattr(router_mod.configuracion, "chatbot_o_404", _sin_404)
 
     with caplog.at_level(logging.INFO, logger=router_mod.__name__):
         await router_mod.delete_chatbot(
@@ -102,7 +102,7 @@ async def test_un_borrado_sin_corpus_tambien_deja_rastro(monkeypatch, caplog):
 
     datos = _DatosQueRetiran(CorpusRetirado(documentos=0, fragmentos=0))
 
-    monkeypatch.setattr(router_mod, "_get_chatbot_or_404", _sin_404)
+    monkeypatch.setattr(router_mod.configuracion, "chatbot_o_404", _sin_404)
 
     with caplog.at_level(logging.INFO, logger=router_mod.__name__):
         await router_mod.delete_chatbot(

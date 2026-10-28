@@ -690,12 +690,17 @@ class TestNingunEndpointSeSaltaLaFrontera:
         )
 
     def test_should_not_reintroduce_an_unscoped_chatbot_lookup(self):
-        """`_get_chatbot_or_404` es el único punto de entrada, y comprueba la organización."""
-        texto = Path("app/routers/hub_chatbots_router.py").read_text(encoding="utf-8")
+        """`chatbot_o_404` es el único punto de entrada, y comprueba la organización.
+
+        Desde #274 vive en el servicio de configuración, y el router ya no lee la base.
+        """
+        texto = Path("app/modules/agents_hub/services/configuracion_de_chatbots.py").read_text(
+            encoding="utf-8"
+        )
         assert "assert_org_access" in texto
         assert texto.count("session.get(HubChatbot") <= 1, (
             "hay más de una lectura directa de HubChatbot: la comprobación de organización "
-            "vive en `_get_chatbot_or_404` y saltársela es el hallazgo A2"
+            "vive en `chatbot_o_404` y saltársela es el hallazgo A2"
         )
 
 

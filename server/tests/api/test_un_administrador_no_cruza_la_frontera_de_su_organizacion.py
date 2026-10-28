@@ -123,9 +123,11 @@ class TestElChatbotUsaUnaConfiguracionPropiaODePlataforma:
 
     @pytest.mark.parametrize("organizacion", [None, ORG_A], ids=["de-plataforma", "propia"])
     async def test_should_accept_a_platform_or_own_config(self, organizacion):
-        from server.app.routers.hub_chatbots_router import _exigir_configuracion_utilizable
+        from server.app.modules.agents_hub.services.configuracion_de_chatbots import (
+            exigir_configuracion_utilizable,
+        )
 
         config = SimpleNamespace(id=uuid.uuid4(), organizacion_id=organizacion)
         session = _sesion_con(None, config)
 
-        await _exigir_configuracion_utilizable(session, config.id, ORG_A)
+        await exigir_configuracion_utilizable(session, config.id, ORG_A)

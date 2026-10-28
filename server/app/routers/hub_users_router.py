@@ -23,34 +23,24 @@ podría crearse un admin —la misma por la que `create_theme` reserva el tema d
 esa persona**, acotado por tenencia. USR.1 ya había abierto la contraseña con ese argumento; el
 listado se quedó cerrado, y sin él la capacidad existía por API y no por pantalla: para usarla
 había que saberse el UUID de la persona.
+
+Aquí viven el contrato y quién puede hacer qué con quién; lo que lee y escribe la base está en
+`core/auth/personas.py` (#274).
 """
 from __future__ import annotations
-
-from sqlmodel import col
 
 import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import func, select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.app.api.deps import require_role
+from server.app.core.auth import personas
 from server.app.core.auth.models import UserInfo, UserRole
-from server.app.core.auth.modulos_service import TIPO_USUARIO
-from server.app.core.auth.tenancy import (
-    assert_org_access,
-    puede_acceder,
-    scope_query_to_orgs,
-)
-from server.app.core.security import hash_password
-from server.app.modules.agents_hub.database.config_models import (
-    HubModuleGrant,
-    HubPlatformModule,
-    HubUser,
-)
+from server.app.core.auth.tenancy import assert_org_access, puede_acceder
+from server.app.modules.agents_hub.database.config_models import HubUser
 from server.app.api.deps import get_session
 
 router = APIRouter(prefix="/hub/users", tags=["hub-users"])
@@ -66,7 +56,7 @@ _ROLES = tuple(r.value for r in UserRole)
 # AIS.3 — la definición se fue a `core/identidad.py`. Vivía aquí y la importaba el ACS de SAML,
 # o sea `core/` dependiendo de un router. Se re-exporta porque es el nombre que usa el resto de
 # este fichero; quien la necesite fuera, la trae de `core`.
-from server.app.core.identidad import normalizar_correo, user_to_uuid  # noqa: E402
+from server.app.core.identidad import normalizar_correo  # noqa: E402
 
 # USR.1 — **el mismo contrato de contraseña, no un segundo con el mismo mínimo escrito otra
 # vez**: dos validaciones que hoy dicen `min_length=12` acabarían diciendo cosas distintas, y la
@@ -341,40 +331,7 @@ def _a_lectura(
     )
 
 
-async def _concesiones_por_sujeto(
-    session: AsyncSession, ids: list[uuid.UUID]
-) -> dict[str, list[str]]:
-    """Qué módulos tiene cada persona, **en una sola consulta**.
-
-    Una por persona sería N+1 sobre una pantalla que se abre en cada sesión. Y la clave es la
-    que guarda la tabla: `user_to_uuid` del `id` de la fila, no el `id` a secas — el endpoint que
-    concede ya lo convierte antes de escribir, y leerlo de otra forma no encontraría nada.
-
-    Con la lista vacía **no se consulta**: `IN ()` es un error en algunos motores, y además no
-    hay nada que preguntar.
-    """
-    if not ids:
-        return {}
-
-    claves = {str(user_to_uuid(str(i))): str(i) for i in ids}
-    filas = (
-        await session.execute(
-            select(HubModuleGrant.subject_id, HubModuleGrant.module_code).where(
-                HubModuleGrant.subject_type == TIPO_USUARIO,
-                HubModuleGrant.subject_id.in_(list(claves)),
-            )
-        )
-    ).all()
-
-    por_persona: dict[str, list[str]] = {}
-    for clave, codigo in filas:
-        persona = claves.get(str(clave))
-        if persona is not None:
-            por_persona.setdefault(persona, []).append(codigo)
-    return {persona: sorted(codigos) for persona, codigos in por_persona.items()}
-
-
-async def _superadmins_de_arranque(session: AsyncSession) -> list[UsuarioRead]:
+def _superadmins_de_arranque(cuentas: list) -> list[UsuarioRead]:
     """Las cuentas de `superadminaccount`, en solo lectura (REV.8).
 
     El listado leía sólo `hub_users`, así que **el superadministrador principal no aparecía en
@@ -388,12 +345,8 @@ async def _superadmins_de_arranque(session: AsyncSession) -> list[UsuarioRead]:
     El identificador es un uuid5 derivado del correo —`admin_id` es un entero y el contrato
     declara UUID—, el mismo normalizador que usan las concesiones por la misma razón.
     """
-    from server.app.database.models import SuperAdminAccount
     from server.app.routers.redaccion._actor import user_to_uuid
 
-    filas = (
-        await session.execute(select(SuperAdminAccount).order_by(SuperAdminAccount.email))
-    ).scalars().all()
     return [
         UsuarioRead(
             id=user_to_uuid(cuenta.email),
@@ -412,36 +365,8 @@ async def _superadmins_de_arranque(session: AsyncSession) -> list[UsuarioRead]:
             puede_borrarse=False,
             motivo_no_borrable=MOTIVO_OTRA_TABLA,
         )
-        for cuenta in filas
+        for cuenta in cuentas
     ]
-
-
-async def _otro_superadmin_activo(session: AsyncSession, excluido: uuid.UUID) -> bool:
-    """Si queda algún superadministrador activo **aparte** del que se va a tocar.
-
-    Cuenta las dos tablas: si sólo mirara `hub_users`, la cuenta de arranque no valdría y la
-    regla bloquearía una desactivación perfectamente segura.
-    """
-    from server.app.database.models import SuperAdminAccount
-
-    otros = (
-        await session.execute(
-            select(HubUser).where(
-                HubUser.role == UserRole.SUPERADMIN.value,
-                HubUser.is_active.is_(True),
-                HubUser.id != excluido,
-            )
-        )
-    ).scalars().first()
-    if otros is not None:
-        return True
-
-    de_arranque = (
-        await session.execute(
-            select(SuperAdminAccount).where(col(SuperAdminAccount.is_active).is_(True))
-        )
-    ).scalars().first()
-    return de_arranque is not None
 
 
 # ============================================
@@ -496,42 +421,29 @@ async def list_users(
     Sigue sin listarse `AdminAccount`, que tampoco está unificada. La
     pantalla lo dice, para que nadie lea el listado como «todas las cuentas».
     """
-    consulta = scope_query_to_orgs(select(HubUser), user, HubUser).order_by(HubUser.email)
-
-    # MT.9 — el filtro va **después** de la tenencia y nunca en su lugar: el mismo orden que
-    # `list_sites` (SEC.8.1) y `list_chatbots` (MT.8). Pedir una organización que no se gestiona
-    # es 403 y no una lista vacía, que sería una respuesta afirmativa a «¿existe?».
-    if organizacion_id is not None:
-        assert_org_access(user, organizacion_id)
-        consulta = consulta.where(HubUser.organizacion_id == organizacion_id)
-
-    filas = (await session.execute(consulta)).scalars().all()
+    filas = await personas.listar(session, user, organizacion_id)
     # En una sola consulta para todas: es la pantalla donde se ve que alguien se quedó sin
     # acceso, y hacerlo persona a persona la volvería lenta justo cuando hay gente que mirar.
-    concesiones = await _concesiones_por_sujeto(session, [f.id for f in filas])
-    personas = [
+    concesiones = await personas.concesiones_por_sujeto(session, [f.id for f in filas])
+    listadas = [
         _a_lectura(f, quien=user, modulos=concesiones.get(str(f.id), [])) for f in filas
     ]
     de_arranque = (
-        await _superadmins_de_arranque(session)
+        _superadmins_de_arranque(await personas.cuentas_de_arranque(session))
         if user.role == UserRole.SUPERADMIN.value
         else []
     )
 
     if organizacion_id is None:
-        return PersonasListadas(personas=de_arranque + personas)
+        return PersonasListadas(personas=de_arranque + listadas)
 
     # Estrechado: las de plataforma no se enseñan, y **se dice cuántas son**. Las de arranque
     # son de plataforma por definición —no pertenecen a ninguna organización—, así que entran
     # en el recuento y no en la lista.
-    sin_organizacion = await session.scalar(
-        select(func.count())
-        .select_from(HubUser)
-        .where(HubUser.organizacion_id.is_(None))
-    )
     return PersonasListadas(
-        personas=personas,
-        de_plataforma_no_mostradas=(sin_organizacion or 0) + len(de_arranque),
+        personas=listadas,
+        de_plataforma_no_mostradas=await personas.cuantas_sin_organizacion(session)
+        + len(de_arranque),
     )
 
 
@@ -547,10 +459,7 @@ async def create_user(
     nueva con el rol por defecto. Con `IDENTITY_ROLE_AUTHORITY=app` (IDE.1) el rol que se pone
     aquí sobrevive a todos los inicios de sesión posteriores.
     """
-    existente = (
-        await session.execute(select(HubUser).where(HubUser.email == body.email))
-    ).scalars().first()
-    if existente is not None:
+    if await personas.por_correo(session, body.email) is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             # Lo normal es que ya haya entrado con la cuenta institucional, que crea su cuenta
@@ -565,7 +474,7 @@ async def create_user(
     # **Antes de crear nada.** Si un código no vale y la persona ya existiera, el reintento daría
     # 409 por el correo y quedaría creada sin sus módulos: el estado a medias que este orden
     # evita. Validar primero cuesta una consulta y quita esa clase entera de problema.
-    await _comprobar_modulos(session, body.modulos)
+    await personas.comprobar_modulos(session, body.modulos)
 
     fila = HubUser(
         id=uuid.uuid4(),
@@ -578,90 +487,9 @@ async def create_user(
         created_by=user.user_id,
         created_at=datetime.now(timezone.utc),
     )
-    session.add(fila)
-    # **Un solo `commit` para la fila y sus concesiones (issue #109).** Antes la persona se
-    # confirmaba por su cuenta y las concesiones después: si el segundo fallaba quedaba alguien
-    # dado de alta **sin los módulos que se pidieron**, y sin que nadie lo supiera porque la
-    # respuesta ya se había ido. Ese estado a medias es justo el que la issue #100 vino a hacer
-    # visible, así que crearlo aquí sería fabricar el problema que allí se detecta.
-    #
-    # El `flush` da el id a la fila sin cerrar la transacción, que es lo que las concesiones
-    # necesitan para su `subject_id`.
-    await session.flush()
-    concedidos = _preparar_concesiones(session, fila, body.modulos, quien=user)
-    await session.commit()
-    await session.refresh(fila)
+    # **Un solo `commit` para la fila y sus concesiones (issue #109)**: ver `personas.dar_de_alta`.
+    concedidos = await personas.dar_de_alta(session, fila, body.modulos, quien=user)
     return _a_lectura(fila, quien=user, modulos=concedidos)
-
-
-async def _comprobar_modulos(session: AsyncSession, codigos: list[str]) -> None:
-    """Que todos estén en el catálogo y vigentes, o 400 diciendo cuáles no.
-
-    Son las dos reglas de `conceder`, consultadas al catálogo y no copiadas como lista: conceder
-    un módulo retirado no daría acceso a nada, así que aceptarlo en silencio crearía una persona
-    que cree tener acceso y no lo tiene.
-    """
-    if not codigos:
-        return
-
-    vigentes = {
-        codigo
-        for (codigo,) in (
-            await session.execute(
-                select(HubPlatformModule.code).where(
-                    HubPlatformModule.code.in_(codigos),
-                    HubPlatformModule.vigente.is_(True),
-                )
-            )
-        ).all()
-    }
-    invalidos = [c for c in codigos if c not in vigentes]
-    if invalidos:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"Estos módulos no están en el catálogo o están retirados: "
-                f"{', '.join(invalidos)}"
-            ),
-        )
-
-
-def _preparar_concesiones(
-    session: AsyncSession,
-    fila: HubUser,
-    codigos: list[str],
-    *,
-    quien: UserInfo,
-) -> list[str]:
-    """Añade las concesiones a la sesión **sin confirmar**: las confirma `create_user`.
-
-    Que no haya `commit` aquí es lo que hace el alta atómica (issue #109). Mientras esta función
-    cerraba su propia transacción, la fila de la persona ya estaba confirmada por la suya y un
-    fallo en ésta dejaba a alguien creado sin sus módulos.
-
-    Los códigos ya vienen comprobados por `_comprobar_modulos`, que corre **antes** de crear a
-    nadie: así un código malo no deja una persona creada y sin sus módulos.
-
-    **La clave que se guarda es `user_to_uuid` del id**, igual que en `conceder`: es la que
-    consulta `modulos_del_usuario`, y escribir el id a secas dejaría una fila que la resolución
-    no encuentra.
-    """
-    if not codigos:
-        return []
-
-    sujeto = str(user_to_uuid(str(fila.id)))
-    ahora = datetime.now(timezone.utc)
-    for codigo in codigos:
-        session.add(
-            HubModuleGrant(
-                subject_type=TIPO_USUARIO,
-                subject_id=sujeto,
-                module_code=codigo,
-                granted_by=quien.user_id,
-                granted_at=ahora,
-            )
-        )
-    return sorted(codigos)
 
 
 @router.put(
@@ -687,9 +515,7 @@ async def poner_modulos(
     - **Lo que sigue marcado conserva su fila**, y con ella cuándo y quién lo concedió.
     - **Un código que no se puede conceder no cambia nada**: se comprueba todo antes de tocar.
     """
-    fila = await session.get(HubUser, user_id)
-    if fila is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Persona no encontrada")
+    fila = await personas.persona_o_404(session, user_id)
     # La misma puerta que `puede_editar_modulos`: un superadministrador entra en todo por su rol,
     # y una concesión suya no cambiaría nada.
     if fila.role == UserRole.SUPERADMIN.value:
@@ -698,69 +524,11 @@ async def poner_modulos(
             detail="Un superadministrador entra en todos los módulos por su rol: no se le conceden.",
         )
 
-    concedibles = {
-        codigo
-        for (codigo,) in (
-            await session.execute(
-                select(HubPlatformModule.code).where(
-                    HubPlatformModule.vigente.is_(True),
-                    HubPlatformModule.de_oficio.is_(False),
-                )
-            )
-        ).all()
-    }
-    invalidos = [c for c in body.modulos if c not in concedibles]
-    if invalidos:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "Estos módulos no se pueden conceder —no están en el catálogo, están retirados o "
-                f"son de oficio—: {', '.join(invalidos)}"
-            ),
-        )
-
-    sujeto = str(user_to_uuid(str(fila.id)))
-    actuales = (
-        await session.execute(
-            select(HubModuleGrant).where(
-                HubModuleGrant.subject_type == TIPO_USUARIO,
-                HubModuleGrant.subject_id == sujeto,
-            )
-        )
-    ).scalars().all()
-    pedidos = set(body.modulos)
-    tenidos = {g.module_code for g in actuales}
-
-    for concesion in actuales:
-        if concesion.module_code in concedibles and concesion.module_code not in pedidos:
-            await session.delete(concesion)
-    ahora = datetime.now(timezone.utc)
-    for codigo in body.modulos:
-        if codigo not in tenidos:
-            session.add(
-                HubModuleGrant(
-                    subject_type=TIPO_USUARIO,
-                    subject_id=sujeto,
-                    module_code=codigo,
-                    granted_by=user.user_id,
-                    granted_at=ahora,
-                )
-            )
-
-    quedan = sorted((tenidos - (concedibles - pedidos)) | pedidos)
+    quedan = await personas.reconciliar_modulos(session, fila, body.modulos, quien=user)
     # La respuesta se construye **antes** del `commit`: esta sesión expira al confirmar, y leer la
     # fila después sería una carga perezosa fuera de contexto (el 500 de #225).
     lectura = _a_lectura(fila, quien=user, modulos=quedan)
-    try:
-        await session.commit()
-    except IntegrityError as exc:
-        # Otro guardado —esta pantalla en otra pestaña, o Plataforma → Módulos— concedió lo mismo
-        # entre la lectura y el `commit`. Es un conflicto, no un fallo del servidor.
-        await session.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Los módulos de esta persona acaban de cambiar en otro sitio: vuelve a cargar y repite.",
-        ) from exc
+    await personas.confirmar_modulos(session)
     return lectura
 
 
@@ -782,9 +550,7 @@ async def update_user(
     aplicación. Se comprueba también al cambiar el rol, porque bajar de rol al único que hay
     llega al mismo sitio por otra puerta.
     """
-    fila = await session.get(HubUser, user_id)
-    if fila is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Persona no encontrada")
+    fila = await personas.persona_o_404(session, user_id)
 
     cambios = body.model_dump(exclude_unset=True)
 
@@ -792,16 +558,12 @@ async def update_user(
         cambios.get("is_active") is False
         or (cambios.get("role") is not None and cambios["role"] != UserRole.SUPERADMIN.value)
     )
-    if deja_de_administrar and not await _otro_superadmin_activo(session, fila.id):
+    if deja_de_administrar and not await personas.otro_superadmin_activo(session, fila.id):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail=MOTIVO_ULTIMO_SUPERADMIN
         )
 
-    for campo, valor in cambios.items():
-        setattr(fila, campo, valor)
-
-    await session.commit()
-    await session.refresh(fila)
+    fila = await personas.actualizar(session, fila, cambios)
     return _a_lectura(fila, quien=user)
 
 
@@ -836,9 +598,7 @@ async def set_usuario_password(
     es USR.7, y es otro flujo porque exige comprobar la vieja para que una sesión robada no se
     quede la cuenta.
     """
-    fila = await session.get(HubUser, user_id)
-    if fila is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Persona no encontrada")
+    fila = await personas.persona_o_404(session, user_id)
 
     assert_org_access(user, fila.organizacion_id)
     if not _puede_fijar_contrasena(user, fila):
@@ -850,18 +610,8 @@ async def set_usuario_password(
             ),
         )
 
-    fila.hashed_password = hash_password(body.password)
-    # Issue #94 — **la contraseña que pone otra persona vale una sola vez**. Quien restablece
-    # conoce el secreto; con la marca, ese conocimiento se agota en la primera entrada, porque
-    # el token que se emita no servirá para nada más que cambiarla.
-    #
-    # Y queda dicho quién y cuándo: sin la traza, un restablecimiento es indistinguible de un
-    # cambio propio, y la pregunta «¿quién más ha conocido esta contraseña?» no tiene respuesta.
-    fila.debe_cambiar_contrasena = True
-    fila.password_reset_at = datetime.now(timezone.utc)
-    fila.password_reset_by = user.user_id
-    session.add(fila)
-    await session.commit()
+    # Issue #94 — vale una sola vez, y queda dicho quién y cuándo: `personas.fijar_contrasena`.
+    await personas.fijar_contrasena(session, fila, body.password, quien=user)
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -883,31 +633,17 @@ async def delete_user(
     **Sus concesiones se van con ella**, en la misma transacción: una concesión a alguien que ya
     no existe es una fila que ninguna pantalla enseña y que se queda ahí para siempre.
     """
-    fila = await session.get(HubUser, user_id)
-    if fila is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Persona no encontrada")
+    fila = await personas.persona_o_404(session, user_id)
 
     if fila.last_login_at is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=MOTIVO_YA_ENTRO)
 
     # El mismo agujero que vigila el `PATCH`, por la otra puerta.
-    if fila.role == UserRole.SUPERADMIN.value and not await _otro_superadmin_activo(
+    if fila.role == UserRole.SUPERADMIN.value and not await personas.otro_superadmin_activo(
         session, fila.id
     ):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail=MOTIVO_ULTIMO_SUPERADMIN
         )
 
-    concesiones = (
-        await session.execute(
-            select(HubModuleGrant).where(
-                HubModuleGrant.subject_type == "usuario",
-                HubModuleGrant.subject_id == str(fila.id),
-            )
-        )
-    ).scalars().all()
-    for concesion in concesiones:
-        await session.delete(concesion)
-
-    await session.delete(fila)
-    await session.commit()
+    await personas.borrar(session, fila)

@@ -165,7 +165,7 @@ class TestElListadoLosResuelveDeUnaVez:
 
     @pytest.mark.asyncio
     async def test_las_concesiones_se_leen_en_una_sola_consulta(self) -> None:
-        from server.app.routers.hub_users_router import _concesiones_por_sujeto
+        from server.app.core.auth.personas import concesiones_por_sujeto as _concesiones_por_sujeto
 
         vistas: list[object] = []
 
@@ -192,7 +192,7 @@ class TestElListadoLosResuelveDeUnaVez:
     @pytest.mark.asyncio
     async def test_sin_personas_no_consulta_nada(self) -> None:
         """Una lista vacía no tiene que ir a la base: `IN ()` es un error en algunos motores."""
-        from server.app.routers.hub_users_router import _concesiones_por_sujeto
+        from server.app.core.auth.personas import concesiones_por_sujeto as _concesiones_por_sujeto
 
         class _SesionQueFalla:
             async def execute(self, consulta):  # pragma: no cover - no debe llamarse

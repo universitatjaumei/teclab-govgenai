@@ -5,18 +5,18 @@ Módulo: chatbots — ya lo declaraba a nivel de router.
 
 Lo que toca el corpus —estadísticas, regenerar, recalcular— está en `hub_chatbots_corpus_router`,
 que es edge (#298). Lo que este router necesita saber del corpus lo pide a `DatosDelCliente`.
+
+Los handlers traducen HTTP; lo que toca la base está en `services/configuracion_de_chatbots.py`
+(#274), y también el único punto de lectura de un chatbot, `chatbot_o_404`.
 """
 
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, cast, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field, computed_field, field_validator
-from sqlalchemy import delete as sql_delete
-from sqlalchemy import select
-
 from server.app.api.deps import get_datos_del_cliente, require_module, require_role, require_scopes
 from server.app.core.auth.models import UserInfo
 from server.app.core.datos_del_cliente import DatosDelCliente
@@ -26,9 +26,10 @@ from server.app.modules.agents_hub.agent.public_graphs.validacion import (
     validar_modo,
     validar_perfil,
 )
-from server.app.core.auth.tenancy import assert_org_access, scope_query_to_orgs
-from server.app.modules.agents_hub.database.config_models import HubChatbot, HubLLMConfig
+from server.app.core.auth.tenancy import assert_org_access
+from server.app.modules.agents_hub.database.config_models import HubChatbot
 from server.app.api.deps import get_session
+from server.app.modules.agents_hub.services import configuracion_de_chatbots as configuracion
 from server.app.modules.agents_hub.services.embedding_resolver import (
     resolve_embedding_service,
 )
@@ -261,43 +262,6 @@ class AssignChildIn(BaseModel):
     child_chatbot_id: uuid.UUID
 
 
-async def _exigir_configuracion_utilizable(
-    session, llm_config_id: uuid.UUID, organizacion_id: uuid.UUID | None
-) -> None:
-    """Un chatbot usa una configuración de LLM de plataforma o de su organización, no de otra.
-
-    404 también para la de otra organización, como si no existiera: usarla es gastar su
-    credencial, y decir que existe ya es contar algo de ella. FIX.1 comprobaba sólo la
-    existencia, para dar un 404 claro en vez de un 500 de clave ajena.
-    """
-    config = await session.get(HubLLMConfig, llm_config_id)
-    if config is None or (
-        config.organizacion_id is not None and str(config.organizacion_id) != str(organizacion_id)
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"LLM config {llm_config_id} not found",
-        )
-
-
-async def _get_chatbot_or_404(session, chatbot_id: uuid.UUID, principal=None) -> HubChatbot:
-    """Único punto de lectura de un chatbot, y por eso el único sitio donde comprobar.
-
-    SEC.2: `principal` es opcional por compatibilidad con las llamadas internas que no vienen
-    de una petición, pero **todo endpoint debe pasarlo**. Hay un guardarraíl en
-    `tests/api/test_tenant_isolation.py` que falla si aparece una segunda lectura directa de
-    `HubChatbot` en este fichero, porque saltarse esta función es reabrir el hallazgo A2.
-    """
-    chatbot = await session.get(HubChatbot, chatbot_id)
-    if not chatbot:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Chatbot not found"
-        )
-    if principal is not None:
-        assert_org_access(principal, chatbot.organizacion_id)
-    return chatbot
-
-
 async def _leer_con_disponibilidad(session, chatbot) -> ChatbotRead:
     """`ChatbotRead` con el estado derivado ya calculado (SEC.4.1).
 
@@ -455,18 +419,9 @@ async def list_chatbots(
     segundo se leería como «esa organización no tiene chatbots». Es el mismo patrón que
     `list_sites` desde SEC.8.1.
     """
-    # SEC.2: acotado en SQL y no en memoria. Filtrar despues de leer con LIMIT deja
-    # fuera resultados propios y de todos modos trae los ajenos al proceso.
-    consulta = scope_query_to_orgs(
-        select(HubChatbot).order_by(HubChatbot.created_at.desc()), user, HubChatbot
-    )
-    if organizacion_id is not None:
-        assert_org_access(user, organizacion_id)
-        consulta = consulta.where(HubChatbot.organizacion_id == organizacion_id)
-    result = await session.execute(consulta)
     return [
         await _leer_con_disponibilidad(session, chatbot)
-        for chatbot in result.scalars().all()
+        for chatbot in await configuracion.listar(session, user, organizacion_id)
     ]
 
 
@@ -485,7 +440,7 @@ async def create_chatbot(
     # comprobación de embeddings: a quien no gestiona la organización no se le contesta
     # con el estado del servicio de embeddings, que es información de la instalación.
     assert_org_access(user, body.organizacion_id)
-    await _exigir_configuracion_utilizable(session, body.llm_config_id, body.organizacion_id)
+    await configuracion.exigir_configuracion_utilizable(session, body.llm_config_id, body.organizacion_id)
 
     # PLG.1: perfil y modo se validan contra los registros VIVOS, no contra un `Literal` del
     # DTO. El `Literal` cerraba el vocabulario en el código —un modo de un paquete instalado no
@@ -547,10 +502,7 @@ async def create_chatbot(
         chunking_strategy=body.chunking_strategy,
         query_rewriting_enabled=body.query_rewriting_enabled,
     )
-    session.add(chatbot)
-    await session.commit()
-    await session.refresh(chatbot)
-    return chatbot
+    return await configuracion.crear(session, chatbot)
 
 
 @router.patch("/{chatbot_id}", response_model=ChatbotRead, dependencies=[Depends(require_scopes("chatbots:write"))])
@@ -561,7 +513,7 @@ async def update_chatbot(
     session=Depends(get_session),
     datos: DatosDelCliente = Depends(get_datos_del_cliente),
 ):
-    chatbot = await _get_chatbot_or_404(session, chatbot_id, user)
+    chatbot = await configuracion.chatbot_o_404(session, chatbot_id, user)
 
     # PLG.1: mismo criterio que al crear. `None` pasa y significa «heredar», que es lo que
     # distingue este endpoint del de creación.
@@ -588,7 +540,7 @@ async def update_chatbot(
     # FIX.1: se comprueba que la configuración existe antes de asignarla. Dejar que reviente
     # la FK daría un 500 opaco a mitad de la petición en vez de decir qué falta.
     if "llm_config_id" in payload:
-        await _exigir_configuracion_utilizable(
+        await configuracion.exigir_configuracion_utilizable(
             session, payload["llm_config_id"], chatbot.organizacion_id
         )
 
@@ -605,13 +557,7 @@ async def update_chatbot(
                 ),
             )
 
-    for field, value in payload.items():
-        setattr(chatbot, field, value)
-    chatbot.updated_at = datetime.now(timezone.utc)
-
-    await session.commit()
-    await session.refresh(chatbot)
-    return chatbot
+    return await configuracion.actualizar(session, chatbot, payload)
 
 
 @router.delete("/{chatbot_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -621,23 +567,10 @@ async def delete_chatbot(
     session=Depends(get_session),
     datos: DatosDelCliente = Depends(get_datos_del_cliente),
 ):
-    await _get_chatbot_or_404(session, chatbot_id, user)
-    # PIL.2: primero el corpus y luego el chatbot, en la MISMA transacción.
-    #
-    # `hub_documents.chatbot_id` no tiene FK —se cayó con el split edge/cloud y la frontera
-    # pide que no vuelva—, así que Postgres no cascadea aquí. Sin esta llamada, borrar un
-    # chatbot dejaba sus documentos y sus embeddings en la base sin dueño: ocupando,
-    # falseando recuentos y sin forma de encontrarlos.
-    #
-    # El orden importa: purgar después del `DELETE` del chatbot dejaría, ante un fallo a
-    # mitad, exactamente el corpus huérfano que esto viene a impedir.
-    #
-    # #298 — la purga la hace el edge, por `DatosDelCliente`; la local comparte esta sesión, así
-    # que sigue siendo la misma transacción.
-    retirado = await datos.purgar_corpus([chatbot_id])
-    await session.execute(sql_delete(HubChatbot).where(HubChatbot.id == chatbot_id))
-    await session.commit()
-    await datos.borrar_fuentes([chatbot_id])
+    await configuracion.chatbot_o_404(session, chatbot_id, user)
+    # PIL.2: primero el corpus y luego el chatbot, en la misma transacción. El porqué, en
+    # `configuracion_de_chatbots.borrar`.
+    retirado = await configuracion.borrar(session, chatbot_id, datos)
 
     # Lo que se llevó por delante queda dicho. La purga siempre lo contaba y lo devolvía —su
     # docstring pedía «poder decirlo en voz alta»— y aquí se descartaba: un borrado
@@ -663,17 +596,14 @@ async def list_children(
     user: UserInfo = Depends(_require_admin),
     session=Depends(get_session),
 ):
-    router_cb = await _get_chatbot_or_404(session, chatbot_id, user)
+    router_cb = await configuracion.chatbot_o_404(session, chatbot_id, user)
     if router_cb.kind != "router":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Solo los chatbots de tipo router pueden tener hijos",
         )
 
-    result = await session.execute(
-        select(HubChatbot).where(HubChatbot.parent_chatbot_id == chatbot_id)
-    )
-    return result.scalars().all()
+    return await configuracion.hijos(session, chatbot_id)
 
 
 @router.post("/{chatbot_id}/children", response_model=ChatbotRead, dependencies=[Depends(require_scopes("chatbots:write"))])
@@ -683,7 +613,7 @@ async def assign_child(
     user: UserInfo = Depends(_require_admin),
     session=Depends(get_session),
 ):
-    router_cb = await _get_chatbot_or_404(session, chatbot_id, user)
+    router_cb = await configuracion.chatbot_o_404(session, chatbot_id, user)
     if router_cb.kind != "router":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -695,7 +625,7 @@ async def assign_child(
             detail="No se permite jerarquía de más de 2 niveles",
         )
 
-    child_cb = await _get_chatbot_or_404(session, body.child_chatbot_id, user)
+    child_cb = await configuracion.chatbot_o_404(session, body.child_chatbot_id, user)
 
     if child_cb.id == router_cb.id:
         raise HTTPException(
@@ -721,11 +651,7 @@ async def assign_child(
             detail="No se permite crear nietos ni reparentar desde otro router",
         )
 
-    child_cb.parent_chatbot_id = router_cb.id
-    child_cb.updated_at = datetime.now(timezone.utc)
-    await session.commit()
-    await session.refresh(child_cb)
-    return child_cb
+    return await configuracion.colgar_de(session, child_cb, router_cb.id)
 
 
 @router.delete(
@@ -739,23 +665,21 @@ async def unassign_child(
     user: UserInfo = Depends(_require_admin),
     session=Depends(get_session),
 ):
-    router_cb = await _get_chatbot_or_404(session, chatbot_id, user)
+    router_cb = await configuracion.chatbot_o_404(session, chatbot_id, user)
     if router_cb.kind != "router":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Solo los chatbots de tipo router pueden tener hijos",
         )
 
-    child_cb = await _get_chatbot_or_404(session, child_chatbot_id, user)
+    child_cb = await configuracion.chatbot_o_404(session, child_chatbot_id, user)
     if child_cb.parent_chatbot_id != router_cb.id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Ese chatbot no está asignado a este router",
         )
 
-    child_cb.parent_chatbot_id = None
-    child_cb.updated_at = datetime.now(timezone.utc)
-    await session.commit()
+    await configuracion.colgar_de(session, child_cb, None)
 
 
 # ─────────────────── Credenciales de sitio del widget (SEC.8.5) ───────────────────
@@ -796,14 +720,10 @@ async def create_widget_key(
     session=Depends(get_session),
 ):
     """Emite una credencial de sitio para incrustar el widget de este chatbot."""
-    from server.app.core.auth.widget_key import crear_widget_key
-
-    chatbot = await _get_chatbot_or_404(session, chatbot_id, user)
-    clave, fila = await crear_widget_key(
-        session, chatbot_id=chatbot.id, name=body.name, created_by=user.user_id
+    chatbot = await configuracion.chatbot_o_404(session, chatbot_id, user)
+    clave, fila = await configuracion.emitir_clave_del_widget(
+        session, chatbot.id, body.name, user.user_id
     )
-    await session.commit()
-    await session.refresh(fila)
     return WidgetKeyCreated(
         id=fila.id,
         name=fila.name,
@@ -819,17 +739,8 @@ async def list_widget_keys(
     user: UserInfo = Depends(_require_admin),
     session=Depends(get_session),
 ):
-    from server.app.modules.agents_hub.database.config_models import HubWidgetKey
-
-    await _get_chatbot_or_404(session, chatbot_id, user)
-    filas = (
-        await session.execute(
-            select(HubWidgetKey)
-            .where(HubWidgetKey.chatbot_id == chatbot_id)
-            .order_by(HubWidgetKey.created_at.desc())
-        )
-    ).scalars().all()
-    return list(filas)
+    await configuracion.chatbot_o_404(session, chatbot_id, user)
+    return await configuracion.claves_del_widget(session, chatbot_id)
 
 
 @router.delete(
@@ -842,19 +753,8 @@ async def revoke_widget_key(
     session=Depends(get_session),
 ):
     """Revoca en vez de borrar: la fila deja constancia de que la credencial existió."""
-    from server.app.modules.agents_hub.database.config_models import HubWidgetKey
-
-    await _get_chatbot_or_404(session, chatbot_id, user)
-    fila = (
-        await session.execute(
-            select(HubWidgetKey).where(
-                HubWidgetKey.id == key_id, HubWidgetKey.chatbot_id == chatbot_id
-            )
-        )
-    ).scalar_one_or_none()
-    if fila is None:
+    await configuracion.chatbot_o_404(session, chatbot_id, user)
+    if not await configuracion.revocar_clave_del_widget(session, chatbot_id, key_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Widget key not found"
         )
-    fila.revoked_at = datetime.now(timezone.utc)
-    await session.commit()

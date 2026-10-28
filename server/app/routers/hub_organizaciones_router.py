@@ -17,18 +17,17 @@ consume otro módulo:
 
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, field_validator
-from sqlalchemy import func, select, delete as sql_delete
-
 from server.app.api.deps import get_datos_del_cliente, require_module, require_role, require_scopes
 from server.app.core.auth.models import UserInfo
-from server.app.core.auth.tenancy import assert_org_access, scope_query_to_orgs
+from server.app.core.auth.tenancy import assert_org_access
 from server.app.api.deps import get_session
 from server.app.core.datos_del_cliente import DatosDelCliente
-from server.app.modules.agents_hub.database.config_models import HubChatbot, HubOrganizacion
+from server.app.modules.agents_hub.database.config_models import HubOrganizacion
+from server.app.modules.agents_hub.services import organizaciones
 from server.app.modules.agents_hub.agent.public_graphs.validacion import (
     validar_estrategias,
     validar_modo,
@@ -175,14 +174,6 @@ class ValoresPorDefectoUpdate(BaseModel):
         return valida_language_mode(valor)
 
 
-_count_sq = (
-    select(func.count(HubChatbot.id))
-    .where(HubChatbot.organizacion_id == HubOrganizacion.id)
-    .correlate(HubOrganizacion)
-    .scalar_subquery()
-)
-
-
 # #234 — con un token, `chatbots:read`: `create_chatbot` del MCP pide la organización, y el
 # agente tiene que poder saber cuáles hay. Sigue acotado a las suyas (`scope_query_to_orgs`).
 @router.get(
@@ -194,18 +185,9 @@ async def list_organizaciones(
     user: UserInfo = Depends(_require_admin),
     session=Depends(get_session),
 ):
-    # SEC.8.1: la organización ES la entidad, así que se acota por su propia clave y no
-    # por una columna `organizacion_id` que aquí no existe.
-    consulta = scope_query_to_orgs(
-        select(HubOrganizacion, _count_sq.label("chatbot_count")),
-        user,
-        HubOrganizacion,
-        columna="id",
-    ).order_by(HubOrganizacion.created_at.desc())
-    rows = (await session.execute(consulta)).all()
     return [
         OrganizacionRead.model_validate(o).model_copy(update={"chatbot_count": count})
-        for o, count in rows
+        for o, count in await organizaciones.listar(session, user)
     ]
 
 
@@ -235,9 +217,7 @@ async def create_organizacion(
         partner_id=partner_id,
         is_active=body.is_active,
     )
-    session.add(organizacion)
-    await session.commit()
-    await session.refresh(organizacion)
+    organizacion = await organizaciones.crear(session, organizacion)
     return OrganizacionRead.model_validate(organizacion).model_copy(
         update={"chatbot_count": 0}
     )
@@ -251,11 +231,7 @@ async def update_organizacion(
     session=Depends(get_session),
     _modulo=_de_plataforma,
 ):
-    organizacion = await session.get(HubOrganizacion, organizacion_id)
-    if not organizacion:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Organización not found"
-        )
+    organizacion = await organizaciones.organizacion_o_404(session, organizacion_id)
     assert_org_access(user, organizacion.id)
 
     # `partner_id` decide quién ve la organización (ver `create_organizacion`): cambiarlo es
@@ -280,12 +256,9 @@ async def update_organizacion(
         )
 
     # `exclude_unset` y no `exclude_none`: distingue «no lo mandé» de «mándalo a null».
-    for field, value in body.model_dump(exclude_unset=True).items():
-        setattr(organizacion, field, value)
-    organizacion.updated_at = datetime.now(timezone.utc)
-
-    await session.commit()
-    await session.refresh(organizacion)
+    organizacion = await organizaciones.actualizar(
+        session, organizacion, body.model_dump(exclude_unset=True)
+    )
     return OrganizacionRead.model_validate(organizacion).model_copy(
         update={"chatbot_count": 0}
     )
@@ -306,11 +279,7 @@ async def get_valores_por_defecto(
     devolver catorce campos que no muestra, y la de Chatbots no tiene que mandar el nombre del
     inquilino para cambiar un umbral.
     """
-    organizacion = await session.get(HubOrganizacion, organizacion_id)
-    if not organizacion:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Organización not found"
-        )
+    organizacion = await organizaciones.organizacion_o_404(session, organizacion_id)
     assert_org_access(user, organizacion.id)
     return ValoresPorDefectoRead.model_validate(organizacion)
 
@@ -331,11 +300,7 @@ async def update_valores_por_defecto(
     descartaba igual que un campo omitido, así que los seis campos cuyo `None` significa
     «heredar el defecto de plataforma» se quedaban con su valor propio para siempre.
     """
-    organizacion = await session.get(HubOrganizacion, organizacion_id)
-    if not organizacion:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Organización not found"
-        )
+    organizacion = await organizaciones.organizacion_o_404(session, organizacion_id)
     assert_org_access(user, organizacion.id)
 
     # PLG.1: los defectos de organización se validan contra los registros vivos, igual que los
@@ -345,12 +310,9 @@ async def update_valores_por_defecto(
     validar_modo(body.default_retrieval_mode, "default_retrieval_mode")
     validar_estrategias(body.default_estrategias, "default_estrategias")
 
-    for field, value in body.model_dump(exclude_unset=True).items():
-        setattr(organizacion, field, value)
-    organizacion.updated_at = datetime.now(timezone.utc)
-
-    await session.commit()
-    await session.refresh(organizacion)
+    organizacion = await organizaciones.actualizar(
+        session, organizacion, body.model_dump(exclude_unset=True)
+    )
     return ValoresPorDefectoRead.model_validate(organizacion)
 
 
@@ -362,11 +324,7 @@ async def delete_organizacion(
     _modulo=_de_plataforma,
     datos: DatosDelCliente = Depends(get_datos_del_cliente),
 ):
-    organizacion = await session.get(HubOrganizacion, organizacion_id)
-    if not organizacion:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Organización not found"
-        )
+    organizacion = await organizaciones.organizacion_o_404(session, organizacion_id)
     # El borrado arrastra los chatbots por CASCADE: sin esta línea, un admin destruye los
     # datos de otra administración con un solo DELETE.
     assert_org_access(user, organizacion.id)
@@ -382,27 +340,15 @@ async def delete_organizacion(
                 "pendiente": pendiente,
             },
         )
-    # #252 — la cascada llega a los chatbots y no a su corpus, que no cuelga de ellos por clave
-    # foránea. Mismo camino que `delete_chatbot` (PIL.2) y en la misma transacción: borrar la
-    # organización dejaba documentos y embeddings sin dueño. Las interacciones se quedan, como
-    # al borrar un chatbot.
-    chatbots = (
-        await session.execute(
-            select(HubChatbot.id).where(HubChatbot.organizacion_id == organizacion_id)
-        )
-    ).scalars().all()
-    retirado = await datos.purgar_corpus(chatbots)
-    await session.execute(
-        sql_delete(HubOrganizacion).where(HubOrganizacion.id == organizacion_id)
-    )
-    await session.commit()
-    await datos.borrar_fuentes(chatbots)
+    # #252 — la cascada llega a los chatbots y no a su corpus: `organizaciones.borrar` lo purga
+    # en la misma transacción (PIL.2).
+    chatbots, retirado = await organizaciones.borrar(session, organizacion_id, datos)
     logger.info(
         "Organización %s eliminada por %s; %d chatbots, corpus retirado: %d documentos, "
         "%d fragmentos, %d trabajos de ingesta",
         organizacion_id,
         user.email,
-        len(chatbots),
+        chatbots,
         retirado.documentos,
         retirado.fragmentos,
         retirado.trabajos,
