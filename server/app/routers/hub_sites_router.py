@@ -2,6 +2,9 @@
 
 Deploy: edge.
 Módulo: curacion — los sitios rastreados son el módulo de curación.
+
+Aquí la tenencia y los códigos de estado; lo que lee y escribe la base, en
+`modules/curation/sitios.py` (#274).
 """
 from __future__ import annotations
 
@@ -10,7 +13,6 @@ from typing import Any
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response, status
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.app.api.deps import require_module, get_quality_job
@@ -20,14 +22,9 @@ from server.app.core.auth.tenancy import (
     assert_org_access,
     assert_site_org_access,
     organizacion_unica_de,
-    scope_query_to_orgs,
 )
 from server.app.api.deps import get_session
-from server.app.modules.agents_hub.database.operational_models import (
-    HubCorpusSelection,
-    HubCrawledPage,
-    HubWebSite,
-)
+from server.app.modules.curation import sitios
 from server.app.modules.curation.selection_contracts import (
     CandidatePageView,
     CrawlConfig,
@@ -48,12 +45,7 @@ from server.app.modules.curation.selection_contracts import (
     SitePatch,
     SiteView,
 )
-from server.app.modules.curation.site_repo import (
-    CorpusSelectionRepo,
-    CrawledPageRepo,
-    WebSectionRepo,
-    WebSiteRepo,
-)
+from server.app.modules.curation.site_repo import CorpusSelectionRepo, CrawledPageRepo
 
 router = APIRouter(tags=["hub-sites"])
 
@@ -210,8 +202,8 @@ async def create_site(
     else:
         assert_org_access(current_user, organizacion_id)
 
-    repo = WebSiteRepo(session)
-    site = await repo.create(
+    return await sitios.crear_sitio(
+        session,
         organizacion_id=organizacion_id,
         name=body.name,
         root_url=body.root_url,
@@ -223,8 +215,6 @@ async def create_site(
         # los defectos conservadores de RAS.1, no un rastreo sin límites.
         config_json=(body.crawl_config or CrawlConfig()).model_dump(),
     )
-    await session.commit()
-    return site
 
 
 @router.get(
@@ -243,13 +233,7 @@ async def list_sites(
     solo si el cliente pasaba el parámetro —o sea, el filtro lo elegía quien preguntaba— y
     sin parámetro devolvía los sitios de todas las administraciones.
     """
-
-    stmt = scope_query_to_orgs(select(HubWebSite), current_user, HubWebSite)
-    if organizacion_id is not None:
-        assert_org_access(current_user, organizacion_id)
-        stmt = stmt.where(HubWebSite.organizacion_id == organizacion_id)
-    result = await session.execute(stmt.order_by(HubWebSite.created_at.desc()))
-    return result.scalars().all()
+    return await sitios.listar_sitios(session, current_user, organizacion_id)
 
 
 @router.patch(
@@ -268,15 +252,13 @@ async def patch_site(
     Deploy: edge.
     """
     await assert_site_org_access(session, site_id, current_user)
-    repo = WebSiteRepo(session)
     updates = {k: v for k, v in body.model_dump().items() if v is not None}
     # La configuración del rastreo se guarda en `config_json`, que es como la lee el spider.
     if "crawl_config" in updates:
         updates["config_json"] = updates.pop("crawl_config")
-    site = await repo.update(site_id, **updates)
+    site = await sitios.actualizar_sitio(session, site_id, updates)
     if site is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Site not found")
-    await session.commit()
     return site
 
 
@@ -295,9 +277,7 @@ async def delete_site(
     Deploy: edge.
     """
     await assert_site_org_access(session, site_id, current_user)
-    repo = WebSiteRepo(session)
-    await repo.delete(site_id)
-    await session.commit()
+    await sitios.borrar_sitio(session, site_id)
 
 
 # ──────────────────────── Crawl trigger ────────────────────────
@@ -347,27 +327,7 @@ async def list_site_pages(
     Deploy: edge. Con `propuestas`, sólo las propuestas para un asistente (2026-10-08).
     """
     await assert_site_org_access(session, site_id, current_user)
-    # recorrido-acotado: ver `site_repo.listar_paginas`. Paginar este endpoint cambia un
-    # contrato que consume el frontend (issue #159).
-    stmt = select(HubCrawledPage).where(HubCrawledPage.site_id == site_id)
-    if page_status is not None:
-        stmt = stmt.where(HubCrawledPage.status == page_status)
-    if propuestas:
-        stmt = stmt.where(HubCrawledPage.propuesta_at.is_not(None))
-    stmt = stmt.order_by(HubCrawledPage.url)
-    result = await session.execute(stmt)
-    return result.scalars().all()
-
-
-async def _pagina_de_este_sitio(
-    session: AsyncSession, site_id: uuid.UUID, page_id: uuid.UUID
-) -> HubCrawledPage:
-    """La página, si es de este sitio. Una ajena es un 404: comprobar sólo el sitio de la ruta y
-    no que la página le pertenezca es el hueco de #242."""
-    pagina = await session.get(HubCrawledPage, page_id)
-    if pagina is None or pagina.site_id != site_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Page not found")
-    return pagina
+    return await sitios.paginas(session, site_id, page_status, propuestas)
 
 
 @router.put(
@@ -387,16 +347,7 @@ async def proponer_pagina(
     módulo `chatbots`— decide en Publicación. Volver a proponer no cambia quién lo hizo primero.
     """
     await assert_site_org_access(session, site_id, current_user)
-    pagina = await _pagina_de_este_sitio(session, site_id, page_id)
-    if pagina.propuesta_at is None:
-        from datetime import datetime, timezone
-
-        pagina.propuesta_at = datetime.now(timezone.utc)
-        pagina.propuesta_por = current_user.email
-    # La vista antes del `commit`: esta sesión expira al confirmar (el 500 de #225).
-    vista = PageView.model_validate(pagina)
-    await session.commit()
-    return vista
+    return await sitios.marcar_propuesta(session, site_id, page_id, current_user.email)
 
 
 @router.delete(
@@ -412,12 +363,7 @@ async def retirar_propuesta(
 ):
     """Quita la propuesta. No toca el corpus: si ya se publicó, eso se retira en Publicación."""
     await assert_site_org_access(session, site_id, current_user)
-    pagina = await _pagina_de_este_sitio(session, site_id, page_id)
-    pagina.propuesta_at = None
-    pagina.propuesta_por = None
-    vista = PageView.model_validate(pagina)
-    await session.commit()
-    return vista
+    return await sitios.marcar_propuesta(session, site_id, page_id, None)
 
 
 # ──────────────────────── Secciones del sitio (DIN.3) ────────────────────────
@@ -454,43 +400,6 @@ def _vista_de_seccion(site: Any, seccion: Any) -> SectionView:
     )
 
 
-async def _sin_homonima(session: AsyncSession, nombre: str, operacion: Any) -> Any:
-    """Ejecuta el alta o la edición traduciendo la colisión de nombre a un 409.
-
-    **Lo destapó la verificación en navegador de DIN.3**: `UniqueConstraint(site_id, name)` hacía
-    bien su trabajo —la homónima no se guardaba— y su `IntegrityError` subía sin traducir, así
-    que la respuesta era un **500**. En pantalla eso es «algo se ha roto» cuando lo que pasa es
-    «ese nombre ya está usado», que es accionable. Mismo criterio que la retirada bloqueada.
-
-    No se pregunta antes si el nombre existe: la restricción de la base es la que decide, y una
-    comprobación previa sería una segunda regla que además tiene carrera.
-    """
-    from sqlalchemy.exc import IntegrityError
-
-    try:
-        return await operacion()
-    except IntegrityError as fallo:
-        # La transacción queda inutilizable tras el error: sin deshacerla, la siguiente consulta
-        # de esta petición fallaría por algo que no tiene nada que ver con la causa.
-        await session.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Ya hay una sección llamada «{nombre}» en este sitio",
-        ) from fallo
-
-
-async def _seccion_de_este_sitio(
-    session: AsyncSession, site_id: uuid.UUID, section_id: uuid.UUID
-) -> Any:
-    """La sección, si es de este sitio. Una ajena es un 404, no un cambio."""
-    seccion = await WebSectionRepo(session).get(section_id)
-    if seccion is None or seccion.site_id != site_id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Section not found"
-        )
-    return seccion
-
-
 @router.get(
     "/hub/sites/{site_id}/sections",
     response_model=list[SectionView],
@@ -506,8 +415,7 @@ async def list_site_sections(
     Deploy: edge. La tenencia llega por el sitio, como en el resto del módulo.
     """
     site = await assert_site_org_access(session, site_id, current_user)
-    secciones = await WebSectionRepo(session).list_by_site(site_id)
-    return [_vista_de_seccion(site, s) for s in secciones]
+    return [_vista_de_seccion(site, s) for s in await sitios.secciones(session, site_id)]
 
 
 @router.post(
@@ -529,21 +437,17 @@ async def create_site_section(
     después»).
     """
     site = await assert_site_org_access(session, site_id, current_user)
-    seccion = await _sin_homonima(
+    seccion = await sitios.crear_seccion(
         session,
-        body.name,
-        lambda: WebSectionRepo(session).create(
-            site_id=site_id,
-            name=body.name,
-            pattern=body.pattern,
-            pattern_kind=body.pattern_kind,
-            crawl_interval_hours=body.crawl_interval_hours,
-            mode=body.mode,
-            criteria_json=body.criteria_json,
-            owner=body.owner,
-        ),
+        site_id,
+        name=body.name,
+        pattern=body.pattern,
+        pattern_kind=body.pattern_kind,
+        crawl_interval_hours=body.crawl_interval_hours,
+        mode=body.mode,
+        criteria_json=body.criteria_json,
+        owner=body.owner,
     )
-    await session.commit()
     return _vista_de_seccion(site, seccion)
 
 
@@ -565,18 +469,12 @@ async def patch_site_section(
     a secas significaría «no lo toques», y colapsar los dos dejaría imposible volver a heredar.
     """
     site = await assert_site_org_access(session, site_id, current_user)
-    await _seccion_de_este_sitio(session, site_id, section_id)
+    await sitios.seccion_de_este_sitio(session, site_id, section_id)
 
     campos = body.model_dump(exclude_none=True, exclude={"heredar_cadencia"})
     if body.heredar_cadencia:
         campos["crawl_interval_hours"] = None
-    # Renombrar también puede colisionar, y por la misma restricción.
-    seccion = await _sin_homonima(
-        session,
-        campos.get("name", ""),
-        lambda: WebSectionRepo(session).update(section_id, **campos),
-    )
-    await session.commit()
+    seccion = await sitios.actualizar_seccion(session, section_id, campos)
     return _vista_de_seccion(site, seccion)
 
 
@@ -599,24 +497,8 @@ async def delete_site_section(
     mensaje lo dice.
     """
     await assert_site_org_access(session, site_id, current_user)
-    await _seccion_de_este_sitio(session, site_id, section_id)
-
-    colgando = (
-        await session.execute(
-            select(HubCorpusSelection).where(HubCorpusSelection.section_id == section_id)
-        )
-    ).scalars().all()
-    if colgando:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                f"{len(colgando)} selección(es) de corpus apuntan a esta sección: "
-                "desactívala en vez de borrarla, o quita antes esas selecciones"
-            ),
-        )
-
-    await WebSectionRepo(session).delete(section_id)
-    await session.commit()
+    await sitios.seccion_de_este_sitio(session, site_id, section_id)
+    await sitios.borrar_seccion(session, section_id)
 
 
 @router.get(
@@ -641,27 +523,8 @@ async def list_site_runs(
     **Orden con desempate por `id`** (DET.1): dos pasadas pueden compartir `started_at` al
     microsegundo, y sin desempate paginar devuelve una fila en dos páginas y otra en ninguna.
     """
-    from sqlalchemy import func
-
-    from server.app.modules.agents_hub.database.operational_models import HubCrawlRun
-
     await assert_site_org_access(session, site_id, current_user)
-
-    base = select(HubCrawlRun).where(HubCrawlRun.site_id == site_id)
-    if section_id is not None:
-        base = base.where(HubCrawlRun.section_id == section_id)
-
-    total = (
-        await session.execute(select(func.count()).select_from(base.subquery()))
-    ).scalar_one()
-    filas = (
-        await session.execute(
-            base.order_by(HubCrawlRun.started_at.desc(), HubCrawlRun.id.desc())
-            .offset((page - 1) * size)
-            .limit(size)
-        )
-    ).scalars().all()
-
+    total, filas = await sitios.pasadas(session, site_id, section_id, page, size)
     return PaginaDePasadas(
         total=total, items=[CrawlRunView.model_validate(f) for f in filas]
     )
@@ -689,12 +552,7 @@ async def test_section_pattern(
     from server.app.modules.curation.secciones import casa_patron
 
     # El patrón se evalúa en Python, así que las URL hay que traerlas; los objetos enteros no.
-    # Pedir sólo la columna cambia cientos de filas ORM por cientos de cadenas (issue #159).
-    urls = (
-        await session.execute(
-            select(HubCrawledPage.url).where(HubCrawledPage.site_id == site_id)
-        )
-    ).scalars().all()
+    urls = await sitios.urls_del_sitio(session, site_id)
 
     casan = [u for u in urls if casa_patron(body.pattern_kind, body.pattern, u)]
     return PatternTestView(matched=len(casan), total=len(urls), sample=casan[:10])
@@ -724,9 +582,9 @@ async def create_selection(
     # DIN.3 — apuntar a una sección de OTRO sitio haría que el patrón efectivo no tuviera nada
     # que ver con las páginas de esta selección: se comprueba aquí, no al rastrear.
     if body.section_id is not None:
-        await _seccion_de_este_sitio(session, body.site_id, body.section_id)
-    repo = CorpusSelectionRepo(session)
-    sel = await repo.create(
+        await sitios.seccion_de_este_sitio(session, body.site_id, body.section_id)
+    return await sitios.crear_seleccion(
+        session,
         chatbot_id=chatbot_id,
         site_id=body.site_id,
         rule_type=body.rule_type,
@@ -734,8 +592,6 @@ async def create_selection(
         auto_ingest_new=body.auto_ingest_new,
         section_id=body.section_id,
     )
-    await session.commit()
-    return sel
 
 
 @router.get(
@@ -753,14 +609,7 @@ async def list_selections(
     Deploy: edge.
     """
     await assert_chatbot_org_access(session, chatbot_id, current_user)
-
-    stmt = (
-        select(HubCorpusSelection)
-        .where(HubCorpusSelection.chatbot_id == chatbot_id)
-        .order_by(HubCorpusSelection.created_at.desc())
-    )
-    result = await session.execute(stmt)
-    return result.scalars().all()
+    return await sitios.selecciones(session, chatbot_id)
 
 
 @router.delete(
@@ -779,13 +628,7 @@ async def delete_selection(
     Deploy: edge.
     """
     await assert_chatbot_org_access(session, chatbot_id, current_user)
-    seleccion = await session.get(HubCorpusSelection, selection_id)
-    if seleccion is None or seleccion.chatbot_id != chatbot_id:
-        # #242: el asistente de la ruta pasaba el control y la selección podía ser de otro.
-        raise HTTPException(status_code=404, detail="Selección no encontrada en este asistente")
-    repo = CorpusSelectionRepo(session)
-    await repo.delete(selection_id)
-    await session.commit()
+    await sitios.borrar_seleccion(session, chatbot_id, selection_id)
 
 
 @router.get(
@@ -805,9 +648,7 @@ async def get_page_content(
     hallazgo es cierto, para decidir si la página merece publicarse y, desde CUR.3, para comprobar
     que el recorte de plantilla no se ha llevado contenido por delante.
     """
-    pagina = await session.get(HubCrawledPage, page_id)
-    if pagina is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Page not found")
+    pagina = await sitios.pagina_o_404(session, page_id)
 
     # El texto de una página es contenido del cliente, así que la guarda de organización va aquí
     # igual que en el resto del módulo.
@@ -875,9 +716,7 @@ async def ingest_page(
     sitio, que es justo el circuito que el módulo existe para cerrar.
     """
     asistente = await assert_chatbot_org_access(session, chatbot_id, current_user)
-    pagina = await session.get(HubCrawledPage, page_id)
-    sitio = await session.get(HubWebSite, pagina.site_id) if pagina is not None else None
-    if sitio is None or sitio.organizacion_id != asistente.organizacion_id:
+    if not await sitios.es_de_la_organizacion(session, page_id, asistente.organizacion_id):
         # #242: sin esto, el contenido de una página de otra organización entraba en este corpus.
         raise HTTPException(status_code=404, detail="Página no encontrada para este asistente")
     servicio = await _servicio_que_puede_ingerir(session, chatbot_id)
