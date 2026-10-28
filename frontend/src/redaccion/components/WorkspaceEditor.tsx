@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { BlockStateAnnouncer } from './BlockStateAnnouncer'
 import { StatusBadge } from '@/shared/components/StatusBadge'
@@ -26,31 +26,25 @@ const ANNOUNCED_STATES = new Set(['extracted', 'ai_generated', 'approved', 'reje
 export function WorkspaceEditor({ workspace }: Props) {
   const { t: tR } = useTranslation('redaccion')
   const [announcement, setAnnouncement] = useState('')
-  const prevStatusRef = useRef<Map<string, string>>(new Map())
-
-  useEffect(() => {
-    const prev = prevStatusRef.current
-    let newAnnouncement = ''
-
+  // El estado anterior de cada bloque, para anunciar sólo los cambios. Se recalcula **al
+  // renderizar** cuando llega otro `workspace`, que es el patrón de React para derivar estado de
+  // una prop: con un efecto, cada cambio pintaba dos veces.
+  const [visto, setVisto] = useState<{ workspace: WorkspaceData | null; estados: Map<string, string> }>(
+    { workspace: null, estados: new Map() },
+  )
+  if (visto.workspace !== workspace) {
+    const estados = new Map<string, string>()
+    let nuevoAnuncio = ''
     for (const block of workspace.blocks) {
-      const blockId = block.block_id
-      const currentStatus = block.status
-      const prevStatus = prev.get(blockId)
-
-      if (
-        prevStatus !== undefined &&
-        prevStatus !== currentStatus &&
-        ANNOUNCED_STATES.has(currentStatus)
-      ) {
-        newAnnouncement = tR(`announcer.${currentStatus}`, { label: blockId })
+      const anterior = visto.estados.get(block.block_id)
+      if (anterior !== undefined && anterior !== block.status && ANNOUNCED_STATES.has(block.status)) {
+        nuevoAnuncio = tR(`announcer.${block.status}`, { label: block.block_id })
       }
-      prev.set(blockId, currentStatus)
+      estados.set(block.block_id, block.status)
     }
-
-    if (newAnnouncement) {
-      setAnnouncement(newAnnouncement)
-    }
-  }, [workspace, tR])
+    setVisto({ workspace, estados })
+    if (nuevoAnuncio) setAnnouncement(nuevoAnuncio)
+  }
 
   return (
     <div data-testid="workspace-editor">

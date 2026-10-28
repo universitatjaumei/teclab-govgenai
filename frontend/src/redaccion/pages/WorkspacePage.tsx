@@ -36,7 +36,7 @@ const CON_CONTENIDO = new Set(['in_review', 'assembled', 'exported'])
  * y esos se convierten en enlaces al bloque. Lo que no puede pasar es que el botón vuelva a su
  * sitio sin decir nada, que es lo que hacía «Exportar a Word».
  */
-export function mensajeDeFallo(
+function mensajeDeFallo(
   fallo: unknown,
   t: (clave: string) => string,
 ): { texto: string; bloques: string[] } {

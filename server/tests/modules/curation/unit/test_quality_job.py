@@ -117,15 +117,21 @@ class _FakeSession:
         return self._pages.get(pk)
 
     async def execute(self, stmt: Any) -> Any:
-        """DIN.4 — el paso de auto-retirada consulta los avisos `page_gone` abiertos. Estos
-        tests no siembran ninguno, así que la respuesta es vacía."""
+        """Las páginas, si se piden (#282: el job las carga todas de una vez con un `IN`); lo
+        demás vacío. DIN.4 — el paso de auto-retirada consulta los avisos `page_gone` abiertos,
+        y estos tests no siembran ninguno."""
+        try:
+            entidad = stmt.column_descriptions[0]["entity"].__name__
+        except Exception:
+            entidad = ""
+        filas = list(self._pages.values()) if entidad == "HubCrawledPage" else []
 
         class _R:
             def scalars(self_inner) -> Any:
                 return self_inner
 
             def all(self_inner) -> list:
-                return []
+                return filas
 
         return _R()
 

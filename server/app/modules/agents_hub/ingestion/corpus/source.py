@@ -20,6 +20,7 @@ from server.app.modules.agents_hub.ingestion.corpus.faq import (
     debe_validarse_como_faq,
 )
 from server.app.modules.agents_hub.ingestion.corpus.frontmatter import parse_frontmatter
+from server.app.modules.agents_hub.ingestion.markdown_utils import extract_title_from_markdown
 from server.app.modules.agents_hub.ingestion.corpus.manifest import (
     CorpusDocumentEntry,
     CorpusManifest,
@@ -190,6 +191,12 @@ class MarkdownSubido:
     async def list_entries(self) -> list[CorpusDocumentEntry]:
         entrada = _entrada(self._nombre, self._texto, url_por_defecto=self._url_por_defecto)
         cambios: dict = {"extra": {"source_kind": "upload", **entrada.extra}}
+        if not entrada.title:
+            # #285 — sin `title:`, el reconciliador titulaba con el nombre del fichero y su
+            # extensión (`norma.md`). Antes de #265 era `norma`; y el H1, que es el título que
+            # el documento se da a sí mismo, no se miraba en ninguno de los dos casos.
+            cuerpo = parse_frontmatter(self._texto)[1]
+            cambios["title"] = extract_title_from_markdown(cuerpo) or Path(self._nombre).stem
         if self._canonical_url:
             cambios["source_url"] = self._canonical_url
         if self._language:

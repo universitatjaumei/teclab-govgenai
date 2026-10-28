@@ -93,7 +93,7 @@ fichero. Las que siguen abiertas están abiertas de verdad, y ninguna es de segu
 | I7 · el widget esquiva el contrato | ✅ | no queda ningún `fetch(` a mano en `frontend/src/widget/` |
 | I8 · capa API paralela de anonimización | ✅ | `useAnonymizationApi.ts` ya no existe |
 | M1 · stubs post-MVP sin llamantes | ⏳ | no re-verificado en APER.7 |
-| M2 · `ThemeEditor.tsx` muerto | ⏳ | el fichero sigue en `frontend/src/components/ThemeEditor/` |
+| M2 · `ThemeEditor.tsx` muerto | ✅ | retirado en #171 (2026-09-27): editaba el tema equivocado |
 | M3 · guardarraíl i18n sólo caza `hub.*` | ⏳ | no re-verificado en APER.7 |
 | M4 · DSN con reserva a credenciales de desarrollo | ✅ | AIS.8: en producción **falla** en vez de conectar con la credencial publicada (`database/db.py:46`) |
 | M5 · acciones decididas por estado en el frontend | ⏳ | no re-verificado en APER.7 |
@@ -102,7 +102,7 @@ fichero. Las que siguen abiertas están abiertas de verdad, y ninguna es de segu
 | M8 · `create_all` en cada arranque | ✅ | **BD.2**: el esquema lo define Alembic y sólo Alembic (invariante I14) |
 
 **Lo que queda abierto no es de seguridad**, con una excepción menor: el límite de peticiones en
-feedback y temas. El resto son clasificación (I2), alcance pendiente (I4, I6) y limpieza (M1, M2,
+feedback y temas. El resto son clasificación (I2), alcance pendiente (I4, I6) y limpieza (M1,
 M3, M5, M7). Tres de ellos no se re-verificaron en APER.7 y lo dicen.
 
 ---
@@ -285,8 +285,8 @@ conocidos (pyjwt 2.10.1, python-multipart 0.0.21, cryptography 46.0.3; no se usa
 
 - ⏳ **M1** · stubs post-MVP documentados sin llamantes (`anonymization/service.py:231-237`
   `save_state`/`load_state`; `library_router.py:201` `key_id: "default"`).
-- ⏳ **M2** · `ThemeEditor.tsx` es componente muerto (0 consumidores) y sus 16 claves `themeEditor.*`
-  no existen en ningún locale (default inline en castellano). Es el "editor aparcado".
+- ✅ **M2** · `ThemeEditor.tsx` es componente muerto (0 consumidores) y sus 16 claves `themeEditor.*`
+  no existen en ningún locale (default inline en castellano). Era el "editor aparcado": se retiró en #171.
 - ⏳ **M3** · el guardarraíl anti-"clave solo como default" del namespace admin solo caza `hub.*`
   (`adminI18nCoverage.test.ts:148`); `curation` sí tiene el guardarraíl completo. Paridad es/ca/en
   medida completa en los 7 namespaces.

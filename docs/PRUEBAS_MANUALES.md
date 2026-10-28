@@ -155,7 +155,7 @@ arreglado con TDD; detalle en `planificacion/PROJECT_STATE.md`, entradas PRO.1�
 | PDF **real** del informe de calidad de curación | En esta máquina no hay LibreOffice, así que la exportación cae a DOCX —y desde VER.7 lo dice en el tipo y la extensión en vez de mentir—. Verificar el PDF exige un entorno con LibreOffice instalado | Alguien con LibreOffice, o el despliegue donde vaya a correr |
 | Rastreo de un sitio con enlaces servidos en HTML (p. ej. `www.uji.es`) | El sitio local del corpus pinta sus fichas con JavaScript, así que un rastreador estático sólo alcanza el índice y el buscador. La profundidad real no se puede medir contra él | Cualquiera, apuntando un sitio nuevo a una web institucional real |
 
-### `frontend/widget` (chatbot público embebible)
+### `frontend/src/widget` (chatbot público embebible)
 
 | Qué se prueba | Por qué NO lo hace el agente en navegador | Quién |
 |---|---|---|

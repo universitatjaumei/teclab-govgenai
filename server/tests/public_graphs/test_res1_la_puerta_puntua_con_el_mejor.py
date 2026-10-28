@@ -35,6 +35,7 @@ from server.app.modules.agents_hub.agent.public_graphs.strategies.retrieval_cont
 from server.app.modules.agents_hub.agent.public_graphs.strategies.retrieval_pipeline_protocol import (
     GraphDeps,
 )
+from server.tests.dobles import modelo_de_chat
 
 
 def _cfg(*, umbral: float, minimo: int = 1) -> PublicGraphConfig:
@@ -62,7 +63,7 @@ def _grafo(items, cfg):
     language.filter_items = MagicMock(side_effect=lambda lang, elementos: elementos)
     language.should_warn_translation = MagicMock(return_value=False)
 
-    llm = MagicMock()
+    llm = modelo_de_chat()
     llm.ainvoke = AsyncMock(return_value=MagicMock(content="respuesta"))
 
     return CoreGraph(

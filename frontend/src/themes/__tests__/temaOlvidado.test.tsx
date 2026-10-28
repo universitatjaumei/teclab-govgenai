@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { render, screen, act } from '@testing-library/react'
-import { ThemeProvider, useTheme } from '../ThemeProvider'
+import { ThemeProvider } from '../ThemeProvider'
+import { useTheme } from '../ThemeContext'
 import { DEFAULT_THEME, TEMA_OLVIDADO } from '../types'
 import { DARK_THEME } from '../presets'
 

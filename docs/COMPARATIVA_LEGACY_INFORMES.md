@@ -63,8 +63,8 @@ No es una migración en un solo sentido. Lo que este módulo aporta y allí no e
 
 ## Una nota sobre el legacy de este repositorio
 
-`ExtractionServiceConfig` y `seeds_prompts.py` —la biblioteca de prompts **del legacy heredado
-en este mismo repositorio**— siguen en el árbol activo junto al `main.py` de la raíz, mientras su
-interfaz ya está en `_legacy_nicegui/admin_prompts.py`. `tests/test_prompts.py` **siembra la base
-de datos real del desarrollador** y es inestable con `-n auto`. Retirarlo entero es un prompt
-propio: toca la raíz y `app/database/`.
+Al escribir esto, `ExtractionServiceConfig` y `seeds_prompts.py` —la biblioteca de prompts **del
+legacy heredado en este mismo repositorio**— seguían en el árbol activo junto a un `main.py` en la
+raíz, con su interfaz en la cuarentena NiceGUI y un test que **sembraba la base de datos real del
+desarrollador**. Todo ello se retiró con el cliente NiceGUI el 2026-09-04 (bloque NIC); el
+detalle, en `docs/INVENTARIO_RETIRADA_LEGACY.md`.

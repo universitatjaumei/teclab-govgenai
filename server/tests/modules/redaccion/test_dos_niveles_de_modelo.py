@@ -21,6 +21,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from server.app.core.auth.models import UserInfo
+from server.tests.dobles import modelo_de_chat
 
 
 # ---------------------------------------------------------------------------
@@ -185,7 +186,7 @@ def _llm_que_responde(texto: str):
     class _Respuesta:
         content: str
 
-    llm = MagicMock()
+    llm = modelo_de_chat()
     llm.ainvoke = AsyncMock(return_value=_Respuesta(content=texto))
     return llm
 

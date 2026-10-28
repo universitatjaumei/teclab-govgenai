@@ -45,14 +45,14 @@ un framework obligaría a re-implementar la gobernanza dentro de su abstracción
 
 | Componente | Fichero | Cubo | Dependencia madura | Prompt del plan |
 |---|---|---|---|---|
-| Parser PDF | `ingestion/docling_processor.py` | ✅ Ya apoyado | `docling` (instalada) | — |
+| Parser PDF | `ingestion/docling_processor.py` (retirado en EXT.3) | ↩️ Revertido | `docling` (instalada) | — |
 | Parser multi-formato (DOCX/PPTX/XLSX) | disperso (`pymupdf`,`pdfplumber`,`openpyxl`,`odfpy`) | ♻️ Consolidar | `docling` (multi-formato v2) | Bloque **ING** |
 | Parser audio/YouTube | inexistente | ➕ Hueco (opcional) | `MarkItDown` + `faster-whisper`/`yt-dlp` | Bloque **ING** (nicho) |
 | Scrapers web | `ingestion/spider*.py`, `spiders/` | 🔒/baja prioridad | `trafilatura`/`Crawl4AI` (si molesta) | — (degradado a nicho) |
 | Chunker markdown | `ingestion/chunker.py` | ✅ Ya apoyado | `langchain-text-splitters` (instalada) | — |
 | Contextual chunking | inexistente | ➕ Hueco | (texto embebido enriquecido, sin dep nueva) | **RAG.7** |
 | Parent-child chunking | inexistente | ➕ Hueco | `ParentDocumentRetriever` (langchain) | **RAG.8** |
-| Embeddings | `services/embedding_service.py` | ✅ Ya apoyado | `sentence-transformers` (bge-m3, local) | RAG.9 (metadato) |
+| Embeddings | `agents_hub/services/embedding_service.py` | ✅ Ya apoyado | `sentence-transformers` (bge-m3, local) | RAG.9 (metadato) |
 | Índice vectorial (ANN) | `retriever.py::vector_search` | ➕ Hueco (falta índice) | `pgvector` HNSW (migración) | **RAG.3** |
 | Búsqueda léxica | `retriever.py::keyword_search` (**`ILIKE`**) | ♻️ **Reinventado** | Postgres FTS `tsvector`+GIN | **RAG.4** |
 | Fusión híbrida (RRF) | `retriever.py::hybrid_search` | ✅ Correcto (~20 líneas) | — (no aporta dep) | — |
@@ -64,7 +64,7 @@ un framework obligaría a re-implementar la gobernanza dentro de su abstracción
 
 ### Parsers
 
-- **PDF — no tocar.** `docling_processor.py` ya delega en Docling. ✅
+- **PDF — revertido.** `docling_processor.py` delegaba en Docling; EXT.3 lo retiró con él.
 - **Multi-formato — consolidar en Docling (Bloque ING).** Docling v2 cubre DOCX/PPTX/XLSX/HTML →
   markdown, que es tu unidad canónica (`HubDocument` markdown). En vez de mantener cuatro parsers
   sueltos (`pymupdf`+`pdfplumber`+`openpyxl`+`odfpy`), extender el `docling_processor` a esos

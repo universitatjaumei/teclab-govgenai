@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, act } from '@testing-library/react';
 import { renderHook } from '@testing-library/react';
 import { type ReactNode } from 'react';
-import { ThemeProvider, useTheme } from '../ThemeProvider';
+import { ThemeProvider } from '../ThemeProvider';
+import { useTheme } from '../ThemeContext';
 import { DEFAULT_THEME, type ThemeConfig } from '../types';
 
 // Mock de fetch para cargar temas

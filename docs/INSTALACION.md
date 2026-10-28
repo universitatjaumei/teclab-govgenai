@@ -46,6 +46,16 @@ libres), pide las credenciales del superadministrador, levanta `docker-compose.p
 las migraciones y siembra. **Es idempotente de extremo a extremo**: ejecutarlo dos veces no
 duplica nada ni rehashea la contraseña que ya pusiste.
 
+**Langfuse va aparte, en el perfil `observabilidad`**: `docker compose -f docker-compose.prod.yml
+--profile observabilidad up -d`. Trae con él ClickHouse, Redis y sus dos buckets de MinIO, que la
+versión 3 necesita y sin los que no arranca; son un par de gigas de memoria que la plataforma no
+necesita para funcionar.
+
+**Si actualizas una instalación anterior al 2026-10-28**, tu `.env` no tiene `CLICKHOUSE_PASSWORD`.
+La plataforma arranca igual; para el perfil, añádela a mano (`openssl rand -hex 16`). Antes de
+esa fecha Langfuse estaba en el compose sin perfil pero no llegaba a arrancar, porque le faltaban
+justo esos tres servicios: no se pierde nada que funcionara.
+
 Opciones que conviene conocer:
 
 | Opción | Para qué |

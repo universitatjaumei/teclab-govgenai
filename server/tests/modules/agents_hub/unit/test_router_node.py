@@ -2,6 +2,7 @@
 import uuid
 import pytest
 from unittest.mock import AsyncMock
+from server.tests.dobles import modelo_de_chat
 
 
 class TestRouteToSubagent:
@@ -81,7 +82,7 @@ class TestRouteToSubagent:
         from server.app.modules.agents_hub.agent.router_node import build_route_to_subagent_node
         embedding_service = AsyncMock(embed=AsyncMock(return_value=[0.0] * 1024))
         # Embeddings idénticos → confianza ≈ 1.0 entre todos → tie-breaker por LLM
-        llm = AsyncMock()
+        llm = modelo_de_chat()
         llm.ainvoke = AsyncMock(return_value=type("R", (),
                                                   {"content": str(router_chatbot[2].id)})())
         chatbot_provider = AsyncMock(get_children=AsyncMock(return_value=router_chatbot[1:]))

@@ -16,6 +16,7 @@ from server.app.modules.redaccion.services.transformation.operations import (
     AggregateOp,
     FilterOp,
 )
+from server.tests.dobles import modelo_de_chat
 
 
 def _schema_of(df: pd.DataFrame) -> dict:
@@ -55,7 +56,7 @@ class TestETLFactoryOperations:
                 {"op": "aggregate", "col": "revenue", "function": "sum"},
             ],
         })
-        llm = MagicMock()
+        llm = modelo_de_chat()
         llm.ainvoke = _ainvoke_mock(ops_json)
 
         factory = ETLFactory(llm, model_name="claude-test")
@@ -83,7 +84,7 @@ class TestETLFactoryOperations:
             "operations": [{"op": "filter", "col": "units", "comparator": ">", "value": 5}],
         })
 
-        llm = MagicMock()
+        llm = modelo_de_chat()
         llm.ainvoke = _ainvoke_mock(invalid_payload, valid_payload)
 
         factory = ETLFactory(llm, model_name="m")
@@ -106,7 +107,7 @@ class TestETLFactoryOperations:
             "    return df[df['units'] > 15]\n"
             "```"
         )
-        llm = MagicMock()
+        llm = modelo_de_chat()
         # MAX_REFINEMENT_ITERATIONS attempts at operations + 1 fallback script.
         llm.ainvoke = _ainvoke_mock(
             *([invalid_payload] * MAX_REFINEMENT_ITERATIONS),
@@ -139,7 +140,7 @@ class TestETLFactoryOperations:
             "    return df\n"
             "```"
         )
-        llm = MagicMock()
+        llm = modelo_de_chat()
         llm.ainvoke = _ainvoke_mock(
             *([invalid_payload] * MAX_REFINEMENT_ITERATIONS),
             unsafe_script,

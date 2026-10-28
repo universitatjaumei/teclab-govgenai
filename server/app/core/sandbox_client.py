@@ -46,6 +46,18 @@ class SandboxUnavailableError(Exception):
     """El microservicio script-sandbox no responde tras los reintentos configurados."""
 
 
+#: Lo más que el sandbox deja esperar turno antes de contestar 503 `SANDBOX_BUSY` (#296). Es el
+#: `ESPERA_EN_COLA_SEGUNDOS` de `services/script_sandbox/sandbox/main.py`: el cliente lo suma a
+#: su espera de lectura para no rendirse antes de que el sandbox conteste.
+ESPERA_EN_COLA_SEGUNDOS = 30
+
+# #282 — lo mismo desde los dos clientes, el HTTP y el local.
+_SALIDA_ILEGIBLE = "La salida del guion no se pudo leer como resultado."
+
+# #296 — el 503 del sandbox, igual para extracción, gráficos y ETL: los tres esperan el mismo turno.
+_OCUPADO = "El sandbox está ocupado con otra ejecución. Vuelve a intentarlo en un momento."
+
+
 # ---------------------------------------------------------------------------
 # Protocol — contrato que ambas implementaciones satisfacen
 # ---------------------------------------------------------------------------
@@ -439,12 +451,26 @@ class HttpSandboxClient:
                 [],
             )
 
+        if resp.status_code == 503:
+            return (
+                _extraction_with_warning("SANDBOX_BUSY", _OCUPADO, self._PIPELINE_ID),
+                [],
+            )
+
         if resp.status_code == 504:
             return (
                 _extraction_with_warning(
                     "SCRIPT_TIMEOUT",
                     f"El script excedió el tiempo límite de {t}s.",
                     self._PIPELINE_ID,
+                ),
+                [],
+            )
+
+        if error_code == "SCRIPT_OUTPUT_UNREADABLE":
+            return (
+                _extraction_with_warning(
+                    "SCRIPT_OUTPUT_UNREADABLE", _SALIDA_ILEGIBLE, self._PIPELINE_ID
                 ),
                 [],
             )
@@ -479,8 +505,10 @@ class HttpSandboxClient:
         if resp.status_code == 200:
             return resp.content
 
-        body_text = resp.text[:300]
         from server.app.modules.redaccion.services.charts.chart_renderer import ChartRenderError
+        if resp.status_code == 503:
+            raise ChartRenderError(_OCUPADO)
+        body_text = resp.text[:300]
         raise ChartRenderError(f"Sandbox error {resp.status_code}: {body_text}")
 
     async def execute_etl_script(
@@ -501,6 +529,8 @@ class HttpSandboxClient:
         if resp.status_code == 200:
             return resp.text
 
+        if resp.status_code == 503:
+            raise ValueError(_OCUPADO)
         raise ValueError(f"Sandbox ETL error {resp.status_code}: {resp.text[:300]}")
 
     # ------------------------------------------------------------------
@@ -510,8 +540,8 @@ class HttpSandboxClient:
     async def _post_with_retry(
         self, path: str, payload: dict, script_timeout: int
     ) -> httpx.Response:
-        """POST con reintento en ConnectError. La read timeout excede el timeout del script."""
-        read_timeout = max(script_timeout + 30, 60)
+        """POST con reintento en ConnectError. La read timeout excede la cola más el guion."""
+        read_timeout = max(script_timeout + ESPERA_EN_COLA_SEGUNDOS + 30, 60)
         # httpx.Timeout(default, connect=x) sets default for read/write/pool and overrides connect.
         timeout = httpx.Timeout(read_timeout, connect=self._connect_timeout)
         last_exc: Exception | None = None
@@ -520,6 +550,11 @@ class HttpSandboxClient:
             try:
                 async with httpx.AsyncClient(base_url=self._base_url, timeout=timeout) as client:
                     return await client.post(path, json=payload)
+            except httpx.ReadTimeout as exc:
+                # #296 — no se reintenta: el sandbox puede estar ejecutándolo todavía.
+                raise SandboxUnavailableError(
+                    f"El sandbox '{self._base_url}' no contestó en {read_timeout}s."
+                ) from exc
             except httpx.ConnectError as exc:
                 last_exc = exc
                 if attempt >= self._max_retries:
@@ -786,13 +821,16 @@ def _con_aviso_de_no_declarados(resultado: ExtractionResult, descartados: int) -
 def _resultado_local(sub: dict, pipeline_id: str) -> ExtractionResult:
     if sub["returncode"] != 0:
         return _extraction_with_warning(
-            "SCRIPT_EXECUTION_ERROR", sub["stderr"][:500], pipeline_id
+            "SCRIPT_EXECUTION_ERROR", sub["stderr"][-500:], pipeline_id
         )
 
     try:
         data = json.loads(sub["stdout"])
     except (json.JSONDecodeError, ValueError):
-        data = {}
+        # Con la salida del guion en stderr no debería pasar; si pasa, se dice (#282).
+        return _extraction_with_warning(
+            "SCRIPT_OUTPUT_UNREADABLE", _SALIDA_ILEGIBLE, pipeline_id
+        )
 
     return _parse_extraction_json({"result": data}, pipeline_id)
 
@@ -900,11 +938,17 @@ file_path = {file_path!r}
 raw_text = {raw_text!r}
 options = {options!r}
 output_dir = {output_dir!r}
+# El guion imprime a stderr: stdout es sólo del resultado (#282). Antes un `print` de depuración
+# iba al mismo stdout que el JSON, el JSON dejaba de leerse y el resultado salía vacío sin aviso.
+import sys as _sys
+_salida_del_resultado = _sys.stdout
+_sys.stdout = _sys.stderr
+del _sys
 # --- script de usuario ---
 {code}
 # --- fin script de usuario ---
 _r = globals().get("result", {{}})
-print(json.dumps(_r, default=str))
+_salida_del_resultado.write(json.dumps(_r, default=str))
 """
 
 

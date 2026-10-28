@@ -1,6 +1,6 @@
 import type { FieldErrors, FieldValues, UseFormRegister } from 'react-hook-form'
 import type { UIFieldDescriptor } from '@/shared/api/generated/model'
-import { getLocalizedLabel } from './ReportUIContractRenderer'
+import { getLocalizedLabel } from '../utils/getLocalizedLabel'
 
 interface Props {
   fields: UIFieldDescriptor[]

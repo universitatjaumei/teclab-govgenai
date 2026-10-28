@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 from server.app.modules.agents_hub.database.config_models import HubChatbot, HubLLMConfig
 from server.app.api.deps import get_session
+from server.tests.dobles import modelo_de_chat
 
 _JWT_ENV = {
     "JWT_SECRET_KEY": "test-secret-key-that-is-at-least-32-characters-long",
@@ -190,7 +191,7 @@ class TestLLMConfigsRouter:
         session = AsyncMock()
         session.scalar = AsyncMock(return_value=cfg)
 
-        mock_llm = AsyncMock()
+        mock_llm = modelo_de_chat()
         mock_llm.ainvoke = AsyncMock(return_value=MagicMock(content="ok"))
 
         with patch(

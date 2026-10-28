@@ -54,6 +54,53 @@ ETIQUETA_DEL_SITIO_ENTERO = "sitio"
 # ──────────────────────────── Protocolos ────────────────────────────
 
 
+
+async def _paginas_por_id(session: Any, ids) -> dict:
+    """Las páginas de `ids` en una sola consulta, por id; las que no existen no están (#282).
+
+    Los trabajos de calidad pedían cada página con un `session.get` dentro del bucle: una
+    consulta por página en cada pasada de cada sitio. Lo que no cambia es el resultado, porque
+    `select` también devuelve los objetos que la sesión ya tenía cargados.
+    """
+    from sqlalchemy import select
+
+    from server.app.modules.agents_hub.database.operational_models import HubCrawledPage
+
+    paginas: dict = {}
+    for lote in _en_lotes(ids):
+        # recorrido-acotado: sólo las páginas cuyos ids trae la pasada, las que antes se pedían una a una.
+        filas = await session.execute(select(HubCrawledPage).where(HubCrawledPage.id.in_(lote)))
+        paginas.update({pagina.id: pagina for pagina in filas.scalars().all()})
+    return paginas
+
+
+async def _documentos_por_pagina(session: Any, ids) -> dict:
+    """Los documentos del corpus de cada página, con un `IN` en vez de una consulta por página."""
+    from sqlalchemy import select
+
+    from server.app.modules.agents_hub.database.operational_models import HubDocument
+
+    documentos: dict = {}
+    for lote in _en_lotes(ids):
+        # recorrido-acotado: los documentos de las páginas que cambiaron en esta pasada.
+        filas = await session.execute(
+            select(HubDocument).where(HubDocument.crawled_page_id.in_(lote))
+        )
+        for doc in filas.scalars().all():
+            documentos.setdefault(doc.crawled_page_id, []).append(doc)
+    return documentos
+
+
+# asyncpg no admite más de 32.767 parámetros por consulta, y un `IN` usa uno por id: el primer
+# rastreo de un portal grande puede traer más páginas que eso.
+_LOTE = 5_000
+
+
+def _en_lotes(ids) -> list[list]:
+    unicos = [i for i in dict.fromkeys(ids) if i]
+    return [unicos[i : i + _LOTE] for i in range(0, len(unicos), _LOTE)]
+
+
 class _SiteCrawler(Protocol):
     async def crawl_site(
         self, site_id: uuid.UUID, section_id: uuid.UUID | None = None
@@ -220,15 +267,10 @@ class SiteQualityAnalysisJob:
         if not changed_page_ids or (self._watcher is None and self._watcher_factory is None):
             return
 
-        from sqlalchemy import select
-
-        from server.app.modules.agents_hub.database.operational_models import (
-            HubCrawledPage,
-            HubDocument,
-        )
-
+        paginas = await _paginas_por_id(session, changed_page_ids)
+        documentos_de = await _documentos_por_pagina(session, changed_page_ids)
         for page_id in changed_page_ids:
-            page = await session.get(HubCrawledPage, page_id)
+            page = paginas.get(page_id)
             if page is None:
                 continue
 
@@ -245,11 +287,7 @@ class SiteQualityAnalysisJob:
                 )
                 continue
 
-            documentos = (
-                await session.execute(
-                    select(HubDocument).where(HubDocument.crawled_page_id == page_id)
-                )
-            ).scalars().all()
+            documentos = documentos_de.get(page_id, [])
             # Un asistente puede tener la página una vez; varios pueden tenerla cada uno.
             chatbots = {doc.chatbot_id for doc in documentos}
             if not chatbots:
@@ -478,10 +516,10 @@ class SiteQualityAnalysisJob:
         self, session: Any, site_id: uuid.UUID, gone_page_ids: list
     ) -> None:
         """Un `page_gone` por página, para la cola de quien cura."""
-        from server.app.modules.agents_hub.database.operational_models import HubCrawledPage
 
+        paginas = await _paginas_por_id(session, gone_page_ids)
         for page_id in gone_page_ids:
-            pagina = await session.get(HubCrawledPage, page_id)
+            pagina = paginas.get(page_id)
             if pagina is None:
                 continue
             await self._registrar_hallazgo(
@@ -503,7 +541,6 @@ class SiteQualityAnalysisJob:
         if self._retirer_factory is None:
             return
 
-        from server.app.modules.agents_hub.database.operational_models import HubCrawledPage
 
         repo = self._selecciones(session)
         selecciones = await repo.list_by_site(site_id)
@@ -512,8 +549,9 @@ class SiteQualityAnalysisJob:
         secciones = await repo.secciones_de(selecciones)
         retirador = self._retirer_factory(session)
 
+        paginas = await _paginas_por_id(session, gone_page_ids)
         for page_id in gone_page_ids:
-            pagina = await session.get(HubCrawledPage, page_id)
+            pagina = paginas.get(page_id)
             if pagina is None:
                 continue
             for sel in selecciones:
@@ -547,7 +585,6 @@ class SiteQualityAnalysisJob:
 
         from server.app.modules.agents_hub.database.operational_models import (
             HubContentFinding,
-            HubCrawledPage,
         )
 
         abiertos = (
@@ -563,12 +600,13 @@ class SiteQualityAnalysisJob:
             return
 
         retirados = 0
+        paginas = await _paginas_por_id(session, [a.page_id for a in abiertos])
         for aviso in abiertos:
             if getattr(aviso, "finding_type", None) != "page_gone":
                 continue
             if getattr(aviso, "status", None) not in ("new", "confirmed"):
                 continue
-            pagina = await session.get(HubCrawledPage, aviso.page_id)
+            pagina = paginas.get(aviso.page_id)
             if pagina is None or getattr(pagina, "status", None) != "active":
                 continue
             aviso.status = "resolved"
@@ -697,9 +735,6 @@ class SiteQualityAnalysisJob:
 
         # ── 3. CONSOLIDACIÓN + quality_score ──────────────────────────────────
         async with self._session_factory() as session:
-            from server.app.modules.agents_hub.database.operational_models import (
-                HubCrawledPage,
-            )
 
             # ── 3.pre. RECONCILIACIÓN (CUR.9) ─────────────────────────────────
             #
@@ -722,6 +757,11 @@ class SiteQualityAnalysisJob:
                 logger.exception("Reconciliation failed for site %s", site_id)
                 summary.errors.append(f"reconciliation: {exc}")
 
+            # Las páginas de todos los hallazgos, en una consulta para los dos bucles de abajo.
+            paginas = await _paginas_por_id(
+                session, [getattr(f, "page_id", None) for f in all_findings]
+            )
+
             # Flags de supersesión sobre HubCrawledPage
             for f in all_findings:
                 if (
@@ -730,7 +770,7 @@ class SiteQualityAnalysisJob:
                 ):
                     page_id = getattr(f, "page_id", None)
                     if page_id:
-                        page = await session.get(HubCrawledPage, page_id)
+                        page = paginas.get(page_id)
                         if page is not None and not page.superseded:
                             page.superseded = True
                             page.superseded_by_page_id = getattr(f, "related_page_id", None)
@@ -744,7 +784,7 @@ class SiteQualityAnalysisJob:
                     findings_by_page.setdefault(pid, []).append(f)
 
             for page_id, page_findings in findings_by_page.items():
-                page = await session.get(HubCrawledPage, page_id)
+                page = paginas.get(page_id)
                 if page is not None:
                     page.quality_score = _compute_quality_score(page_findings)
 
@@ -794,9 +834,10 @@ class SiteQualityAnalysisJob:
                 # #247 — sin selección automática no hay nada que hacer con lo nuevo, y se da por
                 # procesado: si siguiera marcado, una selección automática creada meses después
                 # ingeriría de golpe todo lo que fue nuevo alguna vez.
+                paginas_nuevas = await _paginas_por_id(session, new_page_ids)
                 if not auto_sels:
                     for page_id in new_page_ids:
-                        page = await session.get(HubCrawledPage, page_id)
+                        page = paginas_nuevas.get(page_id)
                         if page is not None:
                             await self._ya_procesada(session, page)
 
@@ -804,7 +845,7 @@ class SiteQualityAnalysisJob:
                     # DIN.3 — las secciones a las que apuntan, cargadas antes del bucle.
                     secciones = await repo_de_selecciones.secciones_de(auto_sels)
                     for page_id in new_page_ids:
-                        page = await session.get(HubCrawledPage, page_id)
+                        page = paginas_nuevas.get(page_id)
                         if page is None:
                             continue
 

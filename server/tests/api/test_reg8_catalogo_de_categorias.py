@@ -27,11 +27,8 @@ from __future__ import annotations
 
 import uuid
 
-import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlmodel.ext.asyncio.session import AsyncSession
 
 import server.app.main  # noqa: F401
 
@@ -42,16 +39,6 @@ ORG_A = uuid.UUID("735a5f55-7020-4c88-a374-c2b641c5b00b")
 ORG_B = uuid.UUID("00000000-0000-0000-0000-000000000010")
 
 EJE = "categoria_dades"
-
-
-@pytest.fixture
-async def db_session(db_url):
-    engine = create_async_engine(db_url)
-    try:
-        async with AsyncSession(engine) as session:
-            yield session
-    finally:
-        await engine.dispose()
 
 
 def _principal(rol: str = "admin", *orgs: uuid.UUID) -> UserInfo:

@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 import pytest
 
 from server.app.modules.redaccion.contracts.runtime import BlockState, WorkspaceState
+from server.tests.dobles import modelo_de_chat
 
 _CONTENIDO_EXTRAIDO = {
     "tables": [{
@@ -167,7 +168,7 @@ async def test_should_rechazar_el_script_de_ia_que_no_pasa_la_auditoria() -> Non
 
     from server.app.modules.redaccion.graph.nodes.chart_render import ChartRenderNode
 
-    llm = MagicMock()
+    llm = modelo_de_chat()
     llm.ainvoke = AsyncMock(return_value=MagicMock(content=(
         "```python\nimport os\nplt.plot([1,2])\n```"
     )))

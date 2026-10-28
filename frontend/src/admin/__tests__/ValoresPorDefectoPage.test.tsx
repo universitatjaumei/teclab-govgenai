@@ -3,7 +3,8 @@ import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest'
 import { render, screen, within, fireEvent } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import i18n from '@/shared/i18n'
-import { ValoresPorDefectoPage, CONTROLES } from '../pages/ValoresPorDefectoPage'
+import { ValoresPorDefectoPage } from '../pages/ValoresPorDefectoPage'
+import { CONTROLES } from '../pages/controlesDeValoresPorDefecto'
 import {
   useListOrganizacionesApiV1HubOrganizacionesGet,
   useGetValoresPorDefectoApiV1HubOrganizacionesOrganizacionIdValoresPorDefectoGet as useValores,

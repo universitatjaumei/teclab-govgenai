@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { UIDropzoneDescriptor } from '@/shared/api/generated/model'
-import { getLocalizedLabel } from './ReportUIContractRenderer'
+import { getLocalizedLabel } from '../utils/getLocalizedLabel'
 
 interface Props {
   dropzones: UIDropzoneDescriptor[]

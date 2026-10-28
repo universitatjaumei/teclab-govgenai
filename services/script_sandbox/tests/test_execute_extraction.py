@@ -61,3 +61,12 @@ def test_execute_extraction_empty_code_returns_422(client) -> None:
     assert resp.status_code == 422
     body = resp.json()
     assert body["code"] == "SCRIPT_EMPTY"
+
+
+def test_execute_extraction_keeps_the_end_of_stderr(client) -> None:
+    """Revisión de la PR #313: lo que imprime el guion va a stderr (#282), así que el principio
+    son sus `print` y el traceback está al final. Se guarda el final."""
+    code = "for i in range(200):\n    print('depurando', i)\nraise KeyError('falta')\n"
+    resp = client.post("/execute-extraction", json=_payload(code))
+    assert resp.status_code == 500
+    assert "KeyError: 'falta'" in resp.json()["stderr_truncated"]

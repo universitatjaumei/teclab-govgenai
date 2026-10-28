@@ -53,14 +53,28 @@ def test_hay_un_panel_publicado(prod) -> None:
     assert _puertos(prod["services"]["frontend"])
 
 
+#: Secretos de un perfil opcional. Compose interpola el fichero entero, perfiles inactivos
+#: incluidos, así que con `:?` un `.env` sin ellos tumbaba también la aplicación (revisión de la
+#: PR #313). No arrancan vacíos igualmente: los exige el entrypoint de su servicio, y el test de
+#: abajo lo comprueba, así que la excepción deja de valer si alguien quita la guarda.
+EXIGIDOS_AL_ARRANCAR = {"CLICKHOUSE_PASSWORD": "clickhouse"}
+
+
 def test_ningun_secreto_arranca_vacio() -> None:
     texto = PROD.read_text(encoding="utf-8")
     sueltos = sorted({
         # `$${X}` no cuenta: es el shell del contenedor quien lo resuelve, con su propio entorno.
         nombre for nombre in re.findall(r"(?<!\$)\$\{(\w+)\}", texto)
-        if SECRETO.search(nombre) and nombre != "GOOGLE_API_KEY"
+        if SECRETO.search(nombre) and nombre != "GOOGLE_API_KEY" and nombre not in EXIGIDOS_AL_ARRANCAR
     })
     assert not sueltos, f"secretos sin `:?` en el compose autoinstalable: {sueltos}"
+
+
+@pytest.mark.parametrize(("variable", "servicio"), sorted(EXIGIDOS_AL_ARRANCAR.items()))
+def test_los_secretos_de_un_perfil_los_exige_su_servicio(prod, variable, servicio) -> None:
+    guarda = " ".join(prod["services"][servicio].get("entrypoint") or [])
+    assert f'test -n "$${{{variable}}}"' in guarda, f"{servicio} arrancaría con {variable} vacío"
+    assert "exit 1" in guarda
 
 
 @pytest.mark.parametrize("fichero", [PROD, DEV], ids=["prod", "dev"])

@@ -41,9 +41,9 @@ export default defineConfig([
       // ejecución y cada uno pide verificarse en navegador: es un bloque propio, no un efecto
       // colateral de encender el linter.
       //
-      // Se dejan en `warn` y el `npm run lint` de CI corre con `--max-warnings` fijado en la
-      // cifra de hoy. Así **un hallazgo nuevo tumba el job** aunque los viejos sigan ahí, que es
-      // lo que hace que esto no sea barrer debajo de la alfombra. El techo se baja en su issue.
+      // Se dejaron en `warn` con `--max-warnings` fijado en la cifra de cada momento, para que un
+      // hallazgo nuevo tumbara el job aunque los viejos siguieran. **Desde #281 el techo es 0**:
+      // no queda ninguno, así que cualquier aviso nuevo se arregla al aparecer.
       'react-hooks/set-state-in-effect': 'warn',
       'react-hooks/exhaustive-deps': 'warn',
       'react-hooks/refs': 'warn',
@@ -53,9 +53,8 @@ export default defineConfig([
       'react-hooks/incompatible-library': 'warn',
 
       // Fast Refresh es una comodidad **del desarrollo local**, no una regla de corrección: no
-      // afecta a lo que se construye ni a lo que se sirve. Los diez restantes son ficheros que
-      // exportan un componente y su *hook* —el idioma de un proveedor de contexto—, y sacarlos
-      // a ficheros aparte es un refactor de diez ficheros a cambio de nada en producción.
+      // afecta a lo que se construye ni a lo que se sirve. Aun así no queda ningún aviso (#281):
+      // el contexto del tema, su `useTheme` y lo que no es componente viven en ficheros aparte.
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
   },

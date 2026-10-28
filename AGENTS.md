@@ -167,10 +167,8 @@ Antes de cerrar cualquier tarea de migración, verifica y ejecuta cada punto:
 Si el código ya no se usa, elimínalo. Los comentarios `# deprecated`, `# old version` o `# legacy`
 son deuda técnica disfrazada. El historial de git es la fuente de verdad del pasado.
 
-**`_legacy_archive/` no recibe nada nuevo.**
-El directorio `_legacy_archive/` existe por razones históricas. No añadas nada nuevo ahí.
-El único directorio de cuarentena válido durante migraciones activas es `_legacy_nicegui/`.
-Si hay algo en `_legacy_archive/` que ya esté migrado, bórralo también.
+**No hay directorio de cuarentena.** `_legacy_archive/` y `_legacy_nicegui/` ya no existen, y no
+se crea otro: lo retirado se borra.
 
 **Sin backwards-compatibility shims.**
 No renombres variables a `_old_foo`, no re-exportes símbolos eliminados, no añadas
@@ -279,7 +277,7 @@ que dejó de estar declarado**: así quedaron 36 tablas de modelos retirados en 
 sin que nada lo dijera, y tres columnas `nullable=True` en su migración y `NOT NULL` en su modelo
 durante semanas, también en producción.
 
-Tres consecuencias prácticas:
+Cuatro consecuencias prácticas:
 
 - **Un modelo nuevo o cambiado va con su migración en el mismo commit.** `alembic check` corre en
   CI después de `alembic upgrade head` y se pone rojo si los modelos y la cadena difieren.
@@ -287,6 +285,9 @@ Tres consecuencias prácticas:
 - **`nullable=` se escribe explícito** en las columnas que importan. `Mapped[datetime]` sin él es
   `NOT NULL` por deducción de la anotación, y así nacieron las tres columnas divergentes: el
   modelo lo deducía y la migración a mano decía otra cosa.
+- **Datos y esquema, en migraciones separadas, y cada `op.execute` repetible** (`IF [NOT]
+  EXISTS`, `ON CONFLICT`): una migración que falla a medias se reintenta. Lo vigila
+  `test_issue282_deuda_menor_del_backend.py` para las posteriores a #282.
 - **Si la base no está migrada, la primera consulta falla con claridad.** Es mejor que una tabla
   aparecida en silencio. Para arrancar en local: `uv run alembic upgrade head`.
 
@@ -442,7 +443,7 @@ Clasificación, regulada en runtime por `DEPLOY_MODE=cloud|edge|all` (default
 | Capa | Cloud (admin/partner) | Edge (cliente) | Compartidos |
 |---|---|---|---|
 | **Routers HTTP** | `auth_router`, `hub_chatbots_router`, `hub_clients_router`, futuros `/hub/prompts`, `/hub/themes` | `hub_chat_router`, `ingestion_router`, `hub_tasks_router`, `hub_feedback_router`, futuros `/automation/*` | `edge_sync_router` (servido por cloud, consumido por edge) |
-| **Módulos lógica** | El CRUD de plantillas de prompt (`server/app/routers/hub_prompt_templates_router.py`), gestión partners / billing | `agents_hub/agent/` (graph, task_runner, tools, hitl), `agents_hub/ingestion/`, `agents_hub/services/retriever`, `agents_hub/evaluation/`, **`modules/automation/` íntegro** | `core/auth`, `services/model_factory`, `services/embedding_service`, `services/config_provider` |
+| **Módulos lógica** | El CRUD de plantillas de prompt (`server/app/routers/hub_prompt_templates_router.py`), gestión partners / billing | `agents_hub/agent/` (graph, task_runner, tools, hitl), `agents_hub/ingestion/`, `agents_hub/services/retriever`, `agents_hub/evaluation/`, **`modules/automation/` íntegro** | `core/auth`, `agents_hub/services/model_factory`, `agents_hub/services/embedding_service`, `agents_hub/services/config_provider` |
 
 **Reglas duras**:
 

@@ -395,7 +395,7 @@ plataforma es preferible y voluntario. Está contestado más arriba, en «Contes
 ## 5. La caja de herramientas del auditor
 
 Para quien vaya a escribir o revisar una función de autoservicio. **Estas listas salen del
-código** (`services/script_auditor.py`) y las sirve `GET /api/v1/verificaciones/codigo/reglas`; un
+código** (`redaccion/services/script_auditor.py`) y las sirve `GET /api/v1/verificaciones/codigo/reglas`; un
 test comprueba que este documento no se desvía de ellas.
 
 **Módulos permitidos** (17): `base64`, `collections`, `datetime`, `docx`, `fitz`, `io`, `json`,

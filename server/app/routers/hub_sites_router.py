@@ -13,7 +13,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, R
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from server.app.api.deps import require_module
+from server.app.api.deps import require_module, get_quality_job
 from server.app.core.auth.models import UserInfo
 from server.app.core.auth.tenancy import (
     assert_chatbot_org_access,
@@ -56,22 +56,6 @@ from server.app.modules.curation.site_repo import (
 )
 
 router = APIRouter(tags=["hub-sites"])
-
-# ──────────────────────── Job de calidad inyectable ────────────────────────
-
-_quality_job: Any = None
-
-
-def set_quality_job(job: Any) -> None:
-    """Registra la instancia de SiteQualityAnalysisJob para el endpoint de crawl."""
-    global _quality_job
-    _quality_job = job
-
-
-def get_quality_job() -> Any:
-    """Dependencia FastAPI que provee el job de calidad (o None si no está configurado)."""
-    return _quality_job
-
 
 # ──────────────────────── Dependencia de CorpusSelectionService ────────────────────────
 

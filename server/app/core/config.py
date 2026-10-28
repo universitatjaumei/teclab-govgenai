@@ -95,11 +95,12 @@ class Settings:
     #: Google exige que coincida **carácter a carácter** con la registrada en la consola, así que
     #: declararla convierte esa coincidencia en algo estructural en vez de una esperanza.
     #:
-    #: Y derivarla aquí **no funcionaría**: esta aplicación no arranca con `--proxy-headers` ni
-    #: con `FORWARDED_ALLOW_IPS`, y el defecto de uvicorn sólo confía en `127.0.0.1` mientras
-    #: Caddy conecta desde la red de Docker. O sea que `request.url_for()` construiría `http://`
-    #: y Google rechaza un `redirect_uri` sin TLS que no sea `localhost`. Es el mismo motivo por
-    #: el que el SAML declara `SAML_SP_ACS_URL` en vez de deducirla.
+    #: Y derivarla aquí **dependería del despliegue**: `request.url_for()` sólo construye
+    #: `https://` si uvicorn confía en las cabeceras del proxy, y eso lo decide
+    #: `FORWARDED_ALLOW_IPS`. La VM la acota a la red de Caddy (`docker-compose.vm.yml`), pero
+    #: `docker-compose.prod.yml` no la fija, y con el defecto de uvicorn —sólo `127.0.0.1`— saldría
+    #: `http://`, que Google rechaza fuera de `localhost`. Es el mismo motivo por el que el SAML
+    #: declara `SAML_SP_ACS_URL` en vez de deducirla.
     google_oauth_redirect_uri: str = ""
 
     @property

@@ -62,6 +62,15 @@ export default defineConfig(({ mode }) => ({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test-setup.ts'],
+    // #281 — con un worker por núcleo menos uno (21 en el equipo del mantenedor), el primer
+    // test de cada fichero paga la transformación de sus importaciones con la máquina saturada:
+    // nueve ficheros pasaban del tiempo de 5 s, otros no llegaban a arrancar su worker, y todos
+    // pasaban solos. Subir el tiempo no bastó —a 20 s seguían cayendo los que recorren el
+    // árbol—. Con la mitad de los workers pasan los 1.145 y la suite tarda lo mismo (131 s
+    // frente a 134 s), porque el cuello era la contención y no el paralelismo.
+    maxWorkers: '50%',
+    testTimeout: 20_000,
+    hookTimeout: 20_000,
     exclude: [
       '**/node_modules/**',
       '**/dist/**',

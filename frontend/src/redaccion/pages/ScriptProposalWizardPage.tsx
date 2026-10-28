@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   useProposeScript,
@@ -122,22 +122,25 @@ export function ScriptProposalWizardPage() {
   const declaracionCompleta = finalidad.trim().length > 0 && categorias.length > 0
   const canSave = !!validated && declaracionCompleta
 
-  // Auto-advance from step 1 → 2 when proposal arrives
-  useEffect(() => {
+  // Se avanza de paso cuando una mutación **pasa** a tener éxito. Se detecta al renderizar,
+  // comparando con lo visto la vez anterior —el patrón de React para reaccionar a un cambio—, y
+  // no en un `useEffect`, que pintaba una vez de más por cada respuesta (#281). Tampoco en el
+  // `onSuccess` de `mutate`: el paso es función de `isSuccess`, y así lo reproducen los tests.
+  const [propuestaVista, setPropuestaVista] = useState(false)
+  if (proposeHook.isSuccess !== propuestaVista) {
+    setPropuestaVista(proposeHook.isSuccess)
     if (proposeHook.isSuccess && proposal) {
       setActiveProposalId(proposal.proposal_id)
       setStep(prev => (prev === 1 ? 2 : prev))
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [proposeHook.isSuccess])
-
-  // Auto-advance to step 7 (save/submit) when test result arrives
-  useEffect(() => {
-    if (testHook.isSuccess && testResult && activeProposalId) {
-      setStep(7)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [testHook.isSuccess, activeProposalId])
+  }
+  const pruebaLista = testHook.isSuccess && !!testResult && !!activeProposalId
+  const [pruebaVista, setPruebaVista] = useState<string | null>(null)
+  const clavePrueba = testHook.isSuccess ? activeProposalId : null
+  if (clavePrueba !== pruebaVista) {
+    setPruebaVista(clavePrueba)
+    if (pruebaLista) setStep(7)
+  }
 
   function handlePropose() {
     if (!promptNl) return

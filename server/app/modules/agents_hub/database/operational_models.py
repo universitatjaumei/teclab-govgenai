@@ -58,7 +58,8 @@ class HubWebSite(HubOperationalBase):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
 
 
@@ -289,10 +290,12 @@ class HubCrawledPage(HubOperationalBase):
     )
 
     first_seen_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
     last_seen_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
     last_crawled_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
@@ -342,7 +345,8 @@ class HubCorpusSelection(HubOperationalBase):
     )
     auto_ingest_new: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
 
 
@@ -480,10 +484,12 @@ class HubDocument(HubOperationalBase):
         JSONB, nullable=False, default=dict
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
 
 
@@ -538,7 +544,7 @@ class HubDocumentChunk(HubOperationalBase):
     source_url: Mapped[str] = mapped_column(String(2048), nullable=False)
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     embedding: Mapped[list[float] | None] = mapped_column(Vector(1024), nullable=True)
-    chunk_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    chunk_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
     language: Mapped[str] = mapped_column(String(10), nullable=False)
     # --- Parent-child, small-to-big (RAG.8) ---
     # La seccion estructural completa a la que pertenece este fragmento. Se busca con el
@@ -588,12 +594,13 @@ class HubDocumentChunk(HubOperationalBase):
         ),
         nullable=True,
     )
-    is_temporary: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_temporary: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     owner_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), nullable=True, index=True
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
 
 
@@ -644,9 +651,10 @@ class HubInteraction(HubOperationalBase):
     # columna queda porque las cuotas se miden en tokens pero se justifican en dinero, y el
     # día que facturación lo calcule tiene dónde escribirlo sin migrar otra vez.
     cost_estimated: Mapped[float | None] = mapped_column(Float, nullable=True)
-    interaction_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    interaction_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
     # --- Veredicto de quien revisa (REV.1) ---
     # Distinto de `feedback_score`/`feedback_text`, que son la valoración del USUARIO FINAL.
@@ -716,7 +724,8 @@ class HubUsageCounter(HubOperationalBase):
     tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     cost: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
 
 
@@ -729,12 +738,12 @@ class HubIngestionJob(HubOperationalBase):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     chatbot_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
-    status: Mapped[str] = mapped_column(String(50), default="pending")
+    status: Mapped[str] = mapped_column(String(50), default="pending", nullable=False)
     source_url: Mapped[str] = mapped_column(String(2048), nullable=False)
     original_filename: Mapped[str | None] = mapped_column(String(500), nullable=True)
     canonical_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     language: Mapped[str | None] = mapped_column(String(10), nullable=True)
-    chunks_processed: Mapped[int] = mapped_column(Integer, default=0)
+    chunks_processed: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     # --- Progreso y estadisticas por etapa (RAG.12) ---
     # `status` solo distingue pending/running/completed/failed, y una conversion de Docling
@@ -755,7 +764,8 @@ class HubIngestionJob(HubOperationalBase):
         DateTime(timezone=True), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
 
 
@@ -812,7 +822,8 @@ class HubContentFinding(HubOperationalBase):
     reviewed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     resolution_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
 
     def __init__(self, **kwargs: Any) -> None:
@@ -857,10 +868,12 @@ class HubTestScenario(HubOperationalBase):
     expected_sources: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
 
     runs: Mapped[list["HubTestRun"]] = relationship(
@@ -892,7 +905,8 @@ class HubTestRun(HubOperationalBase):
         index=True,
     )
     executed_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
     answer: Mapped[str] = mapped_column(Text, nullable=False)
     sources: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
@@ -1012,7 +1026,8 @@ class HubLexiconPair(HubOperationalBase):
         DateTime(timezone=True), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
 
 

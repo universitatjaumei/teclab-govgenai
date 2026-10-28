@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
@@ -84,12 +84,15 @@ export function SectionsPanel({ siteId }: { siteId: string }) {
     register,
     handleSubmit,
     reset,
-    watch,
+    control,
+    getValues,
     formState: { errors },
   } = useForm<SeccionFormInput, unknown, SeccionFormValues>({
     resolver: zodResolver(seccionSchema),
     defaultValues: { pattern_kind: 'path_prefix', mode: 'manual' },
   })
+  // `useWatch` y `getValues`, no `watch`: con `watch` el compilador de React salta el componente.
+  const patron = useWatch({ control, name: 'pattern' })
 
   /**
    * Probar el patrón **antes** de guardar: cuántas páginas ya rastreadas casarían y una muestra.
@@ -99,7 +102,7 @@ export function SectionsPanel({ siteId }: { siteId: string }) {
   const probarPatron = async () => {
     const informe = await probar.mutateAsync({
       siteId,
-      data: { pattern: watch('pattern'), pattern_kind: watch('pattern_kind') ?? 'path_prefix' },
+      data: { pattern: getValues('pattern'), pattern_kind: getValues('pattern_kind') ?? 'path_prefix' },
     })
     setPrueba(informe)
   }
@@ -299,7 +302,7 @@ export function SectionsPanel({ siteId }: { siteId: string }) {
             <button
               type="button"
               data-testid="btn-probar-patron"
-              disabled={!watch('pattern') || probar.isPending}
+              disabled={!patron || probar.isPending}
               onClick={probarPatron}
               className="text-xs px-2 py-1 rounded border disabled:opacity-50"
             >

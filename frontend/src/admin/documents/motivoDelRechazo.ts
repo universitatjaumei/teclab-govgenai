@@ -15,6 +15,18 @@ const TEXTO_DEL_CODIGO: Record<string, string> = {
  * quien prepara el documento necesita la lista para corregirlo de una pasada.
  */
 export function motivoDelRechazo(fallo: Error, t: TFunction<'admin'>): string {
+  // #285 — la validación de entrada de FastAPI no trae `{code, message}` sino una lista
+  // `[{loc, msg}]`, y sin esto se veía «Request failed with status code 422».
+  const lista = (fallo as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
+  if (Array.isArray(lista)) {
+    const campos = lista
+      .map((e: { loc?: unknown[]; msg?: string }) => {
+        const campo = (e.loc ?? []).filter(p => p !== 'body').join('.')
+        return campo ? `${campo}: ${e.msg ?? ''}` : (e.msg ?? '')
+      })
+      .join('; ')
+    return `${t('hub.upload_rechazo.VALIDACION')} ${campos}`
+  }
   const detalle = errorDeLaApi(fallo)
   if (!detalle) return fallo.message
   const { code, message } = detalle

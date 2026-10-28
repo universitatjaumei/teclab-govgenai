@@ -67,7 +67,7 @@ export function IngestionJobsPanel({
                     <td className="px-4 py-3 max-w-[200px] truncate text-xs" title={job.original_filename ?? job.source_url}>
                       {job.original_filename ?? job.source_url.split('/').pop() ?? 'Documento'}
                     </td>
-                    <td className="px-4 py-3"><JobStatusBadge status={job.status} error={job.error_message ?? null} /></td>
+                    <td className="px-4 py-3"><JobStatusBadge status={job.status} error={job.error_message ?? null} avisos={job.avisos} /></td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">
                       {job.status === 'running'
                         ? <div className="w-16"><Progress value={null} className="h-2" /></div>

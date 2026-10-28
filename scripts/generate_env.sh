@@ -68,6 +68,8 @@ MINIO_ROOT_PASSWORD="$(openssl rand -hex 16)"
 LANGFUSE_PUBLIC_KEY="lf-pk-govgenai-$(openssl rand -hex 8)"
 LANGFUSE_SECRET_KEY="lf-sk-govgenai-$(openssl rand -hex 8)"
 LANGFUSE_ADMIN_PASSWORD="$(openssl rand -hex 12)"
+# #297 — el ClickHouse de Langfuse (perfil `observabilidad` del compose autoinstalable).
+CLICKHOUSE_PASSWORD="$(openssl rand -hex 16)"
 [ "$MODE" = "local" ] && APP_ENVIRONMENT="development" || APP_ENVIRONMENT="production"
 # SEC.3: en local se deja vacío (comodín en desarrollo). El generador no puede adivinar el
 # dominio del panel en producción, así que lo deja vacío y visible: mejor un CORS que falla
@@ -217,6 +219,7 @@ LANGFUSE_SALT=${LANGFUSE_SALT}
 LANGFUSE_ENCRYPTION_KEY=${LANGFUSE_ENCRYPTION_KEY}
 LANGFUSE_ADMIN_EMAIL=admin@govgenai.local
 LANGFUSE_ADMIN_PASSWORD=${LANGFUSE_ADMIN_PASSWORD}
+CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
 EOF
 }
 

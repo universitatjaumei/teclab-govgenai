@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
@@ -107,7 +107,7 @@ export function SitesPage() {
   const [reconocimiento, setReconocimiento] = useState<ReconnaissanceView | null>(null)
   const [errorReconocimiento, setErrorReconocimiento] = useState<string | null>(null)
 
-  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<SiteFormInput, unknown, SiteFormValues>({
+  const { register, handleSubmit, reset, control, getValues, formState: { errors } } = useForm<SiteFormInput, unknown, SiteFormValues>({
     resolver: zodResolver(siteSchema),
     defaultValues: {
       crawl_interval_hours: 24,
@@ -122,6 +122,8 @@ export function SitesPage() {
       version_series_policy: 'series',
     },
   })
+  // `useWatch` y `getValues`, no `watch`: con `watch` el compilador de React salta el componente.
+  const urlRaiz = useWatch({ control, name: 'root_url' })
 
   /**
    * CUR.6 — reconocer la URL del formulario sin haber creado el sitio.
@@ -131,10 +133,10 @@ export function SitesPage() {
    * hora, y ése es el número que responde «de golpe o por subapartados».
    */
   const parametrosDelSondeo = () => ({
-    root_url: watch('root_url'),
-    url_regex_filter: watch('url_regex_filter') || undefined,
-    delay_seconds: Number(watch('delay_seconds') ?? 1),
-    respect_robots: !!watch('respect_robots'),
+    root_url: getValues('root_url'),
+    url_regex_filter: getValues('url_regex_filter') || undefined,
+    delay_seconds: Number(getValues('delay_seconds') ?? 1),
+    respect_robots: !!getValues('respect_robots'),
     // Profundidad **del sondeo**, no la del rastreo configurado. Medido contra el portal: con la
     // profundidad 1 que trae el formulario, el reconocimiento devolvía 11 URLs de un apartado que
     // tiene 349 —o sea, contestaba a otra pregunta—. Lo que se quiere saber es cuánto hay ahí.
@@ -339,7 +341,7 @@ export function SitesPage() {
                 <button
                   type="button"
                   data-testid="btn-reconocer"
-                  disabled={!watch('root_url') || reconocerMutation.isPending}
+                  disabled={!urlRaiz || reconocerMutation.isPending}
                   onClick={reconocer}
                   className="text-xs px-2 py-1 rounded border disabled:opacity-50"
                 >

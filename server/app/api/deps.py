@@ -1,4 +1,4 @@
-from typing import AsyncGenerator
+from typing import Any, AsyncGenerator
 
 from fastapi import Depends, Header, HTTPException, Request, status
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -405,3 +405,13 @@ def require_module(codigo: str):
         return user
 
     return _comprobar
+
+
+def get_quality_job(request: Request) -> Any:
+    """El trabajo de calidad de contenido que monta el arranque (9Q.5), o `None` si está apagado.
+
+    Lo leen el router de sitios (para `/crawl`) y el de calidad. Hasta #282 cada uno guardaba su
+    copia en una variable global con su propio `set_quality_job`, y el arranque tenía que
+    acordarse de llamar a los dos: ahora vive una vez, en `app.state`.
+    """
+    return getattr(request.app.state, "quality_job", None)

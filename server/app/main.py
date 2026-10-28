@@ -110,10 +110,11 @@ def configurar_logging() -> None:
             manejador.setFormatter(formato)
 
 
-def _start_quality_scheduler():
+def _start_quality_scheduler(app: FastAPI):
     """Crea e inicia el scheduler de calidad de contenido web (9Q.5).
 
-    Deploy: edge. Retorna el scheduler o None si está deshabilitado.
+    Deploy: edge. Retorna el scheduler o None si está deshabilitado. El trabajo queda en
+    `app.state.quality_job`, de donde lo leen los routers (`api/deps.get_quality_job`).
     """
     try:
         from server.app.core.config import get_settings
@@ -198,11 +199,7 @@ def _start_quality_scheduler():
             enabled=settings.content_quality_enabled,
         )
         scheduler.start()
-        # Registrar el job en el router de sitios para el endpoint /crawl
-        from server.app.routers.hub_sites_router import set_quality_job
-        set_quality_job(job)
-        from server.app.routers.hub_content_quality_router import set_quality_job as set_cq_job
-        set_cq_job(job)
+        app.state.quality_job = job
         _log.info(
             "Planificador de calidad de contenido arrancado (cada %sh)",
             settings.content_quality_interval_hours,
@@ -361,7 +358,7 @@ async def _sincronizar_funciones_de_paquete() -> None:
 
 
 @asynccontextmanager
-async def _arranque(app: FastAPI):  # noqa: ARG001 — FastAPI pasa la aplicación al lifespan
+async def _arranque(app: FastAPI):
     # Lo primero, antes de que nada tenga algo que decir: si se configurara después, los
     # mensajes del propio arranque —que son los que más falta hacen cuando algo va mal— se
     # perderían o saldrían con el formato de otro.
@@ -404,24 +401,27 @@ async def _arranque(app: FastAPI):  # noqa: ARG001 — FastAPI pasa la aplicaci�
     # correr en producción.
     await _sincronizar_funciones_de_paquete()
 
+    from server.app.core.periodico import cada
     from server.app.services.model_fetcher import refresh_model_cache
     from server.app.services.pricing_service import update_prices_from_openrouter
     import asyncio
 
-    # Initial refresh at startup (legacy behavior)
-    _log.info("Refrescando la caché de modelos de IA")
-    await refresh_model_cache()
-    _log.info("Actualizando precios de los modelos")
-    await update_prices_from_openrouter()
+    # #282 — los modelos y precios de OpenRouter, en segundo plano y no antes de servir. El
+    # arranque esperaba a la red, y una OpenRouter lenta o caída retrasaba el servicio por algo
+    # que no necesita: la caché vive en la base (`ModelCache`) y sigue ahí del día anterior. Con
+    # `cada`, además, un fallo se registra y no mata el bucle de 24 horas, que antes moría en
+    # silencio con la primera excepción.
+    async def _refrescar_modelos_y_precios() -> None:
+        await refresh_model_cache()
+        await update_prices_from_openrouter()
 
-    # Background loop for 24h refresh
-    async def periodic_refresh():
-        while True:
-            await asyncio.sleep(24 * 60 * 60)  # 24 hours
-            await refresh_model_cache()
-            await update_prices_from_openrouter()
-
-    refresh_task = asyncio.create_task(periodic_refresh())
+    refresh_task = asyncio.create_task(
+        cada(
+            _refrescar_modelos_y_precios,
+            descripcion="El refresco de modelos y precios",
+            segundos=24 * 60 * 60,
+        )
+    )
 
     # AUT.7 — el barrido de artefactos caducados. Hasta la PR #210 existía y no lo llamaba nada,
     # así que `retencion_dias` prometía un borrado que no ocurría: la descarga daba 404 y el
@@ -458,7 +458,7 @@ async def _arranque(app: FastAPI):  # noqa: ARG001 — FastAPI pasa la aplicaci�
     )
 
     # Content quality scheduler (9Q.5) — Deploy: edge
-    quality_scheduler = _start_quality_scheduler()
+    quality_scheduler = _start_quality_scheduler(app)
 
     yield
 

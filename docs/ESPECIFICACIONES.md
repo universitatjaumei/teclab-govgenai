@@ -121,7 +121,7 @@ vive en un documento no es un invariante: es una intención.
 | I9 | **Un docstring no autoriza nada.** Declarar un módulo obliga a exigirlo con `require_module` | el mismo test |
 | I10 | **El contenido del modelo se lee con `texto_de`.** Gemini devuelve `content` como lista de bloques en cuanto hay más de una parte, y quien asume `str` falla más tarde y en otro sitio | `core/llm_text.py` + guardarraíl de USR.8 |
 | I11 | **Los ficheros de negocio se guardan por `StorageService`**, nunca con `open()`: el contenedor es efímero y el proveedor, cambiable | `core/storage.py`; regla de portabilidad |
-| I12 | **La organización fija el suelo de anonimización y el informe sólo puede endurecerlo, nunca relajarlo**; y el `model_factory` no anonimiza: recibe los datos como se los entreguen. La anonimización previa al LLM es una capacidad **que se elige**, porque depende del contrato con el proveedor y del tipo de datos, y ninguna de las dos cosas es una decisión de quien redacta un informe. Pedir un modo más flojo que el de la organización no es un 4xx: se aplica el suelo y se devuelve el motivo. **El suelo se resuelve al ejecutar el informe**, no en el momento en que alguien tocó la pantalla: si sólo se aplicara al guardar, endurecer la política de la casa hoy no alcanzaría a los informes de ayer, que seguirían corriendo con lo que tuvieran guardado | `services/anonymization/politica.py` (`modo_efectivo`, `modo_de_ejecucion`); `anonymization_router` y `drafting_runner` |
+| I12 | **La organización fija el suelo de anonimización y el informe sólo puede endurecerlo, nunca relajarlo**; y el `model_factory` no anonimiza: recibe los datos como se los entreguen. La anonimización previa al LLM es una capacidad **que se elige**, porque depende del contrato con el proveedor y del tipo de datos, y ninguna de las dos cosas es una decisión de quien redacta un informe. Pedir un modo más flojo que el de la organización no es un 4xx: se aplica el suelo y se devuelve el motivo. **El suelo se resuelve al ejecutar el informe**, no en el momento en que alguien tocó la pantalla: si sólo se aplicara al guardar, endurecer la política de la casa hoy no alcanzaría a los informes de ayer, que seguirían corriendo con lo que tuvieran guardado | `redaccion/services/anonymization/politica.py` (`modo_efectivo`, `modo_de_ejecucion`); `anonymization_router` y `drafting_runner` |
 | I13 | **Código que no ha pasado el filtro no se ejecuta.** Auditoría AST sin hallazgos críticos + prueba en sandbox + declaración responsable, **y el filtro es automático**: la aprobación humana previa dejó de ser la puerta en FUN.3/FUN.4, porque la Instrucció 02/2026 la prohíbe como condición para compartir dentro del servicio. La persona entra **después**, en la revisión posterior, que puede pedir correcciones, reclasificar o suspender. La única aprobación previa que queda es el paso a nivel 3 | `redaccion/services/script_auditor.py`, `redaccion/funciones_service.py`, `redaccion/funciones_acciones.py`, `SANDBOX_SECURITY.md`, `CATALOGO_FUNCIONES.md` |
 | I14 | **El esquema lo define Alembic, y sólo Alembic.** La aplicación no crea tablas al arrancar; un modelo cambiado sin su migración es un fallo de CI, no una tabla aparecida | `alembic check` en CI tras `upgrade head`; `test_bd2_alembic_es_la_unica_fuente.py` |
 | I15 | **El servidor sólo pide URL de la red pública, y lo comprueba en cada salto.** Una dirección privada, de *loopback* o de enlace local —el servidor de metadatos de la nube, los contenedores vecinos— no se pide, ni directamente ni **llegando a ella por una redirección**. La forma de la URL la validan los contratos de entrada (422 con motivo); el destino resuelto, cada petición. Hay una válvula de desarrollo, `CRAWLER_ALLOW_PRIVATE_TARGETS`, y **producción se niega a arrancar con ella puesta** | `core/red_publica.py` + `cliente_de_rastreo` en `modules/curation/spider.py`; los cuatro gates de `core/config.py`; `test_aper1_*` |
@@ -223,7 +223,7 @@ Y dos garantías más, que son las que deciden qué lee quien pregunta:
 **Superficie.** `core/language_mode.py` · `hub_opciones_router` · `HubOrganizacion.default_language_mode`
 · `HubChatbot.language_mode` · `PreferLanguagePolicy` en `strategies/protocols.py` (el orden) ·
 `_build_translation_warning` en `api/v1/hub_chat.py` (el aviso) ·
-`services/language_detector.py` (el único punto que produce la lengua de una pregunta) ·
+`agents_hub/services/language_detector.py` (el único punto que produce la lengua de una pregunta) ·
 `core/lengua_del_corpus.py` (el único sitio donde está escrito que `ca` y `val` son la misma
 lengua, compartido por la detección, los modos, la ingesta y el manifiesto del corpus).
 
@@ -261,7 +261,7 @@ qué clasificación y hasta cuándo vale.
 - Reingesta **idempotente**: volver a ingerir lo mismo no duplica ni reembebe.
 - Recuperación en **tres niveles** (fragmento, documento, índice), ya implementada.
 
-**Superficie.** `agents_hub/ingestion/` · `services/retrieval/` · `HubDocument`, `HubDocumentChunk`
+**Superficie.** `agents_hub/ingestion/` · `agents_hub/services/retrieval/` · `HubDocument`, `HubDocumentChunk`
 · `ingestion_router`, `hub_tasks_router`.
 
 **Invariantes.** I3, I4.
@@ -599,7 +599,7 @@ una segunda fuente de verdad.
   pedir tres permisos para un caso de uso.
 
 **Superficie.** `verificaciones_router` (`Deploy: edge`) · `agent/citation_validator.py`
-(`aplicar_contrato`), `services/retrieval/vigencia.py`, `redaccion/services/script_auditor.py`
+(`aplicar_contrato`), `agents_hub/services/retrieval/vigencia.py`, `redaccion/services/script_auditor.py`
 (`REGLAS`, `caja_de_herramientas`) · `core/urls.py` · `mcp_server/tools/verificaciones.py` ·
 [`GOVERNANCA_PER_API.md`](GOVERNANCA_PER_API.md) §4.4-4.6.
 

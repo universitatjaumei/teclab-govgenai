@@ -43,29 +43,22 @@ CONFIG = RAIZ / "frontend" / "eslint.config.js"
 #: `ValoresPorDefectoPage`, `useOrganizacionElegida`, `UsuariosPage`, `DocumentsTable`,
 #: `AuthCallbackPage`, `useCopilotAction`, `PromptsPage` y `LLMDraftPreviewPage`.
 #:
-#: **Qué queda dentro de estos 16, que es lo que impide convivir con el número sin pensar:**
+#: **16 → 0 el 2026-10-27 (#281)**, y lo que se había dado por imposible no lo era:
 #:
-#: · **10 de `react-refresh/only-export-components`** — DESCARTADOS con razón (2026-09-27).
-#:   Ficheros que exportan un componente y además una constante o una función, así que Vite
-#:   recarga la página entera en vez de en caliente. Se ve en la consola: «Could not Fast
-#:   Refresh ("injectThemeCSS" export is incompatible)». Es comodidad de desarrollo, **no
-#:   afecta a producción**, y arreglarlo exigiría partir diez ficheros y arrastrar sus imports
-#:   — dispersar código que está junto por buenas razones a cambio de que un desarrollador vea
-#:   su cambio antes. La regla NO se apaga: apagarla tiraría la señal para siempre.
+#: · los 10 de `react-refresh/only-export-components` —«partir diez ficheros a cambio de
+#:   nada»— eran ocho, y la mitad se resolvía quitando un `export` que nadie usaba. El resto,
+#:   a su fichero: el contexto del tema y `useTheme`, `injectThemeCSS`, `CONTROLES`,
+#:   `payloadDeProveedor` y `getLocalizedLabel`;
+#: · los 3 de `react-hooks/incompatible-library` no esperaban a la librería: los provocaba
+#:   `watch` de react-hook-form, y con `useWatch` (y `getValues` en los manejadores) el
+#:   compilador ya no salta el componente;
+#: · los 2 del asistente de guiones no exigían rediseñarlo: el paso sigue siendo función de
+#:   `isSuccess`, como lo reproducen los tests, pero la transición se detecta al renderizar en
+#:   vez de en un efecto. Moverlo al `onSuccess` sí rompía los tests, como se vio en septiembre;
+#: · y el anunciador de `WorkspaceEditor` deriva el estado anterior al renderizar.
 #:
-#: · **3 de `react-hooks/incompatible-library`** — DESCARTADOS con razón (2026-09-27). Es el
-#:   compilador de React avisando de que una librería externa hace cosas que no puede
-#:   optimizar. No se arregla desde este código: se arregla cuando la librería cambie.
-#:
-#: · **2 de `react-hooks/set-state-in-effect` en `ScriptProposalWizardPage`** — APLAZADOS con
-#:   razón. El aviso tiene razón —`isSuccess` es un pestillo, no un evento— pero moverlo al
-#:   `onSuccess` de la mutación rompe 14 tests que usan el paso avanzado como **atrezo** para
-#:   probar otra cosa. Antes de reintentarlo hay que decidir si el paso del asistente es estado
-#:   o es derivado, y eso es un rediseño, no un arreglo de lint.
-#:
-#: · **1 de `react-hooks/set-state-in-effect` en `WorkspaceEditor`** — PENDIENTE de verdad. El
-#:   anunciador de accesibilidad, único trabajo real que queda de la issue #111.
-TECHO = 16
+#: Con el techo a cero, el siguiente aviso se arregla al aparecer.
+TECHO = 0
 
 
 def _script_lint() -> str:

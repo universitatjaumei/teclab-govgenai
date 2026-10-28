@@ -21,6 +21,7 @@ import pandas as pd
 import pytest
 
 from server.app.modules.redaccion.contracts.runtime import BlockState, WorkspaceState
+from server.tests.dobles import modelo_de_chat
 
 
 def _spec_con_transformacion(mode: str = "deterministic", operations=None, nl=None):
@@ -190,7 +191,7 @@ async def test_should_usar_el_modelo_inyectado_en_modo_ia() -> None:
         DataTransformationNode,
     )
 
-    llm = MagicMock()
+    llm = modelo_de_chat()
     llm.ainvoke = AsyncMock(return_value=MagicMock(content=(
         '{"mode": "operations", "operations": '
         '[{"op": "remove_duplicates", "subset": ["capitulo"]}]}'
@@ -217,7 +218,7 @@ async def test_should_auditar_el_script_del_modo_ia_antes_de_ejecutarlo() -> Non
 
     from server.app.modules.redaccion.services.transformation.etl_service import ETLService
 
-    llm = MagicMock()
+    llm = modelo_de_chat()
     # El modelo se salta el catálogo y devuelve un script con una llamada prohibida.
     llm.ainvoke = AsyncMock(return_value=MagicMock(content=(
         "```python\n"

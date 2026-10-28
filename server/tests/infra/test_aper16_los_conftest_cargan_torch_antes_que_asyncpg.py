@@ -34,13 +34,15 @@ def _conftests_con_sesion() -> list[Path]:
     detector que los incluyera pediría la guarda donde no hace falta. Lo que dispara el fallo es
     abrir la conexión, y eso es `create_async_engine`.
 
-    Tampoco se pide en el conftest raíz: compone cadenas de conexión pero no abre ninguna, y
+    Tampoco se pide en el conftest raíz, aunque desde #281 define el `db_session` de todos:
     ponerla ahí cargaría torch en **toda** ejecución, también en las suites que no tocan la base
-    —segundos de arranque por un riesgo que esas suites no corren—.
+    —segundos de arranque por un riesgo que esas suites no corren—. El orden lo siguen fijando
+    los conftest de los directorios cuyos tests cargan torch, que pytest importa al recoger, antes
+    de que ningún fixture abra una conexión.
     """
     encontrados = []
     for ruta in sorted(RAIZ_TESTS.rglob("conftest.py")):
-        if "__pycache__" in ruta.parts:
+        if "__pycache__" in ruta.parts or ruta.parent == RAIZ_TESTS:
             continue
         if "create_async_engine" in ruta.read_text(encoding="utf-8"):
             encontrados.append(ruta)
