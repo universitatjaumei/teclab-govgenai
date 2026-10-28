@@ -810,7 +810,7 @@ class CorpusReconciler:
                 "revisa que --dir apunte al corpus completo."
             )
 
-        informe.retirados = len(candidatos)
+        informe.retirados += len(candidatos)
         for doc in candidatos:
             informe.detalle.append(f"- {doc.id_publicacio or doc.canonical_url} (retirado)")
             if dry_run:

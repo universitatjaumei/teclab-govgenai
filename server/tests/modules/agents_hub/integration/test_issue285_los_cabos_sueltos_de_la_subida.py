@@ -154,3 +154,22 @@ class TestElTituloDeUnaSubidaSinTitulo:
         [entrada] = await MarkdownSubido("norma.md", texto).list_entries()
 
         assert entrada.title == "norma"
+
+
+class TestLaPodaNoBorraLaCuentaDeLasSustituciones:
+    """Revisión de la PR #313: la poda asignaba `retirados` en vez de sumar, y se comía las
+    versiones que la rama de `us_assistents=no` acababa de retirar en la misma pasada."""
+
+    @pytest.mark.asyncio
+    async def test_should_count_both_kinds_of_retirement(self, db_session, tmp_path):
+        chatbot_id = uuid.uuid4()
+        for n in range(1, 21):
+            _escribir(tmp_path, f"REG-3{n:02d}")
+        await _reconciliar(db_session, tmp_path, chatbot_id, census=True)
+        await db_session.commit()
+        _escribir(tmp_path, "REG-301", extra="us_assistents: 'no'\nmotiu_exclusio: derogat\n")
+        (tmp_path / "REG-305.md").unlink()
+
+        informe = await _reconciliar(db_session, tmp_path, chatbot_id, census=True, prune=True)
+
+        assert informe.retirados == 2
