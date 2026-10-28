@@ -2,10 +2,13 @@
 
 Deploy: edge — maneja documentos, trabajos de ingesta y fragmentos del corpus, que son datos del cliente (#273).
 Módulo: chatbots — la ingesta alimenta el corpus de un chatbot.
+
+Aquí la autorización, la validación de la subida y los códigos de estado; lo que lee y escribe la
+base, en `modules/agents_hub/services/ingesta_del_panel.py` (#274).
 """
 
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from typing import Any, Literal
 
 from fastapi import (
@@ -20,7 +23,6 @@ from fastapi import (
     status,
 )
 from pydantic import BaseModel, ConfigDict, Field, computed_field
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.app.api.deps import get_current_user, require_role
@@ -33,11 +35,8 @@ from server.app.core.uploads import (
     validate_upload,
 )
 from server.app.api.deps import get_session
-from server.app.modules.agents_hub.database.operational_models import (
-    HubDocument,
-    HubDocumentChunk,
-    HubIngestionJob,
-)
+from server.app.modules.agents_hub.database.operational_models import HubIngestionJob
+from server.app.modules.agents_hub.services import ingesta_del_panel as ingesta
 from server.app.modules.agents_hub.ingestion.watcher import IngestionWatcher
 from server.app.modules.agents_hub.services.embedding_resolver import (
     resolve_embedding_service,
@@ -275,11 +274,7 @@ async def _chatbot_autorizado(session, chatbot_id, principal):
     sin cerrar, cualquier administrador podía leer los trabajos de ingesta —y por tanto las
     URL y los nombres de fichero del corpus— de cualquier organización.
     """
-    from server.app.modules.agents_hub.database.config_models import HubChatbot
-
-    chatbot = await session.get(HubChatbot, chatbot_id)
-    if chatbot is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chatbot not found")
+    chatbot = await ingesta.chatbot_o_404(session, chatbot_id)
     assert_org_access(principal, chatbot.organizacion_id)
     return chatbot
 
@@ -292,14 +287,7 @@ async def get_ingestion_jobs(
 ):
     """Obtiene los trabajos de ingestión de un chatbot."""
     await _chatbot_autorizado(session, chatbot_id, current_user)
-    stmt = (
-        select(HubIngestionJob)
-        .where(HubIngestionJob.chatbot_id == chatbot_id)
-        .order_by(HubIngestionJob.created_at.desc())
-    )
-    result = await session.execute(stmt)
-    jobs = result.scalars().all()
-    return {"jobs": jobs}
+    return {"jobs": await ingesta.trabajos(session, chatbot_id)}
 
 
 @router.get("/{chatbot_id}/documents", response_model=HubDocumentsOut)
@@ -314,15 +302,7 @@ async def list_documents(
     Acepta ?language=es para filtrar por idioma.
     """
     await _chatbot_autorizado(session, chatbot_id, current_user)
-    stmt = (
-        select(HubDocument)
-        .where(HubDocument.chatbot_id == chatbot_id)
-        .order_by(HubDocument.created_at.desc())
-    )
-    if language:
-        stmt = stmt.where(HubDocument.language == language)
-    result = await session.execute(stmt)
-    docs = result.scalars().all()
+    docs = await ingesta.documentos(session, chatbot_id, language)
     return {
         "documents": [
             {
@@ -359,29 +339,7 @@ async def list_pending_vigencia(
     from server.app.modules.agents_hub.services.retrieval.vigencia import ESTAT_VIGENT
 
     await _chatbot_autorizado(session, chatbot_id, current_user)
-
-    total = await session.scalar(
-        select(func.count())
-        .select_from(HubDocument)
-        .where(HubDocument.chatbot_id == chatbot_id)
-    )
-
-    stmt = (
-        select(HubDocument)
-        .where(HubDocument.chatbot_id == chatbot_id)
-        .where(
-            HubDocument.vigencia_validada_el.is_(None)
-            | HubDocument.estat_vigencia.is_distinct_from(ESTAT_VIGENT)
-        )
-        # Lo que ya tenía fecha de revisión y se pasó va primero: es lo único de la cola con
-        # un plazo que alguien fijó. El resto ordena por título para que la lista sea estable
-        # entre recargas y se pueda ir tachando.
-        .order_by(
-            HubDocument.data_revisio_prevista.asc().nullslast(),
-            HubDocument.title.asc(),
-        )
-    )
-    docs = (await session.execute(stmt)).scalars().all()
+    total, docs = await ingesta.vigencia_pendiente(session, chatbot_id)
 
     return VigenciaPendentOut(
         total=total or 0,
@@ -439,34 +397,11 @@ async def validar_vigencia(
 
     Deploy: edge.
     """
-    from server.app.modules.agents_hub.services.retrieval.vigencia import ESTAT_VIGENT
-
     await _chatbot_autorizado(session, chatbot_id, current_user)
-
-    doc = await session.get(HubDocument, document_id)
-    if not doc or doc.chatbot_id != chatbot_id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Documento no encontrado."
-        )
-
-    if doc.estat_vigencia != ESTAT_VIGENT:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                f"El documento está marcado como «{doc.estat_vigencia}», así que validar su "
-                "vigencia no lo sacaría de la cola. Lo que procede es retirarlo del corpus o "
-                "corregir su estado."
-            ),
-        )
-
-    doc.vigencia_validada_el = datetime.now(timezone.utc)
-    # En `vigencia_validada_per` y **nunca en `revisat_per`**: ese otro campo viene del
-    # frontmatter del corpus y es la revisión humana del contenido, obligatoria para la
-    # normativa. Pisarlo destruiría un dato del contrato y la pantalla enseñaría a quien pulsó
-    # el botón en lugar del revisor declarado en el documento. El correo y no el identificador
-    # interno, porque esta columna la lee una persona.
-    doc.vigencia_validada_per = current_user.email
-    await session.commit()
+    doc = await ingesta.documento_del_chatbot(session, chatbot_id, document_id)
+    # El 409 de un documento no vigente y por qué se firma en `vigencia_validada_per`, en
+    # `ingesta.validar_vigencia`.
+    doc = await ingesta.validar_vigencia(session, doc, current_user.email)
 
     return DocumentVigenciaOut(
         id=doc.id,
@@ -492,9 +427,7 @@ async def get_document(
 ):
     """Devuelve un documento con su contenido markdown (para preview en la UI)."""
     await _chatbot_autorizado(session, chatbot_id, current_user)
-    doc = await session.get(HubDocument, document_id)
-    if not doc or doc.chatbot_id != chatbot_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Documento no encontrado.")
+    doc = await ingesta.documento_del_chatbot(session, chatbot_id, document_id)
     return {
         "id": str(doc.id),
         "chatbot_id": str(doc.chatbot_id),
@@ -507,35 +440,6 @@ async def get_document(
         "created_at": doc.created_at.isoformat() if doc.created_at else None,
         "updated_at": doc.updated_at.isoformat() if doc.updated_at else None,
     }
-
-
-async def _copias_en_otros_chatbots(session, doc, organizacion_id) -> list[HubDocument]:
-    """Copias de la misma norma en los demás chatbots de la organización (DER.2).
-
-    **Se busca por `canonical_url`, no por `content_hash`.** Si una copia ha derivado, su
-    hash es distinto y buscar por hash no la encontraría — justo el caso en el que más
-    importa avisar.
-    """
-    from server.app.modules.agents_hub.database.config_models import HubChatbot
-
-    hermanos_ids = list(
-        (
-            await session.execute(
-                select(HubChatbot.id).where(HubChatbot.organizacion_id == organizacion_id)
-            )
-        ).scalars().all()
-    )
-    return [
-        c
-        for c in (
-            await session.execute(
-                select(HubDocument)
-                .where(HubDocument.canonical_url == doc.canonical_url)
-                .where(HubDocument.chatbot_id.in_(hermanos_ids))
-            )
-        ).scalars().all()
-        if c.chatbot_id != doc.chatbot_id
-    ]
 
 
 @router.get(
@@ -555,14 +459,8 @@ async def get_document_copies(
     convierte la información en un lamento: quien la lee ya ha borrado.
     """
     chatbot = await _chatbot_autorizado(session, chatbot_id, current_user)
-
-    doc = await session.get(HubDocument, document_id)
-    if not doc or doc.chatbot_id != chatbot_id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Documento no encontrado."
-        )
-
-    copias = await _copias_en_otros_chatbots(session, doc, chatbot.organizacion_id)
+    doc = await ingesta.documento_del_chatbot(session, chatbot_id, document_id)
+    copias = await ingesta.copias_en_otros_chatbots(session, doc, chatbot.organizacion_id)
     return {
         "copias_en_otros_chatbots": len(copias),
         "chatbots_afectados": [str(c.chatbot_id) for c in copias],
@@ -596,21 +494,11 @@ async def delete_document(
     normativo es cómo se pierde una norma sin que nadie lo haya pedido.
     """
     chatbot = await _chatbot_autorizado(session, chatbot_id, current_user)
-    from sqlalchemy import delete as sa_delete
-
-    doc = await session.get(HubDocument, document_id)
-    if not doc or doc.chatbot_id != chatbot_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Documento no encontrado.")
-
-    copias = await _copias_en_otros_chatbots(session, doc, chatbot.organizacion_id)
+    doc = await ingesta.documento_del_chatbot(session, chatbot_id, document_id)
+    copias = await ingesta.copias_en_otros_chatbots(session, doc, chatbot.organizacion_id)
 
     a_borrar = [doc, *copias] if en_todos_los_chatbots else [doc]
-    for documento in a_borrar:
-        await session.execute(
-            sa_delete(HubDocumentChunk).where(HubDocumentChunk.document_id == documento.id)
-        )
-        await session.delete(documento)
-    await session.commit()
+    await ingesta.borrar_documentos(session, a_borrar)
 
     if en_todos_los_chatbots:
         mensaje = f"Documento eliminado en {len(a_borrar)} chatbot(s)."
@@ -768,12 +656,7 @@ async def upload_document(
         language=language,
     )
 
-    documentos_actuales = await session.scalar(
-        select(func.count())
-        .select_from(HubIngestionJob)
-        .where(HubIngestionJob.chatbot_id == chatbot_id)
-    )
-    assert_within_document_quota(documentos_actuales or 0)
+    assert_within_document_quota(await ingesta.trabajos_del_chatbot(session, chatbot_id))
 
     await storage.put(storage_key, content)
 
@@ -787,9 +670,7 @@ async def upload_document(
         language=language,
     )
 
-    session.add(job)
-    await session.commit()
-    await session.refresh(job)
+    job = await ingesta.encolar(session, job)
 
     # Lanzar tarea en background — el PDF queda en storage (no se borra)
     async def process_job(job_id: uuid.UUID) -> None:
@@ -824,9 +705,7 @@ async def delete_ingestion_job(
 ):
     """Elimina un job de ingestión y todos sus chunks asociados."""
     await _chatbot_autorizado(session, chatbot_id, current_user)
-    job = await session.get(HubIngestionJob, job_id)
-    if not job or job.chatbot_id != chatbot_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job no encontrado.")
+    job = await ingesta.trabajo_del_chatbot(session, chatbot_id, job_id)
 
     if job.status in ESTADOS_EN_CURSO:
         raise HTTPException(
@@ -834,36 +713,9 @@ async def delete_ingestion_job(
             detail="No se puede eliminar un job en curso.",
         )
 
-    canonical = job.canonical_url or job.source_url
-    doc_result = await session.execute(
-        select(HubDocument).where(
-            HubDocument.chatbot_id == chatbot_id,
-            HubDocument.canonical_url == canonical,
-        )
-    )
-    docs = doc_result.scalars().all()
+    documentos_borrados = await ingesta.borrar_trabajo(session, job, storage)
 
-    from sqlalchemy import delete as sa_delete
-
-    chunks_deleted = 0
-    for doc in docs:
-        await session.execute(
-            sa_delete(HubDocumentChunk).where(HubDocumentChunk.document_id == doc.id)
-        )
-        chunks_deleted += 1
-        await session.delete(doc)
-
-    # Borrar el PDF de storage solo si es una clave de storage (no una URL HTTP)
-    if not job.source_url.startswith(("http://", "https://")):
-        try:
-            await storage.delete(job.source_url)
-        except FileNotFoundError:
-            pass
-
-    await session.delete(job)
-    await session.commit()
-
-    return {"message": "Documento eliminado.", "documents_deleted": len(docs)}
+    return {"message": "Documento eliminado.", "documents_deleted": documentos_borrados}
 
 
 @router.delete(
@@ -879,35 +731,10 @@ async def clear_chatbot_collection(
 ):
     """Elimina todos los documentos, chunks y jobs de un chatbot."""
     await _chatbot_autorizado(session, chatbot_id, current_user)
-    from sqlalchemy import delete as sa_delete
-
-    await session.execute(
-        sa_delete(HubDocumentChunk).where(HubDocumentChunk.chatbot_id == chatbot_id)
-    )
-
-    docs_result = await session.execute(
-        select(HubDocument).where(HubDocument.chatbot_id == chatbot_id)
-    )
-    docs = docs_result.scalars().all()
-    docs_deleted = len(docs)
-    for doc in docs:
-        await session.delete(doc)
-
-    jobs_stmt = select(HubIngestionJob).where(HubIngestionJob.chatbot_id == chatbot_id)
-    result = await session.execute(jobs_stmt)
-    jobs = result.scalars().all()
-    for job in jobs:
-        if not job.source_url.startswith(("http://", "https://")):
-            try:
-                await storage.delete(job.source_url)
-            except FileNotFoundError:
-                pass
-        await session.delete(job)
-
-    await session.commit()
+    docs_deleted, jobs_deleted = await ingesta.vaciar(session, chatbot_id, storage)
 
     return {
         "message": "Colección vaciada correctamente.",
         "documents_deleted": docs_deleted,
-        "jobs_deleted": len(jobs),
+        "jobs_deleted": jobs_deleted,
     }
