@@ -347,19 +347,14 @@ async def conversaciones(
         .all()
     )
     urls = {d["url"] for f in filas for d in (f.documentos or [])}
-    titulos = (
-        dict(
-            (
-                await session.execute(
-                    select(HubAgenteFicha.url, HubAgenteFicha.titulo).where(
-                        HubAgenteFicha.agente_id == agente_id, HubAgenteFicha.url.in_(urls)
-                    )
-                )
-            ).all()
+    titulos: dict[str, str] = {}
+    if urls:
+        filas_de_titulos = await session.execute(
+            select(HubAgenteFicha.url, HubAgenteFicha.titulo).where(
+                HubAgenteFicha.agente_id == agente_id, HubAgenteFicha.url.in_(urls)
+            )
         )
-        if urls
-        else {}
-    )
+        titulos = {url: titulo for url, titulo in filas_de_titulos.all()}
     return filas, titulos
 
 
