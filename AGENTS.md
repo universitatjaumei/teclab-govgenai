@@ -434,6 +434,9 @@ Dos `DeclarativeBase` separadas:
   real).
 - **El router `edge_sync`** (`/api/v1/edge/config`, `/api/v1/edge/telemetry`)
   es la única superficie que ve ambos mundos.
+- **Lo que un router cloud necesita saber del cliente** —el tamaño de un corpus, si una
+  organización tiene datos, la purga al borrar— lo pide a `DatosDelCliente`
+  (`core/datos_del_cliente.py`) por `Depends`, nunca importando modelos operacionales (#298).
 
 ### 2. Frontera de aplicación (routers y módulos)
 
@@ -442,7 +445,7 @@ Clasificación, regulada en runtime por `DEPLOY_MODE=cloud|edge|all` (default
 
 | Capa | Cloud (admin/partner) | Edge (cliente) | Compartidos |
 |---|---|---|---|
-| **Routers HTTP** | `auth_router`, `hub_chatbots_router`, `hub_clients_router`, futuros `/hub/prompts`, `/hub/themes` | `hub_chat_router`, `ingestion_router`, `hub_tasks_router`, `hub_feedback_router`, futuros `/automation/*` | `edge_sync_router` (servido por cloud, consumido por edge) |
+| **Routers HTTP** | `auth_router`, `hub_chatbots_router`, `hub_clients_router`, futuros `/hub/prompts`, `/hub/themes` | `hub_chat_router`, `ingestion_router`, `hub_tasks_router`, `hub_feedback_router`, `hub_chatbots_corpus_router`, futuros `/automation/*` | `edge_sync_router` (servido por cloud, consumido por edge) |
 | **Módulos lógica** | El CRUD de plantillas de prompt (`server/app/routers/hub_prompt_templates_router.py`), gestión partners / billing | `agents_hub/agent/` (graph, task_runner, tools, hitl), `agents_hub/ingestion/`, `agents_hub/services/retriever`, `agents_hub/evaluation/`, **`modules/automation/` íntegro** | `core/auth`, `agents_hub/services/model_factory`, `agents_hub/services/embedding_service`, `agents_hub/services/config_provider` |
 
 **Reglas duras**:

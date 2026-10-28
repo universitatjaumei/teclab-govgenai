@@ -232,7 +232,7 @@ class TestDeleteChatbot:
         finally:
             app.dependency_overrides.pop(get_session, None)
 
-    def test_should_purge_the_corpus_before_deleting_the_chatbot(self, client, monkeypatch):
+    def test_should_purge_the_corpus_before_deleting_the_chatbot(self, client):
         """PIL.2: el endpoint no puede borrar la fila y dejar el corpus huerfano.
 
         Lo que hace la purga se prueba contra BD real en
@@ -240,20 +240,21 @@ class TestDeleteChatbot:
         que la llama ANTES de borrar el chatbot: al reves, un fallo a mitad dejaria un
         corpus sin dueno y sin forma de encontrarlo.
         """
-        import server.app.routers.hub_chatbots_router as router_mod
-
-        # El tipo se importa de su propio modulo, no del router: el router no lo usa -solo
-        # llama a la purga y descarta lo que devuelve-, asi que alcanzarlo por su namespace
-        # obligaba a mantener alli un import muerto que el linter tumba.
-        from server.app.modules.agents_hub.services.corpus_purge import CorpusRetirado
+        # #298 — la purga se pide al puerto `DatosDelCliente`; aquí, uno espía.
+        from server.app.api.deps import get_datos_del_cliente
+        from server.app.core.datos_del_cliente import CorpusRetirado
 
         orden: list[str] = []
         chatbot = _make_chatbot()
         session = _session_with([chatbot])
 
-        async def _purga_espia(_session, chatbot_id):
-            orden.append(f"purga:{chatbot_id}")
-            return CorpusRetirado(documentos=3, fragmentos=12)
+        class _DatosEspia:
+            async def purgar_corpus(self, chatbot_ids):
+                orden.extend(f"purga:{c}" for c in chatbot_ids)
+                return CorpusRetirado(documentos=3, fragmentos=12)
+
+            async def borrar_fuentes(self, _chatbot_ids):
+                return None
 
         ejecutar_original = session.execute
 
@@ -262,9 +263,9 @@ class TestDeleteChatbot:
                 orden.append("borra_chatbot")
             return await ejecutar_original(stmt, *a, **kw)
 
-        monkeypatch.setattr(router_mod, "purgar_corpus_del_chatbot", _purga_espia)
         session.execute = _execute_espia
         app.dependency_overrides[get_session] = _override_session(session)
+        app.dependency_overrides[get_datos_del_cliente] = _DatosEspia
         try:
             resp = client.delete(f"/api/v1/hub/chatbots/{DEV_CHATBOT_ID}")
 
@@ -273,6 +274,7 @@ class TestDeleteChatbot:
             assert orden[0] == f"purga:{DEV_CHATBOT_ID}", f"la purga no se llamo primero: {orden}"
         finally:
             app.dependency_overrides.pop(get_session, None)
+            app.dependency_overrides.pop(get_datos_del_cliente, None)
 
 
 class TestChatbotRetrievalMode:
@@ -383,8 +385,8 @@ class TestChatbotRetrievalMode:
         session = self._mount_session_for_stats(chatbot, by_language=[doc1, doc2])
         app.dependency_overrides[get_session] = _override_session(session)
 
-        with patch("server.app.routers.hub_chatbots_router.resolve_embedding_service", new_callable=AsyncMock, return_value=object()):
-            with patch("server.app.routers.hub_chatbots_router.IngestionWatcher") as watcher_cls:
+        with patch("server.app.modules.agents_hub.services.corpus_del_chatbot.resolve_embedding_service", new_callable=AsyncMock, return_value=object()):
+            with patch("server.app.modules.agents_hub.services.corpus_del_chatbot.IngestionWatcher") as watcher_cls:
                 watcher = watcher_cls.return_value
                 watcher._regenerate_chunks_for_document = AsyncMock(side_effect=[3, 5])
 
@@ -410,10 +412,10 @@ class TestChatbotRetrievalMode:
         # resolutor consulta la sesión simulada, interpreta el mock como una configuración
         # de proveedor y falla — que es el comportamiento correcto ante una config ilegible.
         with patch(
-            "server.app.routers.hub_chatbots_router.resolve_embedding_service",
+            "server.app.modules.agents_hub.services.corpus_del_chatbot.resolve_embedding_service",
             new=AsyncMock(return_value=object()),
         ), patch(
-            "server.app.routers.hub_chatbots_router.recalculate_corpus",
+            "server.app.modules.agents_hub.services.corpus_del_chatbot.recalculate_corpus",
             new=AsyncMock(return_value=(4, 20, 0)),
         ):
             try:
@@ -450,10 +452,10 @@ class TestChatbotRetrievalMode:
         app.dependency_overrides[get_session] = _override_session(session)
 
         with patch(
-            "server.app.routers.hub_chatbots_router.resolve_embedding_service",
+            "server.app.modules.agents_hub.services.corpus_del_chatbot.resolve_embedding_service",
             new=AsyncMock(return_value=object()),
         ), patch(
-            "server.app.routers.hub_chatbots_router.assert_embedding_space_matches",
+            "server.app.modules.agents_hub.services.corpus_del_chatbot.assert_embedding_space_matches",
             side_effect=EmbeddingSpaceMismatch(
                 "El corpus contiene vectores de BAAI/bge-m3 (1024), y el modelo activo es "
                 "gemini-embedding-001 (1024)."

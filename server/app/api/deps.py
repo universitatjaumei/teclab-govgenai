@@ -7,6 +7,8 @@ from server.app.core.auth import AuthenticationError, UserInfo, decode_token
 from server.app.core.auth.models import UserRole
 from server.app.core.auth.pat.service import PatInvalidError, PatService
 from server.app.core.auth.saml.identity_service import SamlIdentityService
+from server.app.core.datos_del_cliente import DatosDelCliente
+from server.app.core.storage import StorageService, get_storage_service
 from server.app.database.db import AsyncSessionLocal
 
 _PAT_PREFIX = "pat_"
@@ -72,6 +74,21 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
         except Exception:
             await session.rollback()
             raise
+
+
+def get_datos_del_cliente(
+    session: AsyncSession = Depends(get_session),
+    storage: StorageService = Depends(get_storage_service),
+) -> DatosDelCliente:
+    """Lo que el cloud pregunta y pide al edge sobre los datos del cliente (#298).
+
+    La implementación local comparte la sesión de la petición —FastAPI da la misma instancia a
+    quien pida `get_session` en una petición—, así que la purga queda en la transacción del
+    borrado. Se importa aquí dentro porque es edge: los routers cloud sólo ven el protocolo.
+    """
+    from server.app.modules.agents_hub.services.datos_del_cliente_local import DatosDelClienteLocal
+
+    return DatosDelClienteLocal(session, storage)
 
 
 def get_pat_service(session: AsyncSession = Depends(get_session)) -> PatService:

@@ -5,8 +5,9 @@ todo lo que hace es manejar documentos, trabajos de ingesta y fragmentos, que so
 `HubOperationalBase`: datos del cliente. Con `DEPLOY_MODE=edge` no había ingesta, y con `cloud`
 el cloud tocaba datos del cliente. `DEPLOY_MODE` funcionaba; lo que estaba mal era la etiqueta.
 
-El guardarraíl lo extiende a todos los routers `cloud`: ninguno importa modelos operacionales,
-salvo la excepción que se declara abajo con su motivo.
+El guardarraíl lo extiende a todos los routers `cloud`: ninguno importa modelos operacionales
+ni los servicios que los tocan. #298 retiró las dos excepciones que quedaban, chatbots y
+organizaciones: lo que el cloud necesita saber del cliente lo pide a `DatosDelCliente`.
 """
 from __future__ import annotations
 
@@ -22,17 +23,18 @@ ROUTERS = Path(__file__).resolve().parents[4] / "app" / "routers"
 
 #: Los routers `cloud` que aún leen datos operacionales, cada uno con su motivo. Una entrada
 #: nueva aquí es una decisión, no un arreglo para poner el test en verde.
-EXCEPCIONES = {
-    "hub_chatbots_router.py": (
-        "mezcla la configuración del chatbot con operaciones sobre su corpus —estadísticas, "
-        "regenerar fragmentos, la comprobación de tamaño de MD_LONG_CONTEXT—; partirlo es la "
-        "issue #298"
-    ),
-    "hub_organizaciones_router.py": (
-        "borrar una organización purga su corpus, sus agentes, sus sitios y su léxico (#252); en "
-        "un despliegue partido esa purga la tiene que hacer el edge — issue #298"
-    ),
-}
+EXCEPCIONES: dict[str, str] = {}
+
+#: Lo que delata que un router toca datos del cliente: los modelos y los servicios que los leen
+#: y escriben (#298). Importar el servicio es tocar el dato por persona interpuesta.
+DATOS_DEL_CLIENTE = (
+    "operational_models",
+    "redaccion.database.models",
+    "corpus_purge",
+    "corpus_recalculator",
+    "ingestion.watcher",
+    "embedding_space",
+)
 
 
 def _registradas(registrar) -> set[str]:
@@ -69,8 +71,10 @@ def test_hay_routers_cloud_que_mirar() -> None:
 
 def test_ningun_router_cloud_importa_modelos_operacionales() -> None:
     culpables = sorted(
-        nombre for nombre, texto in _routers_cloud().items()
-        if "operational_models" in texto and nombre not in EXCEPCIONES
+        f"{nombre}: {marca}"
+        for nombre, texto in _routers_cloud().items()
+        for marca in DATOS_DEL_CLIENTE
+        if marca in texto and nombre not in EXCEPCIONES
     )
     assert not culpables, (
         f"routers cloud que importan modelos operacionales: {culpables}. Los datos del cliente "

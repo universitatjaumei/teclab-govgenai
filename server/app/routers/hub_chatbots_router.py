@@ -2,6 +2,9 @@
 
 Deploy: cloud
 Módulo: chatbots — ya lo declaraba a nivel de router.
+
+Lo que toca el corpus —estadísticas, regenerar, recalcular— está en `hub_chatbots_corpus_router`,
+que es edge (#298). Lo que este router necesita saber del corpus lo pide a `DatosDelCliente`.
 """
 
 import logging
@@ -12,12 +15,13 @@ from typing import Any, cast, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field, computed_field, field_validator
 from sqlalchemy import delete as sql_delete
-from sqlalchemy import func
 from sqlalchemy import select
 
-from server.app.api.deps import require_module, require_role, require_scopes
+from server.app.api.deps import get_datos_del_cliente, require_module, require_role, require_scopes
 from server.app.core.auth.models import UserInfo
+from server.app.core.datos_del_cliente import DatosDelCliente
 from server.app.modules.agents_hub.agent.public_graphs.validacion import (
+    MODOS_QUE_BUSCAN_POR_FRAGMENTOS,
     validar_estrategias,
     validar_modo,
     validar_perfil,
@@ -25,24 +29,8 @@ from server.app.modules.agents_hub.agent.public_graphs.validacion import (
 from server.app.core.auth.tenancy import assert_org_access, scope_query_to_orgs
 from server.app.modules.agents_hub.database.config_models import HubChatbot, HubLLMConfig
 from server.app.api.deps import get_session
-from server.app.modules.agents_hub.database.operational_models import HubDocument
-from server.app.modules.agents_hub.ingestion.watcher import IngestionWatcher
-from server.app.core.storage import StorageService, get_storage_service
-from server.app.modules.agents_hub.services.corpus_purge import (
-    borrar_fuentes_del_chatbot,
-    purgar_corpus_del_chatbot,
-)
-from server.app.modules.agents_hub.services.corpus_recalculator import recalculate_corpus
-from server.app.modules.agents_hub.services.corpus_recommender import recommend_retrieval_mode
-from server.app.modules.agents_hub.ingestion.watcher import (
-    MODOS_QUE_BUSCAN_POR_FRAGMENTOS,
-)
 from server.app.modules.agents_hub.services.embedding_resolver import (
     resolve_embedding_service,
-)
-from server.app.modules.agents_hub.services.embedding_space import (
-    EmbeddingSpaceMismatch,
-    assert_embedding_space_matches,
 )
 from server.app.modules.agents_hub.services.retrieval.long_context_strategy import (
     LONG_CONTEXT_TOKEN_LIMIT,
@@ -271,32 +259,6 @@ class ChatbotUpdate(BaseModel):
 
 class AssignChildIn(BaseModel):
     child_chatbot_id: uuid.UUID
-
-
-class CorpusStatsOut(BaseModel):
-    total_documents: int
-    total_tokens: int
-    by_language: dict[str, int]
-    recommended_mode: str
-    recommendation_reason: str
-    #: #277 — el límite del modo MD_LONG_CONTEXT y si el corpus cabe. El formulario los comparaba
-    #: con el límite escrito en el cliente; si el límite cambia, cambia aquí y en ningún sitio más.
-    limite_contexto_largo: int
-    cabe_en_contexto_largo: bool
-
-
-class RegenerateChunksOut(BaseModel):
-    task_id: str
-    message: str
-    documents_processed: int
-    chunks_created: int
-
-class RecalculateCorpusOut(BaseModel):
-    task_id: str
-    message: str
-    documents_queued: int
-    chunks_created: int
-    chunks_deleted: int
 
 
 async def _exigir_configuracion_utilizable(
@@ -597,6 +559,7 @@ async def update_chatbot(
     body: ChatbotUpdate,
     user: UserInfo = Depends(_require_admin),
     session=Depends(get_session),
+    datos: DatosDelCliente = Depends(get_datos_del_cliente),
 ):
     chatbot = await _get_chatbot_or_404(session, chatbot_id, user)
 
@@ -631,14 +594,9 @@ async def update_chatbot(
 
     next_mode = payload.get("retrieval_mode", chatbot.retrieval_mode)
 
+    # #298 — el corpus es del cliente: su tamaño se le pregunta al edge, no a la base.
     if next_mode == "MD_LONG_CONTEXT":
-        total_tokens_row = await session.execute(
-            select(func.coalesce(func.sum(HubDocument.token_count), 0)).where(
-                HubDocument.chatbot_id == chatbot_id
-            )
-        )
-        total_tokens = int(total_tokens_row.scalar_one() or 0)
-        if total_tokens > LONG_CONTEXT_TOKEN_LIMIT:
+        if await datos.tokens_del_corpus(chatbot_id) > LONG_CONTEXT_TOKEN_LIMIT:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=(
@@ -661,7 +619,7 @@ async def delete_chatbot(
     chatbot_id: uuid.UUID,
     user: UserInfo = Depends(_require_admin),
     session=Depends(get_session),
-    storage: StorageService = Depends(get_storage_service),
+    datos: DatosDelCliente = Depends(get_datos_del_cliente),
 ):
     await _get_chatbot_or_404(session, chatbot_id, user)
     # PIL.2: primero el corpus y luego el chatbot, en la MISMA transacción.
@@ -673,10 +631,13 @@ async def delete_chatbot(
     #
     # El orden importa: purgar después del `DELETE` del chatbot dejaría, ante un fallo a
     # mitad, exactamente el corpus huérfano que esto viene a impedir.
-    retirado = await purgar_corpus_del_chatbot(session, chatbot_id)
+    #
+    # #298 — la purga la hace el edge, por `DatosDelCliente`; la local comparte esta sesión, así
+    # que sigue siendo la misma transacción.
+    retirado = await datos.purgar_corpus([chatbot_id])
     await session.execute(sql_delete(HubChatbot).where(HubChatbot.id == chatbot_id))
     await session.commit()
-    await borrar_fuentes_del_chatbot(storage, chatbot_id)
+    await datos.borrar_fuentes([chatbot_id])
 
     # Lo que se llevó por delante queda dicho. La purga siempre lo contaba y lo devolvía —su
     # docstring pedía «poder decirlo en voz alta»— y aquí se descartaba: un borrado
@@ -693,129 +654,6 @@ async def delete_chatbot(
         retirado.documentos,
         retirado.fragmentos,
         retirado.trabajos,
-    )
-
-
-@router.get("/{chatbot_id}/corpus-stats", response_model=CorpusStatsOut, dependencies=[Depends(require_scopes("chatbots:read"))])
-async def get_corpus_stats(
-    chatbot_id: uuid.UUID,
-    user: UserInfo = Depends(_require_admin),
-    session=Depends(get_session),
-):
-    await _get_chatbot_or_404(session, chatbot_id, user)
-
-    total_docs_row = await session.execute(
-        select(func.count(HubDocument.id)).where(HubDocument.chatbot_id == chatbot_id)
-    )
-    total_documents = int(total_docs_row.scalar_one() or 0)
-
-    total_tokens_row = await session.execute(
-        select(func.coalesce(func.sum(HubDocument.token_count), 0)).where(
-            HubDocument.chatbot_id == chatbot_id
-        )
-    )
-    total_tokens = int(total_tokens_row.scalar_one() or 0)
-
-    by_lang_rows = await session.execute(
-        select(HubDocument.language, func.coalesce(func.sum(HubDocument.token_count), 0))
-        .where(HubDocument.chatbot_id == chatbot_id)
-        .group_by(HubDocument.language)
-    )
-    by_language = {str(lang): int(tokens or 0) for lang, tokens in by_lang_rows.all()}
-
-    context_window = LONG_CONTEXT_TOKEN_LIMIT
-
-    recommended_mode, recommendation_reason = recommend_retrieval_mode(
-        total_tokens=total_tokens,
-        context_window=context_window,
-    )
-
-    return CorpusStatsOut(
-        total_documents=total_documents,
-        total_tokens=total_tokens,
-        by_language=by_language,
-        recommended_mode=recommended_mode,
-        recommendation_reason=recommendation_reason,
-        limite_contexto_largo=LONG_CONTEXT_TOKEN_LIMIT,
-        cabe_en_contexto_largo=total_tokens <= LONG_CONTEXT_TOKEN_LIMIT,
-    )
-
-
-@router.post("/{chatbot_id}/regenerate-chunks", response_model=RegenerateChunksOut)
-async def regenerate_chunks(
-    chatbot_id: uuid.UUID,
-    user: UserInfo = Depends(_require_admin),
-    session=Depends(get_session),
-):
-    chatbot = await _get_chatbot_or_404(session, chatbot_id, user)
-    if chatbot.retrieval_mode != "RAG":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Solo se puede regenerar chunks cuando retrieval_mode == 'RAG'.",
-        )
-
-    docs_result = await session.execute(
-        select(HubDocument).where(HubDocument.chatbot_id == chatbot_id)
-    )
-    docs = list(docs_result.scalars().all())
-
-    watcher = IngestionWatcher(
-        session=session,
-        embedding_service=await resolve_embedding_service(session, chatbot_id),
-    )
-    created = 0
-    for doc in docs:
-        created += await watcher._regenerate_chunks_for_document(doc)
-
-    task_id = str(uuid.uuid4())
-    return RegenerateChunksOut(
-        task_id=task_id,
-        message="Regeneración completada",
-        documents_processed=len(docs),
-        chunks_created=created,
-    )
-
-@router.post(
-    "/{chatbot_id}/recalculate-corpus",
-    response_model=RecalculateCorpusOut,
-    status_code=status.HTTP_202_ACCEPTED,
-)
-async def recalculate_corpus_endpoint(
-    chatbot_id: uuid.UUID,
-    user: UserInfo = Depends(_require_admin),
-    session=Depends(get_session),
-):
-    chatbot = await _get_chatbot_or_404(session, chatbot_id, user)
-
-    embedding_service = await resolve_embedding_service(session, chatbot_id)
-
-    # MOD.1: esta guarda existía y NO PODÍA SALTAR. Comparaba `getattr(servicio,
-    # "dimensions", 1024)` con `getattr(llm_config, "embedding_dimensions", 1024)`, y ninguno
-    # de los dos atributos existía: los dos caían al default y la comparación era 1024 !=
-    # 1024. Ahora compara el espacio vectorial REAL del corpus contra el del modelo activo,
-    # que es lo que importa — misma dimensión no significa mismo espacio.
-    try:
-        await assert_embedding_space_matches(session, chatbot_id, embedding_service)
-    except EmbeddingSpaceMismatch as desajuste:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=str(desajuste)
-        ) from desajuste
-
-    documents_processed, chunks_created, chunks_deleted = await recalculate_corpus(
-        session=session,
-        chatbot_id=chatbot_id,
-        retrieval_mode=chatbot.retrieval_mode,
-        embedding_service=embedding_service,
-    )
-    await session.commit()
-
-    task_id = str(uuid.uuid4())
-    return RecalculateCorpusOut(
-        task_id=task_id,
-        message=f"Recálculo completado. {documents_processed} documentos procesados.",
-        documents_queued=documents_processed,
-        chunks_created=chunks_created,
-        chunks_deleted=chunks_deleted,
     )
 
 

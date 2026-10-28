@@ -36,6 +36,7 @@ from server.app.routers.google_auth_router import router as google_auth_router
 from server.app.routers.saml_auth_router import router as saml_auth_router
 from server.app.routers.pat_router import router as pat_router
 from server.app.routers.hub_chatbots_router import router as hub_chatbots_router
+from server.app.routers.hub_chatbots_corpus_router import router as hub_chatbots_corpus_router
 from server.app.routers.hub_organizaciones_router import router as hub_organizaciones_router
 from server.app.routers.hub_ingestion_router import router as hub_ingestion_router
 from server.app.routers.hub_llm_configs_router import router as hub_llm_configs_router
@@ -534,6 +535,7 @@ def _register_edge(app: FastAPI) -> None:
     app.include_router(hub_tasks_router, prefix="/api/v1")
     app.include_router(ingestion_router, prefix="/api/v1")
     app.include_router(hub_ingestion_router, prefix="/api/v1")  # Deploy: edge (#273)
+    app.include_router(hub_chatbots_corpus_router, prefix="/api/v1")  # Deploy: edge (#298)
     app.include_router(llm_drafts_router, prefix="/api/v1")  # Deploy: edge
     app.include_router(hub_redaccion_router, prefix="/api/v1")  # Deploy: edge
     app.include_router(redaccion_workspaces_router, prefix="/api/v1")  # Deploy: edge

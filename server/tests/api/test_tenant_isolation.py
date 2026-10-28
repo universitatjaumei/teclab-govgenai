@@ -30,6 +30,7 @@ from server.app.core.auth.models import UserInfo
 from server.app.api.v1.hub_chat import router as chat_router
 from server.app.api.v1.hub_feedback import router as feedback_router
 from server.app.routers.hub_chatbots_router import router as chatbots_router
+from server.app.routers.hub_chatbots_corpus_router import router as chatbots_corpus_router
 from server.app.routers.hub_ingestion_router import router as ingestion_router
 from server.app.routers.hub_themes_router import router as themes_router
 
@@ -267,13 +268,13 @@ class TestLaFronteraEnLosEndpoints:
 
     def test_should_forbid_get_chatbot_of_other_org(self):
         """Sobre `corpus-stats`, que es la lectura de un chatbot concreto que sí existe:
-        el router no expone `GET /{chatbot_id}` a secas. Ambos pasan por
-        `_get_chatbot_or_404`, así que la frontera es la misma."""
+        el router no expone `GET /{chatbot_id}` a secas. Desde #298 lo sirve el router edge del
+        corpus, que pasa por `assert_chatbot_org_access`: la misma frontera."""
         from fastapi.testclient import TestClient
 
         ajeno = _chatbot_de(ORG_B)
         cliente = TestClient(
-            _app_con(chatbots_router, _admin(ORG_A), _sesion_que_devuelve(ajeno))
+            _app_con(chatbots_corpus_router, _admin(ORG_A), _sesion_que_devuelve(ajeno))
         )
 
         resp = cliente.get(f"/api/v1/hub/chatbots/{ajeno.id}/corpus-stats")
@@ -643,6 +644,7 @@ class TestNingunEndpointSeSaltaLaFrontera:
 
     ROUTERS = (
         "hub_chatbots_router.py",
+        "hub_chatbots_corpus_router.py",
         "hub_themes_router.py",
         "hub_ingestion_router.py",
         # SEC.9.5 — este vive en `api/v1/hub_feedback.py`, no en `routers/`. El nombre estaba

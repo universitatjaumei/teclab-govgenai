@@ -85,7 +85,7 @@ fichero. Las que siguen abiertas están abiertas de verdad, y ninguna es de segu
 | B1 · temas en disco local | ✅ | PLAT.7, con `test_plat7_retirada_del_tema_en_json.py` |
 | B2 · la curación no podía rastrear | ✅ | SEC.8.8: el rastreo real; `_NullCrawler` sólo se menciona como lo que sustituyó |
 | B3 · 14 tests rotos en la raíz `tests/` | ✅ | la raíz `tests/` ya no existe |
-| I2 · `hub_ingestion_router` clasificado `cloud` siendo edge | ✅ | **Cerrado en #273** (2026-10-23): `Deploy: edge` y registrado en `_register_edge`. Un guardarraíl impide que un router `cloud` importe modelos operacionales; quedan dos excepciones declaradas, chatbots y organizaciones, en #298 |
+| I2 · `hub_ingestion_router` clasificado `cloud` siendo edge | ✅ | **Cerrado en #273** (2026-10-23): `Deploy: edge` y registrado en `_register_edge`. Un guardarraíl impide que un router `cloud` importe modelos operacionales; las dos excepciones que dejó, chatbots y organizaciones, las retiró #298 (2026-10-28): el corpus va por un router `edge` y lo que el cloud necesita saber del cliente lo pide al puerto `DatosDelCliente` |
 | I3 · servicios edge leyendo modelos de config | ✅ | ningún módulo hace ya `session.get(HubChatbot)` ni `session.get(HubOrganizacion)` |
 | I4 · la sync API edge es un stub 501 | ▶ | sigue siendo un stub, **a propósito**: es Fase 3. Lo que cambió es que ya no es superficie anónima (APER.2) |
 | I5 · perfiles con UUID nulos | ✅ | resuelto el 2026-08-11; las dos factorías lanzan `NotImplementedError` |

@@ -61,7 +61,7 @@ def test_un_trabajo_de_ingesta_dice_si_se_puede_borrar(estado, acciones) -> None
 
 
 def test_las_estadisticas_del_corpus_dicen_si_cabe_en_contexto_largo() -> None:
-    from server.app.routers.hub_chatbots_router import CorpusStatsOut
+    from server.app.routers.hub_chatbots_corpus_router import CorpusStatsOut
 
     campos = CorpusStatsOut.model_fields
     assert "limite_contexto_largo" in campos
