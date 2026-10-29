@@ -23,11 +23,11 @@ from typing import cast
 
 import logging
 import uuid
-from dataclasses import dataclass
 
 from sqlalchemy import CursorResult, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from server.app.core.datos_del_cliente import CorpusRetirado
 from server.app.core.storage import StorageService
 from server.app.modules.agents_hub.database.config_models import HubChatbot
 from server.app.modules.agents_hub.database.operational_models import (
@@ -35,15 +35,6 @@ from server.app.modules.agents_hub.database.operational_models import (
     HubDocumentChunk,
     HubIngestionJob,
 )
-
-
-@dataclass(frozen=True)
-class CorpusRetirado:
-    """Lo que se llevó por delante, para poder decirlo en voz alta."""
-
-    documentos: int
-    fragmentos: int
-    trabajos: int = 0
 
 
 async def purgar_corpus_del_chatbot(

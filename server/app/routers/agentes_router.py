@@ -31,7 +31,6 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 from pydantic import BaseModel, Field, field_validator, model_validator
-from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.app.api.deps import (
@@ -56,7 +55,7 @@ from server.app.core.auth.pat.scopes import AGENTES_CONSULTA, AGENTES_INDICE_WRI
 from server.app.core.identidad import user_to_uuid
 from server.app.core.uploads import read_within_limit, sanitizar_nombre
 from server.app.core.llm_text import texto_de
-from server.app.modules.agentes import acciones, consulta, datos, indice, propuesta, registro
+from server.app.modules.agentes import acciones, consulta, datos, gestion, indice, propuesta, registro
 from server.app.modules.agents_hub.services.config_provider import LocalConfigProvider
 from server.app.modules.agents_hub.services.model_factory import get_model_for_tier
 from server.app.routers.redaccion._actor import nombre_del_modelo
@@ -65,7 +64,6 @@ from server.app.modules.agents_hub.contracts.actividad import ActividadIAEvent
 from server.app.modules.agents_hub.database.operational_models import (
     HubActividadIA,
     HubAgenteConsulta,
-    HubAgenteFicha,
     HubAgenteUnidad,
     HubAgenteUnidadVersion,
     HubAsistenteAdaptador,
@@ -465,53 +463,6 @@ def _nueva_version(
     )
 
 
-async def _vigentes(session: AsyncSession, filtro) -> list[tuple[HubAgenteUnidad, HubAgenteUnidadVersion]]:
-    """Cada agente con su última versión, que es la que se ofrece."""
-    ultima = (
-        select(
-            HubAgenteUnidadVersion.agente_id,
-            func.max(HubAgenteUnidadVersion.version).label("version"),
-        )
-        .group_by(HubAgenteUnidadVersion.agente_id)
-        .subquery()
-    )
-    consulta = (
-        select(HubAgenteUnidad, HubAgenteUnidadVersion)
-        .join(ultima, ultima.c.agente_id == HubAgenteUnidad.id)
-        .join(
-            HubAgenteUnidadVersion,
-            (HubAgenteUnidadVersion.agente_id == ultima.c.agente_id)
-            & (HubAgenteUnidadVersion.version == ultima.c.version),
-        )
-        .order_by(HubAgenteUnidad.nombre, HubAgenteUnidad.id)
-    )
-    if filtro is not None:
-        consulta = consulta.where(filtro)
-    return [(a, v) for a, v in (await session.execute(consulta)).all()]
-
-
-def _de_sus_organizaciones(user: UserInfo):
-    """El acotado del listado, **en el `WHERE`**. La lista vacía significa «ninguna» (I8)."""
-    if user.is_superadmin:
-        return None
-    ids = [uuid.UUID(str(o)) for o in user.organizacion_ids]
-    return HubAgenteUnidad.organizacion_id.in_(ids)
-
-
-async def _el_agente(
-    session: AsyncSession, agente_id: uuid.UUID, user: UserInfo
-) -> tuple[HubAgenteUnidad, HubAgenteUnidadVersion]:
-    filtro = HubAgenteUnidad.id == agente_id
-    acotado = _de_sus_organizaciones(user)
-    if acotado is not None:
-        filtro = filtro & acotado
-    encontrados = await _vigentes(session, filtro)
-    if not encontrados:
-        # 404 y no 403: lo de otra organización no existe para quien pregunta.
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agente no encontrado")
-    return encontrados[0]
-
-
 def _exigir(accion: str, agente, version, user: UserInfo) -> None:
     if accion not in acciones.acciones_permitidas(agente, version, principal=user):
         raise HTTPException(
@@ -520,58 +471,11 @@ def _exigir(accion: str, agente, version, user: UserInfo) -> None:
         )
 
 
-async def _fichas_por_agente(
-    session: AsyncSession, vigentes: dict[uuid.UUID, HubAgenteUnidadVersion]
-) -> dict[uuid.UUID, tuple[int, int]]:
-    """Por agente: cuántas fichas y cuántas resumidas con otra versión del prompt.
-
-    Una ficha sin versión no está desfasada: la escribió una persona, no un prompt. **La versión
-    con que se compara es la del agente** (#220): con datos que extraer, su prompt no es el común.
-    """
-    if not vigentes:
-        return {}
-    suya = {aid: indice.prompt_de_resumen(v.datos_consulta)[0] for aid, v in vigentes.items()}
-    filas = await session.execute(
-        select(HubAgenteFicha.agente_id, HubAgenteFicha.version_prompt_resumen, func.count())
-        .where(HubAgenteFicha.agente_id.in_(list(vigentes)))
-        .group_by(HubAgenteFicha.agente_id, HubAgenteFicha.version_prompt_resumen)
-    )
-    cuentas: dict[uuid.UUID, tuple[int, int]] = {}
-    for agente_id, version_resumen, n in filas.all():
-        total, viejas = cuentas.get(agente_id, (0, 0))
-        desfasada = version_resumen is not None and version_resumen != suya[agente_id]
-        cuentas[agente_id] = (total + n, viejas + (n if desfasada else 0))
-    return cuentas
-
-
-async def _calidad_por_agente(
-    session: AsyncSession, ids: list[uuid.UUID]
-) -> dict[uuid.UUID, tuple[int, int, int]]:
-    """#217 — por agente: consultas, respuestas leídas e informes sin revisar."""
-    if not ids:
-        return {}
-    filas = await session.execute(
-        select(
-            HubAgenteConsulta.agente_id,
-            func.count(),
-            func.count().filter(HubAgenteConsulta.respuesta.is_not(None)),
-            func.count().filter((HubAgenteConsulta.puntuacion == -1) & HubAgenteConsulta.veredicto.is_(None)),
-        )
-        .where(HubAgenteConsulta.agente_id.in_(ids))
-        .group_by(HubAgenteConsulta.agente_id)
-    )
-    return {agente_id: (n, leidas, abiertos) for agente_id, n, leidas, abiertos in filas.all()}
-
-
 async def _responder(session: AsyncSession, agente, version, user: UserInfo) -> AgenteView:
-    # La vista se construye antes del commit: la sesión de los routers expira los atributos al
-    # commitear, y leerlos después costaría un 500.
-    await session.flush()
-    cuentas = (await _fichas_por_agente(session, {agente.id: version})).get(agente.id, (0, 0))
-    calidad = (await _calidad_por_agente(session, [agente.id])).get(agente.id, (0, 0, 0))
-    vista = _vista(agente, version, user, cuentas, calidad)
-    await session.commit()
-    return vista
+    """Confirma y devuelve la vista con las cuentas al día (`gestion.guardar`)."""
+    return await gestion.guardar(
+        session, agente, version, lambda cuentas, calidad: _vista(agente, version, user, cuentas, calidad)
+    )
 
 
 # =============================================================================
@@ -604,10 +508,8 @@ async def publicar(
         unidad=body.unidad,
         creado_por=user_to_uuid(user.user_id),
     )
-    session.add(agente)
-    await session.flush()
     version = _nueva_version(agente.id, 1, body, user)
-    session.add(version)
+    await gestion.dar_de_alta(session, agente, version)
     return await _responder(session, agente, version, user)
 
 
@@ -617,9 +519,9 @@ async def listar(
     session: AsyncSession = Depends(get_session),
 ) -> GestionDeAgentes:
     """Los agentes de su organización, con lo que quien pregunta puede hacer con cada uno."""
-    filas = await _vigentes(session, _de_sus_organizaciones(user))
-    fichas = await _fichas_por_agente(session, {a.id: v for a, v in filas})
-    calidad = await _calidad_por_agente(session, [a.id for a, _ in filas])
+    filas = await gestion.vigentes(session, gestion.de_sus_organizaciones(user))
+    fichas = await gestion.fichas_por_agente(session, {a.id: v for a, v in filas})
+    calidad = await gestion.calidad_por_agente(session, [a.id for a, _ in filas])
     return GestionDeAgentes(
         agentes=[_vista(a, v, user, fichas.get(a.id, (0, 0)), calidad.get(a.id, (0, 0, 0))) for a, v in filas],
         grupos_del_idp=get_settings().saml_enabled,
@@ -634,18 +536,13 @@ async def versionar(
     session: AsyncSession = Depends(get_session),
 ) -> AgenteView:
     """Corregir es versionar: lo revisado sigue siendo lo que se revisó."""
-    agente, vigente = await _el_agente(session, agente_id, user)
+    agente, vigente = await gestion.el_agente(session, agente_id, user)
     _exigir("versionar", agente, vigente, user)
     version = _nueva_version(agente.id, vigente.version + 1, body, user)
-    session.add(version)
-    if body.carpeta_url != vigente.carpeta_url:
-        # Otra carpeta, otro índice: el de la anterior no puede seguir sirviéndose hasta que el
-        # guion corra sobre la nueva (revisión de la PR #221). El índice es derivado: se rehace.
-        await session.execute(delete(HubAgenteFicha).where(HubAgenteFicha.agente_id == agente.id))
-        agente.indice_actualizado_en = None
-        agente.indice_origen = None
-        agente.documentos_en_carpeta = None
-    agente.updated_at = datetime.now(timezone.utc)
+    # Otra carpeta, otro índice: el de la anterior se retira (`gestion.anadir_version`).
+    await gestion.anadir_version(
+        session, agente, version, otra_carpeta=body.carpeta_url != vigente.carpeta_url
+    )
     return await _responder(session, agente, version, user)
 
 
@@ -656,7 +553,7 @@ async def revisar(
     user: UserInfo = Depends(require_sesion_humana()),
     session: AsyncSession = Depends(get_session),
 ) -> AgenteView:
-    agente, version = await _el_agente(session, agente_id, user)
+    agente, version = await gestion.el_agente(session, agente_id, user)
     _exigir("revisar", agente, version, user)
     acciones.aplicar_revision(
         version, resultado=body.resultado, nota=body.nota, revisada_por=user_to_uuid(user.user_id)
@@ -672,7 +569,7 @@ async def suspender(
     session: AsyncSession = Depends(get_session),
 ) -> AgenteView:
     """Deja de ofrecerlo, con motivo. Es de quien revisa, nunca de quien lo publicó."""
-    agente, version = await _el_agente(session, agente_id, user)
+    agente, version = await gestion.el_agente(session, agente_id, user)
     _exigir("suspender", agente, version, user)
     try:
         acciones.suspender(
@@ -691,7 +588,7 @@ async def reactivar(
     user: UserInfo = Depends(require_sesion_humana()),
     session: AsyncSession = Depends(get_session),
 ) -> AgenteView:
-    agente, version = await _el_agente(session, agente_id, user)
+    agente, version = await gestion.el_agente(session, agente_id, user)
     _exigir("reactivar", agente, version, user)
     acciones.reactivar(version)
     return await _responder(session, agente, version, user)
@@ -704,7 +601,7 @@ async def retirar(
     session: AsyncSession = Depends(get_session),
 ) -> AgenteView:
     """Retirar es de quien lo publicó (y del admin de su organización). Es terminal."""
-    agente, version = await _el_agente(session, agente_id, user)
+    agente, version = await gestion.el_agente(session, agente_id, user)
     _exigir("retirar", agente, version, user)
     acciones.retirar(version)
     return await _responder(session, agente, version, user)
@@ -790,16 +687,9 @@ async def _cargar(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(fallo)
         ) from fallo
     # La fecha se apunta **también sin cambios**: es la prueba de que el guion sigue vivo.
-    await session.execute(
-        update(HubAgenteUnidad)
-        .where(HubAgenteUnidad.id == agente_id)
-        .values(
-            indice_actualizado_en=datetime.now(timezone.utc),
-            indice_origen=origen,
-            documentos_en_carpeta=documentos_en_carpeta,
-        )
+    await gestion.apuntar_carga(
+        session, agente_id, origen=origen, documentos_en_carpeta=documentos_en_carpeta
     )
-    await session.commit()
     return InformeDeCarga(
         nuevas=informe.nuevas,
         actualizadas=informe.actualizadas,
@@ -821,7 +711,7 @@ async def cargar_indice(
     Un token necesita `agentes:indice`; una sesión no, pero las dos necesitan que el agente les
     permita `cargar_indice`: el token abre la puerta, no elige el agente.
     """
-    agente, version = await _el_agente(session, agente_id, user)
+    agente, version = await gestion.el_agente(session, agente_id, user)
     _exigir("cargar_indice", agente, version, user)
     fichas = [indice.FichaEntrada(**f.model_dump()) for f in body.fichas]
     return await _cargar(
@@ -848,7 +738,7 @@ async def subir_hoja(
     de una persona sin que nada lo motivara. Que la use también el MCP hace que la hoja la
     interprete un solo sitio: aquí.
     """
-    agente, version = await _el_agente(session, agente_id, user)
+    agente, version = await gestion.el_agente(session, agente_id, user)
     _exigir("cargar_indice", agente, version, user)
     datos = await read_within_limit(file, max_bytes=MAXIMO_BYTES_DE_LA_HOJA)
     try:
@@ -876,7 +766,7 @@ async def prompt_de_resumen(
     if agente_id is None:
         return PromptDeResumen(version=indice.VERSION_PROMPT_RESUMEN, texto=indice.PROMPT_DE_RESUMEN)
     # #220 — el del agente: pide extraer los datos de la consulta ligados a una columna.
-    _, version = await _el_agente(session, agente_id, user)
+    _, version = await gestion.el_agente(session, agente_id, user)
     numero, texto, extraer = indice.prompt_de_resumen(version.datos_consulta)
     return PromptDeResumen(version=numero, texto=texto, datos=[DatoAExtraer(**e) for e in extraer])
 
@@ -887,14 +777,8 @@ async def ver_indice(
     user: UserInfo = Depends(require_sesion_humana()),
     session: AsyncSession = Depends(get_session),
 ) -> list[FichaView]:
-    agente, _ = await _el_agente(session, agente_id, user)
-    filas = (
-        await session.execute(
-            select(HubAgenteFicha)
-            .where(HubAgenteFicha.agente_id == agente.id)
-            .order_by(HubAgenteFicha.titulo, HubAgenteFicha.url)
-        )
-    ).scalars()
+    agente, _ = await gestion.el_agente(session, agente_id, user)
+    filas = await gestion.fichas(session, agente.id)
     return [
         FichaView(
             url=f.url,
@@ -1021,7 +905,8 @@ async def proponer_prompt(
         modelo_usado=(modelo_usado or None),
         payload_hash=hashlib.sha256(body.descripcion.encode("utf-8")).hexdigest(),
     )
-    session.add(
+    await gestion.anotar_actividad(
+        session,
         HubActividadIA(
             organizacion_id=organizacion,
             ocurrido_en=evento.ocurrido_en,
@@ -1032,9 +917,8 @@ async def proponer_prompt(
             modelo_usado=evento.modelo_usado,
             categorias_datos=evento.categorias_datos,
             payload_hash=evento.payload_hash,
-        )
+        ),
     )
-    await session.commit()
     return PropuestaDePrompt(
         prompt=texto, modelo_usado=modelo_usado or "", version=propuesta.VERSION_META_PROMPT
     )
@@ -1181,7 +1065,7 @@ async def catalogo(
     La organización va en el `WHERE`; el colectivo se mira por agente, porque los grupos del IdP
     llegan en el token y no están en la base.
     """
-    filas = await _vigentes(session, _de_sus_organizaciones(user))
+    filas = await gestion.vigentes(session, gestion.de_sus_organizaciones(user))
     return [
         AgenteDelCatalogo(
             id=a.id,
@@ -1269,7 +1153,7 @@ async def consultar(
     Se registra lo que se ofreció —quién, cuándo, qué agente, qué documentos y con qué
     puntuación—, nunca la pregunta. Si la consulta falla, no se registra nada.
     """
-    agente, version = await _el_agente(session, agente_id, user)
+    agente, version = await gestion.el_agente(session, agente_id, user)
     pares = _validar_datos(version, body.datos)
     elegidas = await _seleccionar(session, agente, version, body.consulta, pares, embedder, user)
 
@@ -1300,11 +1184,10 @@ async def consultar(
         ],
     )
 
-    _registrar(
+    await _registrar(
         session, agente, version, user, consulta_id, prompt, elegidas,
         pregunta=body.consulta, datos_dados={d["clave"]: v for d, v in pares},
     )
-    await session.commit()
     return respuesta
 
 
@@ -1344,7 +1227,7 @@ def _validar_datos(version, dados: dict[str, str]):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(fallo)) from fallo
 
 
-def _registrar(
+async def _registrar(
     session: AsyncSession,
     agente,
     version,
@@ -1357,7 +1240,7 @@ def _registrar(
     datos_dados: dict[str, str],
     consulta_madre_id: uuid.UUID | None = None,
 ) -> None:
-    """El uso en el registro de actividad y la consulta con lo que se ofreció.
+    """El uso en el registro de actividad y la consulta con lo que se ofreció, confirmados.
 
     El evento pasa por la misma validación que un uso declarado desde fuera, que rechaza
     cualquier campo de contenido. El hash es del prompt entregado: coteja sin guardar el texto.
@@ -1381,21 +1264,17 @@ def _registrar(
         categorias_datos=evento.categorias_datos,
         payload_hash=evento.payload_hash,
     )
-    session.add(actividad)
-    session.add(
-        HubAgenteConsulta(
-            id=consulta_id,
-            agente_id=agente.id,
-            version=version.version,
-            actor=user.user_id,
-            documentos=[{"url": e.url, "score": e.score} for e in elegidas],
-            actividad_id=actividad.id,
-            modo=agente.modo_registro,
-            # #216 — en validación se guarda la pregunta; el registro de actividad, nunca.
-            pregunta=pregunta if agente.modo_registro == "validacion" else None,
-            datos=datos_dados if agente.modo_registro == "validacion" and datos_dados else None,
-            consulta_madre_id=consulta_madre_id,
-        )
+    await gestion.registrar_consulta(
+        session,
+        actividad=actividad,
+        agente=agente,
+        version=version,
+        actor=user.user_id,
+        consulta_id=consulta_id,
+        elegidas=elegidas,
+        pregunta=pregunta,
+        datos_dados=datos_dados,
+        consulta_madre_id=consulta_madre_id,
     )
 
 
@@ -1434,18 +1313,11 @@ async def ampliar(
     queda. Lo que se pega es corto: el texto y los enlaces nuevos, sin el prompt del agente, que ya
     está en la conversación. Es una consulta más, ligada a la primera, con su fila en el registro.
     """
-    fila = await _la_consulta(session, consulta_id, user)
+    fila = await gestion.la_consulta(session, consulta_id, user)
     madre_id = fila.consulta_madre_id or fila.id
-    ofrecidas = (
-        await session.execute(
-            select(HubAgenteConsulta.documentos).where(
-                or_(HubAgenteConsulta.id == madre_id, HubAgenteConsulta.consulta_madre_id == madre_id)
-            )
-        )
-    ).scalars()
-    excluir = frozenset(d["url"] for documentos in ofrecidas for d in (documentos or []))
+    excluir = await gestion.urls_ofrecidas(session, madre_id)
 
-    agente, version = await _el_agente(session, fila.agente_id, user)
+    agente, version = await gestion.el_agente(session, fila.agente_id, user)
     pares = _validar_datos(version, body.datos)
     elegidas = await _seleccionar(session, agente, version, body.texto, pares, embedder, user, excluir)
     prompt = consulta.componer_ampliacion(
@@ -1466,11 +1338,10 @@ async def ampliar(
             for e in elegidas
         ],
     )
-    _registrar(
+    await _registrar(
         session, agente, version, user, nueva_id, prompt, elegidas,
         pregunta=body.texto, datos_dados={d["clave"]: v for d, v in pares}, consulta_madre_id=madre_id,
     )
-    await session.commit()
     return respuesta
 
 
@@ -1663,16 +1534,6 @@ def _estado(a: HubAsistenteAdaptador) -> EstadoDelAdaptador:
     )
 
 
-async def _el_adaptador(session: AsyncSession, asistente: str, *, bloquear: bool = False) -> HubAsistenteAdaptador:
-    consulta = select(HubAsistenteAdaptador).where(HubAsistenteAdaptador.asistente == asistente)
-    if bloquear:
-        consulta = consulta.with_for_update()
-    adaptador = (await session.execute(consulta)).scalar_one_or_none()
-    if adaptador is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asistente no encontrado")
-    return adaptador
-
-
 @router_catalogo.get("/asistentes/{asistente}/adaptador", response_model=AdaptadorDelAsistente)
 async def adaptador_del_asistente(
     asistente: str,
@@ -1680,7 +1541,7 @@ async def adaptador_del_asistente(
     session: AsyncSession = Depends(get_session),
 ) -> AdaptadorDelAsistente:
     """Los selectores vigentes, para la extensión. Con el token de consulta, como el catálogo."""
-    a = await _el_adaptador(session, asistente)
+    a = await gestion.el_adaptador(session, asistente)
     return AdaptadorDelAsistente(
         asistente=a.asistente, nombre=a.nombre, origen=a.origen, version=a.version, selectores=a.selectores
     )
@@ -1696,12 +1557,8 @@ async def avisar_de_un_fallo(
     """La extensión avisa de que un selector dejó de casar. **Sólo metadatos**: qué selector y de
     qué versión, nunca la página. El de una versión que ya no es la vigente no cuenta: ya se
     corrigió."""
-    a = await _el_adaptador(session, asistente, bloquear=True)
-    if body.version == a.version:
-        a.fallos_de_la_version += 1
-        a.ultimo_fallo_en = datetime.now(timezone.utc)
-        a.ultimo_fallo_selector = body.selector
-        await session.commit()
+    a = await gestion.el_adaptador(session, asistente, bloquear=True)
+    await gestion.anotar_fallo(session, a, version=body.version, selector=body.selector)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -1711,8 +1568,7 @@ async def estado_de_los_adaptadores(
     session: AsyncSession = Depends(get_session),
 ) -> list[EstadoDelAdaptador]:
     """Si la integración con cada asistente funciona, para quien la mantiene."""
-    filas = (await session.execute(select(HubAsistenteAdaptador).order_by(HubAsistenteAdaptador.asistente))).scalars()
-    return [_estado(a) for a in filas]
+    return [_estado(a) for a in await gestion.adaptadores(session)]
 
 
 @router_catalogo.put("/asistentes/{asistente}/adaptador", response_model=EstadoDelAdaptador)
@@ -1725,16 +1581,8 @@ async def cambiar_el_adaptador(
 ) -> EstadoDelAdaptador:
     """Corrige los selectores: una versión nueva, con los fallos a cero. Todas las extensiones la
     toman la próxima vez que la piden, sin publicar nada."""
-    a = await _el_adaptador(session, asistente, bloquear=True)
-    a.selectores = body.selectores
-    a.version += 1
-    a.fallos_de_la_version = 0
-    a.ultimo_fallo_en = None
-    a.ultimo_fallo_selector = None
-    a.actualizado_en = datetime.now(timezone.utc)
-    a.actualizado_por = user.user_id
-    await session.commit()
-    await session.refresh(a)
+    a = await gestion.el_adaptador(session, asistente, bloquear=True)
+    a = await gestion.cambiar_adaptador(session, a, selectores=body.selectores, por=user.user_id)
     return _estado(a)
 
 
@@ -1759,7 +1607,7 @@ async def cambiar_registro(
     """Qué se guarda de sus conversaciones: todo (`validacion`) o sólo lo informado
     (`incidencias`). Lo deciden quien lo publica y quien lo revisa. No versiona: no cambia lo que
     se ofrece."""
-    agente, version = await _el_agente(session, agente_id, user)
+    agente, version = await gestion.el_agente(session, agente_id, user)
     _exigir("cambiar_registro", agente, version, user)
     agente.modo_registro = body.modo
     agente.updated_at = datetime.now(timezone.utc)
@@ -1808,20 +1656,6 @@ class MotivoDeInforme(BaseModel):
     etiqueta: str
 
 
-async def _la_consulta(session: AsyncSession, consulta_id: uuid.UUID, user: UserInfo) -> HubAgenteConsulta:
-    """La consulta de **quien pregunta**: la de otra persona no existe para él (404)."""
-    fila = (
-        await session.execute(
-            select(HubAgenteConsulta)
-            .where(HubAgenteConsulta.id == consulta_id, HubAgenteConsulta.actor == user.user_id)
-            .with_for_update()
-        )
-    ).scalar_one_or_none()
-    if fila is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Consulta no encontrada")
-    return fila
-
-
 @router_catalogo.post("/consultas/{consulta_id}/respuesta", status_code=status.HTTP_204_NO_CONTENT)
 async def guardar_respuesta(
     consulta_id: uuid.UUID,
@@ -1831,7 +1665,7 @@ async def guardar_respuesta(
 ) -> Response:
     """La respuesta que la extensión leyó en el asistente, en un agente en validación. Una vez: la
     conversación es la que fue. En incidencias no se manda la de cada consulta, sólo un informe."""
-    fila = await _la_consulta(session, consulta_id, user)
+    fila = await gestion.la_consulta(session, consulta_id, user)
     if fila.modo != "validacion":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -1839,11 +1673,9 @@ async def guardar_respuesta(
         )
     if fila.respuesta is not None or fila.respuesta_no_capturada is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="La respuesta ya está guardada.")
-    fila.respuesta = body.texto
-    fila.fuentes = body.fuentes if body.texto is not None else None
-    fila.respuesta_no_capturada = body.no_capturada
-    fila.respuesta_en = datetime.now(timezone.utc)
-    await session.commit()
+    await gestion.guardar_respuesta(
+        session, fila, texto=body.texto, fuentes=body.fuentes, no_capturada=body.no_capturada
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -1858,16 +1690,16 @@ async def valorar(
 
     En incidencias, el informe es lo único que se guarda, y por eso trae la pregunta y la respuesta;
     una valoración buena guarda la puntuación y nada más. En validación ya estaban: no se pisan."""
-    fila = await _la_consulta(session, consulta_id, user)
-    fila.puntuacion = body.puntuacion
-    fila.motivo = body.motivo
-    fila.comentario = (body.comentario or "").strip() or None
-    fila.valorada_en = datetime.now(timezone.utc)
-    if fila.modo == "incidencias":
-        # En incidencias sólo se guarda lo informado como inadecuado: si deja de serlo, se borra.
-        fila.pregunta = body.pregunta if body.puntuacion == -1 else None
-        fila.respuesta = body.respuesta if body.puntuacion == -1 else None
-    await session.commit()
+    fila = await gestion.la_consulta(session, consulta_id, user)
+    await gestion.valorar(
+        session,
+        fila,
+        puntuacion=body.puntuacion,
+        motivo=body.motivo,
+        comentario=body.comentario,
+        pregunta=body.pregunta,
+        respuesta=body.respuesta,
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -1966,35 +1798,18 @@ async def conversaciones(
 ) -> list[ConversacionDelAgente]:
     """Las conversaciones y los informes de un agente, de lo más reciente a lo más antiguo. Para
     quien lo publicó y quien lo revisa: es lo que permite ver dónde está el fallo."""
-    agente, version = await _el_agente(session, agente_id, user)
+    agente, version = await gestion.el_agente(session, agente_id, user)
     _exigir("ver_calidad", agente, version, user)
-    consulta_sql = select(HubAgenteConsulta).where(HubAgenteConsulta.agente_id == agente.id)
-    if modo:
-        consulta_sql = consulta_sql.where(HubAgenteConsulta.modo == modo)
     if puntuacion == 0:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="la valoración es 1 o -1")
-    if puntuacion is not None:
-        consulta_sql = consulta_sql.where(HubAgenteConsulta.puntuacion == puntuacion)
-    if motivo:
-        consulta_sql = consulta_sql.where(HubAgenteConsulta.motivo == motivo)
-    if sin_revisar:
-        consulta_sql = consulta_sql.where(HubAgenteConsulta.veredicto.is_(None))
-    filas = (
-        await session.execute(consulta_sql.order_by(HubAgenteConsulta.ocurrido_en.desc()).limit(limite))
-    ).scalars().all()
-    urls = {d["url"] for f in filas for d in (f.documentos or [])}
-    titulos = (
-        dict(
-            (
-                await session.execute(
-                    select(HubAgenteFicha.url, HubAgenteFicha.titulo).where(
-                        HubAgenteFicha.agente_id == agente.id, HubAgenteFicha.url.in_(urls)
-                    )
-                )
-            ).all()
-        )
-        if urls
-        else {}
+    filas, titulos = await gestion.conversaciones(
+        session,
+        agente.id,
+        modo=modo,
+        puntuacion=puntuacion,
+        motivo=motivo,
+        sin_revisar=sin_revisar,
+        limite=limite,
     )
     return [_conversacion(f, titulos) for f in filas]
 
@@ -2007,18 +1822,14 @@ async def revisar_conversacion(
     session: AsyncSession = Depends(get_session),
 ) -> ConversacionDelAgente:
     """El veredicto sobre una conversación, como en la revisión de los chatbots. Se puede cambiar."""
-    fila = (
-        await session.execute(select(HubAgenteConsulta).where(HubAgenteConsulta.id == consulta_id))
-    ).scalar_one_or_none()
-    if fila is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Consulta no encontrada")
-    agente, version = await _el_agente(session, fila.agente_id, user)
+    fila = await gestion.consulta_o_404(session, consulta_id)
+    agente, version = await gestion.el_agente(session, fila.agente_id, user)
     _exigir("ver_calidad", agente, version, user)
-    fila.veredicto = body.veredicto
-    fila.nota_revision = (body.nota or "").strip() or None
-    fila.revisada_por = user.user_id
-    fila.revisada_en = datetime.now(timezone.utc)
-    await session.flush()
-    vista = _conversacion(fila, {})
-    await session.commit()
-    return vista
+    return await gestion.revisar_conversacion(
+        session,
+        fila,
+        veredicto=body.veredicto,
+        nota=body.nota,
+        revisada_por=user.user_id,
+        vista=lambda: _conversacion(fila, {}),
+    )

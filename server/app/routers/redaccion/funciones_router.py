@@ -15,6 +15,8 @@ uno:
   itera; no decide.
 * La frontera: una organización ve las suyas y las publicadas, **nunca las no publicadas de
   otra**, y sólo la autora versiona.
+
+Lo que lee y escribe la base está en `modules/redaccion/funciones_catalogo.py` (#274).
 """
 from __future__ import annotations
 
@@ -26,7 +28,6 @@ from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.app.api.deps import (
@@ -39,11 +40,8 @@ from server.app.api.deps import (
 from server.app.core.auth.models import UserInfo
 from server.app.core.auth.pat.scopes import FUNCIONES_EXECUTE, FUNCIONES_REGISTER
 from server.app.core.auth.tenancy import organizacion_unica_de
-from server.app.modules.redaccion.database.models import (
-    HubFuncion,
-    HubFuncionVersion,
-    HubReportTemplateVersion,
-)
+from server.app.modules.redaccion import funciones_catalogo as catalogo
+from server.app.modules.redaccion.database.models import HubFuncion, HubFuncionVersion
 from server.app.modules.redaccion.funciones_acciones import (
     PromocionInvalida,
     RevisionInvalida,
@@ -57,10 +55,7 @@ from server.app.modules.redaccion.funciones_acciones import (
     reactivar,
     suspender,
 )
-from server.app.modules.redaccion.funciones_service import (
-    FuncionIncoherente,
-    consulta_de_catalogo,
-)
+from server.app.modules.redaccion.funciones_service import FuncionIncoherente
 from server.app.routers.redaccion._actor import user_to_uuid
 
 _log = logging.getLogger(__name__)
@@ -174,54 +169,6 @@ def _hallazgos_de(version: HubFuncionVersion) -> list[dict[str, Any]]:
     return [h for h in hallazgos if isinstance(h, dict)]
 
 
-async def _funcion_visible(
-    session: AsyncSession, funcion_id: uuid.UUID, principal: UserInfo
-) -> HubFuncion:
-    """La función, si quien pregunta puede verla. **Una no publicada de otra organización es un
-    404 y no un 403**: decir «existe y no puedes» ya cuenta que existe."""
-    funcion = await session.get(HubFuncion, funcion_id)
-    if funcion is None:
-        raise HTTPException(status_code=404, detail="Función no encontrada")
-
-    if principal.is_superadmin:
-        return funcion
-    visible = funcion.publicada_en is not None or funcion.organizacion_id is None
-    if not visible:
-        suyas = {str(o) for o in (principal.organizacion_ids or ())}
-        if str(funcion.organizacion_id) not in suyas:
-            raise HTTPException(status_code=404, detail="Función no encontrada")
-    return funcion
-
-
-async def _versiones_de(
-    session: AsyncSession, funcion_id: uuid.UUID
-) -> list[HubFuncionVersion]:
-    filas = (
-        await session.execute(
-            select(HubFuncionVersion)
-            .where(HubFuncionVersion.funcion_id == funcion_id)
-            # DET.1 — orden estable con desempate: dos versiones pueden compartir `created_at`.
-            .order_by(HubFuncionVersion.version.desc(), HubFuncionVersion.id)
-        )
-    ).scalars().all()
-    return list(filas)
-
-
-async def _version_de(
-    session: AsyncSession, funcion_id: uuid.UUID, numero: int
-) -> HubFuncionVersion:
-    fila = (
-        await session.execute(
-            select(HubFuncionVersion)
-            .where(HubFuncionVersion.funcion_id == funcion_id)
-            .where(HubFuncionVersion.version == numero)
-        )
-    ).scalar_one_or_none()
-    if fila is None:
-        raise HTTPException(status_code=404, detail=f"La versión {numero} no existe")
-    return fila
-
-
 def _exigir(accion: str, funcion: Any, version: Any, principal: UserInfo) -> None:
     """La autorización se lee de la **misma** función que llena el DTO.
 
@@ -235,17 +182,8 @@ def _exigir(accion: str, funcion: Any, version: Any, principal: UserInfo) -> Non
         )
 
 
-# La vista se construye **antes** del `commit`, no después.
-#
-# Hasta #272, `api/deps.py::get_session` construía `AsyncSession(server_engine)` a pelo, con
-# `expire_on_commit=True`. Leer `version.version` después de commitear disparaba una recarga
-# perezosa síncrona sobre una sesión asíncrona, que revienta con `MissingGreenlet`: la escritura
-# se guardaba y la respuesta era un 500. Desde #272 hay un solo proveedor y no expira, pero
-# construir la vista antes sigue siendo lo correcto: no depende de cómo esté configurada la sesión.
-#
-# Es el mismo defecto que `scripts_router` tuvo en ocho endpoints, y aquí lo destapó la pantalla
-# de revisión posterior: suspendía con su motivo y devolvía 500, así que quien revisa veía un
-# error sobre una versión que acababa de quedar detenida.
+# La vista se construye **antes** del `commit`, no después: el porqué, en
+# `funciones_catalogo.guardar`, que es quien confirma.
 
 
 def _vista_de_version(
@@ -419,36 +357,9 @@ async def registrar_funcion_externa(
     # a una función de autoservicio, que sí se ejecuta en el sandbox. Las dos cosas las encontró
     # la revisión de la PR #189.
     if body.funcion_id is not None:
-        destino = await session.get(HubFuncion, body.funcion_id)
-        if destino is None:
-            raise HTTPException(
-                status_code=404,
-                detail={
-                    "code": "FUNCION_NO_ENCONTRADA",
-                    "message": f"no hay ninguna función {body.funcion_id} en el catálogo",
-                },
-            )
-        if not principal.is_superadmin and destino.organizacion_id != organizacion:
-            # 404 y no 403: decir «existe pero no es tuya» ya es decir que existe.
-            raise HTTPException(
-                status_code=404,
-                detail={
-                    "code": "FUNCION_NO_ENCONTRADA",
-                    "message": f"no hay ninguna función {body.funcion_id} en el catálogo",
-                },
-            )
-        if destino.origen != "externa":
-            raise HTTPException(
-                status_code=409,
-                detail={
-                    "code": "ORIGEN_DISTINTO",
-                    "message": (
-                        f"«{destino.nombre}» es de origen «{destino.origen}» y esto registra "
-                        "funciones externas. Añadirle una versión con auditoría informativa "
-                        "metería código sin filtro en algo que la plataforma sí ejecuta."
-                    ),
-                },
-            )
+        await catalogo.destino_de_una_version_externa(
+            session, body.funcion_id, organizacion, principal
+        )
 
     try:
         funcion, _version = await registrar_version(
@@ -470,15 +381,8 @@ async def registrar_funcion_externa(
             detail={"code": "FUNCION_INCOHERENTE", "message": str(fallo)},
         ) from fallo
 
-    # El identificador se lee **antes** del commit: `expire_on_commit` expira los atributos y
-    # leerlos después dispara una recarga perezosa que revienta con `MissingGreenlet`. Es el
-    # patrón que tumbó ocho endpoints de `scripts_router` el 2026-08-14.
-    funcion_id = funcion.id
-    await session.commit()
-
-    funcion = await session.get(HubFuncion, funcion_id)
-    assert funcion is not None, "se acaba de crear en esta misma sesión"
-    versiones = await _versiones_de(session, funcion_id)
+    funcion = await catalogo.confirmar_registro(session, funcion)
+    versiones = await catalogo.versiones_de(session, funcion.id)
     return _vista_de_funcion(funcion, versiones, principal)
 
 
@@ -496,21 +400,10 @@ async def listar_funciones(
     Nunca las no publicadas de otra organización — eso lo decide `consulta_de_catalogo`, que es
     la misma frontera que usa el resolutor, escrita una sola vez.
     """
-    if principal.is_superadmin:
-        funciones = (await session.execute(select(HubFuncion).order_by(HubFuncion.created_at, HubFuncion.id))).scalars().all()
-    else:
-        funciones = (
-            await session.execute(
-                consulta_de_catalogo(organizacion_id=organizacion_unica_de(principal))
-            )
-        ).scalars().all()
-
-    vistas = []
-    for funcion in funciones:
-        vistas.append(
-            _vista_de_funcion(funcion, await _versiones_de(session, funcion.id), principal)
-        )
-    return vistas
+    return [
+        _vista_de_funcion(funcion, await catalogo.versiones_de(session, funcion.id), principal)
+        for funcion in await catalogo.catalogo(session, principal)
+    ]
 
 
 @router.get(
@@ -527,28 +420,9 @@ async def cola_de_revision(
     **Estar en la cola no impide usar la versión**: eso es lo que distingue una revisión
     posterior de una aprobación previa, y es lo que la Instrucció exige en el nivel 2.
     """
-    if principal.is_superadmin:
-        funciones = (await session.execute(select(HubFuncion).order_by(HubFuncion.created_at, HubFuncion.id))).scalars().all()
-    else:
-        de_quien = organizacion_unica_de(principal)
-        funciones = (
-            await session.execute(
-                select(HubFuncion).where(HubFuncion.organizacion_id == de_quien)
-            )
-        ).scalars().all()
-
-    por_funcion = {f.id: f for f in funciones}
+    por_funcion, versiones = await catalogo.en_revision(session, principal)
     if not por_funcion:
         return []
-
-    versiones = (
-        await session.execute(
-            select(HubFuncionVersion)
-            .where(HubFuncionVersion.funcion_id.in_(list(por_funcion)))
-            .where(HubFuncionVersion.estado.in_(("registrada", "suspendida")))
-            .order_by(HubFuncionVersion.created_at.desc(), HubFuncionVersion.id)
-        )
-    ).scalars().all()
 
     candidatas = list(versiones)
     if estado == "sin_revisar":
@@ -574,7 +448,7 @@ async def cola_de_revision(
                 finalidad=version.finalidad,
                 categorias_datos=list(version.categorias_datos or []),
                 hallazgos=_hallazgos_de(version),
-                plantillas_que_la_usan=await _cuantas_plantillas_la_usan(
+                plantillas_que_la_usan=await catalogo.cuantas_plantillas_la_usan(
                     session, funcion.id, version.version
                 ),
                 dias_desde_el_registro=(dias := max((ahora - creada).days, 0)),
@@ -592,47 +466,6 @@ async def cola_de_revision(
     return filas
 
 
-async def _cuantas_plantillas_la_usan(
-    session: AsyncSession, funcion_id: uuid.UUID, version: int
-) -> int:
-    """Cuántas versiones de plantilla anclan **esta** versión.
-
-    Se cuenta leyendo el spec y no con una tabla de referencias: una tabla sería un segundo sitio
-    donde vive el mismo hecho, y se desincronizaría con el spec en la primera edición manual.
-
-    El `LIKE` sólo **preselecciona** las plantillas que mencionan el id; el par (función, versión)
-    se comprueba bloque a bloque en Python. Confiar en el `LIKE` para las dos cosas contaría una
-    plantilla que cita la función en un bloque y el número de versión en otro.
-    """
-    filas = (
-        await session.execute(
-            select(HubReportTemplateVersion.spec_json).where(
-                text(
-                    "hub_report_template_versions.spec_json::text LIKE :patron"
-                ).bindparams(patron=f"%{funcion_id}%")
-            )
-        )
-    ).scalars().all()
-
-    total = 0
-    for spec in filas:
-        if not isinstance(spec, dict):
-            continue
-        bloques = spec.get("blocks")
-        if isinstance(bloques, dict):
-            bloques = list(bloques.values())
-        if not isinstance(bloques, list):
-            continue
-        for bloque in bloques:
-            ref = (bloque or {}).get("funcion_ref") if isinstance(bloque, dict) else None
-            if not isinstance(ref, dict):
-                continue
-            if str(ref.get("funcion_id")) == str(funcion_id) and ref.get("version") == version:
-                total += 1
-                break
-    return total
-
-
 @router.get(
     "/{funcion_id}", response_model=FuncionView, operation_id="verFuncion"
 )
@@ -642,8 +475,8 @@ async def ver_funcion(
     session: AsyncSession = Depends(get_session),
 ) -> FuncionView:
     """La ficha: el contrato legible, la declaración, los hallazgos y las versiones."""
-    funcion = await _funcion_visible(session, funcion_id, principal)
-    return _vista_de_funcion(funcion, await _versiones_de(session, funcion_id), principal)
+    funcion = await catalogo.funcion_visible(session, funcion_id, principal)
+    return _vista_de_funcion(funcion, await catalogo.versiones_de(session, funcion_id), principal)
 
 
 # ──────────────────────────── Revisión posterior ────────────────────────────
@@ -662,8 +495,8 @@ async def revisar_version(
     session: AsyncSession = Depends(get_session),
 ) -> VersionView:
     """Sella la revisión posterior. `correcciones` y `reclasificada` **no** cambian el estado."""
-    funcion = await _funcion_visible(session, funcion_id, principal)
-    version = await _version_de(session, funcion_id, numero)
+    funcion = await catalogo.funcion_visible(session, funcion_id, principal)
+    version = await catalogo.version_de(session, funcion_id, numero)
     _exigir("revisar", funcion, version, principal)
 
     try:
@@ -676,9 +509,7 @@ async def revisar_version(
     except (RevisionInvalida, FuncionIncoherente) as fallo:
         raise HTTPException(status_code=422, detail=str(fallo)) from fallo
 
-    vista = _vista_de_version(funcion, version, principal)
-    await session.commit()
-    return vista
+    return await catalogo.guardar(session, lambda: _vista_de_version(funcion, version, principal))
 
 
 @router.post(
@@ -694,8 +525,8 @@ async def suspender_version(
     session: AsyncSession = Depends(get_session),
 ) -> VersionView:
     """Deja de ejecutarse. El bloque anclado falla en alto **con este motivo** (FUN.3)."""
-    funcion = await _funcion_visible(session, funcion_id, principal)
-    version = await _version_de(session, funcion_id, numero)
+    funcion = await catalogo.funcion_visible(session, funcion_id, principal)
+    version = await catalogo.version_de(session, funcion_id, numero)
     _exigir("suspender", funcion, version, principal)
 
     try:
@@ -705,9 +536,7 @@ async def suspender_version(
     except FuncionIncoherente as fallo:
         raise HTTPException(status_code=422, detail=str(fallo)) from fallo
 
-    vista = _vista_de_version(funcion, version, principal)
-    await session.commit()
-    return vista
+    return await catalogo.guardar(session, lambda: _vista_de_version(funcion, version, principal))
 
 
 @router.post(
@@ -722,14 +551,12 @@ async def reactivar_version(
     session: AsyncSession = Depends(get_session),
 ) -> VersionView:
     """Vuelve a `registrada`. **No lo puede hacer la autora** si lo suspendió otra persona."""
-    funcion = await _funcion_visible(session, funcion_id, principal)
-    version = await _version_de(session, funcion_id, numero)
+    funcion = await catalogo.funcion_visible(session, funcion_id, principal)
+    version = await catalogo.version_de(session, funcion_id, numero)
     _exigir("reactivar", funcion, version, principal)
 
     reactivar(version)
-    vista = _vista_de_version(funcion, version, principal)
-    await session.commit()
-    return vista
+    return await catalogo.guardar(session, lambda: _vista_de_version(funcion, version, principal))
 
 
 @router.post(
@@ -744,14 +571,12 @@ async def retirar_version(
     session: AsyncSession = Depends(get_session),
 ) -> VersionView:
     """Retirar es de quien escribe. Es terminal: el estado no vuelve."""
-    funcion = await _funcion_visible(session, funcion_id, principal)
-    version = await _version_de(session, funcion_id, numero)
+    funcion = await catalogo.funcion_visible(session, funcion_id, principal)
+    version = await catalogo.version_de(session, funcion_id, numero)
     _exigir("retirar", funcion, version, principal)
 
     version.estado = "retirada"
-    vista = _vista_de_version(funcion, version, principal)
-    await session.commit()
-    return vista
+    return await catalogo.guardar(session, lambda: _vista_de_version(funcion, version, principal))
 
 
 # ──────────────────────────── Paso a nivel 3 ────────────────────────────
@@ -769,8 +594,8 @@ async def solicitar_promocion(
     session: AsyncSession = Depends(get_session),
 ) -> FuncionView:
     """La organización autora pide que su función pase a plataforma, con motivo."""
-    funcion = await _funcion_visible(session, funcion_id, principal)
-    versiones = await _versiones_de(session, funcion_id)
+    funcion = await catalogo.funcion_visible(session, funcion_id, principal)
+    versiones = await catalogo.versiones_de(session, funcion_id)
     _exigir(
         "solicitar_promocion",
         funcion,
@@ -786,9 +611,7 @@ async def solicitar_promocion(
     funcion.promocion_solicitada_por = user_to_uuid(principal.user_id)
     funcion.promocion_solicitada_en = datetime.now(timezone.utc)
     funcion.motivo_promocion = body.motivo.strip()
-    vista = _vista_de_funcion(funcion, versiones, principal)
-    await session.commit()
-    return vista
+    return await catalogo.guardar(session, lambda: _vista_de_funcion(funcion, versiones, principal))
 
 
 @router.post(
@@ -804,8 +627,8 @@ async def promover_funcion(
 ) -> FuncionView:
     """Nivel 3, y la **única aprobación previa** del bloque: sólo el superadministrador, con
     valoración escrita. No muta código ni versiones."""
-    funcion = await _funcion_visible(session, funcion_id, principal)
-    versiones = await _versiones_de(session, funcion_id)
+    funcion = await catalogo.funcion_visible(session, funcion_id, principal)
+    versiones = await catalogo.versiones_de(session, funcion_id)
     _exigir("promover", funcion, versiones[0] if versiones else None, principal)
 
     try:
@@ -817,6 +640,4 @@ async def promover_funcion(
     except PromocionInvalida as fallo:
         raise HTTPException(status_code=422, detail=str(fallo)) from fallo
 
-    vista = _vista_de_funcion(funcion, versiones, principal)
-    await session.commit()
-    return vista
+    return await catalogo.guardar(session, lambda: _vista_de_funcion(funcion, versiones, principal))

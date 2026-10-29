@@ -166,7 +166,9 @@ async def test_una_organizacion_con_un_sitio_no_se_borra_y_se_dice_por_que(sesio
 
 def test_la_traza_no_bloquea():
     """Qué cuenta como «datos que quedan» está escrito en un sitio, y la traza no está."""
-    from server.app.routers.hub_organizaciones_router import LO_QUE_BLOQUEA_EL_BORRADO
+    from server.app.api.datos_del_cliente_local import (
+        LO_QUE_BLOQUEA_EL_BORRADO,
+    )
 
     tablas = {modelo.__tablename__ for _, modelo in LO_QUE_BLOQUEA_EL_BORRADO}
     assert tablas == {

@@ -50,6 +50,7 @@ class ConfigProvider(Protocol):
         self, activity: str, *, organizacion_id: uuid.UUID | None = None
     ) -> ActivityPromptOverride | None: ...
     async def list_active_chatbots(self, organizacion_id: uuid.UUID) -> list[HubChatbot]: ...
+    async def list_chatbots(self, organizacion_id: uuid.UUID) -> list[HubChatbot]: ...
     async def get_retrieval_mode(self, chatbot_id: uuid.UUID) -> str: ...
     async def get_anonymization_mode(
         self, organizacion_id: uuid.UUID
@@ -162,6 +163,14 @@ class LocalConfigProvider:
             select(HubChatbot).where(
                 HubChatbot.organizacion_id == organizacion_id, HubChatbot.is_active.is_(True)
             )
+        )
+        return list(result.scalars().all())
+
+    async def list_chatbots(self, organizacion_id: uuid.UUID) -> list[HubChatbot]:
+        """Todos los chatbots de una organización, activos o no: una copia de una norma en uno
+        desactivado sigue siendo una copia (DER.2)."""
+        result = await self.session.execute(
+            select(HubChatbot).where(HubChatbot.organizacion_id == organizacion_id)
         )
         return list(result.scalars().all())
 

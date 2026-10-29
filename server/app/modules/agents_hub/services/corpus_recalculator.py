@@ -9,10 +9,8 @@ from server.app.modules.agents_hub.database.operational_models import (
     HubDocument,
     HubDocumentChunk,
 )
-from server.app.modules.agents_hub.ingestion.watcher import (
-    MODOS_QUE_BUSCAN_POR_FRAGMENTOS,
-    IngestionWatcher,
-)
+from server.app.modules.agents_hub.services.modos_de_recuperacion import MODOS_QUE_BUSCAN_POR_FRAGMENTOS
+from server.app.modules.agents_hub.ingestion.watcher import IngestionWatcher
 
 
 async def recalculate_corpus(

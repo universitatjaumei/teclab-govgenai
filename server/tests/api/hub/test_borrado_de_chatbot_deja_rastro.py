@@ -17,7 +17,7 @@ import uuid
 import pytest
 
 from server.app.core.auth.models import UserInfo
-from server.app.modules.agents_hub.services.corpus_purge import CorpusRetirado
+from server.app.core.datos_del_cliente import CorpusRetirado
 
 pytestmark = pytest.mark.asyncio
 
@@ -32,10 +32,16 @@ class _SesionQueNoHaceNada:
         return None
 
 
-class _AlmacenQueNoHaceNada:
-    """#253 — borrar el chatbot borra después sus fuentes de ingesta; aquí no hay ninguna."""
+class _DatosQueRetiran:
+    """#298 — la purga se pide a `DatosDelCliente`; éste dice cuánto retiró y no toca nada."""
 
-    async def delete_prefix(self, _prefijo):
+    def __init__(self, retirado):
+        self._retirado = retirado
+
+    async def purgar_corpus(self, _chatbot_ids):
+        return self._retirado
+
+    async def borrar_fuentes(self, _chatbot_ids):
         return None
 
 
@@ -47,18 +53,16 @@ async def test_el_borrado_registra_cuanto_corpus_se_llevo(monkeypatch, caplog):
     async def _sin_404(_session, _chatbot_id, _user):
         return object()
 
-    async def _purga(_session, _chatbot_id):
-        return CorpusRetirado(documentos=7, fragmentos=413)
+    datos = _DatosQueRetiran(CorpusRetirado(documentos=7, fragmentos=413))
 
-    monkeypatch.setattr(router_mod, "_get_chatbot_or_404", _sin_404)
-    monkeypatch.setattr(router_mod, "purgar_corpus_del_chatbot", _purga)
+    monkeypatch.setattr(router_mod.configuracion, "chatbot_o_404", _sin_404)
 
     with caplog.at_level(logging.INFO, logger=router_mod.__name__):
         await router_mod.delete_chatbot(
             chatbot_id=chatbot_id,
             user=UserInfo(user_id="1", email="admin@example.local", role="superadmin"),
             session=_SesionQueNoHaceNada(),
-            storage=_AlmacenQueNoHaceNada(),
+            datos=datos,
         )
 
     registro = "\n".join(caplog.messages)
@@ -74,18 +78,16 @@ async def test_el_rastro_dice_quien_lo_borro(monkeypatch, caplog):
     async def _sin_404(_session, _chatbot_id, _user):
         return object()
 
-    async def _purga(_session, _chatbot_id):
-        return CorpusRetirado(documentos=1, fragmentos=2)
+    datos = _DatosQueRetiran(CorpusRetirado(documentos=1, fragmentos=2))
 
-    monkeypatch.setattr(router_mod, "_get_chatbot_or_404", _sin_404)
-    monkeypatch.setattr(router_mod, "purgar_corpus_del_chatbot", _purga)
+    monkeypatch.setattr(router_mod.configuracion, "chatbot_o_404", _sin_404)
 
     with caplog.at_level(logging.INFO, logger=router_mod.__name__):
         await router_mod.delete_chatbot(
             chatbot_id=uuid.uuid4(),
             user=UserInfo(user_id="42", email="gerencia@uji.es", role="admin"),
             session=_SesionQueNoHaceNada(),
-            storage=_AlmacenQueNoHaceNada(),
+            datos=datos,
         )
 
     assert "gerencia@uji.es" in "\n".join(caplog.messages)
@@ -98,18 +100,16 @@ async def test_un_borrado_sin_corpus_tambien_deja_rastro(monkeypatch, caplog):
     async def _sin_404(_session, _chatbot_id, _user):
         return object()
 
-    async def _purga(_session, _chatbot_id):
-        return CorpusRetirado(documentos=0, fragmentos=0)
+    datos = _DatosQueRetiran(CorpusRetirado(documentos=0, fragmentos=0))
 
-    monkeypatch.setattr(router_mod, "_get_chatbot_or_404", _sin_404)
-    monkeypatch.setattr(router_mod, "purgar_corpus_del_chatbot", _purga)
+    monkeypatch.setattr(router_mod.configuracion, "chatbot_o_404", _sin_404)
 
     with caplog.at_level(logging.INFO, logger=router_mod.__name__):
         await router_mod.delete_chatbot(
             chatbot_id=uuid.uuid4(),
             user=UserInfo(user_id="1", email="admin@example.local", role="superadmin"),
             session=_SesionQueNoHaceNada(),
-            storage=_AlmacenQueNoHaceNada(),
+            datos=datos,
         )
 
     assert caplog.messages, "un borrado sin corpus no deja constancia de haber ocurrido"

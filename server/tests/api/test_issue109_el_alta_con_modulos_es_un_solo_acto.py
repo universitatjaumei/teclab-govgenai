@@ -165,13 +165,13 @@ class TestLaAtomicidad:
     async def test_si_falla_la_concesion_no_queda_la_persona(
         self, sesion, modulo_vigente, monkeypatch
     ) -> None:
-        from server.app.routers import hub_users_router
+        from server.app.core.auth import personas
 
         def _revienta(*_args, **_kwargs):
             raise RuntimeError("la base dice que no")
 
         # Falla al preparar las concesiones, que es el segundo paso del alta.
-        monkeypatch.setattr(hub_users_router, "_preparar_concesiones", _revienta)
+        monkeypatch.setattr(personas, "_preparar_concesiones", _revienta)
 
         correo = f"{uuid.uuid4().hex[:8]}@uji.es"
         async with _cliente(sesion) as cliente:

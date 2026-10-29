@@ -135,6 +135,7 @@ def _app(session, principal: UserInfo):
         router as activity_prompts_router,
     )
     from server.app.routers.hub_chatbots_router import router as chatbots_router
+    from server.app.routers.hub_chatbots_corpus_router import router as chatbots_corpus_router
     from server.app.routers.hub_llm_configs_router import router as llm_configs_router
     from server.app.routers.hub_sites_router import router as sites_router
 
@@ -154,7 +155,9 @@ def _app(session, principal: UserInfo):
         "curacion",
         "informes",
     ]
-    for router in (chatbots_router, llm_configs_router, activity_prompts_router, sites_router):
+    for router in (
+        chatbots_router, chatbots_corpus_router, llm_configs_router, activity_prompts_router, sites_router,
+    ):
         app.include_router(router, prefix="/api/v1")
     return app
 

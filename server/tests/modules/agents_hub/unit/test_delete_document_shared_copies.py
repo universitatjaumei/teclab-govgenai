@@ -71,11 +71,12 @@ def _sesion(documento, chatbot, copias_en_otros):
 
     hermanos = MagicMock()
     hermanos.scalars.return_value.all.return_value = list(copias_en_otros)
-    # 1ª: chatbots de la organización. 2ª: copias hermanas. Las demás: borrados.
+    # 1ª: chatbots de la organización, por `ConfigProvider` (#314). 2ª: copias hermanas. Las
+    # demás: borrados.
     otros_chatbots = MagicMock()
     otros_chatbots.scalars.return_value.all.return_value = [
-        documento.chatbot_id,
-        *[c.chatbot_id for c in copias_en_otros],
+        MagicMock(id=documento.chatbot_id),
+        *[MagicMock(id=c.chatbot_id) for c in copias_en_otros],
     ]
     session.execute = AsyncMock(
         side_effect=[otros_chatbots, hermanos, MagicMock(), MagicMock(), MagicMock()]
