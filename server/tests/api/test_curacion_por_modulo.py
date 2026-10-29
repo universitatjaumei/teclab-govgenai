@@ -30,12 +30,31 @@ def _rutas_de(modulo_router):
 
 
 def _modulos_que_pide(dependant) -> set[str]:
-    """Los códigos de `require_module(...)` en el árbol de dependencias de una ruta."""
+    """Los módulos que una ruta **exige**: los `require_module(...)` de un solo código.
+
+    Uno con alternativas (#327) no exige ninguno de los suyos, porque basta cualquiera: contarlos
+    haría pasar `require_module("chatbots", "curacion")` por una ruta que pide `curacion`.
+    """
     pedidos: set[str] = set()
     for dep in dependant.dependencies:
-        pedidos.update(getattr(dep.call, "modulos", ()))
+        modulos = getattr(dep.call, "modulos", ())
+        if len(modulos) == 1:
+            pedidos.update(modulos)
         pedidos |= _modulos_que_pide(dep)
     return pedidos
+
+
+def test_unas_alternativas_no_cuentan_como_modulo_exigido():
+    """Revisión de la PR #333."""
+    from fastapi import Depends
+    from fastapi.dependencies.utils import get_dependant
+
+    from server.app.api.deps import require_module
+
+    def ruta(_m=Depends(require_module("chatbots", "curacion"))):
+        return None
+
+    assert _modulos_que_pide(get_dependant(path="/", call=ruta)) == set()
 
 
 def _roles_que_pide(dependant) -> bool:

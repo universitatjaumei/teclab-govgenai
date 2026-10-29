@@ -75,33 +75,55 @@ class ImagenIlegible(Exception):
 
 
 def repositorio(imagen: str) -> str:
-    """`langfuse/langfuse:3.225.11` → `langfuse/langfuse`."""
-    nombre, _, etiqueta = imagen.rpartition(":")
-    return nombre if nombre and "/" not in etiqueta else imagen
+    """`langfuse/langfuse:3.225.11` → `langfuse/langfuse`, también con digest o con Docker Hub
+    nombrado (`docker.io/library/redis:7` → `redis`): anclar por digest no puede poner rojo."""
+    nombre = imagen.split("@", 1)[0]
+    base, _, etiqueta = nombre.rpartition(":")
+    if base and "/" not in etiqueta:
+        nombre = base
+    for prefijo in ("docker.io/library/", "docker.io/"):
+        if nombre.startswith(prefijo):
+            return nombre.removeprefix(prefijo)
+    return nombre
 
 
 def imagenes_fijas(servicios: dict) -> list[str]:
-    """Las imágenes por variable son nuestras y piden credenciales a propósito."""
-    return sorted({s["image"] for s in servicios.values() if "image" in s and not s["image"].startswith("$")})
+    """Las imágenes por variable son nuestras y piden credenciales a propósito. Una con una
+    variable dentro (`repo:${TAG}`) no se puede pedir sin interpolar: tampoco se pide."""
+    return sorted({s["image"] for s in servicios.values() if "image" in s and "$" not in s["image"]})
 
 
 def sin_vigilar(servicios: dict) -> list[str]:
+    """Los servicios que sustituyen el `entrypoint` de una imagen ajena que no está en la tabla.
+    Las nuestras —construidas o por variable— no: su arranque lo prueba el job `imagen`."""
+    ajenas = set(imagenes_fijas(servicios))
     return [
         f"{nombre} ({repositorio(s['image'])})"
         for nombre, s in servicios.items()
-        if "entrypoint" in s and repositorio(s.get("image", "")) not in ARRANQUES
+        if "entrypoint" in s and s.get("image") in ajenas and repositorio(s["image"]) not in ARRANQUES
     ]
 
 
 def configuracion(salida: str) -> Arranque:
     """Lee la salida de `--format '{{json .Image}}'`, que es un índice por plataforma o, si la
     etiqueta sólo publica una, la imagen directamente."""
-    datos = json.loads(salida)
-    if "config" not in datos:
-        if "linux/amd64" not in datos:
-            raise ImagenIlegible(f"no publica linux/amd64, sólo {sorted(datos)}")
+    try:
+        datos = json.loads(salida)
+    except json.JSONDecodeError as error:
+        raise ImagenIlegible(f"el registro no devolvió JSON ({error}): {salida[:200]!r}") from None
+    if not isinstance(datos, dict):
+        raise ImagenIlegible(f"respuesta inesperada del registro: {salida[:200]!r}")
+    if "config" in datos:
+        # Una sola plataforma: tiene que ser la de la VM, que es la de la foto.
+        if datos.get("architecture") not in (None, "amd64"):
+            raise ImagenIlegible(f"sólo publica {datos.get('architecture')}, y la VM es amd64")
+    elif "linux/amd64" in datos:
         datos = datos["linux/amd64"]
-    config = datos.get("config") or {}
+    else:
+        raise ImagenIlegible(f"no publica linux/amd64, sólo {sorted(datos)}")
+    config = datos.get("config") if isinstance(datos, dict) else None
+    if not isinstance(config, dict):
+        raise ImagenIlegible(f"sin configuración legible: {salida[:200]!r}")
     return Arranque(config.get("Entrypoint"), config.get("Cmd"), config.get("WorkingDir") or "/")
 
 
@@ -170,7 +192,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     servicios: dict = {}
     for compose in args.composes:
-        servicios |= servicios_de(compose)
+        try:
+            servicios |= servicios_de(compose)
+        except subprocess.CalledProcessError as error:
+            print(f"::error::{compose} no se puede leer con docker compose config: {error.stderr}")
+            return 1
     return comprueba(servicios)
 
 

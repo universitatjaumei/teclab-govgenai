@@ -80,6 +80,36 @@ def test_una_imagen_sin_linux_amd64_lo_dice() -> None:
         guion.configuracion(json.dumps({"linux/arm64": {"config": {}}}))
 
 
+def test_una_imagen_de_una_sola_plataforma_tiene_que_ser_amd64() -> None:
+    """Revisión de la PR #333: la VM de producción es amd64, y la foto de ARRANQUES también."""
+    sola = json.dumps({"architecture": "arm64", "os": "linux", "config": {"Entrypoint": ["/e"]}})
+    with pytest.raises(guion.ImagenIlegible, match="arm64"):
+        guion.configuracion(sola)
+
+
+@pytest.mark.parametrize("salida", ["", "WARNING: algo {}", "[1, 2]", '{"linux/amd64": "x"}'])
+def test_una_respuesta_inesperada_es_ilegible_y_no_tumba_el_guion(salida) -> None:
+    """Revisión de la PR #333: un `JSONDecodeError` cortaba la comprobación de las demás."""
+    with pytest.raises(guion.ImagenIlegible):
+        guion.configuracion(salida)
+
+
+@pytest.mark.parametrize(
+    ("imagen", "repo"),
+    [
+        ("langfuse/langfuse:3.225.11", "langfuse/langfuse"),
+        ("langfuse/langfuse:3.225.11@sha256:abc", "langfuse/langfuse"),
+        ("docker.io/langfuse/langfuse:3", "langfuse/langfuse"),
+        ("docker.io/library/redis:7", "redis"),
+        ("localhost:5000/x/y:1", "localhost:5000/x/y"),
+        ("caddy", "caddy"),
+    ],
+)
+def test_el_repositorio_se_lee_con_digest_y_registro(imagen, repo) -> None:
+    """Revisión de la PR #333: anclar por digest o nombrar Docker Hub no puede poner rojo."""
+    assert guion.repositorio(imagen) == repo
+
+
 # --- El arranque se compara entero ----------------------------------------------------------------
 
 
@@ -113,6 +143,16 @@ def test_la_tabla_cubre_cada_servicio_que_sustituye_el_entrypoint() -> None:
     assert vigilados == {"langfuse/langfuse", "clickhouse/clickhouse-server", "chrislusf/seaweedfs"}
     for compose in COMPOSES:
         assert guion.sin_vigilar(_servicios(compose)) == []
+
+
+def test_un_entrypoint_en_un_servicio_nuestro_no_pide_foto() -> None:
+    """Revisión de la PR #333: los que se construyen o van por variable son nuestros, y su
+    arranque lo prueba el job `imagen` construyéndolos."""
+    servicios = {
+        "migrate": {"build": ".", "entrypoint": ["alembic"]},
+        "app": {"image": "${GOVGENAI_IMAGE:?falta}", "entrypoint": ["x"]},
+    }
+    assert guion.sin_vigilar(servicios) == []
 
 
 def test_un_entrypoint_de_una_imagen_que_no_esta_en_la_tabla_se_dice() -> None:
@@ -153,6 +193,17 @@ def test_un_corte_que_sigue_se_dice_como_corte(monkeypatch) -> None:
         guion.inspecciona("a:1", ejecuta=registro)
 
 
+def test_un_compose_que_no_se_lee_dice_por_que(monkeypatch, capsys) -> None:
+    """Revisión de la PR #333: el `stderr` de `docker compose config` se capturaba y se perdía."""
+
+    def falla(orden, **_):
+        raise subprocess.CalledProcessError(15, orden, stderr="yaml: line 3: mapping values")
+
+    monkeypatch.setattr(guion.subprocess, "run", falla)
+    assert guion.main(["roto.yml"]) == 1
+    assert "mapping values" in capsys.readouterr().out
+
+
 def test_un_corte_no_esconde_la_imagen_que_viene_detras(monkeypatch, capsys) -> None:
     """El bucle de shell salía con la primera imagen que no respondía."""
     registro = _Registro({
@@ -168,7 +219,13 @@ def test_un_corte_no_esconde_la_imagen_que_viene_detras(monkeypatch, capsys) -> 
 
 def test_las_imagenes_por_variable_no_se_piden() -> None:
     """Las nuestras van por variable y piden credenciales a propósito."""
-    assert guion.imagenes_fijas({"app": {"image": "${GOVGENAI_IMAGE:?falta}"}, "c": {"image": "caddy:2.8"}}) == ["caddy:2.8"]
+    assert guion.imagenes_fijas(
+        {
+            "app": {"image": "${GOVGENAI_IMAGE:?falta}"},
+            "lf": {"image": "langfuse/langfuse:${TAG:-3}"},
+            "c": {"image": "caddy:2.8"},
+        }
+    ) == ["caddy:2.8"]
 
 
 # --- CI ejecuta el guion sobre los tres compose ---------------------------------------------------
