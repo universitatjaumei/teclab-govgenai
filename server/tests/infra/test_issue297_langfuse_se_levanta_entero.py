@@ -23,16 +23,16 @@ def servicios() -> dict:
 
 def test_should_bring_langfuse_with_what_it_needs(servicios):
     langfuse = servicios["langfuse"]
-    assert set(langfuse["depends_on"]) >= {"postgres", "clickhouse", "redis", "minio-init"}
+    assert set(langfuse["depends_on"]) >= {"postgres", "clickhouse", "redis", "s3"}
     entorno = langfuse["environment"]
     for variable in ("CLICKHOUSE_URL", "CLICKHOUSE_MIGRATION_URL", "REDIS_HOST",
                      "LANGFUSE_S3_EVENT_UPLOAD_BUCKET", "LANGFUSE_S3_MEDIA_UPLOAD_BUCKET"):
         assert variable in entorno, f"Langfuse 3 no arranca sin {variable}"
 
 
-@pytest.mark.parametrize("nombre", ["langfuse", "clickhouse", "redis", "minio-init"])
+@pytest.mark.parametrize("nombre", ["langfuse", "clickhouse", "redis"])
 def test_should_be_optional_and_together(servicios, nombre):
-    """En el perfil, los cuatro: quien no quiere observabilidad no carga dos gigas de ClickHouse,
+    """En el perfil, los tres: quien no quiere observabilidad no carga dos gigas de ClickHouse,
     y quien la quiere no la levanta a medias."""
     assert servicios[nombre].get("profiles") == [PERFIL]
 

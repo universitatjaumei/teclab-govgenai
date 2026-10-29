@@ -78,21 +78,41 @@ def test_ninguna_imagen_va_sin_version(compose: Path) -> None:
     )
 
 
-def test_las_imagenes_de_minio_se_toman_de_quay_y_no_de_docker_hub() -> None:
-    """Lo que la medición destapó: de Docker Hub ya no se puede tirar sin credenciales.
+#: Registros que dejaron de servir sin credenciales. Medido: Docker Hub `minio/minio` el
+#: 2026-09-19 (401 y 404 en la API); quay.io `minio/minio` y `minio/mc` el 2026-10-27 (401), y
+#: otra vez el 2026-10-29. Por eso el almacén pasó a SeaweedFS (#312).
+QUE_PIDEN_CREDENCIALES = ("minio/", "quay.io/minio/")
 
-    Si algún día vuelve a ser pública, este test se pone rojo y habrá que decidir a conciencia
-    de dónde se coge, en vez de que el cambio pase inadvertido en un `docker pull` que falla en
-    la máquina de otro.
-    """
+
+def test_ninguna_imagen_sale_de_un_registro_que_pide_credenciales() -> None:
+    """Lo que la medición destapó, dos veces: un compose que pide estas imágenes no arranca para
+    quien no tenga ya una copia en caché, y en la máquina de quien lo escribe sí arranca."""
     for compose in COMPOSES:
         for servicio, imagen in _imagenes(compose).items():
-            if "minio/" not in imagen:
-                continue
-            assert imagen.startswith("quay.io/minio/"), (
-                f"{compose.name}, servicio «{servicio}»: la imagen es «{imagen}». "
-                "`minio/minio` de Docker Hub responde 401 a un token anónimo y 404 en la API "
-                "del Hub —medido el 2026-09-19 y contrastado con `ollama/ollama`, que responde "
-                "200 por las dos vías—, así que un compose que la pida no arranca para quien no "
-                "tenga ya una copia en caché."
+            assert not imagen.startswith(QUE_PIDEN_CREDENCIALES), (
+                f"{compose.name}, servicio «{servicio}»: «{imagen}» no se descarga sin "
+                "credenciales. Ver #312."
             )
+
+
+def test_ci_comprueba_que_cada_imagen_se_descarga_sin_credenciales() -> None:
+    """#312 — la regla de arriba sólo conoce los registros que ya fallaron. CI pregunta al
+    registro por cada imagen de los dos compose, sin iniciar sesión: el manifiesto, sin bajar las
+    capas, que es lo barato. Así el próximo registro que cierre se ve en CI y no en la máquina de
+    quien instala."""
+    ci = (RAIZ / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    assert "docker manifest inspect" in ci
+    for compose in ("docker-compose.yml", "docker-compose.prod.yml", "deploy/vm/docker-compose.vm.yml"):
+        assert compose in ci[ci.index("docker manifest inspect") - 1500 :]
+
+
+def test_ci_no_confunde_un_corte_del_registro_con_credenciales() -> None:
+    """Revisión de la PR #320: el paso tiraba el error del registro a `/dev/null`, así que un
+    límite de peticiones de Docker Hub o un corte de red salían como «no se descarga sin
+    credenciales» y mandaban a buscar un problema que no existía. Ahora el error se enseña, y sólo
+    lo que el registro niega (no autorizado, no existe) cuenta como imagen que no se descarga."""
+    ci = (RAIZ / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    inicio = ci.index("docker manifest inspect")
+    paso = ci[inicio - 1500 : inicio + 1500]
+    assert "> /dev/null 2>&1" not in paso
+    assert "unauthorized" in paso

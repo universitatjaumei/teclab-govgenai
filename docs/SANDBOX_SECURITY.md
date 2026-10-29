@@ -21,7 +21,7 @@ Usuario autenticado de la plataforma (rol *proposer*) que intenta:
 | Activo | Descripción |
 |--------|-------------|
 | `postgres` | Base de datos del cliente con expedientes y datos personales |
-| `minio` / GCS | Almacenamiento de documentos subidos por el cliente |
+| `s3` / GCS | Almacenamiento de documentos subidos por el cliente |
 | Red interna del cliente | Servicios en la misma red que el API (`default` bridge) |
 | Otros tenants | Workspaces de otros usuarios en la misma instancia |
 
@@ -60,7 +60,7 @@ Ningún script llega a plantillas globales sin un humano en el loop.
 
 El servicio `script-sandbox` vive **exclusivamente** en la red `sandbox-net`. En producción (`internal: true`):
 
-- No hay resolución DNS hacia `postgres`, `minio` ni otros servicios.
+- No hay resolución DNS hacia `postgres`, `s3` ni otros servicios.
 - No hay egress hacia internet.
 - El único servicio conectado a ambas redes (`default` y `sandbox-net`) es `app`.
 

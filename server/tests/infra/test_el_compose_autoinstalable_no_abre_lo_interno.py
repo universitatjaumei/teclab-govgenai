@@ -57,7 +57,19 @@ def test_hay_un_panel_publicado(prod) -> None:
 #: incluidos, así que con `:?` un `.env` sin ellos tumbaba también la aplicación (revisión de la
 #: PR #313). No arrancan vacíos igualmente: los exige el entrypoint de su servicio, y el test de
 #: abajo lo comprueba, así que la excepción deja de valer si alguien quita la guarda.
-EXIGIDOS_AL_ARRANCAR = {"CLICKHOUSE_PASSWORD": "clickhouse"}
+#:
+#: Variable del `.env` → (servicio, nombre con que le llega al contenedor), que es el que mira la
+#: guarda: los de Langfuse se renombran al entrar (#318).
+EXIGIDOS_AL_ARRANCAR = {
+    "CLICKHOUSE_PASSWORD": ("clickhouse", "CLICKHOUSE_PASSWORD"),
+    "LANGFUSE_NEXTAUTH_SECRET": ("langfuse", "NEXTAUTH_SECRET"),
+    "LANGFUSE_SALT": ("langfuse", "SALT"),
+    "LANGFUSE_ENCRYPTION_KEY": ("langfuse", "ENCRYPTION_KEY"),
+    "LANGFUSE_PUBLIC_KEY": ("langfuse", "LANGFUSE_INIT_PROJECT_PUBLIC_KEY"),
+    "LANGFUSE_SECRET_KEY": ("langfuse", "LANGFUSE_INIT_PROJECT_SECRET_KEY"),
+    "LANGFUSE_ADMIN_EMAIL": ("langfuse", "LANGFUSE_INIT_USER_EMAIL"),
+    "LANGFUSE_ADMIN_PASSWORD": ("langfuse", "LANGFUSE_INIT_USER_PASSWORD"),
+}
 
 
 def test_ningun_secreto_arranca_vacio() -> None:
@@ -70,11 +82,58 @@ def test_ningun_secreto_arranca_vacio() -> None:
     assert not sueltos, f"secretos sin `:?` en el compose autoinstalable: {sueltos}"
 
 
-@pytest.mark.parametrize(("variable", "servicio"), sorted(EXIGIDOS_AL_ARRANCAR.items()))
-def test_los_secretos_de_un_perfil_los_exige_su_servicio(prod, variable, servicio) -> None:
+@pytest.mark.parametrize(("variable", "destino"), sorted(EXIGIDOS_AL_ARRANCAR.items()))
+def test_los_secretos_de_un_perfil_los_exige_su_servicio(prod, variable, destino) -> None:
+    servicio, en_el_contenedor = destino
+    assert prod["services"][servicio]["environment"][en_el_contenedor] == f"${{{variable}}}", (
+        f"{servicio} no recibe {variable} como {en_el_contenedor}: la guarda miraría otra cosa"
+    )
     guarda = " ".join(prod["services"][servicio].get("entrypoint") or [])
-    assert f'test -n "$${{{variable}}}"' in guarda, f"{servicio} arrancaría con {variable} vacío"
+    assert f'test -n "$${{{en_el_contenedor}}}"' in guarda, f"{servicio} arrancaría con {variable} vacío"
     assert "exit 1" in guarda
+
+
+def _exigidos_con_interrogacion(servicio: dict) -> set[str]:
+    return set(re.findall(r"\$\{(\w+):\?", yaml.safe_dump(servicio.get("environment") or {})))
+
+
+def test_un_perfil_no_exige_nada_a_quien_no_lo_levanta(prod) -> None:
+    """#318 — `:?` en una variable que sólo usa un servicio de perfil tumba el `up` de todos.
+
+    Compose interpola el fichero entero, perfiles inactivos incluidos: un `.env` sin los secretos
+    de Langfuse impedía arrancar la aplicación a quien no quiere observabilidad.
+    """
+    sin_perfil = set().union(*(
+        _exigidos_con_interrogacion(s) for s in prod["services"].values() if not s.get("profiles")
+    ))
+    solo_de_perfil = sorted(
+        f"{nombre}: {variable}"
+        for nombre, servicio in prod["services"].items()
+        if servicio.get("profiles")
+        for variable in _exigidos_con_interrogacion(servicio) - sin_perfil
+    )
+    assert not solo_de_perfil, (
+        "variables con `:?` que sólo usa un servicio de perfil; van sin modificador y con guarda "
+        "en el entrypoint (EXIGIDOS_AL_ARRANCAR):\n" + "\n".join(solo_de_perfil)
+    )
+
+
+def test_la_guarda_de_langfuse_no_pierde_su_arranque(prod) -> None:
+    """Un `entrypoint` en Compose también borra el `command` de la imagen: la guarda tiene que
+    acabar cediendo al arranque original de Langfuse, el de `dumb-init` y su servidor."""
+    guarda = " ".join(prod["services"]["langfuse"]["entrypoint"])
+    assert "exec dumb-init -- ./web/entrypoint.sh node ./web/server.js" in guarda
+
+
+def test_ci_comprueba_que_el_arranque_copiado_sigue_siendo_el_de_la_imagen() -> None:
+    """Revisión de la PR #320: la guarda copia a mano el arranque de la imagen, y Dependabot sube
+    la etiqueta sin mirarlo. CI lee el `Entrypoint` y el `Cmd` de la imagen fijada —sin bajar las
+    capas— y se pone rojo si ya no son los que la guarda ejecuta."""
+    ci = (PROD.parent / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    inicio = ci.index("imagetools inspect")
+    paso = ci[inicio - 1500 : inicio + 1500]
+    assert "langfuse" in paso
+    assert "./web/server.js --keepAliveTimeout 110000" in paso
 
 
 @pytest.mark.parametrize("fichero", [PROD, DEV], ids=["prod", "dev"])
@@ -83,9 +142,8 @@ def test_cada_imagen_tiene_version_fija(fichero) -> None:
     flotantes = [
         f"{nombre}: {servicio['image']}"
         for nombre, servicio in datos["services"].items()
-        # MinIO publica por fecha (`RELEASE.2025-09-07T…`), que también es una versión fija.
         if "image" in servicio
-        and not re.search(r":[^:]*(\d+\.\d+|RELEASE\.\d{4}-)", servicio["image"])
+        and not re.search(r":[^:]*\d+\.\d+", servicio["image"])
     ]
     assert not flotantes, "imágenes por etiqueta flotante:\n" + "\n".join(flotantes)
 

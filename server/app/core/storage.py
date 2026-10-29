@@ -1,10 +1,10 @@
 """Abstracción de almacenamiento de objetos basada en fsspec.
 
 El backend se configura por variables de entorno:
-  STORAGE_BACKEND  → "file" (local), "s3" (MinIO/AWS), "gcs" (Google Cloud Storage)
+  STORAGE_BACKEND  → "file" (local), "s3" (cualquier S3: SeaweedFS del compose, AWS…), "gcs" (Google Cloud Storage)
   STORAGE_BUCKET   → ruta base (directorio local o nombre de bucket)
   STORAGE_ENDPOINT → URL del endpoint (solo backend "s3" con endpoint personalizado)
-  STORAGE_ACCESS_KEY / STORAGE_SECRET_KEY → credenciales S3/MinIO
+  STORAGE_ACCESS_KEY / STORAGE_SECRET_KEY → credenciales S3
 
 En producción GCP las credenciales para "gcs" se leen automáticamente vía
 Application Default Credentials (ADC) o GOOGLE_APPLICATION_CREDENTIALS.

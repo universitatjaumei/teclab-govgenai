@@ -565,9 +565,9 @@ siendo portable: nada se acopla al proveedor, y cambiar a MinIO + PostgreSQL loc
 cambiar variables de entorno.
 
 **Dos ficheros de Compose.** `docker-compose.yml` levanta sólo la infraestructura de desarrollo
-—`postgres`, `minio`, `clickhouse`, `redis`, `langfuse`, `script-sandbox`— y la aplicación corre
+—`postgres`, `s3`, `clickhouse`, `redis`, `langfuse`, `script-sandbox`— y la aplicación corre
 en la máquina de quien desarrolla. `docker-compose.prod.yml` levanta el conjunto: `app`,
-`frontend`, `ollama`, `script-sandbox`, `migrate`, `langfuse`, `postgres`, `minio`.
+`frontend`, `ollama`, `script-sandbox`, `migrate`, `langfuse`, `postgres`, `s3` (SeaweedFS).
 
 **Tres *workflows* de GitHub Actions**:
 

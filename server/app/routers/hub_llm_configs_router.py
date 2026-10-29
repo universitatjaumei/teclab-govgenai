@@ -7,7 +7,9 @@ test de conexión— en vez de construir un panel paralelo. Ver
 `docs/DECISION_MODELOS_EMBEDDING_RERANKER.md`.
 
 Deploy: cloud
-Módulo: plataforma — ya lo declaraba; proveedores y niveles son globales.
+Módulo: plataforma — ya lo declaraba; proveedores y niveles son globales. Con una excepción,
+la misma que PLAT.5 hizo en organizaciones: **leer la lista** la necesita el selector de modelo de
+`ChatbotsPage`, que vive en el módulo Chatbots (#319), así que exige `chatbots` o `plataforma`.
 """
 import logging
 import time
@@ -20,7 +22,7 @@ from pydantic import BaseModel
 from sqlalchemy import or_, select
 from sqlalchemy.orm import selectinload
 
-from server.app.api.deps import require_role, require_module
+from server.app.api.deps import modulos_concedidos, require_role, require_module
 from server.app.core.auth.models import UserInfo
 from server.app.core.auth.tenancy import (
     assert_org_access,
@@ -34,12 +36,30 @@ from server.app.services.model_fetcher import get_models_for_provider
 
 _log = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/hub/llm-configs", tags=["hub-llm-configs"],
-    # INF.7 — el modulo se exige a nivel de router: asi no se puede olvidar en un
-    # endpoint nuevo del mismo fichero, que es como se abrieron los agujeros que SEC.8.1
-    # tuvo que cerrar uno a uno.
-    dependencies=[Depends(require_module("plataforma"))],
-)
+router = APIRouter(prefix="/hub/llm-configs", tags=["hub-llm-configs"])
+
+# INF.7 lo exigía a nivel de router, para que no se pudiera olvidar en un endpoint nuevo. #319
+# lo baja a cada endpoint porque el listado no es de la plataforma: elegir el modelo de un
+# chatbot no es administrarla, y con el router entero bajo `plataforma` un administrador de
+# Chatbots veía el selector vacío. Que no se olvide lo vigila ahora un test de #319.
+_de_plataforma = Depends(require_module("plataforma"))
+
+
+async def _elige_modelo(concedidos: list[str] = Depends(modulos_concedidos)) -> None:
+    """Leer la lista la necesitan quien configura chatbots y quien administra la plataforma.
+
+    Ni uno más (revisión de la PR #320): sin módulo, cualquier administrador —uno que sólo
+    tuviera Informes— leía los modelos de la plataforma con sus proveedores.
+    """
+    requeridos = ["chatbots", "plataforma"]
+    if not set(requeridos) & set(concedidos):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "message": "Sin acceso a los modulos 'chatbots' ni 'plataforma'",
+                "modulos_requeridos": requeridos,
+            },
+        )
 
 _require_admin = require_role("superadmin", "admin")
 # SEC.9.2 — un proveedor es de ámbito `plataforma`: crearlo, cambiarlo o borrarlo afecta a TODAS
@@ -129,6 +149,7 @@ class HubProviderUpdate(BaseModel):
 @router.get("/providers", response_model=list[HubProviderOut])
 async def list_providers(
     _: UserInfo = Depends(_require_admin),
+    _modulo=_de_plataforma,
     session=Depends(get_session),
 ):
     """Obtiene la lista de proveedores dinámicos."""
@@ -140,6 +161,7 @@ async def list_providers(
 async def create_provider(
     body: HubProviderCreate,
     _: UserInfo = Depends(_require_superadmin),
+    _modulo=_de_plataforma,
     session=Depends(get_session),
 ):
     """Crea un nuevo proveedor."""
@@ -160,6 +182,7 @@ async def update_provider(
     provider_id: str,
     body: HubProviderUpdate,
     _: UserInfo = Depends(_require_superadmin),
+    _modulo=_de_plataforma,
     session=Depends(get_session),
 ):
     """Actualiza un proveedor existente."""
@@ -179,6 +202,7 @@ async def update_provider(
 async def delete_provider(
     provider_id: str,
     _: UserInfo = Depends(_require_superadmin),
+    _modulo=_de_plataforma,
     session=Depends(get_session),
 ):
     """Elimina un proveedor si no está en uso."""
@@ -222,6 +246,7 @@ class LLMConnectionTestOut(BaseModel):
 async def list_available_models(
     provider_id: str,
     _: UserInfo = Depends(_require_admin),
+    _modulo=_de_plataforma,
     session=Depends(get_session),
 ):
     """Obtiene la lista de modelos disponibles para un proveedor (usa caché)."""
@@ -295,6 +320,7 @@ class LLMConfigUpdate(BaseModel):
 async def list_llm_configs(
     user: UserInfo = Depends(_require_admin),
     session=Depends(get_session),
+    _modulo=Depends(_elige_modelo),
 ):
     """Los modelos de sus organizaciones **y los de plataforma**, que se heredan (SEC.9.2).
 
@@ -364,6 +390,7 @@ async def _relevar_default(
 async def create_llm_config(
     body: LLMConfigCreate,
     user: UserInfo = Depends(_require_admin),
+    _modulo=_de_plataforma,
     session=Depends(get_session),
 ):
     # SEC.9.2: la organización se resuelve ANTES del relevo. Si no, un administrador degradaría
@@ -397,6 +424,7 @@ async def update_llm_config(
     config_id: uuid.UUID,
     body: LLMConfigUpdate,
     user: UserInfo = Depends(_require_admin),
+    _modulo=_de_plataforma,
     session=Depends(get_session),
 ):
     config = await session.get(HubLLMConfig, config_id)
@@ -426,6 +454,7 @@ async def update_llm_config(
 async def delete_llm_config(
     config_id: uuid.UUID,
     user: UserInfo = Depends(_require_admin),
+    _modulo=_de_plataforma,
     session=Depends(get_session),
 ):
     config = await session.get(HubLLMConfig, config_id)
@@ -450,6 +479,7 @@ async def delete_llm_config(
 async def test_llm_connection(
     config_id: uuid.UUID,
     user: UserInfo = Depends(_require_admin),
+    _modulo=_de_plataforma,
     session=Depends(get_session),
 ):
     config = await session.scalar(

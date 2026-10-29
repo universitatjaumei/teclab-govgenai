@@ -25,49 +25,45 @@ services:
       timeout: 5s
       retries: 5
 
-  minio:
-    # **Fijada, y en quay.io (issue #43).** Dos cosas a la vez. Con `:latest` no se puede
-    # saber qué versión corre ni volver a la anterior. Y además `minio/minio` **ya no se puede
-    # tirar de Docker Hub sin credenciales**: medido el 2026-09-19, el registro responde 401 a
-    # un token anónimo y la API del Hub responde 404 al repositorio, mientras `ollama/ollama`
-    # responde 200 por las dos vías. MinIO publica en quay.io, y la imagen de allí es el
-    # **mismo build** (mismo `commit-id`) que la que había en la caché local.
+  s3:
+    # #312 — el almacén S3 del compose: lo usa Langfuse y, si se elige, la aplicación
+    # (`STORAGE_BACKEND=s3`). SeaweedFS (Apache 2.0) en un solo proceso, que crea sus buckets al
+    # arrancar. Antes era MinIO, y sus imágenes dejaron de descargarse sin credenciales: quay.io
+    # responde 401 y `minio/minio` en Docker Hub no tiene etiquetas (medido el 2026-10-29).
     #
-    # O sea que esto no era sólo poco reproducible: no arrancaba para quien lo copiara. Cuidado
-    # al comprobarlo, que aquí casi cuela: `docker run minio/minio:latest` funciona si la
-    # máquina tiene una copia vieja en caché, y eso no dice nada del registro.
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
-    command: server /data --console-address ":9001"
+    # Lo que SeaweedFS trae abierto se cierra aquí: el panel, WebDAV e Iceberg apagados, la
+    # telemetría también, y el filer y el volumen piden una firma JWT. La API del maestro queda
+    # sin autenticación, a sabiendas: su `[guard]` corta el tráfico interno del propio proceso.
+    # Sólo la ve la red `default`; el sandbox está en `sandbox-net`. Detalle en el test de #312.
+    image: chrislusf/seaweedfs:4.48
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        mkdir -p /etc/seaweedfs
+        cat > /etc/seaweedfs/security.toml <<EOF
+        [jwt.signing]
+        key = "$${AWS_SECRET_ACCESS_KEY}"
+        [jwt.signing.read]
+        key = "$${AWS_SECRET_ACCESS_KEY}"
+        [jwt.filer_signing]
+        key = "$${AWS_SECRET_ACCESS_KEY}"
+        [jwt.filer_signing.read]
+        key = "$${AWS_SECRET_ACCESS_KEY}"
+        EOF
+        exec /entrypoint.sh mini -dir=/data -s3.port=9000 -master.telemetry=false -admin.ui=false -webdav=false -s3.port.iceberg=0 -bucket=langfuse-events,langfuse-media
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin_dev}
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY:-govgenai}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:-govgenai_dev_secret}
+    volumes:
+      - s3_data:/data
     ports:
       - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - minio_data:/data
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9000/healthz"]
       interval: 10s
       timeout: 5s
       retries: 5
-
-  minio-init:
-    # Fijada y en quay.io, por lo mismo que `minio` (issue #43) — y aquí además **no llevaba
-    # etiqueta ninguna**, que es `:latest` con otro nombre. La issue hablaba de dos imágenes;
-    # ésta la encontró el guardarraíl al escribirlo, que es la mitad de su valor.
-    image: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
-    depends_on:
-      minio:
-        condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-      mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin_dev};
-      mc mb --ignore-existing local/langfuse-events;
-      mc mb --ignore-existing local/langfuse-media;
-      echo 'MinIO buckets ready.';
-      "
-    restart: "no"
 
   clickhouse:
     image: clickhouse/clickhouse-server:24.12-alpine
@@ -104,8 +100,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      minio-init:
-        condition: service_completed_successfully
+      s3:
+        condition: service_healthy
     ports:
       - "3000:3000"
     environment:
@@ -132,16 +128,16 @@ services:
       LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_ADMIN_PASSWORD:-admin123}
       LANGFUSE_S3_EVENT_UPLOAD_ENABLED: "true"
       LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse-events
-      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://minio:9000
-      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
-      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin_dev}
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://s3:9000
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${S3_ACCESS_KEY:-govgenai}
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:-govgenai_dev_secret}
       LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
       LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
       LANGFUSE_S3_MEDIA_UPLOAD_ENABLED: "true"
       LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: langfuse-media
-      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://minio:9000
-      LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-minioadmin}
-      LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin_dev}
+      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://s3:9000
+      LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: ${S3_ACCESS_KEY:-govgenai}
+      LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:-govgenai_dev_secret}
       LANGFUSE_S3_MEDIA_UPLOAD_REGION: auto
       LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
 
@@ -190,8 +186,8 @@ networks:
 volumes:
   postgres_data:
     name: ai_agents_hub_postgres_data
-  minio_data:
-    name: ai_agents_hub_minio_data
+  s3_data:
+    name: ai_agents_hub_s3_data
   clickhouse_data:
     name: ai_agents_hub_clickhouse_data
   redis_data:

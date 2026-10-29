@@ -517,9 +517,9 @@ El backend se configura por variable de entorno:
 
 | Variable | Desarrollo (local/Docker) | Producción GCP |
 |---|---|---|
-| `STORAGE_BACKEND` | `file` o `s3` (MinIO) | `gcs` |
+| `STORAGE_BACKEND` | `file` o `s3` (SeaweedFS del compose) | `gcs` |
 | `STORAGE_BUCKET` | `/tmp/govgenai` o `govgenai-dev` | `govgenai-prod` |
-| `STORAGE_ENDPOINT` | `http://minio:9000` (solo S3) | — |
+| `STORAGE_ENDPOINT` | `http://localhost:9000` o `http://s3:9000` (solo S3) | — |
 
 El `StorageService` vive en `server/app/core/storage.py`. Si no existe aún, créalo antes de
 escribir cualquier código que necesite persistir ficheros.
