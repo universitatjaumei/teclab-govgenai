@@ -9,11 +9,14 @@ import uuid
 from typing import Callable, TypeVar
 
 from fastapi import HTTPException
-from sqlalchemy import select, text
+from pydantic import ValidationError
+from sqlalchemy import String, any_, cast, select
+from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.app.core.auth.models import UserInfo
 from server.app.core.auth.tenancy import organizacion_unica_de
+from server.app.modules.redaccion.contracts.blocks import FuncionRef
 from server.app.modules.redaccion.database.models import (
     HubFuncion,
     HubFuncionVersion,
@@ -81,19 +84,32 @@ async def destino_de_una_version_externa(
     return destino
 
 
-async def versiones_de(session: AsyncSession, funcion_id: uuid.UUID) -> list[HubFuncionVersion]:
-    return list(
-        (
-            await session.execute(
-                select(HubFuncionVersion)
-                .where(HubFuncionVersion.funcion_id == funcion_id)
-                # DET.1 — orden estable con desempate: dos versiones pueden compartir `created_at`.
-                .order_by(HubFuncionVersion.version.desc(), HubFuncionVersion.id)
-            )
+async def versiones_por_funcion(
+    session: AsyncSession, funcion_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, list[HubFuncionVersion]]:
+    """Las versiones de todas estas funciones **en una consulta**, agrupadas (#315).
+
+    El catálogo las pedía función a función: F + 1 consultas en una pantalla que se abre a menudo.
+    Cada lista conserva el orden de `versiones_de`. Con la lista vacía no se consulta.
+    """
+    agrupadas: dict[uuid.UUID, list[HubFuncionVersion]] = {i: [] for i in funcion_ids}
+    if not funcion_ids:
+        return agrupadas
+    filas = (
+        await session.execute(
+            select(HubFuncionVersion)
+            .where(HubFuncionVersion.funcion_id.in_(funcion_ids))
+            # DET.1 — orden estable con desempate: dos versiones pueden compartir `created_at`.
+            .order_by(HubFuncionVersion.version.desc(), HubFuncionVersion.id)
         )
-        .scalars()
-        .all()
-    )
+    ).scalars().all()
+    for fila in filas:
+        agrupadas[fila.funcion_id].append(fila)
+    return agrupadas
+
+
+async def versiones_de(session: AsyncSession, funcion_id: uuid.UUID) -> list[HubFuncionVersion]:
+    return (await versiones_por_funcion(session, [funcion_id]))[funcion_id]
 
 
 async def version_de(
@@ -163,45 +179,68 @@ async def en_revision(
     return por_funcion, list(versiones)
 
 
-async def cuantas_plantillas_la_usan(
-    session: AsyncSession, funcion_id: uuid.UUID, version: int
-) -> int:
-    """Cuántas versiones de plantilla anclan **esta** versión.
+def _anclas_del_spec(spec) -> set[tuple[uuid.UUID, int]]:
+    """Los pares (función, versión) que ancla una versión de plantilla, cada uno una vez.
+
+    El ancla se lee con `FuncionRef`, el contrato que valida el bloque, y no a mano: así cuenta lo
+    mismo que el bloque acepta (`1.0` es la versión 1, una versión 0 no es un ancla), y un spec
+    editado a mano con una versión que no es un número se salta en vez de tumbar la cola entera
+    de revisión (revisión de la PR #316).
+    """
+    if not isinstance(spec, dict):
+        return set()
+    bloques = spec.get("blocks")
+    if isinstance(bloques, dict):
+        bloques = list(bloques.values())
+    if not isinstance(bloques, list):
+        return set()
+    anclas: set[tuple[uuid.UUID, int]] = set()
+    for bloque in bloques:
+        ref = bloque.get("funcion_ref") if isinstance(bloque, dict) else None
+        if ref is None:
+            continue
+        try:
+            ancla = FuncionRef.model_validate(ref)
+        except ValidationError:
+            continue
+        anclas.add((ancla.funcion_id, ancla.version))
+    return anclas
+
+
+async def plantillas_que_las_usan(
+    session: AsyncSession, funcion_ids: list[uuid.UUID]
+) -> dict[tuple[uuid.UUID, int], int]:
+    """Cuántas versiones de plantilla anclan cada (función, versión), **en una lectura** (#315).
+
+    Antes era una lectura completa de la tabla por cada versión de la cola.
 
     Se cuenta leyendo el spec y no con una tabla de referencias: una tabla sería un segundo sitio
     donde vive el mismo hecho, y se desincronizaría con el spec en la primera edición manual.
 
-    El `LIKE` sólo **preselecciona** las plantillas que mencionan el id; el par (función, versión)
-    se comprueba bloque a bloque en Python. Confiar en el `LIKE` para las dos cosas contaría una
-    plantilla que cita la función en un bloque y el número de versión en otro.
+    El `LIKE` sólo **preselecciona** las plantillas que mencionan alguno de los ids; el par
+    (función, versión) se comprueba bloque a bloque en Python. Confiar en el `LIKE` para las dos
+    cosas contaría una plantilla que cita la función en un bloque y el número de versión en otro.
     """
+    if not funcion_ids:
+        return {}
+    buscadas = set(funcion_ids)
+    # Un solo `LIKE ANY` y no un `OR` de `LIKE`: con el `OR`, PostgreSQL convierte el JSONB a
+    # texto una vez por rama, es decir, por cada función de la cola y por cada fila.
+    patrones = array([f"%{i}%" for i in buscadas])
     filas = (
         await session.execute(
             select(HubReportTemplateVersion.spec_json).where(
-                text(
-                    "hub_report_template_versions.spec_json::text LIKE :patron"
-                ).bindparams(patron=f"%{funcion_id}%")
+                cast(HubReportTemplateVersion.spec_json, String).like(any_(patrones))
             )
         )
     ).scalars().all()
 
-    total = 0
+    cuantas: dict[tuple[uuid.UUID, int], int] = {}
     for spec in filas:
-        if not isinstance(spec, dict):
-            continue
-        bloques = spec.get("blocks")
-        if isinstance(bloques, dict):
-            bloques = list(bloques.values())
-        if not isinstance(bloques, list):
-            continue
-        for bloque in bloques:
-            ref = (bloque or {}).get("funcion_ref") if isinstance(bloque, dict) else None
-            if not isinstance(ref, dict):
-                continue
-            if str(ref.get("funcion_id")) == str(funcion_id) and ref.get("version") == version:
-                total += 1
-                break
-    return total
+        for ancla in _anclas_del_spec(spec):
+            if ancla[0] in buscadas:
+                cuantas[ancla] = cuantas.get(ancla, 0) + 1
+    return cuantas
 
 
 async def guardar(session: AsyncSession, vista: Callable[[], _Vista]) -> _Vista:

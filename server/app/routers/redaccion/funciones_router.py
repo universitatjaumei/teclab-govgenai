@@ -400,10 +400,9 @@ async def listar_funciones(
     Nunca las no publicadas de otra organización — eso lo decide `consulta_de_catalogo`, que es
     la misma frontera que usa el resolutor, escrita una sola vez.
     """
-    return [
-        _vista_de_funcion(funcion, await catalogo.versiones_de(session, funcion.id), principal)
-        for funcion in await catalogo.catalogo(session, principal)
-    ]
+    funciones = await catalogo.catalogo(session, principal)
+    versiones = await catalogo.versiones_por_funcion(session, [f.id for f in funciones])
+    return [_vista_de_funcion(funcion, versiones[funcion.id], principal) for funcion in funciones]
 
 
 @router.get(
@@ -434,6 +433,7 @@ async def cola_de_revision(
     # Se lee **una vez** por petición y no por fila: es una variable de entorno, y leerla en
     # cada versión haría que una misma cola pudiera pintarse con dos plazos distintos.
     plazo = plazo_de_revision_en_dias()
+    usos = await catalogo.plantillas_que_las_usan(session, [v.funcion_id for v in candidatas])
     filas = []
     for version in candidatas:
         funcion = por_funcion[version.funcion_id]
@@ -448,9 +448,7 @@ async def cola_de_revision(
                 finalidad=version.finalidad,
                 categorias_datos=list(version.categorias_datos or []),
                 hallazgos=_hallazgos_de(version),
-                plantillas_que_la_usan=await catalogo.cuantas_plantillas_la_usan(
-                    session, funcion.id, version.version
-                ),
+                plantillas_que_la_usan=usos.get((funcion.id, version.version), 0),
                 dias_desde_el_registro=(dias := max((ahora - creada).days, 0)),
                 plazo_en_dias=plazo,
                 # Sólo lo pendiente puede ir tarde (issue #200): el plazo es el de **revisar**, y
