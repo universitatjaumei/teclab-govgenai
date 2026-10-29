@@ -170,13 +170,66 @@ async def test_one_template_counts_once_for_each_pair_it_anchors(db_session):
 
 
 @pytest.mark.asyncio
-async def test_the_spec_is_turned_into_text_once_per_row(db_session):
-    """Con un `OR` de `LIKE`, PostgreSQL convierte el JSONB a texto una vez por función de la
-    cola y por fila. Una sola comparación con `ANY` lo hace una vez."""
+async def test_the_count_is_done_in_the_database(db_session):
+    """#317 — la cola traía a Python el `spec_json` entero de cada versión de plantilla que
+    mencionara una función de la cola, superadas incluidas. Ahora la base expande los bloques y
+    devuelve sólo las anclas: una consulta, y el spec no sale de ella."""
     from server.app.modules.redaccion.funciones_catalogo import plantillas_que_las_usan
 
+    a = uuid.uuid4()
+    await _plantilla_con(db_session, {"funcion_id": str(a), "version": 1})
+
     with _contando(db_session) as sentencias:
-        await plantillas_que_las_usan(db_session, [uuid.uuid4() for _ in range(5)])
+        assert await plantillas_que_las_usan(db_session, [a, uuid.uuid4()]) == {(a, 1): 1}
 
     assert len(sentencias) == 1
-    assert sentencias[0].upper().count("CAST(") == 1, sentencias[0]
+    seleccion = sentencias[0].split("FROM", 1)[0]
+    assert "spec_json" not in seleccion, sentencias[0]
+
+
+@pytest.mark.asyncio
+async def test_blocks_written_as_an_object_count_too(db_session):
+    """`blocks` puede ser una lista o un objeto con los bloques por id; las dos formas cuentan."""
+    from server.app.modules.redaccion.funciones_catalogo import plantillas_que_las_usan
+
+    a = uuid.uuid4()
+    plantilla = HubReportTemplate(
+        name=f"Plantilla {uuid.uuid4()}", report_profile="GENERIC_REPORT", owner_kind="platform"
+    )
+    db_session.add(plantilla)
+    await db_session.flush()
+    db_session.add(
+        HubReportTemplateVersion(
+            template_id=plantilla.id, version=1, created_by=uuid.uuid4(),
+            spec_json={
+                "blocks": {
+                    "b1": {"kind": "DETERMINISTIC_DATA", "funcion_ref": {"funcion_id": str(a), "version": 3}},
+                }
+            },
+        )
+    )
+    await db_session.commit()
+
+    assert await plantillas_que_las_usan(db_session, [a]) == {(a, 3): 1}
+
+
+@pytest.mark.asyncio
+async def test_mentioning_the_id_outside_an_anchor_does_not_count(db_session):
+    """El id en un texto o en otro campo no es un ancla."""
+    from server.app.modules.redaccion.funciones_catalogo import plantillas_que_las_usan
+
+    a = uuid.uuid4()
+    plantilla = HubReportTemplate(
+        name=f"Plantilla {uuid.uuid4()}", report_profile="GENERIC_REPORT", owner_kind="platform"
+    )
+    db_session.add(plantilla)
+    await db_session.flush()
+    db_session.add(
+        HubReportTemplateVersion(
+            template_id=plantilla.id, version=1, created_by=uuid.uuid4(),
+            spec_json={"blocks": [{"id": "b1", "kind": "FREE_TEXT", "nota": f"ver {a}", "version": 1}]},
+        )
+    )
+    await db_session.commit()
+
+    assert await plantillas_que_las_usan(db_session, [a]) == {}
