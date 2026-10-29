@@ -64,8 +64,10 @@ vuelven a llenarse, y la plataforma, salvo que la configuraras con `STORAGE_BACK
 hiciste, copia antes el bucket con cualquier cliente S3.
 
 **Los secretos de Langfuse sólo se piden al levantar su perfil.** Si tu `.env` no tiene las
-siete `LANGFUSE_*` que genera `generate_env.sh`, la plataforma arranca igual; con el perfil,
-Langfuse se detiene al empezar y dice cuál falta.
+siete `LANGFUSE_*` que genera `generate_env.sh`, la plataforma arranca igual. Con el perfil,
+`up -d` termina sin error pero Langfuse no llega a servir: sale al empezar y Docker lo reinicia
+una y otra vez. `docker compose ps` lo muestra como `Restarting`, y `docker compose logs
+langfuse` dice qué variable falta.
 
 Opciones que conviene conocer:
 

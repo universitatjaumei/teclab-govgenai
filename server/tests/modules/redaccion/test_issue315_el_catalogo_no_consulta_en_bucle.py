@@ -153,6 +153,29 @@ async def test_counts_what_the_block_contract_accepts(db_session):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "escrito",
+    [
+        lambda u: u.hex,
+        lambda u: "{" + str(u) + "}",
+        lambda u: "urn:uuid:" + str(u),
+        lambda u: str(u).upper(),
+    ],
+    ids=["sin-guiones", "con-llaves", "urn", "mayusculas"],
+)
+async def test_counts_every_spelling_of_the_id_the_contract_accepts(db_session, escrito):
+    """Revisión de la PR #320: `spec_json` se guarda tal como llega, y `FuncionRef` acepta el id
+    sin guiones, entre llaves o con `urn:uuid:`. El filtro en SQL sólo veía la forma canónica, así
+    que un ancla escrita a mano funcionaba en el bloque y no contaba en la cola de revisión."""
+    from server.app.modules.redaccion.funciones_catalogo import plantillas_que_las_usan
+
+    a = uuid.uuid4()
+    await _plantilla_con(db_session, {"funcion_id": escrito(a), "version": 2})
+
+    assert await plantillas_que_las_usan(db_session, [a]) == {(a, 2): 1}
+
+
+@pytest.mark.asyncio
 async def test_one_template_counts_once_for_each_pair_it_anchors(db_session):
     """Una plantilla con dos funciones cuenta para las dos; dos bloques con el mismo par, una vez;
     y un ancla a otra versión no cuenta para ésta."""

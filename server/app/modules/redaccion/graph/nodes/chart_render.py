@@ -10,7 +10,7 @@ pieza que faltaba, y reutiliza el handler en vez de reimplementarlo.
 
 **La imagen no va en la base de datos.** Un PNG de 30-80 KB por gráfico dentro de `content_json`
 hincharía la tabla de bloques y viajaría en cada lectura del workspace. Va a `StorageService`
-—con lo que funciona igual en local, en MinIO y en GCS— y el contenido guarda su clave.
+—con lo que funciona igual en local, en S3 y en GCS— y el contenido guarda su clave.
 """
 from __future__ import annotations
 

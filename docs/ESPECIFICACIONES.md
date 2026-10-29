@@ -482,7 +482,7 @@ mes por medición, y congelarlos hoy sería congelar errores conocidos.
 - Las migraciones se aplican **antes** de cambiar la imagen, con `alembic current` en el log, y hay
   vuelta atrás si el servicio no responde.
 - **Portabilidad**: el DSN por variable de entorno y los ficheros por `fsspec` (I11), así que el
-  mismo código sirve en GCP, en MinIO local o en AWS cambiando variables.
+  mismo código sirve en GCP, en un S3 local o en AWS cambiando variables.
 
 **Superficie.** `deploy/vm/Caddyfile` · `.github/workflows/ci.yml`, `.github/workflows/deploy.yml` y `.github/workflows/dco.yml` ·
 [`DESPLIEGUE_PROTOTIPO_GCP.md`](DESPLIEGUE_PROTOTIPO_GCP.md).

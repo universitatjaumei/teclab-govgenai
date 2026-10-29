@@ -796,21 +796,59 @@ jobs:
       # de servirse así dos veces (Docker Hub en septiembre, quay.io en octubre) y las dos se vio en
       # la máquina de quien instalaba, porque en la de quien lo escribía la imagen estaba en caché.
       # Aquí no hay caché ni sesión iniciada: se pide el manifiesto, sin bajar las capas.
+      #
+      # También las fijas de deploy/vm/docker-compose.vm.yml (Caddy, el proxy de Cloud SQL), que son
+      # las que descarga producción; las que van por variable son nuestras y piden credenciales a
+      # propósito. Sólo cuenta como «no se descarga» lo que el registro niega: un límite de
+      # peticiones o un corte de red se reintenta y, si sigue, se dice como lo que es (revisión de
+      # la PR #320).
       - name: Las imágenes de los compose se descargan sin credenciales
         run: |
           fallan=""
-          for imagen in $(grep -hE '^\s+image:' docker-compose.yml docker-compose.prod.yml | awk '{print $2}' | sort -u); do
-            if docker manifest inspect "$imagen" > /dev/null 2>&1; then
-              echo "ok      $imagen"
-            else
-              echo "FALLA   $imagen"
-              fallan="$fallan $imagen"
-            fi
+          for imagen in $(grep -hE '^\s+image:' docker-compose.yml docker-compose.prod.yml deploy/vm/docker-compose.vm.yml | awk '{print $2}' | grep -v '^\$' | sort -u); do
+            for intento in 1 2 3; do
+              if error=$(docker manifest inspect "$imagen" 2>&1 >/dev/null); then
+                echo "ok      $imagen"
+                break
+              fi
+              if echo "$error" | grep -qiE 'unauthorized|denied|manifest unknown|no such manifest|not found'; then
+                echo "FALLA   $imagen: $error"
+                fallan="$fallan $imagen"
+                break
+              fi
+              if [ "$intento" = 3 ]; then
+                echo "::error::El registro no responde para $imagen, y no es de credenciales: $error"
+                exit 1
+              fi
+              echo "reintento $imagen: $error"
+              sleep 15
+            done
           done
           if [ -n "$fallan" ]; then
             echo "::error::No se descargan sin credenciales:$fallan"
             exit 1
           fi
+
+      # #318 — la guarda de Langfuse sustituye el `entrypoint` de la imagen, y en Compose eso borra
+      # también su `command`, así que la guarda acaba ejecutando a mano el arranque de la imagen.
+      # Dependabot sube la etiqueta sin mirarlo: aquí se lee el `Entrypoint` y el `Cmd` de la
+      # imagen fijada, sin bajar las capas, y se compara con lo que la guarda ejecuta.
+      - name: El arranque copiado de Langfuse sigue siendo el de su imagen
+        run: |
+          set -euo pipefail
+          imagen=$(grep -hE '^\s+image: langfuse/langfuse:' docker-compose.prod.yml | awk '{print $2}')
+          config=$(docker buildx imagetools inspect "$imagen" --format '{{json (index .Image "linux/amd64").Config}}')
+          entrypoint=$(echo "$config" | jq -c .Entrypoint)
+          cmd=$(echo "$config" | jq -r '.Cmd | join(" ")')
+          if [ "$entrypoint" != '["dumb-init","--","./web/entrypoint.sh"]' ]; then
+            echo "::error::$imagen arranca con $entrypoint; la guarda de langfuse en los compose ejecuta dumb-init -- ./web/entrypoint.sh"
+            exit 1
+          fi
+          if ! echo "$cmd" | grep -qF 'node ./web/server.js --keepAliveTimeout 110000'; then
+            echo "::error::El Cmd de $imagen ya no es el que copia la guarda de langfuse: $cmd"
+            exit 1
+          fi
+          echo "ok      $imagen: $entrypoint"
 
       # `frontend/src/shared/api/generated/` está en `.gitignore` a propósito: lo genera Orval
       # desde `openapi.json`, así que **no viaja en el repositorio** y `docker build ./frontend`

@@ -53,10 +53,24 @@ def _cliente(modulos: list[str], session):
     return TestClient(app)
 
 
-def test_quien_administra_chatbots_puede_leer_los_modelos_para_elegir_uno():
-    resp = _cliente(["chatbots"], _sesion()).get("/api/v1/hub/llm-configs")
+@pytest.mark.parametrize("modulo", ["chatbots", "plataforma"])
+def test_quien_administra_chatbots_o_la_plataforma_puede_leer_los_modelos(modulo):
+    resp = _cliente([modulo], _sesion()).get("/api/v1/hub/llm-configs")
 
     assert resp.status_code == 200
+
+
+def test_sin_chatbots_ni_plataforma_no_se_leen_los_modelos():
+    """Revisión de la PR #320: el listado quedó sin ningún módulo, así que un administrador que
+    sólo tenía `informes` leía modelos, proveedores y nombres de secreto de la plataforma. Lo
+    que hacía falta era dejar pasar a Chatbots, no a todo el mundo."""
+    session = _sesion()
+
+    resp = _cliente(["informes", "utilidades"], session).get("/api/v1/hub/llm-configs")
+
+    assert resp.status_code == 403
+    assert resp.json()["detail"]["modulos_requeridos"] == ["chatbots", "plataforma"]
+    session.execute.assert_not_awaited()
 
 
 @pytest.mark.parametrize(

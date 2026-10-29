@@ -181,6 +181,9 @@ async def en_revision(
 #: Las anclas de todas las versiones de plantilla, expandidas en la base (#317): un bloque por fila,
 #: venga `blocks` como lista o como objeto por id, y sólo los `funcion_ref` de las funciones pedidas.
 #: Devuelve (versión de plantilla, función, versión anclada) sin repetir, y nunca el spec.
+#: El id se compara en hexadecimal sin adornos porque `spec_json` se guarda tal como llega y
+#: `FuncionRef` acepta también el id sin guiones, entre llaves o con `urn:uuid:` (revisión de la
+#: PR #320); qué forma vale de verdad lo sigue decidiendo `_ancla`.
 _ANCLAS = text(
     """
     SELECT DISTINCT tv.id AS plantilla, ref ->> 'funcion_id' AS funcion_id, ref -> 'version' AS version
@@ -198,7 +201,7 @@ _ANCLAS = text(
     ) AS bloques
     CROSS JOIN LATERAL (SELECT bloques.bloque -> 'funcion_ref' AS ref) AS anclas
     WHERE jsonb_typeof(anclas.ref) = 'object'
-      AND lower(anclas.ref ->> 'funcion_id') = ANY(:ids)
+      AND regexp_replace(lower(anclas.ref ->> 'funcion_id'), '^urn:uuid:|[{}-]', '', 'g') = ANY(:ids)
     """
 ).bindparams(bindparam("ids", type_=ARRAY(String))).columns(version=JSONB)
 
@@ -232,7 +235,7 @@ async def plantillas_que_las_usan(
         return {}
     buscadas = set(funcion_ids)
     filas = (
-        await session.execute(_ANCLAS, {"ids": sorted(str(i) for i in buscadas)})
+        await session.execute(_ANCLAS, {"ids": sorted(i.hex for i in buscadas)})
     ).all()
 
     vistas: set[tuple[object, tuple[uuid.UUID, int]]] = set()
