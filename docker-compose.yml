@@ -35,7 +35,7 @@ services:
     # telemetría también, y el filer y el volumen piden una firma JWT. La API del maestro queda
     # sin autenticación, a sabiendas: su `[guard]` corta el tráfico interno del propio proceso.
     # Sólo la ve la red `default`; el sandbox está en `sandbox-net`. Detalle en el test de #312.
-    image: chrislusf/seaweedfs:4.48
+    image: chrislusf/seaweedfs:4.50
     entrypoint:
       - /bin/sh
       - -c
