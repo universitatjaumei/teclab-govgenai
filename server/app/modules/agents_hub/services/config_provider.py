@@ -51,6 +51,7 @@ class ConfigProvider(Protocol):
     ) -> ActivityPromptOverride | None: ...
     async def list_active_chatbots(self, organizacion_id: uuid.UUID) -> list[HubChatbot]: ...
     async def list_chatbots(self, organizacion_id: uuid.UUID) -> list[HubChatbot]: ...
+    async def existing_chatbot_ids(self, chatbot_ids: list[uuid.UUID]) -> set[uuid.UUID]: ...
     async def get_retrieval_mode(self, chatbot_id: uuid.UUID) -> str: ...
     async def get_anonymization_mode(
         self, organizacion_id: uuid.UUID
@@ -173,6 +174,15 @@ class LocalConfigProvider:
             select(HubChatbot).where(HubChatbot.organizacion_id == organizacion_id)
         )
         return list(result.scalars().all())
+
+    async def existing_chatbot_ids(self, chatbot_ids: list[uuid.UUID]) -> set[uuid.UUID]:
+        """Cuáles de estos chatbots existen, en una consulta (#261). Con la lista vacía no consulta."""
+        if not chatbot_ids:
+            return set()
+        result = await self.session.execute(
+            select(HubChatbot.id).where(HubChatbot.id.in_(chatbot_ids))
+        )
+        return set(result.scalars())
 
     async def get_retrieval_mode(self, chatbot_id: uuid.UUID) -> str:
         """Devuelve el retrieval_mode del chatbot (default 'RAG' si no existe)."""

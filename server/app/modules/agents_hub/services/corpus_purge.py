@@ -22,6 +22,7 @@ from __future__ import annotations
 from typing import cast
 
 import logging
+import os
 import uuid
 
 from sqlalchemy import CursorResult, delete, func, select
@@ -29,7 +30,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.app.core.datos_del_cliente import CorpusRetirado
 from server.app.core.storage import StorageService
-from server.app.modules.agents_hub.database.config_models import HubChatbot
 from server.app.modules.agents_hub.database.operational_models import (
     HubDocument,
     HubDocumentChunk,
@@ -109,7 +109,17 @@ async def barrer_fuentes_huerfanas(session: AsyncSession, storage: StorageServic
 
     Es lo que dejó un borrado de fuentes que falló después del commit. Lo que no es un uuid no lo
     toca: no sabe de quién es.
+
+    #261 — **sólo con `DEPLOY_MODE=all`**, donde `hub_chatbots` es la fuente de verdad. En un edge
+    la configuración llega por sincronización: con la tabla incompleta, las fuentes de chatbots
+    vivos parecerían huérfanas y se borrarían sin vuelta atrás. Preguntar a `ConfigProvider` no lo
+    evita, porque el local lee esa misma tabla; el barrido espera al proveedor remoto. En `cloud`
+    no hay fuentes de ingesta que barrer.
     """
+    if os.getenv("DEPLOY_MODE", "all").lower() != "all":
+        return 0
+    from server.app.modules.agents_hub.services.config_provider import LocalConfigProvider
+
     candidatos: dict[uuid.UUID, str] = {}
     for nombre in await storage.listar("ingestion/"):
         try:
@@ -118,11 +128,7 @@ async def barrer_fuentes_huerfanas(session: AsyncSession, storage: StorageServic
             continue
     if not candidatos:
         return 0
-    vivos = set(
-        (
-            await session.execute(select(HubChatbot.id).where(HubChatbot.id.in_(list(candidatos))))
-        ).scalars()
-    )
+    vivos = await LocalConfigProvider(session).existing_chatbot_ids(list(candidatos))
     huerfanos = [nombre for chatbot_id, nombre in candidatos.items() if chatbot_id not in vivos]
     for nombre in huerfanos:
         await storage.delete_prefix(f"ingestion/{nombre}/")
