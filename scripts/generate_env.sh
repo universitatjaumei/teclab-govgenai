@@ -11,7 +11,7 @@
 #   scripts/generate_env.sh [--mode local|cloud] [--force] [--output-dir DIR]
 #
 # Modo local (por defecto): 100% sin servicios de pago — Ollama para el LLM
-# (configurable luego en /hub/llm-configs) y MinIO para almacenamiento.
+# (configurable luego en /hub/llm-configs) y el almacén S3 del compose (SeaweedFS).
 # Modo cloud: deja comentadas las opciones de Google Vertex AI / GCS-S3 listas
 # para descomentar y rellenar.
 
@@ -64,7 +64,7 @@ LANGFUSE_NEXTAUTH_SECRET="$(openssl rand -hex 32)"
 LANGFUSE_SALT="$(openssl rand -hex 32)"
 LANGFUSE_ENCRYPTION_KEY="$(openssl rand -hex 32)"
 POSTGRES_PASSWORD="$(openssl rand -hex 16)"
-MINIO_ROOT_PASSWORD="$(openssl rand -hex 16)"
+S3_SECRET_KEY="$(openssl rand -hex 16)"
 LANGFUSE_PUBLIC_KEY="lf-pk-govgenai-$(openssl rand -hex 8)"
 LANGFUSE_SECRET_KEY="lf-sk-govgenai-$(openssl rand -hex 8)"
 LANGFUSE_ADMIN_PASSWORD="$(openssl rand -hex 12)"
@@ -150,14 +150,15 @@ STORAGE_BUCKET=${STORAGE_BUCKET}
 # Application Default Credentials o GOOGLE_APPLICATION_CREDENTIALS:
 # STORAGE_BACKEND=gcs
 # STORAGE_BUCKET=govgenai-prod
-# Opción B: MinIO (contenedor local, sin coste) via S3:
+# Opción B: el almacén S3 del compose (SeaweedFS, sin coste), desde la aplicación:
 # STORAGE_BACKEND=s3
 # STORAGE_BUCKET=govgenai
-# STORAGE_ENDPOINT=http://localhost:9000
-# STORAGE_ACCESS_KEY=minioadmin
-# STORAGE_SECRET_KEY=${MINIO_ROOT_PASSWORD}
-MINIO_ROOT_USER=minioadmin
-MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+# STORAGE_ENDPOINT=http://s3:9000
+# STORAGE_ACCESS_KEY=govgenai
+# STORAGE_SECRET_KEY=${S3_SECRET_KEY}
+# Credenciales del almacén S3 del compose (#312). Las usan el propio almacén y Langfuse.
+S3_ACCESS_KEY=govgenai
+S3_SECRET_KEY=${S3_SECRET_KEY}
 
 # === LÍMITES DE SUBIDA (SEC.6) ===
 MAX_UPLOAD_MB=10

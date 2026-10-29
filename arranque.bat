@@ -20,7 +20,7 @@ exit /b 1
 
 :completo
 echo.
-echo [INFO] Verificando que Docker Desktop esta corriendo (PostgreSQL + MinIO)...
+echo [INFO] Verificando que Docker Desktop esta corriendo (PostgreSQL + almacen S3)...
 echo [INFO] Levantando servidor FastAPI en http://localhost:8000
 echo [INFO] Levantando frontend React en http://localhost:5173
 echo.
@@ -31,7 +31,7 @@ goto :fin
 
 :servidor
 echo.
-echo [INFO] Verificando que Docker Desktop esta corriendo (PostgreSQL + MinIO)...
+echo [INFO] Verificando que Docker Desktop esta corriendo (PostgreSQL + almacen S3)...
 echo [INFO] Levantando servidor FastAPI en http://localhost:8000
 echo [INFO] Swagger UI en http://localhost:8000/docs
 echo.

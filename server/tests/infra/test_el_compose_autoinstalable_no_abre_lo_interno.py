@@ -131,9 +131,8 @@ def test_cada_imagen_tiene_version_fija(fichero) -> None:
     flotantes = [
         f"{nombre}: {servicio['image']}"
         for nombre, servicio in datos["services"].items()
-        # MinIO publica por fecha (`RELEASE.2025-09-07T…`), que también es una versión fija.
         if "image" in servicio
-        and not re.search(r":[^:]*(\d+\.\d+|RELEASE\.\d{4}-)", servicio["image"])
+        and not re.search(r":[^:]*\d+\.\d+", servicio["image"])
     ]
     assert not flotantes, "imágenes por etiqueta flotante:\n" + "\n".join(flotantes)
 

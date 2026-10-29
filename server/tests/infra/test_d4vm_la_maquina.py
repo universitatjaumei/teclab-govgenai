@@ -68,7 +68,7 @@ def _servicios() -> list[str]:
 def test_la_pila_de_la_vm_no_levanta_base_de_datos_ni_almacenamiento_propios() -> None:
     servicios = _servicios()
     assert servicios, "No se han podido leer los servicios del compose."
-    for prohibido in ("postgres", "minio", "langfuse", "ollama"):
+    for prohibido in ("postgres", "s3", "langfuse", "ollama"):
         assert prohibido not in servicios, (
             f"El servicio «{prohibido}» no puede correr en la VM: la base está en Cloud SQL y "
             "los documentos en GCS. Si vuelve, el estado regresa al disco de la máquina y "

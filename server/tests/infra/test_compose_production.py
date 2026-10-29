@@ -133,7 +133,7 @@ def test_compose_prod_has_named_volumes_for_db_and_storage() -> None:
     volumes = compose.get("volumes", {})
 
     assert "postgres_data_prod" in volumes
-    assert "minio_data_prod" in volumes
+    assert "s3_data_prod" in volumes
 
 
 def test_compose_prod_has_no_orphaned_volume_declarations() -> None:

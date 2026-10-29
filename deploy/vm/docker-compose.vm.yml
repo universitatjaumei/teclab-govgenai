@@ -1,7 +1,7 @@
 # docker-compose.vm.yml — la pila que corre en la VM de GCP (D.4-VM).
 #
 # **Por qué no se reutiliza `docker-compose.prod.yml`.** Ese fichero es la opción
-# *autoinstalable*: su propia cabecera lo dice, y trae **su** Postgres, **su** MinIO y un perfil
+# *autoinstalable*: su propia cabecera lo dice, y trae **su** Postgres, **su** almacén S3 y un perfil
 # de Ollama, con el `DATABASE_URL` del servicio `app` apuntando al contenedor `postgres`. En GCP
 # el estado va fuera —Cloud SQL y GCS—, así que levantar ese fichero aquí significaría correr una
 # base de datos que nadie usa y otra que sí, con el mismo nombre de variable. El bloque Deploy

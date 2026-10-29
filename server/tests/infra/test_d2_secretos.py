@@ -89,7 +89,7 @@ def test_no_hay_secretos_repetidos_ni_variables_repetidas() -> None:
 def test_el_inventario_dice_lo_que_deja_fuera_y_por_que() -> None:
     """Un secreto ausente sin explicación se lee como olvido, y alguien lo añade «por si acaso»."""
     texto = INVENTARIO.read_text(encoding="utf-8")
-    for ausente in ("LANGFUSE", "OPENAI", "MINIO", "DEV_ADMIN"):
+    for ausente in ("LANGFUSE", "OPENAI", "S3_", "DEV_ADMIN"):
         assert ausente in texto, (
             f"El inventario no explica por qué {ausente} no está. Escríbelo: una credencial "
             "que nadie consume es una credencial que nadie rota."

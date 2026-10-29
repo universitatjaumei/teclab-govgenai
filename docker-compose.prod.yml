@@ -7,7 +7,7 @@
 # | Componente   | Opción cloud (GCP/Azure) | Opción autoinstalable (local) |
 # |--------------|--------------------------|--------------------------------|
 # | Cerebro (LLM)| Vertex AI / OpenAI/OpenRouter | Ollama (`--profile ollama`) |
-# | Archivos     | GCS / S3                 | MinIO (este compose)          |
+# | Archivos     | GCS / S3                 | SeaweedFS, S3 (este compose)  |
 # | Identidad    | SSO SAML institucional   | login email+contraseña (por defecto) |
 # | Despliegue   | Cloud Run / Terraform    | Docker Compose (este fichero) |
 
@@ -25,7 +25,7 @@ services:
     env_file:
       - server/.env
     environment:
-      # SEC.9.6 — sin `:-` en ningún secreto. Los servicios `postgres` y `minio` ya exigían la
+      # SEC.9.6 — sin `:-` en ningún secreto. Los servicios `postgres` y del almacén ya exigían la
       # variable; aquí había un valor por omisión publicado en el repositorio, así que un `.env`
       # incompleto no fallaba: levantaba producción con `govgenai_dev` / `minioadmin_dev`. Que
       # el fallo fuera «ruidoso» —la app no conectaría— sólo vale mientras no haya una base
@@ -33,9 +33,6 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:?falta POSTGRES_USER}:${POSTGRES_PASSWORD:?falta POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:?falta POSTGRES_DB}
       DATABASE_URL_SYNC: postgresql+psycopg2://${POSTGRES_USER:?falta POSTGRES_USER}:${POSTGRES_PASSWORD:?falta POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:?falta POSTGRES_DB}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY}
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?falta MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?falta MINIO_ROOT_PASSWORD}
-      MINIO_ENDPOINT: minio:9000
       ENVIRONMENT: production
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       SANDBOX_BASE_URL: http://script-sandbox:5000
@@ -46,7 +43,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      minio:
+      s3:
         condition: service_healthy
       script-sandbox:
         condition: service_healthy
@@ -173,30 +170,7 @@ services:
   # sólo tenía Postgres: en una instalación autoinstalable no arrancaba, sin que nada más lo
   # notara porque la aplicación no depende de él. Va en un perfil, como Ollama, porque son
   # tres servicios y un par de gigas de memoria que no todo el mundo quiere; quien lo levanta,
-  # lo levanta entero. Los buckets son los de MinIO de este mismo compose.
-  minio-init:
-    image: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
-    container_name: govgenai_minio_init
-    depends_on:
-      minio:
-        condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-      mc alias set local http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD} &&
-      mc mb --ignore-existing local/langfuse-events &&
-      mc mb --ignore-existing local/langfuse-media
-      "
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?falta MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?falta MINIO_ROOT_PASSWORD}
-    deploy:
-      resources:
-        limits:
-          memory: 64M
-    restart: "no"
-    profiles:
-      - observabilidad
-
+  # lo levanta entero. Sus buckets los crea el almacén `s3` de este mismo compose al arrancar.
   clickhouse:
     image: clickhouse/clickhouse-server:24.12-alpine
     container_name: govgenai_clickhouse
@@ -259,8 +233,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      minio-init:
-        condition: service_completed_successfully
+      s3:
+        condition: service_healthy
     # #318 — sus siete secretos van sin `:?`, como `CLICKHOUSE_PASSWORD`: Compose interpola también
     # los perfiles inactivos, y con `:?` un `.env` sin ellos impedía levantar la aplicación a quien
     # no quiere observabilidad. Se exigen aquí, al arrancar. El `entrypoint` borra también el
@@ -297,15 +271,15 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse-events
-      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://minio:9000
-      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?falta MINIO_ROOT_USER}
-      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?falta MINIO_ROOT_PASSWORD}
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://s3:9000
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${S3_ACCESS_KEY:?falta S3_ACCESS_KEY}
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:?falta S3_SECRET_KEY}
       LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
       LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
       LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: langfuse-media
-      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://minio:9000
-      LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?falta MINIO_ROOT_USER}
-      LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?falta MINIO_ROOT_PASSWORD}
+      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://s3:9000
+      LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: ${S3_ACCESS_KEY:?falta S3_ACCESS_KEY}
+      LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:?falta S3_SECRET_KEY}
       LANGFUSE_S3_MEDIA_UPLOAD_REGION: auto
       LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
       NEXTAUTH_URL: ${LANGFUSE_NEXTAUTH_URL:-http://localhost:3000}
@@ -353,37 +327,51 @@ services:
           memory: 1024M
     restart: unless-stopped
 
-  minio:
-    # **Fijada, y en quay.io (issue #43).** Dos cosas a la vez. Con `:latest` no se puede
-    # saber qué versión corre ni volver a la anterior. Y además `minio/minio` **ya no se puede
-    # tirar de Docker Hub sin credenciales**: medido el 2026-09-19, el registro responde 401 a
-    # un token anónimo y la API del Hub responde 404 al repositorio, mientras `ollama/ollama`
-    # responde 200 por las dos vías. MinIO publica en quay.io, y la imagen de allí es el
-    # **mismo build** (mismo `commit-id`) que la que había en la caché local.
+  s3:
+    # #312 — el almacén S3 del compose: lo usa Langfuse y, si se elige, la aplicación
+    # (`STORAGE_BACKEND=s3`). SeaweedFS (Apache 2.0) en un solo proceso, que crea sus buckets al
+    # arrancar. Antes era MinIO, y sus imágenes dejaron de descargarse sin credenciales: quay.io
+    # responde 401 y `minio/minio` en Docker Hub no tiene etiquetas (medido el 2026-10-29).
     #
-    # O sea que esto no era sólo poco reproducible: no arrancaba para quien lo copiara. Cuidado
-    # al comprobarlo, que aquí casi cuela: `docker run minio/minio:latest` funciona si la
-    # máquina tiene una copia vieja en caché, y eso no dice nada del registro.
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
-    container_name: govgenai_minio_prod
-    command: server /data --console-address ":9001"
+    # Lo que SeaweedFS trae abierto se cierra aquí: el panel, WebDAV e Iceberg apagados, la
+    # telemetría también, y el filer y el volumen piden una firma JWT. La API del maestro queda
+    # sin autenticación, a sabiendas: su `[guard]` corta el tráfico interno del propio proceso.
+    # Sólo la ve la red `default`; el sandbox está en `sandbox-net`. Detalle en el test de #312.
+    image: chrislusf/seaweedfs:4.48
+    container_name: govgenai_s3_prod
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        mkdir -p /etc/seaweedfs
+        cat > /etc/seaweedfs/security.toml <<EOF
+        [jwt.signing]
+        key = "$${AWS_SECRET_ACCESS_KEY}"
+        [jwt.signing.read]
+        key = "$${AWS_SECRET_ACCESS_KEY}"
+        [jwt.filer_signing]
+        key = "$${AWS_SECRET_ACCESS_KEY}"
+        [jwt.filer_signing.read]
+        key = "$${AWS_SECRET_ACCESS_KEY}"
+        EOF
+        exec /entrypoint.sh mini -dir=/data -s3.port=9000 -master.telemetry=false -admin.ui=false -webdav=false -s3.port.iceberg=0 -bucket=langfuse-events,langfuse-media
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?falta MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?falta MINIO_ROOT_PASSWORD}
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY:?falta S3_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:?falta S3_SECRET_KEY}
     volumes:
-      - minio_data_prod:/data
+      - s3_data_prod:/data
     ports:
       - "127.0.0.1:9000:9000"
-      - "127.0.0.1:9001:9001"
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9000/healthz"]
       interval: 10s
       timeout: 5s
       retries: 5
     deploy:
       resources:
         limits:
-          memory: 512M
+          # Medido (#312): 70 MB en reposo.
+          memory: 256M
     restart: unless-stopped
 
 networks:
@@ -397,8 +385,8 @@ networks:
 volumes:
   postgres_data_prod:
     name: govgenai-prod_postgres_data_prod
-  minio_data_prod:
-    name: govgenai-prod_minio_data_prod
+  s3_data_prod:
+    name: govgenai-prod_s3_data_prod
   ollama_data:
     name: govgenai-prod_ollama_data
   clickhouse_data_prod:

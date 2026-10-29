@@ -38,7 +38,7 @@ scripts/setup.sh                 # instalación de primera vez
 
 **`generate_env.sh`** escribe los tres ficheros de configuración con secretos aleatorios y **nunca
 pisa uno que ya exista** salvo con `--force`. Tiene dos modos: `--mode local` (por omisión) deja
-todo funcionando sin servicios de pago —Ollama para el modelo y MinIO para el almacenamiento—, y
+todo funcionando sin servicios de pago —Ollama para el modelo y SeaweedFS como almacén S3—, y
 `--mode cloud` deja preparadas y comentadas las opciones de Vertex AI y GCS.
 
 **`setup.sh`** hace cinco pasos: comprueba requisitos (Docker, y los puertos **80 y 443**
@@ -47,7 +47,7 @@ las migraciones y siembra. **Es idempotente de extremo a extremo**: ejecutarlo d
 duplica nada ni rehashea la contraseña que ya pusiste.
 
 **Langfuse va aparte, en el perfil `observabilidad`**: `docker compose -f docker-compose.prod.yml
---profile observabilidad up -d`. Trae con él ClickHouse, Redis y sus dos buckets de MinIO, que la
+--profile observabilidad up -d`. Trae con él ClickHouse, Redis y sus dos buckets en el almacén S3, que la
 versión 3 necesita y sin los que no arranca; son un par de gigas de memoria que la plataforma no
 necesita para funcionar.
 
@@ -55,6 +55,13 @@ necesita para funcionar.
 La plataforma arranca igual; para el perfil, añádela a mano (`openssl rand -hex 16`). Antes de
 esa fecha Langfuse estaba en el compose sin perfil pero no llegaba a arrancar, porque le faltaban
 justo esos tres servicios: no se pierde nada que funcionara.
+
+**Si actualizas una instalación anterior al 2026-10-29**, el almacén S3 ya no es MinIO, cuyas
+imágenes dejaron de descargarse sin credenciales, sino SeaweedFS (#312). En tu `.env`, cambia
+`MINIO_ROOT_USER` por `S3_ACCESS_KEY` y `MINIO_ROOT_PASSWORD` por `S3_SECRET_KEY`, con los mismos
+valores o con otros nuevos. El volumen de MinIO no se migra: guardaba los eventos de Langfuse, que
+vuelven a llenarse, y la plataforma, salvo que la configuraras con `STORAGE_BACKEND=s3`. Si lo
+hiciste, copia antes el bucket con cualquier cliente S3.
 
 **Los secretos de Langfuse sólo se piden al levantar su perfil.** Si tu `.env` no tiene las
 siete `LANGFUSE_*` que genera `generate_env.sh`, la plataforma arranca igual; con el perfil,
@@ -128,7 +135,7 @@ generado no cuadra con el contrato.
 En Windows, `arranque.bat` levanta el backend y el frontend, pero **no genera el cliente**: eso se
 hace una vez, a mano.
 
-`docker-compose.yml` levanta además `minio`, `clickhouse`, `redis`, `langfuse` y `script-sandbox`
+`docker-compose.yml` levanta además `s3`, `clickhouse`, `redis`, `langfuse` y `script-sandbox`
 si los necesitas; `postgres` es el único imprescindible para arrancar.
 
 ---
@@ -250,9 +257,9 @@ inicia sesión con la cuenta que creaste, y comprueba que aterrizas en un módul
 «sin acceso», el rol está bien pero **falta la concesión de módulo** —§1 de
 [`GUIA_DE_USO.md`](GUIA_DE_USO.md)—.
 
-En producción **sólo el panel escucha hacia fuera**. La API (8000), la consola de MinIO (9000 y
-9001), Langfuse (3000) y Ollama (11434) escuchan en `127.0.0.1`: el `curl` de arriba funciona en
-la propia máquina, y desde otra se llega con un túnel SSH (`ssh -L 9001:127.0.0.1:9001 …`).
+En producción **sólo el panel escucha hacia fuera**. La API (8000), el almacén S3 (9000), Langfuse
+(3000) y Ollama (11434) escuchan en `127.0.0.1`: el `curl` de arriba funciona en la propia
+máquina, y desde otra se llega con un túnel SSH (`ssh -L 3000:127.0.0.1:3000 …`).
 
 ---
 

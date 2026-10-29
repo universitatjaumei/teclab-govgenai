@@ -792,6 +792,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # #312 — cada imagen de los dos compose se puede descargar **sin credenciales**. MinIO dejó
+      # de servirse así dos veces (Docker Hub en septiembre, quay.io en octubre) y las dos se vio en
+      # la máquina de quien instalaba, porque en la de quien lo escribía la imagen estaba en caché.
+      # Aquí no hay caché ni sesión iniciada: se pide el manifiesto, sin bajar las capas.
+      - name: Las imágenes de los compose se descargan sin credenciales
+        run: |
+          fallan=""
+          for imagen in $(grep -hE '^\s+image:' docker-compose.yml docker-compose.prod.yml | awk '{print $2}' | sort -u); do
+            if docker manifest inspect "$imagen" > /dev/null 2>&1; then
+              echo "ok      $imagen"
+            else
+              echo "FALLA   $imagen"
+              fallan="$fallan $imagen"
+            fi
+          done
+          if [ -n "$fallan" ]; then
+            echo "::error::No se descargan sin credenciales:$fallan"
+            exit 1
+          fi
+
       # `frontend/src/shared/api/generated/` está en `.gitignore` a propósito: lo genera Orval
       # desde `openapi.json`, así que **no viaja en el repositorio** y `docker build ./frontend`
       # a secas falla con veinte «Cannot find module '@/shared/api/generated/...'». El primer

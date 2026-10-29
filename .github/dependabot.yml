@@ -176,7 +176,7 @@ updates:
   # Una por Dockerfile: Dependabot mira la instrucción `FROM`, no el compose. Las etiquetas
   # `:latest` de `docker-compose.prod.yml` quedan fuera de aquí a propósito; eso es el hallazgo
   # B5 y se arregla fijando versiones, no vigilando un `latest` que por definición se mueve.
-  # Los compose fijan sus propias imágenes (Postgres, Langfuse, MinIO, Caddy) y el ecosistema
+  # Los compose fijan sus propias imágenes (Postgres, Langfuse, SeaweedFS, Caddy) y el ecosistema
   # `docker` sólo lee los Dockerfile (#268).
   - package-ecosystem: docker-compose
     directories:
