@@ -415,30 +415,38 @@ async def modulos_concedidos(
     return await modulos_del_usuario(session, user)
 
 
-def require_module(codigo: str):
-    """Dependencia que exige tener concedido un módulo (INF.7).
+def require_module(codigo: str, *alternativas: str):
+    """Dependencia que exige tener concedido un módulo, o cualquiera de sus alternativas (INF.7).
 
     Antes, los routers de un módulo entero solo pedían `get_current_user`: cualquier cuenta
     autenticada podía listar y editar los chatbots institucionales y la configuración de LLM.
     Con el módulo de informes abierto a toda la organización, eso deja de ser teórico.
 
-    El 403 dice **qué módulo** falta: quien lo recibe tiene que poder pedirlo, no adivinar.
+    El 403 dice **qué módulo** falta: quien lo recibe tiene que poder pedirlo, no adivinar. Con
+    alternativas, `modulo_requerido` es el primero —el que se pide— y `modulos_aceptados`, todos
+    (#327: el listado de modelos tenía su propia guarda con otro cuerpo).
+
+    Los códigos quedan en el atributo `modulos` de la dependencia, que es por donde los leen los
+    guardarraíles que recorren las rutas.
     """
+    modulos = (codigo, *alternativas)
 
     async def _comprobar(
         user: UserInfo = Depends(get_current_user),
         concedidos: list[str] = Depends(modulos_concedidos),
     ) -> UserInfo:
-        if codigo not in concedidos:
+        if not set(modulos) & set(concedidos):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={
                     "message": f"Sin acceso al modulo '{codigo}'",
                     "modulo_requerido": codigo,
+                    "modulos_aceptados": list(modulos),
                 },
             )
         return user
 
+    _comprobar.modulos = modulos  # type: ignore[attr-defined]
     return _comprobar
 
 

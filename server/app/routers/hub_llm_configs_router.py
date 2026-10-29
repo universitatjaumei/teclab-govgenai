@@ -22,7 +22,7 @@ from pydantic import BaseModel
 from sqlalchemy import or_, select
 from sqlalchemy.orm import selectinload
 
-from server.app.api.deps import modulos_concedidos, require_role, require_module
+from server.app.api.deps import require_role, require_module
 from server.app.core.auth.models import UserInfo
 from server.app.core.auth.tenancy import (
     assert_org_access,
@@ -43,23 +43,10 @@ router = APIRouter(prefix="/hub/llm-configs", tags=["hub-llm-configs"])
 # chatbot no es administrarla, y con el router entero bajo `plataforma` un administrador de
 # Chatbots veía el selector vacío. Que no se olvide lo vigila ahora un test de #319.
 _de_plataforma = Depends(require_module("plataforma"))
-
-
-async def _elige_modelo(concedidos: list[str] = Depends(modulos_concedidos)) -> None:
-    """Leer la lista la necesitan quien configura chatbots y quien administra la plataforma.
-
-    Ni uno más (revisión de la PR #320): sin módulo, cualquier administrador —uno que sólo
-    tuviera Informes— leía los modelos de la plataforma con sus proveedores.
-    """
-    requeridos = ["chatbots", "plataforma"]
-    if not set(requeridos) & set(concedidos):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail={
-                "message": "Sin acceso a los modulos 'chatbots' ni 'plataforma'",
-                "modulos_requeridos": requeridos,
-            },
-        )
+# Leer la lista la necesitan quien configura chatbots y quien administra la plataforma. Ni uno
+# más (revisión de la PR #320): sin módulo, cualquier administrador —uno que sólo tuviera
+# Informes— leía los modelos de la plataforma con sus proveedores.
+_elige_modelo = Depends(require_module("chatbots", "plataforma"))
 
 _require_admin = require_role("superadmin", "admin")
 # SEC.9.2 — un proveedor es de ámbito `plataforma`: crearlo, cambiarlo o borrarlo afecta a TODAS
@@ -320,7 +307,7 @@ class LLMConfigUpdate(BaseModel):
 async def list_llm_configs(
     user: UserInfo = Depends(_require_admin),
     session=Depends(get_session),
-    _modulo=Depends(_elige_modelo),
+    _modulo=_elige_modelo,
 ):
     """Los modelos de sus organizaciones **y los de plataforma**, que se heredan (SEC.9.2).
 

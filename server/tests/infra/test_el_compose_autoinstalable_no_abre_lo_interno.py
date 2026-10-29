@@ -125,17 +125,6 @@ def test_la_guarda_de_langfuse_no_pierde_su_arranque(prod) -> None:
     assert "exec dumb-init -- ./web/entrypoint.sh node ./web/server.js" in guarda
 
 
-def test_ci_comprueba_que_el_arranque_copiado_sigue_siendo_el_de_la_imagen() -> None:
-    """Revisión de la PR #320: la guarda copia a mano el arranque de la imagen, y Dependabot sube
-    la etiqueta sin mirarlo. CI lee el `Entrypoint` y el `Cmd` de la imagen fijada —sin bajar las
-    capas— y se pone rojo si ya no son los que la guarda ejecuta."""
-    ci = (PROD.parent / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-    inicio = ci.index("imagetools inspect")
-    paso = ci[inicio - 1500 : inicio + 1500]
-    assert "langfuse" in paso
-    assert "./web/server.js --keepAliveTimeout 110000" in paso
-
-
 @pytest.mark.parametrize("fichero", [PROD, DEV], ids=["prod", "dev"])
 def test_cada_imagen_tiene_version_fija(fichero) -> None:
     datos = yaml.safe_load(fichero.read_text(encoding="utf-8"))

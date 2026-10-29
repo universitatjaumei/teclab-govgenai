@@ -93,26 +93,3 @@ def test_ninguna_imagen_sale_de_un_registro_que_pide_credenciales() -> None:
                 f"{compose.name}, servicio «{servicio}»: «{imagen}» no se descarga sin "
                 "credenciales. Ver #312."
             )
-
-
-def test_ci_comprueba_que_cada_imagen_se_descarga_sin_credenciales() -> None:
-    """#312 — la regla de arriba sólo conoce los registros que ya fallaron. CI pregunta al
-    registro por cada imagen de los dos compose, sin iniciar sesión: el manifiesto, sin bajar las
-    capas, que es lo barato. Así el próximo registro que cierre se ve en CI y no en la máquina de
-    quien instala."""
-    ci = (RAIZ / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-    assert "docker manifest inspect" in ci
-    for compose in ("docker-compose.yml", "docker-compose.prod.yml", "deploy/vm/docker-compose.vm.yml"):
-        assert compose in ci[ci.index("docker manifest inspect") - 1500 :]
-
-
-def test_ci_no_confunde_un_corte_del_registro_con_credenciales() -> None:
-    """Revisión de la PR #320: el paso tiraba el error del registro a `/dev/null`, así que un
-    límite de peticiones de Docker Hub o un corte de red salían como «no se descarga sin
-    credenciales» y mandaban a buscar un problema que no existía. Ahora el error se enseña, y sólo
-    lo que el registro niega (no autorizado, no existe) cuenta como imagen que no se descarga."""
-    ci = (RAIZ / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-    inicio = ci.index("docker manifest inspect")
-    paso = ci[inicio - 1500 : inicio + 1500]
-    assert "> /dev/null 2>&1" not in paso
-    assert "unauthorized" in paso

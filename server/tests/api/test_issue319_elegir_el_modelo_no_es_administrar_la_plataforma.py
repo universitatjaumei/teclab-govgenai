@@ -63,13 +63,18 @@ def test_quien_administra_chatbots_o_la_plataforma_puede_leer_los_modelos(modulo
 def test_sin_chatbots_ni_plataforma_no_se_leen_los_modelos():
     """Revisión de la PR #320: el listado quedó sin ningún módulo, así que un administrador que
     sólo tenía `informes` leía modelos, proveedores y nombres de secreto de la plataforma. Lo
-    que hacía falta era dejar pasar a Chatbots, no a todo el mundo."""
+    que hacía falta era dejar pasar a Chatbots, no a todo el mundo.
+
+    #327: el 403 es el de `require_module`, como el de cualquier otro módulo. Antes el listado
+    tenía su propia guarda con otro cuerpo (`modulos_requeridos`), y quien leyera
+    `modulo_requerido` para decir qué pedir no encontraba nada."""
     session = _sesion()
 
     resp = _cliente(["informes", "utilidades"], session).get("/api/v1/hub/llm-configs")
 
     assert resp.status_code == 403
-    assert resp.json()["detail"]["modulos_requeridos"] == ["chatbots", "plataforma"]
+    assert resp.json()["detail"]["modulo_requerido"] == "chatbots"
+    assert resp.json()["detail"]["modulos_aceptados"] == ["chatbots", "plataforma"]
     session.execute.assert_not_awaited()
 
 
@@ -110,10 +115,9 @@ def test_un_endpoint_nuevo_no_puede_olvidar_el_modulo():
         pendientes = list(ruta.dependant.dependencies)
         while pendientes:
             dep = pendientes.pop()
-            celdas = getattr(dep.call, "__closure__", None) or ()
-            if any(sub.call is modulos_concedidos for sub in dep.dependencies) and any(
-                c.cell_contents == "plataforma" for c in celdas
-            ):
+            if any(sub.call is modulos_concedidos for sub in dep.dependencies) and getattr(
+                dep.call, "modulos", ()
+            ) == ("plataforma",):
                 return True
             pendientes.extend(dep.dependencies)
         return False

@@ -33,11 +33,7 @@ def _modulos_que_pide(dependant) -> set[str]:
     """Los códigos de `require_module(...)` en el árbol de dependencias de una ruta."""
     pedidos: set[str] = set()
     for dep in dependant.dependencies:
-        llamada = dep.call
-        if getattr(llamada, "__qualname__", "").startswith("require_module."):
-            for celda in llamada.__closure__ or ():
-                if isinstance(celda.cell_contents, str):
-                    pedidos.add(celda.cell_contents)
+        pedidos.update(getattr(dep.call, "modulos", ()))
         pedidos |= _modulos_que_pide(dep)
     return pedidos
 
