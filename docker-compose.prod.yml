@@ -261,10 +261,34 @@ services:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
+    # #318 — sus siete secretos van sin `:?`, como `CLICKHOUSE_PASSWORD`: Compose interpola también
+    # los perfiles inactivos, y con `:?` un `.env` sin ellos impedía levantar la aplicación a quien
+    # no quiere observabilidad. Se exigen aquí, al arrancar. El `entrypoint` borra también el
+    # `command` de la imagen, así que al final se cede a su arranque original.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >-
+        test -n "$${NEXTAUTH_SECRET}" ||
+        { echo "falta LANGFUSE_NEXTAUTH_SECRET en .env: ver docs/INSTALACION.md" >&2; exit 1; };
+        test -n "$${SALT}" ||
+        { echo "falta LANGFUSE_SALT en .env: ver docs/INSTALACION.md" >&2; exit 1; };
+        test -n "$${ENCRYPTION_KEY}" ||
+        { echo "falta LANGFUSE_ENCRYPTION_KEY en .env: ver docs/INSTALACION.md" >&2; exit 1; };
+        test -n "$${LANGFUSE_INIT_PROJECT_PUBLIC_KEY}" ||
+        { echo "falta LANGFUSE_PUBLIC_KEY en .env: ver docs/INSTALACION.md" >&2; exit 1; };
+        test -n "$${LANGFUSE_INIT_PROJECT_SECRET_KEY}" ||
+        { echo "falta LANGFUSE_SECRET_KEY en .env: ver docs/INSTALACION.md" >&2; exit 1; };
+        test -n "$${LANGFUSE_INIT_USER_EMAIL}" ||
+        { echo "falta LANGFUSE_ADMIN_EMAIL en .env: ver docs/INSTALACION.md" >&2; exit 1; };
+        test -n "$${LANGFUSE_INIT_USER_PASSWORD}" ||
+        { echo "falta LANGFUSE_ADMIN_PASSWORD en .env: ver docs/INSTALACION.md" >&2; exit 1; };
+        exec dumb-init -- ./web/entrypoint.sh node ./web/server.js --keepAliveTimeout 110000
     ports:
       - "127.0.0.1:3000:3000"
     environment:
-      # #269 — `:?` en cada secreto: sin él Langfuse arrancaba con los suyos vacíos.
+      # #269 — ningún secreto arranca vacío: los que comparte con otros servicios llevan `:?`, y
+      # los suyos propios los exige el `entrypoint` de arriba (#318).
       DATABASE_URL: postgresql://${POSTGRES_USER:?falta POSTGRES_USER}:${POSTGRES_PASSWORD:?falta POSTGRES_PASSWORD}@postgres:5432/langfuse
       CLICKHOUSE_MIGRATION_URL: clickhouse://${CLICKHOUSE_USER:-clickhouse}:${CLICKHOUSE_PASSWORD}@clickhouse:9000
       CLICKHOUSE_URL: http://clickhouse:8123
@@ -285,19 +309,19 @@ services:
       LANGFUSE_S3_MEDIA_UPLOAD_REGION: auto
       LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
       NEXTAUTH_URL: ${LANGFUSE_NEXTAUTH_URL:-http://localhost:3000}
-      NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET:?falta LANGFUSE_NEXTAUTH_SECRET}
-      SALT: ${LANGFUSE_SALT:?falta LANGFUSE_SALT}
-      ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY:?falta LANGFUSE_ENCRYPTION_KEY}
+      NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET}
+      SALT: ${LANGFUSE_SALT}
+      ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY}
       TELEMETRY_ENABLED: "false"
       LANGFUSE_INIT_ORG_ID: govgenai-org
       LANGFUSE_INIT_ORG_NAME: "Gov Gen AI"
       LANGFUSE_INIT_PROJECT_ID: govgenai-project
       LANGFUSE_INIT_PROJECT_NAME: govgenai
-      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:?falta LANGFUSE_PUBLIC_KEY}
-      LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_SECRET_KEY:?falta LANGFUSE_SECRET_KEY}
-      LANGFUSE_INIT_USER_EMAIL: ${LANGFUSE_ADMIN_EMAIL:?falta LANGFUSE_ADMIN_EMAIL}
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY}
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_SECRET_KEY}
+      LANGFUSE_INIT_USER_EMAIL: ${LANGFUSE_ADMIN_EMAIL}
       LANGFUSE_INIT_USER_NAME: Admin
-      LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_ADMIN_PASSWORD:?falta LANGFUSE_ADMIN_PASSWORD}
+      LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_ADMIN_PASSWORD}
     deploy:
       resources:
         limits:

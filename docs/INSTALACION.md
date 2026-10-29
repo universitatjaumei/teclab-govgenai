@@ -56,6 +56,10 @@ La plataforma arranca igual; para el perfil, añádela a mano (`openssl rand -he
 esa fecha Langfuse estaba en el compose sin perfil pero no llegaba a arrancar, porque le faltaban
 justo esos tres servicios: no se pierde nada que funcionara.
 
+**Los secretos de Langfuse sólo se piden al levantar su perfil.** Si tu `.env` no tiene las
+siete `LANGFUSE_*` que genera `generate_env.sh`, la plataforma arranca igual; con el perfil,
+Langfuse se detiene al empezar y dice cuál falta.
+
 Opciones que conviene conocer:
 
 | Opción | Para qué |
