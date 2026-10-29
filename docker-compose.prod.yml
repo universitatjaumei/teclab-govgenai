@@ -224,7 +224,7 @@ services:
       - observabilidad
 
   langfuse:
-    image: langfuse/langfuse:3.225.11
+    image: langfuse/langfuse:4.70.0
     container_name: govgenai_langfuse
     depends_on:
       postgres:
