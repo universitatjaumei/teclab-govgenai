@@ -66,7 +66,7 @@ services:
   # un socket Unix, que es la forma que espera `DATABASE_URL` (`?host=/cloudsql/...`).
   # ---------------------------------------------------------------------------
   cloud-sql-proxy:
-    image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.14.1
+    image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.26.3
     container_name: govgenai_sql_proxy
     command:
       - "--unix-socket=/cloudsql"
@@ -366,7 +366,7 @@ services:
   # cambiarlo tiene que ser una variable, no una edición.
   # ---------------------------------------------------------------------------
   caddy:
-    image: caddy:2.8-alpine
+    image: caddy:2.11-alpine
     container_name: govgenai_caddy
     ports:
       - "80:80"
