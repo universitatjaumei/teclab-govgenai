@@ -99,3 +99,84 @@ async def test_should_count_the_templates_of_the_queue_with_the_same_queries_wha
     db_session,
 ):
     assert await _consultas_en_la_cola(db_session, 2) == await _consultas_en_la_cola(db_session, 5)
+
+
+# ── Revisión de la PR #316 ────────────────────────────────────────────────────────────────
+
+
+async def _plantilla_con(session, *refs) -> None:
+    """Una versión de plantilla con un bloque por cada `funcion_ref` dado, tal cual."""
+    plantilla = HubReportTemplate(
+        name=f"Plantilla {uuid.uuid4()}", report_profile="GENERIC_REPORT", owner_kind="platform"
+    )
+    session.add(plantilla)
+    await session.flush()
+    session.add(
+        HubReportTemplateVersion(
+            template_id=plantilla.id, version=1, created_by=uuid.uuid4(),
+            spec_json={
+                "blocks": [
+                    {"id": f"b{n}", "kind": "DETERMINISTIC_DATA", "funcion_ref": ref}
+                    for n, ref in enumerate(refs)
+                ]
+            },
+        )
+    )
+    await session.commit()
+
+
+@pytest.mark.asyncio
+async def test_a_malformed_anchor_does_not_bring_down_the_queue(db_session):
+    """Una versión que no es un número —una lista, editada a mano— no puede tumbar la cola de
+    todos los revisores: el contador la ignora y sigue."""
+    from server.app.modules.redaccion.funciones_catalogo import plantillas_que_las_usan
+
+    a, b = uuid.uuid4(), uuid.uuid4()
+    await _plantilla_con(db_session, {"funcion_id": str(a), "version": [1]})
+    await _plantilla_con(db_session, {"funcion_id": str(a), "version": {"v": 1}})
+    await _plantilla_con(db_session, {"funcion_id": str(b), "version": 1})
+
+    assert await plantillas_que_las_usan(db_session, [a, b]) == {(b, 1): 1}
+
+
+@pytest.mark.asyncio
+async def test_counts_what_the_block_contract_accepts(db_session):
+    """El contador lee el ancla con `FuncionRef`, el mismo contrato que valida el bloque: `1.0`
+    es la versión 1 (antes `1.0 == 1` contaba), y una versión 0 no es un ancla."""
+    from server.app.modules.redaccion.funciones_catalogo import plantillas_que_las_usan
+
+    a = uuid.uuid4()
+    await _plantilla_con(db_session, {"funcion_id": str(a), "version": 1.0})
+    await _plantilla_con(db_session, {"funcion_id": str(a), "version": 0})
+
+    assert await plantillas_que_las_usan(db_session, [a]) == {(a, 1): 1}
+
+
+@pytest.mark.asyncio
+async def test_one_template_counts_once_for_each_pair_it_anchors(db_session):
+    """Una plantilla con dos funciones cuenta para las dos; dos bloques con el mismo par, una vez;
+    y un ancla a otra versión no cuenta para ésta."""
+    from server.app.modules.redaccion.funciones_catalogo import plantillas_que_las_usan
+
+    a, b = uuid.uuid4(), uuid.uuid4()
+    await _plantilla_con(
+        db_session,
+        {"funcion_id": str(a), "version": 1},
+        {"funcion_id": str(a), "version": 1},
+        {"funcion_id": str(b), "version": 2},
+    )
+
+    assert await plantillas_que_las_usan(db_session, [a, b]) == {(a, 1): 1, (b, 2): 1}
+
+
+@pytest.mark.asyncio
+async def test_the_spec_is_turned_into_text_once_per_row(db_session):
+    """Con un `OR` de `LIKE`, PostgreSQL convierte el JSONB a texto una vez por función de la
+    cola y por fila. Una sola comparación con `ANY` lo hace una vez."""
+    from server.app.modules.redaccion.funciones_catalogo import plantillas_que_las_usan
+
+    with _contando(db_session) as sentencias:
+        await plantillas_que_las_usan(db_session, [uuid.uuid4() for _ in range(5)])
+
+    assert len(sentencias) == 1
+    assert sentencias[0].upper().count("CAST(") == 1, sentencias[0]

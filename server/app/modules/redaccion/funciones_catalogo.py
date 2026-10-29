@@ -9,11 +9,14 @@ import uuid
 from typing import Callable, TypeVar
 
 from fastapi import HTTPException
-from sqlalchemy import String, cast, or_, select
+from pydantic import ValidationError
+from sqlalchemy import String, any_, cast, select
+from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.app.core.auth.models import UserInfo
 from server.app.core.auth.tenancy import organizacion_unica_de
+from server.app.modules.redaccion.contracts.blocks import FuncionRef
 from server.app.modules.redaccion.database.models import (
     HubFuncion,
     HubFuncionVersion,
@@ -81,11 +84,6 @@ async def destino_de_una_version_externa(
     return destino
 
 
-def _por_version_descendente(consulta):
-    # DET.1 — orden estable con desempate: dos versiones pueden compartir `created_at`.
-    return consulta.order_by(HubFuncionVersion.version.desc(), HubFuncionVersion.id)
-
-
 async def versiones_por_funcion(
     session: AsyncSession, funcion_ids: list[uuid.UUID]
 ) -> dict[uuid.UUID, list[HubFuncionVersion]]:
@@ -99,9 +97,10 @@ async def versiones_por_funcion(
         return agrupadas
     filas = (
         await session.execute(
-            _por_version_descendente(
-                select(HubFuncionVersion).where(HubFuncionVersion.funcion_id.in_(funcion_ids))
-            )
+            select(HubFuncionVersion)
+            .where(HubFuncionVersion.funcion_id.in_(funcion_ids))
+            # DET.1 — orden estable con desempate: dos versiones pueden compartir `created_at`.
+            .order_by(HubFuncionVersion.version.desc(), HubFuncionVersion.id)
         )
     ).scalars().all()
     for fila in filas:
@@ -110,17 +109,7 @@ async def versiones_por_funcion(
 
 
 async def versiones_de(session: AsyncSession, funcion_id: uuid.UUID) -> list[HubFuncionVersion]:
-    return list(
-        (
-            await session.execute(
-                _por_version_descendente(
-                    select(HubFuncionVersion).where(HubFuncionVersion.funcion_id == funcion_id)
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
+    return (await versiones_por_funcion(session, [funcion_id]))[funcion_id]
 
 
 async def version_de(
@@ -190,8 +179,14 @@ async def en_revision(
     return por_funcion, list(versiones)
 
 
-def _anclas_del_spec(spec) -> set[tuple[str, object]]:
-    """Los pares (función, versión) que ancla una versión de plantilla, cada uno una vez."""
+def _anclas_del_spec(spec) -> set[tuple[uuid.UUID, int]]:
+    """Los pares (función, versión) que ancla una versión de plantilla, cada uno una vez.
+
+    El ancla se lee con `FuncionRef`, el contrato que valida el bloque, y no a mano: así cuenta lo
+    mismo que el bloque acepta (`1.0` es la versión 1, una versión 0 no es un ancla), y un spec
+    editado a mano con una versión que no es un número se salta en vez de tumbar la cola entera
+    de revisión (revisión de la PR #316).
+    """
     if not isinstance(spec, dict):
         return set()
     bloques = spec.get("blocks")
@@ -199,11 +194,16 @@ def _anclas_del_spec(spec) -> set[tuple[str, object]]:
         bloques = list(bloques.values())
     if not isinstance(bloques, list):
         return set()
-    anclas: set[tuple[str, object]] = set()
+    anclas: set[tuple[uuid.UUID, int]] = set()
     for bloque in bloques:
         ref = bloque.get("funcion_ref") if isinstance(bloque, dict) else None
-        if isinstance(ref, dict):
-            anclas.add((str(ref.get("funcion_id")), ref.get("version")))
+        if ref is None:
+            continue
+        try:
+            ancla = FuncionRef.model_validate(ref)
+        except ValidationError:
+            continue
+        anclas.add((ancla.funcion_id, ancla.version))
     return anclas
 
 
@@ -223,22 +223,23 @@ async def plantillas_que_las_usan(
     """
     if not funcion_ids:
         return {}
-    texto = cast(HubReportTemplateVersion.spec_json, String)
+    buscadas = set(funcion_ids)
+    # Un solo `LIKE ANY` y no un `OR` de `LIKE`: con el `OR`, PostgreSQL convierte el JSONB a
+    # texto una vez por rama, es decir, por cada función de la cola y por cada fila.
+    patrones = array([f"%{i}%" for i in buscadas])
     filas = (
         await session.execute(
             select(HubReportTemplateVersion.spec_json).where(
-                or_(*(texto.like(f"%{i}%") for i in set(funcion_ids)))
+                cast(HubReportTemplateVersion.spec_json, String).like(any_(patrones))
             )
         )
     ).scalars().all()
 
-    por_id = {str(i): i for i in funcion_ids}
     cuantas: dict[tuple[uuid.UUID, int], int] = {}
     for spec in filas:
-        for funcion_id, version in _anclas_del_spec(spec):
-            if funcion_id in por_id and isinstance(version, int):
-                clave = (por_id[funcion_id], version)
-                cuantas[clave] = cuantas.get(clave, 0) + 1
+        for ancla in _anclas_del_spec(spec):
+            if ancla[0] in buscadas:
+                cuantas[ancla] = cuantas.get(ancla, 0) + 1
     return cuantas
 
 
