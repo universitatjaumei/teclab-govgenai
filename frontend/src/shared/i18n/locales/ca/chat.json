@@ -10,6 +10,8 @@
   "widget_loading": "Carregant...",
   "feedback_rate": "Valorar resposta",
   "feedback_stars": "estrelles",
+  "feedback_saved": "Gràcies per la valoració.",
+  "feedback_failed": "No s'ha pogut guardar la valoració. Torna-ho a provar.",
   "sources": "Fonts",
   "no_sources": "Sense fonts citades",
   "status": {

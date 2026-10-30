@@ -10,6 +10,8 @@
   "widget_loading": "Loading...",
   "feedback_rate": "Rate response",
   "feedback_stars": "stars",
+  "feedback_saved": "Thank you for your rating.",
+  "feedback_failed": "Your rating could not be saved. Please try again.",
   "sources": "Sources",
   "no_sources": "No sources cited",
   "status": {

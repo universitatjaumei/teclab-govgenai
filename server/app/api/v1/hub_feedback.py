@@ -15,12 +15,19 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from server.app.api.deps import get_current_user
+from server.app.api.deps import get_current_user, get_current_user_optional
 from server.app.core.auth import UserInfo
+from server.app.core.auth.chatbot_access import VIA_WIDGET, assert_chatbot_access
+from server.app.core.auth.widget_key import (
+    CABECERA as CABECERA_WIDGET,
+    actor_anonimo_de_widget,
+    resolver_widget_key,
+)
+from server.app.core.rate_limit import limitar_valoracion
 from server.app.core.auth.tenancy import assert_chatbot_org_access, assert_org_access
 from server.app.modules.agents_hub.database.config_models import HubChatbot
 from server.app.api.deps import get_session
@@ -99,6 +106,38 @@ class InteractionReviewOut(BaseModel):
     review_reference_answer: str | None = None
 
 
+def _sin_credencial() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Missing Authorization header. Use: Bearer <token>",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+async def _exigir_el_publico_del_widget(session, interaccion) -> None:
+    """403 salvo que la interacción sea del público del widget y el chatbot sea `public_anon`
+    (#340). Que la credencial es de ese chatbot ya lo comprobó quien llama.
+
+    Son las condiciones del chat, más la de la interacción: el público valora lo que preguntó
+    por el widget, no la conversación que alguien tuvo con sesión. Quien valora no se identifica
+    —es el sitio, no una persona—, así que lo que lo acota es el identificador de la
+    interacción, que sólo recibe quien hizo la pregunta. Quien lo conozca puede cambiar esa
+    valoración: es el precio de no tener identidad, y el límite por IP lo acota.
+    """
+    if interaccion.user_id != actor_anonimo_de_widget(interaccion.chatbot_id).subject_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "ACCESS_MODE_FORBIDDEN",
+                "reason": "the widget credential cannot rate this interaction",
+            },
+        )
+    chatbot = await session.get(HubChatbot, interaccion.chatbot_id)
+    if chatbot is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Interaction not found")
+    assert_chatbot_access(None, chatbot, via=VIA_WIDGET)
+
+
 def get_feedback_service(session: AsyncSession = Depends(get_session)) -> FeedbackService:
     """Las valoraciones y la revisión de interacciones (#274)."""
     return FeedbackService(session)
@@ -108,26 +147,43 @@ def get_feedback_service(session: AsyncSession = Depends(get_session)) -> Feedba
 async def submit_feedback(
     interaction_id: uuid.UUID,
     request: FeedbackRequest,
-    user: UserInfo = Depends(get_current_user),
+    http_request: Request,
+    user: UserInfo | None = Depends(get_current_user_optional),
     session: AsyncSession = Depends(get_session),
     service: FeedbackService = Depends(get_feedback_service),
 ) -> None:
+    # #340 — el público de un widget es anónimo: conversa con la credencial de sitio y con ella
+    # tiene que poder valorar. La credencial se valida ANTES de buscar la interacción, como en el
+    # chat (SEC.8.5): si bastara con traer la cabecera, el 404 frente al 403 diría cuáles existen
+    # (revisión de la PR #341). Y con el mismo límite por IP que el chat del widget.
+    clave = None
+    if user is None:
+        clave = await resolver_widget_key(session, http_request.headers.get(CABECERA_WIDGET))
+        if clave is None:
+            raise _sin_credencial()
+        limitar_valoracion(http_request, chatbot_id=clave.chatbot_id)
+
     # SEC.8.1: el GET de revisión comprobaba la organización desde SEC.2; este POST no
     # comprobaba nada y el servicio hace `UPDATE ... WHERE id = :id` a ciegas, así que
     # cualquier usuario autenticado —de cualquier organización— escribía sobre la
     # valoración de una conversación ajena, y de ahí pasaba a LangFuse.
     interaccion = await session.get(HubInteraction, interaction_id)
-    if interaccion is None:
+    # Con la clave de un sitio no se averigua qué existe en otro: lo ajeno es un 404.
+    if interaccion is None or (clave is not None and interaccion.chatbot_id != clave.chatbot_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Interaction not found"
         )
-    if interaccion.user_id != user.user_id:
+    if user is None:
+        await _exigir_el_publico_del_widget(session, interaccion)
+    elif interaccion.user_id != user.user_id:
         await assert_chatbot_org_access(session, interaccion.chatbot_id, user)
 
     await service.submit_feedback(
         interaction_id=interaction_id,
         score=request.score,
-        comment=request.comment,
+        # La clave del widget está en el HTML de la página: por esa vía cualquiera escribiría
+        # texto libre en la cola de revisión y en LangFuse. El widget sólo manda la nota.
+        comment=request.comment if user is not None else None,
     )
 
 

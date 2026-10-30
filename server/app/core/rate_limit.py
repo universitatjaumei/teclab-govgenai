@@ -167,6 +167,18 @@ def limitar_login(request: Request) -> None:
     )
 
 
+def limitar_valoracion(request: Request, *, chatbot_id) -> None:
+    """Por IP, con la regla del chat: la valoración anónima del widget (#340).
+
+    Ámbito propio y no el del chat: valorar no tiene que gastar el cupo de preguntar.
+    """
+    limitar(
+        ambito=f"valoracion:{chatbot_id}",
+        clave=ip_de(request),
+        regla=_regla("RATE_LIMIT_CHAT", LIMITE_CHAT_POR_DEFECTO),
+    )
+
+
 def limitar_chat(request: Request, *, actor_id: str | None, chatbot_id) -> None:
     """Por actor efectivo cuando hay identidad y por IP cuando no.
 
