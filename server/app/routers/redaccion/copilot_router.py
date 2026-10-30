@@ -23,7 +23,9 @@ from server.app.modules.redaccion.services.copilot import (
     CopilotTranslateRequest,
     CopilotTranslateResponse,
 )
+from server.app.modules.redaccion.services.copilot.copilot_service import ElModeloNoResponde
 from server.app.modules.redaccion.services.copilot.docs_retriever import DocsRetriever
+from server.app.routers.redaccion._actor import nombre_del_modelo
 
 
 router = APIRouter(prefix="/redaccion/copilot", tags=["redaccion-copilot"],
@@ -124,12 +126,22 @@ async def ask_copilot(
                 workspace_id=body.workspace_id,
             )
 
-    return await service.answer(
-        question=body.question,
-        module=body.module,
-        top_k=body.top_k,
-        contexto_del_informe=contexto,
-    )
+    try:
+        return await service.answer(
+            question=body.question,
+            module=body.module,
+            top_k=body.top_k,
+            contexto_del_informe=contexto,
+        )
+    except ElModeloNoResponde as fallo:
+        # #344 — era un 500 sin explicación. Lo mismo que el 503 de arriba: decir qué mirar.
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=(
+                f"El modelo «{nombre_del_modelo(fallo.modelo)}» no ha respondido: "
+                f"{str(fallo.motivo)[:300]}. Revisa el modelo del nivel 1 en Modelos IA."
+            ),
+        ) from fallo
 
 
 @router.post("/translate", response_model=CopilotTranslateResponse)
