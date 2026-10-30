@@ -775,6 +775,35 @@ describe('ChatWidget', () => {
     expect(screen.getAllByRole('button', { name: /estrellas/i })[3]).toHaveAttribute('aria-pressed', 'false')
   })
 
+  test('should_ignore_a_stale_rating_response', async () => {
+    // Revisión de la PR #341: dos clics seguidos, y la respuesta del primero llega la última. Lo
+    // que se ve tiene que ser lo del último clic, no lo de la respuesta más lenta.
+    let resolverPrimera!: (r: Response) => void
+    fetchMock
+      .mockResolvedValueOnce(
+        makeSseResponse([
+          { event: 'token', data: { delta: 'Respuesta.' } },
+          { event: 'done', data: { ...DONE_EVENT, interaction_id: 'iact-99' } },
+        ]),
+      )
+      .mockReturnValueOnce(new Promise<Response>(r => { resolverPrimera = r }))
+      .mockResolvedValueOnce(new Response('{}', { status: 401 }))
+    renderOpen(<ChatWidget {...DEFAULT_PROPS} widgetKey="wk-1" />)
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Pregunta' } })
+    fireEvent.click(screen.getByRole('button', { name: /enviar/i }))
+    await waitFor(() => expect(screen.getByRole('group')).toBeInTheDocument())
+
+    const estrellas = screen.getAllByRole('button', { name: /estrellas/i })
+    await act(async () => { fireEvent.click(estrellas[3]) })
+    await act(async () => { fireEvent.click(estrellas[4]) })
+    expect(await screen.findByRole('status')).toHaveTextContent(/no se ha podido guardar/i)
+
+    await act(async () => { resolverPrimera(new Response(null, { status: 204 })) })
+
+    expect(screen.getByRole('status')).toHaveTextContent(/no se ha podido guardar/i)
+    expect(estrellas[3]).toHaveAttribute('aria-pressed', 'false')
+  })
+
   test('should_render_source_pills_after_last_assistant_message', async () => {
     fetchMock.mockResolvedValueOnce(
       makeSseResponse([

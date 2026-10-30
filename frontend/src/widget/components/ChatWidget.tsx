@@ -92,9 +92,13 @@ function SourcePills({ sources }: SourcePillsProps) {
 function StarRating({ interactionId, apiUrl, widgetKey }: StarRatingProps) {
   const [selected, setSelected] = useState<number | null>(null)
   const [estado, setEstado] = useState<'guardada' | 'fallida' | null>(null)
+  // Revisión de la PR #341: dos clics seguidos y la respuesta del primero llega la última. Sólo
+  // cuenta la del último clic; si no, lo que se ve y lo que se guardó no coinciden.
+  const ultimoClic = useRef(0)
   const { t } = useTranslation('chat')
 
   const handleClick = async (score: number) => {
+    const clic = ++ultimoClic.current
     setSelected(score)
     setEstado(null)
     // #340 — el público del widget es anónimo: valora con la credencial de sitio, como conversa.
@@ -108,6 +112,7 @@ function StarRating({ interactionId, apiUrl, widgetKey }: StarRatingProps) {
         headers,
         body: JSON.stringify({ score }),
       })
+      if (clic !== ultimoClic.current) return
       if (!respuesta.ok) {
         setSelected(null)
         setEstado('fallida')
@@ -115,6 +120,7 @@ function StarRating({ interactionId, apiUrl, widgetKey }: StarRatingProps) {
       }
       setEstado('guardada')
     } catch {
+      if (clic !== ultimoClic.current) return
       setSelected(null)
       setEstado('fallida')
     }

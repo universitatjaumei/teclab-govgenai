@@ -74,10 +74,12 @@ async def _cliente(session):
         yield c
 
 
-async def _valorar(session, interaccion_id, clave=None):
+async def _valorar(session, interaccion_id, clave=None, cuerpo=None):
     cabeceras = {"X-Widget-Key": clave} if clave else {}
     async with _cliente(session) as c:
-        return await c.post(f"/api/v1/hub/feedback/{interaccion_id}", json={"score": 4}, headers=cabeceras)
+        return await c.post(
+            f"/api/v1/hub/feedback/{interaccion_id}", json=cuerpo or {"score": 4}, headers=cabeceras
+        )
 
 
 @pytest.mark.asyncio
@@ -100,13 +102,50 @@ async def test_sin_sesion_ni_credencial_es_un_401_aunque_la_interaccion_no_exist
 
 
 @pytest.mark.asyncio
-async def test_la_credencial_de_otro_chatbot_no_vale(db_session) -> None:
+async def test_una_credencial_inventada_es_un_401_antes_de_buscar(db_session) -> None:
+    """Revisión de la PR #341: bastaba con mandar la cabecera, valiera o no, para pasar del 401,
+    y entonces el 404 frente al 403 decía qué interacciones existían."""
+    _, interaccion, _ = await _escenario(db_session)
+
+    assert (await _valorar(db_session, interaccion.id, "inventada")).status_code == 401
+    assert (await _valorar(db_session, uuid.uuid4(), "inventada")).status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_la_credencial_de_otro_chatbot_no_ve_la_interaccion(db_session) -> None:
+    """404 y no 403: con la clave de un sitio no se averigua qué existe en otro."""
     _, interaccion, _ = await _escenario(db_session)
     _, _, clave_ajena = await _escenario(db_session)
 
     respuesta = await _valorar(db_session, interaccion.id, clave_ajena)
 
-    assert respuesta.status_code == 403
+    assert respuesta.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_por_el_widget_no_se_escribe_comentario(db_session) -> None:
+    """Revisión de la PR #341: la clave está en el HTML de la página, así que por esta vía
+    cualquiera escribiría texto libre en la cola de revisión y en LangFuse. El widget no
+    manda comentario; se descarta."""
+    _, interaccion, clave = await _escenario(db_session)
+
+    respuesta = await _valorar(db_session, interaccion.id, clave, {"score": 2, "comment": "texto"})
+
+    assert respuesta.status_code == 204
+    await db_session.refresh(interaccion)
+    assert interaccion.feedback_score == 2
+    assert interaccion.feedback_text is None
+
+
+@pytest.mark.asyncio
+async def test_las_valoraciones_por_el_widget_tienen_limite(db_session, monkeypatch) -> None:
+    """Revisión de la PR #341: el chat del widget tiene límite por IP; la valoración no tenía."""
+    monkeypatch.setenv("RATE_LIMIT_CHAT", "2/minute")
+    _, interaccion, clave = await _escenario(db_session)
+
+    estados = [(await _valorar(db_session, interaccion.id, clave)).status_code for _ in range(3)]
+
+    assert estados == [204, 204, 429]
 
 
 @pytest.mark.asyncio
