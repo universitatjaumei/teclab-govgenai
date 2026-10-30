@@ -47,7 +47,7 @@ CLAVE_METADATO = "vigencia_no_validada"
 
 
 def vigencia_no_validada(
-    estat_vigencia: str | None,  # noqa: ARG001 — ACT.4 retiró la rama del estado; la firma la comparten los llamantes
+    estat_vigencia: str | None,
     vigencia_validada_el: Any | None,
 ) -> bool:
     """True si el documento no puede presentarse como vigente sin advertirlo.
@@ -60,8 +60,13 @@ def vigencia_no_validada(
 
     El catalogo original trae `vigent?`, que entra por aqui: sin fecha de validacion, se
     advierte, que es exactamente lo que ese interrogante significa.
+
+    #337 — **sin `estat_vigencia` no se advierte**: no es una norma que se haya dejado de
+    validar, es un documento sin ese ciclo de vida —una pagina rastreada, un fichero subido—
+    (ver `ESTATS_QUE_NO_RIGEN`). Mientras el aviso no llegaba al chat daba igual; al hacerse
+    visible, a quien sube sus documentos le diria que «la normativa citada» no esta validada.
     """
-    return vigencia_validada_el is None
+    return estat_vigencia is not None and vigencia_validada_el is None
 
 
 def marca_de_vigencia(documento: Any) -> dict[str, bool]:

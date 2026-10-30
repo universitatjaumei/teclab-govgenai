@@ -544,6 +544,9 @@ class HubChatbot(HubConfigBase):
     # HIB.T — NULL = heredar. Existe para el tercer asistente de Gerencia, que es el banco con
     # el que se comparan las tres estrategias sobre el mismo lote y el mismo corpus.
     inject_whole_document: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    # #337 — NULL = heredar (apagado). Enseña al usuario la respuesta tal como la deja el contrato
+    # de citas, reemplazando al final la que se emitió token a token.
+    show_citation_corrections: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     parent_chatbot_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("hub_chatbots.id", ondelete="SET NULL"),

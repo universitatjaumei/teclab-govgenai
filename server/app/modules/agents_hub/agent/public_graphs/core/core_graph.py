@@ -104,6 +104,7 @@ class CoreGraphState(TypedDict):
     context_source_language: str | None
     fallback_reason: str | None     # 'quality_gate' | 'citation' | None (RAG.2)
     sources: list                  # list[EvidenceItem] citables emitidas en el done SSE
+    aviso: str | None              # #337 — el aviso de vigencia añadido a `answer`, aparte
 
 
 class CoreGraph:
@@ -380,12 +381,16 @@ class CoreGraph:
                     validated = sin_respuesta
                     sin_fundamento = True
 
+            aviso = None
             if not incumplio_citas and not sin_fundamento:
                 aviso = aviso_de_vigencia(citables)
                 if aviso:
                     validated = f"{validated}\n\n{aviso}"
             return {
                 "answer": validated,
+                # #337 — el aviso, aparte: el chat emite los tokens según salen del modelo y
+                # tiene que añadirlo él al final, se enseñen o no las correcciones de las citas.
+                "aviso": aviso,
                 "fallback_used": incumplio_citas or sin_fundamento,
                 # El motivo distingue las dos puertas. Sin eso la traza de HIB.I no permite
                 # saber cual rechazo, y toda la medicion de esta rama se basa en contarlas
