@@ -8,6 +8,7 @@ que sale la respuesta, no el documento de 40 páginas.
 from __future__ import annotations
 
 import os
+import re
 
 from server.app.modules.agents_hub.ingestion.ancores_del_diari import (
     CLAVE as ANCORES_DEL_DIARI,
@@ -169,6 +170,27 @@ def _fragmento(metadata: dict | None) -> str:
 def _sin_ancla(url: str | None) -> str | None:
     """La URL sin fragmento. `None` y cadena vacía se devuelven tal cual."""
     return url.split("#", 1)[0] if url else url
+
+
+# ── Anclas que se pueden citar de un documento entero (#336) ──────────────────────────
+#
+# El contexto largo entrega el documento entero, con sus encabezados `{#art-3}`, pero su URL
+# citable es la del documento: sin esto no podía citar el artículo aunque lo tuviera delante.
+# La estrategia declara qué anclas admite el contrato, y sólo cuando la cita va a la página de
+# **nuestro** sitio, que es la que las sirve: el PDF no tiene anclas (#15) y el diario oficial
+# usa las suyas (#157).
+ANCLAS_CITABLES = "anclas_citables"
+_ANCLA_DEL_TEXTO = re.compile(r"\{#([A-Za-z0-9][A-Za-z0-9._-]*)[^}]*\}")
+
+
+def anclas_citables(documento) -> list[str]:
+    """Las anclas de los encabezados del documento, si su cita va a nuestro sitio."""
+    if _es_externa(documento):
+        return []
+    if not (os.getenv(BASE_DEL_SITIO) or "").strip() or not _slug_de(documento):
+        return []
+    texto = getattr(documento, "markdown_content", None) or ""
+    return list(dict.fromkeys(_ANCLA_DEL_TEXTO.findall(texto)))
 
 
 def with_anchor(url: str | None, metadata: dict | None) -> str | None:

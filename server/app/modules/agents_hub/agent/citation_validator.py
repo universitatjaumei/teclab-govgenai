@@ -4,6 +4,7 @@ import re
 import unicodedata
 
 from server.app.core.llm_text import texto_de
+from server.app.modules.agents_hub.services.retrieval.citations import ANCLAS_CITABLES
 
 # Issue #148 — los dos límites no son estética: quitan un coste **cuadrático**.
 #
@@ -34,6 +35,20 @@ NO_CITATION_FALLBACK = (
     "No tengo informacion suficiente en los documentos disponibles para responder a "
     "esta pregunta con citas verificables. Podrias reformular o proporcionar mas contexto?"
 )
+
+
+def _anclas_leidas(sources: list) -> set[str]:
+    """`página#ancla` por cada ancla que la estrategia declara citable en esa evidencia.
+
+    Es lo que el modelo tuvo delante: en contexto largo, el documento entero con sus
+    encabezados. Un ancla que no está aquí sigue bajando al documento (HIB.D).
+    """
+    return {
+        f"{_sin_fragmento(url)}#{ancla}"
+        for s in sources
+        if (url := _url_de(s))
+        for ancla in ((getattr(s, "metadata", None) or {}).get(ANCLAS_CITABLES) or ())
+    }
 
 
 def has_valid_citations(response_text: str, allowed_urls: set[str]) -> bool:
@@ -170,6 +185,17 @@ def citas_de(texto: str) -> list[tuple[str, str]]:
     return [(titulo, url.strip()) for titulo, url in _MD_LINK.findall(texto)]
 
 
+def evidencias_citadas(texto: str, evidencias: list) -> list:
+    """Las evidencias que el texto cita, en el orden en que llegaron (#335).
+
+    Cuenta el documento, no el ancla: una cita a `página#art-3` es de la evidencia `página`. Es
+    para el modo de contexto largo, donde todo el corpus es citable y devolverlo entero como
+    fuentes no informa de nada.
+    """
+    citadas = {_sin_fragmento(url) for _titulo, url in citas_de(texto)}
+    return [e for e in evidencias if (u := _url_de(e)) and _sin_fragmento(u) in citadas]
+
+
 class ResultadoDelContrato:
     """El texto que el contrato deja, y el desglose de lo que hizo para dejarlo.
 
@@ -234,11 +260,15 @@ def aplicar_contrato(
             remisiones_despojadas=0,
         )
 
-    anclas = {u for u in (_url_de(s) for s in sources) if u}
+    anclas = {u for u in (_url_de(s) for s in sources) if u} | _anclas_leidas(sources)
     # La URL de la norma es citable por derecho propio: es el «o la norma» del criterio
     # «el articulo si se puede, la norma si no». Sin esto, degradar produciria una URL que
     # el propio contrato rechazaria.
     allowed = anclas | {_sin_fragmento(u) for u in anclas}
+    # Revisión de la PR #338: aquí estuvo «más las URL escritas en la evidencia», y se retiró. El
+    # artículo entregado entero trae sus remisiones con enlace —la ley que cita—, y conservarlo
+    # deshacía la regla de HIB.0: no se enlazan las normas citadas por las normas. Y en contenido
+    # rastreado dejaba pasar cualquier enlace que la página trajera. La mención se conserva.
 
     # HIB.0: el orden de estos dos pasos es el contrato.
     #

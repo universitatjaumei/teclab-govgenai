@@ -422,6 +422,10 @@ async def emitir_turno(
     reformulada = False
     fallback_reason: str | None = None
     fallback_answer: str | None = None
+    # #337 — la respuesta tal como la deja el grafo (contrato de citas y aviso de vigencia), y el
+    # aviso aparte. Los tokens que se emiten son los del modelo, de antes de las dos cosas.
+    respuesta_validada: str | None = None
+    aviso_de_vigencia: str | None = None
     # HIB.I — lo que la traza necesita y hasta ahora no salía de este generador.
     best_score: float | None = None
     gate_passed: bool | None = None
@@ -485,6 +489,9 @@ async def emitir_turno(
                 fallback_reason = output.get("fallback_reason")
                 if output.get("fallback_used"):
                     fallback_answer = output.get("answer")
+                else:
+                    respuesta_validada = output.get("answer")
+                    aviso_de_vigencia = output.get("aviso")
                 # HIB.I — la nota y la decisión de la puerta, tal como quedaron. Se leen
                 # del nodo final porque es el único punto donde ya están las dos.
                 nota_final = output.get("quality_score")
@@ -559,6 +566,30 @@ async def emitir_turno(
                 collected_tokens.clear()
             collected_tokens.append(fallback_answer)
             yield _sse("token", {"delta": fallback_answer})
+        elif respuesta_validada and collected_tokens:
+            # #337 — las correcciones del contrato de citas, si el chatbot las enseña. Es el
+            # mismo mecanismo que la rendición: por SSE no se retira lo enviado, se pide al
+            # cliente que lo descarte. Sólo cuando hay algo que corregir, porque el reemplazo
+            # se ve; y sin interruptor, lo que se ve es lo que salió del modelo. En el modo
+            # agéntico los tokens incluyen el texto de las vueltas con herramientas, así que con
+            # el interruptor puesto se reemplaza casi siempre (revisión de la PR #338).
+            sin_aviso = (
+                respuesta_validada.removesuffix(f"\n\n{aviso_de_vigencia}")
+                if aviso_de_vigencia
+                else respuesta_validada
+            )
+            corregir = getattr(turno.grafo.cfg, "show_citation_corrections", False) is True
+            if corregir and sin_aviso != "".join(collected_tokens):
+                yield _sse("discard", {"reason": "citation_corrections"})
+                collected_tokens.clear()
+                collected_tokens.append(respuesta_validada)
+                yield _sse("token", {"delta": respuesta_validada})
+            elif aviso_de_vigencia:
+                # VIS.3 — el aviso es una garantía, no una corrección: va siempre, al final, y
+                # no hace falta reemplazar nada para añadirlo.
+                cola = f"\n\n{aviso_de_vigencia}"
+                collected_tokens.append(cola)
+                yield _sse("token", {"delta": cola})
 
         # HIB.B — lo que se guarda es lo que el usuario vio. Antes guardaba la reformulación,
         # así que quien revisaba juzgaba una respuesta que nadie recibió.

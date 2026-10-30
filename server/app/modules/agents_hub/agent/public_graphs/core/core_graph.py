@@ -28,6 +28,7 @@ from server.app.modules.agents_hub.agent.public_graphs.strategies.protocols impo
 from server.app.modules.agents_hub.agent.citation_validator import (
     NO_CITATION_FALLBACK,
     enforce_citation_contract,
+    evidencias_citadas,
 )
 from server.app.modules.agents_hub.agent.public_graphs.strategies.retrieval_contract import (
     EvidenceItem,
@@ -103,6 +104,7 @@ class CoreGraphState(TypedDict):
     context_source_language: str | None
     fallback_reason: str | None     # 'quality_gate' | 'citation' | None (RAG.2)
     sources: list                  # list[EvidenceItem] citables emitidas en el done SSE
+    aviso: str | None              # #337 — el aviso de vigencia añadido a `answer`, aparte
 
 
 class CoreGraph:
@@ -346,6 +348,11 @@ class CoreGraph:
             # reconoce— y un ajuste no es rendirse. Compararlo con el original contaba esos
             # ajustes como fallback y, peor, se saltaba el aviso de vigencia de abajo.
             incumplio_citas = validated == sin_respuesta
+            # #335 — en contexto largo todo el corpus es citable, y como fuentes no dice nada:
+            # se quedan las que la respuesta, ya validada, cita. También acota el aviso de
+            # vigencia y la comprobación de fundamento a lo citado, que es lo que les toca.
+            if self.cfg.retrieval_mode == "MD_LONG_CONTEXT":
+                citables = evidencias_citadas(validated, citables)
             sin_fundamento = False
             # VIS.3: el aviso de vigencia se AÑADE aquí, después del contrato de citas y
             # sobre la evidencia realmente citable. No es una instrucción al modelo: una
@@ -374,12 +381,16 @@ class CoreGraph:
                     validated = sin_respuesta
                     sin_fundamento = True
 
+            aviso = None
             if not incumplio_citas and not sin_fundamento:
                 aviso = aviso_de_vigencia(citables)
                 if aviso:
                     validated = f"{validated}\n\n{aviso}"
             return {
                 "answer": validated,
+                # #337 — el aviso, aparte: el chat emite los tokens según salen del modelo y
+                # tiene que añadirlo él al final, se enseñen o no las correcciones de las citas.
+                "aviso": aviso,
                 "fallback_used": incumplio_citas or sin_fundamento,
                 # El motivo distingue las dos puertas. Sin eso la traza de HIB.I no permite
                 # saber cual rechazo, y toda la medicion de esta rama se basa en contarlas

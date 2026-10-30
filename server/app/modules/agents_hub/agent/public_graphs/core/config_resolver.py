@@ -84,6 +84,9 @@ class PublicGraphConfig:
     query_rewriting_enabled: bool = True
     grounding_check_enabled: bool = False
     inject_whole_document: bool = False
+    # #337 — enseñar al usuario las correcciones del contrato de citas. Apagado: reemplaza el texto
+    # al final de la respuesta, y eso se enciende midiendo cada asistente.
+    show_citation_corrections: bool = False
     # LLM de reescritura, configurable en la organización porque es otro modelo —pequeño y
     # rápido— y no tiene sentido repetirlo en cada chatbot. None = usar el del chatbot con
     # el tope de salida bajado.
@@ -238,6 +241,7 @@ async def get_effective_public_graph_config(
         "query_rewriting_enabled": chatbot.query_rewriting_enabled,
         "grounding_check_enabled": chatbot.grounding_check_enabled,
         "inject_whole_document": chatbot.inject_whole_document,
+        "show_citation_corrections": chatbot.show_citation_corrections,
     })
 
     # PLG.2 — las estrategias se resuelven APARTE y clave a clave, no con `_apply_layer`.

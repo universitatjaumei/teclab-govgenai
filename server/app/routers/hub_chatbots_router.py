@@ -118,6 +118,8 @@ class ChatbotRead(BaseModel):
     chunking_strategy: Literal["structural", "parent_child"] | None
     # RAG.10: None = heredar. Un False no nulo pisaria a la organizacion.
     query_rewriting_enabled: bool | None
+    # #337 — None = heredar (apagado): enseñar las correcciones del contrato de citas.
+    show_citation_corrections: bool | None = None
     # PLG.2 — lo que el chatbot tiene PUESTO, `{eje: nombre}`. Puede estar a medias: las
     # claves ausentes se heredan.
     estrategias: dict[str, str] | None = None
@@ -181,6 +183,7 @@ class ChatbotCreate(BaseModel):
     chunk_overlap: int | None = None
     chunking_strategy: Literal["structural", "parent_child"] | None = None
     query_rewriting_enabled: bool | None = None
+    show_citation_corrections: bool | None = None
     # PLG.2 — sobreescritura por eje. Clave ausente = hereda de la organizacion y, en su
     # defecto, de la composicion del perfil.
     estrategias: dict[str, str] | None = None
@@ -243,6 +246,7 @@ class ChatbotUpdate(BaseModel):
     chunk_overlap: int | None = None
     chunking_strategy: Literal["structural", "parent_child"] | None = None
     query_rewriting_enabled: bool | None = None
+    show_citation_corrections: bool | None = None
     # PLG.2 — sobreescritura por eje. Clave ausente = hereda de la organizacion y, en su
     # defecto, de la composicion del perfil.
     estrategias: dict[str, str] | None = None
@@ -501,6 +505,7 @@ async def create_chatbot(
         chunk_overlap=body.chunk_overlap,
         chunking_strategy=body.chunking_strategy,
         query_rewriting_enabled=body.query_rewriting_enabled,
+        show_citation_corrections=body.show_citation_corrections,
     )
     return await configuracion.crear(session, chatbot)
 

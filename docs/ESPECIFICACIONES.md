@@ -111,7 +111,7 @@ vive en un documento no es un invariante: es una intención.
 | # | Invariante | Se hace cumplir en |
 |---|---|---|
 | I1 | **Una respuesta sin cita válida no se entrega.** Si no hay fundamento en el corpus recuperado, el asistente se rinde con el mensaje del chatbot | `agent/citation_validator.py` (`enforce_citation_contract`) |
-| I2 | **Sólo se cita lo que se recuperó.** Un ancla que no se recuperó se degrada al documento; lo que apunta fuera del conjunto pierde el enlace, no la mención | `degradar_anclas` + `despojar_remisiones`, en ese orden |
+| I2 | **Sólo se cita lo que se recuperó.** Un ancla que el modelo no tuvo delante se degrada al documento; lo que apunta fuera del conjunto pierde el enlace, no la mención. Se admiten las anclas de un documento entregado entero, si se cita en nuestro sitio (#336). **La corrección sólo llega a la pantalla con `show_citation_corrections`** (#337): sin él, el contrato decide si la respuesta se entrega, pero lo que se ve son los tokens tal como salieron | `degradar_anclas` + `despojar_remisiones`, en ese orden; `turno_de_chat` para lo que se ve |
 | I3 | **La taxonomía nunca entra en el texto que se embebe.** En `embedding_text` sólo va contexto estructural. Reclasificar tiene que costar un `UPDATE`, no un reindexado | contrato del corpus + guardarraíles de ingesta |
 | I4 | **El vocabulario es dato, no código.** Ámbitos, submaterias, módulos y categorías de datos viven en tabla versionada; prohibido `Enum` de Python o `CheckConstraint` para ellos. Los **ejes** sí son estructura y van en `StrEnum`: añadir uno exige código que lo consuma | `core/auth/modulos.py`, `vocabulary_service.py`, vocabulario del corpus |
 | I5 | **Quien no gestiona una organización no ve sus datos.** Y una lista de organizaciones vacía significa «ninguna», no «todas» | `core/auth/tenancy.py`; `test_tenant_isolation.py` |
@@ -146,7 +146,10 @@ declina cuando no tiene con qué responder.
 **Garantiza.**
 - Toda afirmación entregada lleva cita a un documento **efectivamente recuperado** (I1, I2).
 - La respuesta no presenta como vigente lo que no lo está; la preferencia de lengua opera
-  **dentro** de la misma vigencia, nunca por encima.
+  **dentro** de la misma vigencia, nunca por encima. Si cita una norma cuya vigencia no ha
+  confirmado una persona, **lo dice al final**, nombrándola (VIS.3). Hasta #337 el aviso se
+  calculaba y no llegaba a la pantalla. Un documento sin `estat_vigencia` —subido, rastreado— no
+  es una norma y no lo lleva.
 - El flujo termina siempre: o `done` con `interaction_id`, o `error`. Nunca silencio.
 - Cada turno queda registrado con su consumo, y es valorable por `interaction_id`.
 
@@ -154,9 +157,10 @@ declina cuando no tiene con qué responder.
 `error`) · `hub_feedback_router` · `HubChatbot`, `HubInteraction`, `HubDocumentChunk`.
 
 **Cómo está construido.** Un `CoreGraph` de LangGraph con cuatro estrategias enchufables por eje:
-recuperación, fusión, plantilla y **política de lengua**. Dos modos de recuperación en uso: `RAG`
-(híbrido vectorial + texto completo, con desempate determinista) y `MD_AGENT_SELECTOR` (el modelo
-lee documentos enteros con *tools*).
+recuperación, fusión, plantilla y **política de lengua**. Tres modos de recuperación en uso: `RAG`
+(híbrido vectorial + texto completo, con desempate determinista), `MD_AGENT_SELECTOR` (el modelo
+lee documentos enteros con *tools*) y `MD_LONG_CONTEXT` (el corpus entero en el contexto, para
+corpus pequeños; cita la página y el apartado, y sus fuentes son lo que cita, #334–#336).
 
 **Invariantes.** I1, I2, I10.
 
@@ -168,6 +172,10 @@ lee documentos enteros con *tools*).
   de respuestas) es el camino elegido.
 - La comprobación de fundamento está **apagada por medición**: rechazaba 10 de 30 respuestas
   buenas. Reactivarla exige otro mecanismo, no otro número.
+- **Las correcciones de citas no se ven por omisión** (#337): mostrarlas reemplaza el texto al
+  final de la respuesta, y se enciende por chatbot (`show_citation_corrections`) midiendo cada
+  asistente. Medido sobre 25 preguntas: 7 de 73 enlaces del vectorial y 17 de 77 del contexto
+  largo se habrían corregido.
 - Perfiles `router` y `aggregator` declarados y **sin implementar**: sus factorías lanzan
   `NotImplementedError` a propósito, para no construir un grafo que recuperaría vacío en silencio.
 
