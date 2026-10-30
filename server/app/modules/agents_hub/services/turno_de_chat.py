@@ -570,7 +570,9 @@ async def emitir_turno(
             # #337 — las correcciones del contrato de citas, si el chatbot las enseña. Es el
             # mismo mecanismo que la rendición: por SSE no se retira lo enviado, se pide al
             # cliente que lo descarte. Sólo cuando hay algo que corregir, porque el reemplazo
-            # se ve; y sin interruptor, lo que se ve es lo que salió del modelo.
+            # se ve; y sin interruptor, lo que se ve es lo que salió del modelo. En el modo
+            # agéntico los tokens incluyen el texto de las vueltas con herramientas, así que con
+            # el interruptor puesto se reemplaza casi siempre (revisión de la PR #338).
             sin_aviso = (
                 respuesta_validada.removesuffix(f"\n\n{aviso_de_vigencia}")
                 if aviso_de_vigencia

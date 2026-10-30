@@ -5,11 +5,13 @@
    del prompt prohibía añadirla: el contexto largo no podía citar el artículo aunque lo leyera.
    Ahora la estrategia declara qué anclas se pueden citar —sólo si la cita va a la página de
    nuestro sitio, que es la que las sirve— y el contrato las admite.
-2. **Una URL escrita en el texto de la evidencia**, como el enlace a la aplicación que tramita
-   un certificado. El contrato la dejaba en texto plano como si fuera una remisión inventada.
+2. Se propuso también conservar el enlace de una URL escrita en el texto de la evidencia —el de
+   la aplicación que tramita un certificado—. **La revisión de la PR #338 lo retiró**: el
+   artículo entregado entero trae sus remisiones enlazadas, y conservarlas deshacía la regla de
+   HIB.0 (no se enlazan las normas citadas por las normas). La mención se conserva.
 
 Lo que sigue fuera: un ancla que no está en lo que se entregó (componerla sería fabricar un
-puntero, HIB.D), y cualquier URL que no se entregó.
+puntero, HIB.D), y cualquier URL que no se entregó como documento.
 """
 from __future__ import annotations
 
@@ -66,15 +68,17 @@ def test_sin_anclas_declaradas_nada_cambia() -> None:
     assert f"({PAGINA})" in r.texto
 
 
-def test_una_url_escrita_en_la_evidencia_conserva_el_enlace() -> None:
-    evidencia = _evidencia(content=f"Es demana des de l'aplicació {APP}.", url=f"{PAGINA}#art-1")
+def test_una_url_escrita_en_la_evidencia_pierde_el_enlace() -> None:
+    """HIB.0: lo que la evidencia remite no se entregó; se nombra, no se enlaza (PR #338)."""
+    evidencia = _evidencia(content=f"Segons la [Llei 9/2017]({APP}).", url=f"{PAGINA}#art-1")
 
     r = aplicar_contrato(
-        f"Demana-ho a [l'aplicació]({APP}) [Reglament]({PAGINA}#art-1).", [evidencia], "RAG"
+        f"Ho diu la [Llei 9/2017]({APP}) [Reglament]({PAGINA}#art-1).", [evidencia], "RAG"
     )
 
-    assert f"[l'aplicació]({APP})" in r.texto
-    assert r.remisiones_despojadas == 0
+    assert f"({APP})" not in r.texto
+    assert "Llei 9/2017" in r.texto
+    assert r.remisiones_despojadas == 1
 
 
 def test_una_url_que_no_se_entrego_pierde_el_enlace() -> None:
@@ -164,6 +168,26 @@ def test_el_prompt_del_contexto_largo_explica_como_citar_el_apartado() -> None:
 
     assert "{#art-3}" in prompt
     assert "NO le anadas un ancla" not in prompt
+
+
+def test_solo_el_documento_con_anclas_lleva_la_marca() -> None:
+    """Revisión de la PR #338: un PDF o una página del BOE no sirven nuestras anclas, y la regla
+    no puede invitar a ponérselas."""
+    from server.app.modules.agents_hub.agent.public_graphs.profiles.public_kb_rich import (
+        MARCA_DE_ANCLAS,
+        GenericAnswerTemplateStrategy,
+    )
+
+    con = _evidencia(anclas=["art-3"])
+    sin = EvidenceItem(source_id="x", content="Text", source_url="https://boe.example/l.pdf", title="Llei")
+
+    prompt = GenericAnswerTemplateStrategy(retrieval_mode="MD_LONG_CONTEXT").build_prompt_context(
+        [con, sin], "ca", "q"
+    )
+
+    bloque_sin = prompt.split("## Llei")[1]
+    assert MARCA_DE_ANCLAS in prompt.split("## Llei")[0].split("## Reglament")[1]
+    assert MARCA_DE_ANCLAS not in bloque_sin
 
 
 def test_el_prompt_del_vectorial_no_cambia() -> None:

@@ -37,11 +37,6 @@ NO_CITATION_FALLBACK = (
 )
 
 
-# #336 — una dirección escrita en el texto de la evidencia. Se corta en lo que no puede ir en
-# una URL sin escapar, y se le quita la puntuación que la cierra en la frase.
-_URL_EN_EL_TEXTO = re.compile(r"https?://[^\s<>\"'()\[\]]{1,2040}")
-
-
 def _anclas_leidas(sources: list) -> set[str]:
     """`página#ancla` por cada ancla que la estrategia declara citable en esa evidencia.
 
@@ -53,19 +48,6 @@ def _anclas_leidas(sources: list) -> set[str]:
         for s in sources
         if (url := _url_de(s))
         for ancla in ((getattr(s, "metadata", None) or {}).get(ANCLAS_CITABLES) or ())
-    }
-
-
-def _urls_escritas(sources: list) -> set[str]:
-    """Las direcciones que aparecen tal cual en el texto entregado (#336).
-
-    Enlazarlas no es inventar: el modelo las copió de la evidencia. Pero no cuentan como cita
-    del fundamento —una aplicación no es una norma—, así que no bastan para cumplir.
-    """
-    return {
-        u.rstrip(".,;:")
-        for s in sources
-        for u in _URL_EN_EL_TEXTO.findall(str(getattr(s, "content", "") or ""))
     }
 
 
@@ -282,10 +264,11 @@ def aplicar_contrato(
     # La URL de la norma es citable por derecho propio: es el «o la norma» del criterio
     # «el articulo si se puede, la norma si no». Sin esto, degradar produciria una URL que
     # el propio contrato rechazaria.
-    citables = anclas | {_sin_fragmento(u) for u in anclas}
-    # #336 — lo que se puede enlazar es algo más que lo que se puede citar: una dirección que
-    # viene escrita en la evidencia conserva su enlace, pero no fundamenta la respuesta.
-    allowed = citables | _urls_escritas(sources)
+    allowed = anclas | {_sin_fragmento(u) for u in anclas}
+    # Revisión de la PR #338: aquí estuvo «más las URL escritas en la evidencia», y se retiró. El
+    # artículo entregado entero trae sus remisiones con enlace —la ley que cita—, y conservarlo
+    # deshacía la regla de HIB.0: no se enlazan las normas citadas por las normas. Y en contenido
+    # rastreado dejaba pasar cualquier enlace que la página trajera. La mención se conserva.
 
     # HIB.0: el orden de estos dos pasos es el contrato.
     #
@@ -320,12 +303,12 @@ def aplicar_contrato(
         1 for _t, u in tras_degradar if u not in allowed and u not in urls_finales
     )
 
-    validas = list(dict.fromkeys(u for _t, u in finales if u in citables))
+    validas = list(dict.fromkeys(u for _t, u in finales if u in allowed))
     invalidas = list(
         dict.fromkeys(u for _t, u in tras_degradar if u not in allowed)
     )
 
-    if has_valid_citations(texto, citables):
+    if has_valid_citations(texto, allowed):
         return ResultadoDelContrato(
             texto=texto,
             cumple=True,

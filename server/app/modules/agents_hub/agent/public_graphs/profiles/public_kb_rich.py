@@ -18,6 +18,7 @@ from server.app.modules.agents_hub.agent.public_graphs.strategies.protocols impo
 from server.app.modules.agents_hub.agent.public_graphs.strategies.retrieval_contract import (
     EvidenceItem,
 )
+from server.app.modules.agents_hub.services.retrieval.citations import ANCLAS_CITABLES
 from server.app.modules.agents_hub.services.retrieval.vigencia import (
     CLAVE_METADATO as CLAVE_VIGENCIA,
 )
@@ -60,21 +61,32 @@ REGLAS DE CITA (obligatorias):
    `[Directrius academiques, art. 1.7.a](url)`. Si el documento no se divide en articulos,
    nombra el apartado tal y como aparezca."""
 
-# #336 — en contexto largo el documento llega entero, con sus anclas en los encabezados, y su
-# URL es la del documento. La regla 5 general prohíbe añadir ancla porque, con fragmentos, el
-# ancla buena ya viene en la URL; aquí no viene, y prohibirla impedía citar el artículo.
+# #336 — un documento entregado entero trae sus anclas en los encabezados, y su URL es la del
+# documento. La regla 5 general prohíbe añadir ancla porque, con fragmentos, el ancla buena ya
+# viene en la URL; con el documento entero no viene, y prohibirla impedía citar el artículo.
+#
+# Revisión de la PR #338: sólo para los documentos que la estrategia marca con anclas citables
+# —los que se citan en nuestro sitio—. Decidirlo por el modo invitaba a poner anclas a un PDF o
+# a una página del BOE, que no las sirven o usan otras, y sin `show_citation_corrections` el
+# usuario las veía tal cual.
+MARCA_DE_ANCLAS = "CITA POR APARTADO: si"
 _REGLA_5 = CITATION_RULES[CITATION_RULES.index("5. COPIA") : CITATION_RULES.index("6. Nombra")]
-_REGLA_5_DOCUMENTO_ENTERO = """\
-5. COPIA la URL EXACTAMENTE como aparece en la linea `URL:` del documento. Para citar un
-   apartado concreto, anade a esa URL el ancla que el documento declara en su encabezado
-   entre llaves: si el encabezado dice `{#art-3}`, cita `URL#art-3`. Usa SOLO anclas que
-   aparezcan asi en el documento; si el apartado no tiene, cita la URL tal cual.
+_REGLA_5_DOCUMENTO_ENTERO = f"""\
+5. COPIA la URL EXACTAMENTE como aparece en la linea `URL:` del documento. Si el documento
+   lleva la linea `{MARCA_DE_ANCLAS}`, para citar un apartado concreto anade a esa URL el ancla
+   que el documento declara en su encabezado entre llaves: si el encabezado dice `{{#art-3}}`,
+   cita `URL#art-3`. Usa SOLO anclas que aparezcan asi en ese documento. En los documentos sin
+   esa linea, NO anadas ningun ancla: cita la URL tal cual.
 """
 
 
-def reglas_de_cita(retrieval_mode: str) -> str:
-    """Las reglas de cita del modo: la 5 cambia cuando el documento llega entero (#336)."""
-    if retrieval_mode == "MD_LONG_CONTEXT":
+def _anclas_de(item: EvidenceItem) -> list:
+    return (item.metadata or {}).get(ANCLAS_CITABLES) or []
+
+
+def reglas_de_cita(items: list[EvidenceItem]) -> str:
+    """Las reglas de cita: la 5 cambia si algún documento se puede citar por apartado (#336)."""
+    if any(_anclas_de(i) for i in items):
         return CITATION_RULES.replace(_REGLA_5, _REGLA_5_DOCUMENTO_ENTERO)
     return CITATION_RULES
 
@@ -139,6 +151,8 @@ class GenericAnswerTemplateStrategy:
                 # el modelo arrastra el caracter en esa generacion — que es el peor modo de
                 # fallo posible, el que no se reproduce cuando alguien va a mirarlo.
                 lineas.append(f"URL: {item.source_url}")
+                if _anclas_de(item):
+                    lineas.append(MARCA_DE_ANCLAS)
             # VIS.3: marcado por documento, no aviso general. El modelo necesita saber de
             # CUAL de las normas se duda para poder redactarlo con naturalidad; el aviso
             # que garantiza que se diga lo pone el CoreGraph sobre la respuesta.
@@ -160,7 +174,7 @@ class GenericAnswerTemplateStrategy:
             partes.extend([self._base, ""])
         if language:
             partes.extend([f"Responde en {language}.", ""])
-        partes.append(reglas_de_cita(self._retrieval_mode).strip())
+        partes.append(reglas_de_cita(items).strip())
 
         if self._retrieval_mode == "MD_AGENT_SELECTOR":
             # Nivel 0 (VIS.2): el router necesita saber qué TEMAS existen, no qué normas.

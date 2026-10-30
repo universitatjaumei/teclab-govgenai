@@ -65,6 +65,9 @@ async def vigencia_pendiente(session, chatbot_id: uuid.UUID) -> tuple[int, list[
         await session.execute(
             select(HubDocument)
             .where(HubDocument.chatbot_id == chatbot_id)
+            # #337 — sin `estat_vigencia` no es una norma (subido, rastreado): el asistente no
+            # advierte de él, y validarlo exige `vigent`, así que no podría salir de la cola.
+            .where(HubDocument.estat_vigencia.is_not(None))
             .where(
                 HubDocument.vigencia_validada_el.is_(None)
                 | HubDocument.estat_vigencia.is_distinct_from(ESTAT_VIGENT)
