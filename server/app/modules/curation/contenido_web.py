@@ -78,10 +78,11 @@ def texto_visible(contenido: str) -> str:
     return limpio.replace("\x00", "")
 
 
-def texto_de_contenido(
+def contenido_y_enlaces(
     contenido: str, content_selector: str | None, boilerplate_selectors: list[str] | None
-) -> tuple[str, str | None]:
-    """El texto de la página **sin su plantilla**, y un aviso si algo no cuadró (CUR.3).
+) -> tuple[str, str | None, list[str]]:
+    """El texto de la página **sin su plantilla**, un aviso si algo no cuadró (CUR.3), y las líneas
+    de sus enlaces (#345).
 
     Medido en el portal real: cada página lleva el menú completo —más de mil caracteres idénticos en
     todas—, y al corpus entraba con el contenido, así que el asistente recuperaba menús.
@@ -96,34 +97,26 @@ def texto_de_contenido(
        los iconos de compartir están **dentro** de `main`—.
     3. Y las etiquetas estructurales (`nav`, `header`, `footer`, `aside`), que este portal no usa
        pero otros sí.
+
+    #345 — los enlaces salen de la **misma zona** y la misma pasada. El texto guardado ya no tiene
+    etiquetas, así que no dice qué líneas eran enlaces, y eso es lo que distingue una página de
+    navegación de una con poco contenido: el detector los cruza con las líneas del texto. Cada
+    enlace se pasa por `texto_visible` como el texto de la página: una tarjeta enlazada con título y
+    descripción son dos líneas allí y tienen que ser dos líneas aquí, o no casarían nunca.
     """
     if not contenido:
-        return "", None
-
+        return "", None, []
     try:
         arbol, aviso = _zona_de_contenido(contenido, content_selector, boilerplate_selectors)
-        return texto_visible(str(arbol)), aviso
     except Exception:  # noqa: BLE001 — HTML irrecuperable: mejor el texto entero que nada
-        return texto_visible(contenido), "html_no_analizable"
-
-
-def textos_de_enlace(
-    contenido: str, content_selector: str | None, boilerplate_selectors: list[str] | None
-) -> list[str]:
-    """El texto de cada enlace de la **misma zona** que `texto_de_contenido` guarda (#345).
-
-    El texto guardado ya no tiene etiquetas, así que no dice qué líneas eran enlaces, y eso es lo
-    que distingue una página de navegación de una con poco contenido. Se guarda aparte y el
-    detector lo cruza con las líneas del texto. Misma zona, o el cruce compararía cosas distintas.
-    """
-    if not contenido:
-        return []
-    try:
-        arbol, _aviso = _zona_de_contenido(contenido, content_selector, boilerplate_selectors)
-    except Exception:  # noqa: BLE001 — sin árbol no hay enlaces que contar, y no tumba el rastreo
-        return []
-    textos = (_ESPACIOS.sub(" ", enlace.get_text(" ")).strip() for enlace in arbol.find_all("a"))
-    return [texto for texto in textos if texto]
+        return texto_visible(contenido), "html_no_analizable", []
+    lineas = [
+        linea
+        for enlace in arbol.find_all("a")
+        for linea in texto_visible(str(enlace)).split("\n")
+        if linea
+    ]
+    return texto_visible(str(arbol)), aviso, lineas
 
 
 def _zona_de_contenido(

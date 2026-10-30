@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pytest
 
-from server.app.modules.curation.contenido_web import texto_de_contenido, texto_visible
+from server.app.modules.curation.contenido_web import contenido_y_enlaces, texto_visible
 from server.app.modules.curation.plantilla_del_sitio import bloques_repetidos, sin_bloques
 
 # La forma real del portal: menú en divs, un `<main>`, y dentro de él la miga de pan, la barra de
@@ -49,7 +49,7 @@ _SELECTORES_DE_PLANTILLA = [".breadcrumb", ".clockBar", ".social-links"]
 
 
 def test_quedarse_con_el_contenido_deja_fuera_el_menu_y_el_pie():
-    texto, _aviso = texto_de_contenido(_PAGINA, "main", _SELECTORES_DE_PLANTILLA)
+    texto, _aviso, _enlaces = contenido_y_enlaces(_PAGINA, "main", _SELECTORES_DE_PLANTILLA)
 
     assert "El doctorat es regeix" in texto
     assert "Menú mòbil" not in texto
@@ -58,7 +58,7 @@ def test_quedarse_con_el_contenido_deja_fuera_el_menu_y_el_pie():
 
 def test_tambien_se_van_los_bloques_de_plantilla_que_el_sitio_declara():
     """La miga de pan, la barra de fecha y los iconos de compartir están **dentro** de `<main>`."""
-    texto, _aviso = texto_de_contenido(_PAGINA, "main", _SELECTORES_DE_PLANTILLA)
+    texto, _aviso, _enlaces = contenido_y_enlaces(_PAGINA, "main", _SELECTORES_DE_PLANTILLA)
 
     assert "Centres i departaments" not in texto
     assert "24/09/2025" not in texto
@@ -73,14 +73,14 @@ def test_sin_selector_de_contenido_se_van_las_etiquetas_estructurales():
         "<footer>Avís legal</footer></body></html>"
     )
 
-    texto, _aviso = texto_de_contenido(html, None, [])
+    texto, _aviso, _enlaces = contenido_y_enlaces(html, None, [])
 
     assert texto == "Contingut de la pàgina."
 
 
 def test_un_selector_de_contenido_que_no_encuentra_nada_no_deja_la_pagina_vacia():
     """Si el selector está mal, es mejor el texto entero que nada."""
-    texto, aviso = texto_de_contenido(_PAGINA, "#noExiste", [])
+    texto, aviso, _enlaces = contenido_y_enlaces(_PAGINA, "#noExiste", [])
 
     assert "El doctorat es regeix" in texto
     assert aviso == "content_selector_sin_coincidencia"
@@ -88,7 +88,7 @@ def test_un_selector_de_contenido_que_no_encuentra_nada_no_deja_la_pagina_vacia(
 
 def test_el_texto_conserva_los_saltos_de_bloque():
     """Sin ellos el contenido es una sola línea: no se puede trocear bien ni detectar plantilla."""
-    texto, _aviso = texto_de_contenido(_PAGINA, "main", _SELECTORES_DE_PLANTILLA)
+    texto, _aviso, _enlaces = contenido_y_enlaces(_PAGINA, "main", _SELECTORES_DE_PLANTILLA)
 
     assert "\n" in texto
     lineas = texto.split("\n")

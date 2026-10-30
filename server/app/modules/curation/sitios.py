@@ -142,6 +142,10 @@ async def marcar_propuesta(
     if propuesta_por is None:
         pagina.propuesta_at = None
         pagina.propuesta_por = None
+    elif pagina.propuesta_at is not None:
+        # Volver a proponer no cambia nada, tampoco en una de navegación propuesta antes de #345:
+        # un reintento del cliente no puede convertirse en un 409.
+        pass
     elif pagina.id in de_navegacion:
         # #345 — retirar sí se puede siempre: una propuesta anterior no se queda atascada.
         raise HTTPException(
@@ -151,7 +155,7 @@ async def marcar_propuesta(
                 "que citar. Si no lo es, márcala como correcta en la auditoría y podrás proponerla."
             ),
         )
-    elif pagina.propuesta_at is None:
+    else:
         pagina.propuesta_at = datetime.now(timezone.utc)
         pagina.propuesta_por = propuesta_por
     vista = _vista(pagina, de_navegacion)

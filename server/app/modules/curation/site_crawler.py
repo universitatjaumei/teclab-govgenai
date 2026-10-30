@@ -22,8 +22,7 @@ from server.app.modules.agents_hub.ingestion.markdown_utils import (
     extract_title_from_markdown,
 )
 from server.app.modules.curation.contenido_web import (
-    texto_de_contenido,
-    textos_de_enlace,
+    contenido_y_enlaces,
     fecha_y_responsable,
     parece_html,
     titulo_de,
@@ -513,20 +512,16 @@ class SiteCrawler:
         # CUR.3 — de una página HTML se guarda su **contenido**, no su plantilla: cada página del
         # portal lleva el menú completo, y al corpus entraba con el contenido.
         if es_html:
-            contenido, aviso_de_recorte = texto_de_contenido(
+            # #345 — y qué líneas del texto eran enlaces: el texto guardado ya no lo dice, y es lo
+            # que separa una página de navegación de una escasa.
+            contenido, aviso_de_recorte, lineas_de_enlace = contenido_y_enlaces(
                 body,
                 config.get("content_selector"),
                 config.get("boilerplate_selectors") or [],
             )
+            enlaces: list[str] | None = lineas_de_enlace
             if aviso_de_recorte:
                 _log.info("Recorte de plantilla en %s: %s", url, aviso_de_recorte)
-            # #345 — qué líneas del texto eran enlaces: el texto guardado ya no lo dice, y es lo
-            # que separa una página de navegación de una escasa. De la misma zona que el texto.
-            enlaces: list[str] | None = textos_de_enlace(
-                body,
-                config.get("content_selector"),
-                config.get("boilerplate_selectors") or [],
-            )
         else:
             contenido = body
             enlaces = None

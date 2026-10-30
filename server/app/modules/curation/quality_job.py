@@ -378,6 +378,10 @@ class SiteQualityAnalysisJob:
         bloqueantes = (
             set(declarados) if declarados is not None else set(TIPOS_BLOQUEANTES_POR_DEFECTO)
         )
+        # #345 — `navigation` es una forma de `thin` que se separó después: una lista escrita antes
+        # que bloqueaba `thin` bloqueaba estas páginas, y tiene que seguir haciéndolo.
+        if "thin" in bloqueantes:
+            bloqueantes.add("navigation")
 
         por_pagina: dict[uuid.UUID, list[str]] = {}
         for hallazgo in hallazgos:

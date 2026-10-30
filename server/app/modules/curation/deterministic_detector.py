@@ -164,6 +164,7 @@ class DeterministicQualityDetector:
         # verdad, 24 o más. Son de cada sitio, como el umbral de `thin`.
         self._nav_max_texto_propio = nav_max_texto_propio
         self._nav_min_enlaces = nav_min_enlaces
+        self._thin_descartadas: set[uuid.UUID] = set()
         self._stale_days = stale_days
         # CUR.2.1 — qué significa un grupo de versiones por año **en este sitio**: series todas
         # vigentes, la nueva deroga a la vieja, o el año no significa nada. Lo decide la
@@ -173,6 +174,7 @@ class DeterministicQualityDetector:
 
     async def analyze(self, site_id: uuid.UUID) -> list[ContentFinding]:
         from server.app.modules.agents_hub.database.operational_models import (
+            HubContentFinding,
             HubCrawledPage,
             HubDocument,
         )
@@ -200,6 +202,18 @@ class DeterministicQualityDetector:
             doc_result = await self._session.execute(doc_stmt)
             for doc in doc_result.scalars().all():
                 orphan_page_ids.add(doc.crawled_page_id)
+
+        # #345 — las páginas cuya `thin` descartó quien cura: si ahora salen como de navegación,
+        # ese juicio se conserva (ver `_check_page`).
+        descartadas = select(HubContentFinding.page_id).where(
+            HubContentFinding.site_id == site_id,
+            HubContentFinding.finding_type == "thin",
+            HubContentFinding.status == "dismissed",
+        )
+        descartadas._model_hint = "finding"  # type: ignore[attr-defined]
+        self._thin_descartadas = set(
+            (await self._session.execute(descartadas)).scalars().all()
+        )
 
         # CUR.2 — primero los hallazgos **de grupo**, porque son los específicos y se comen a los
         # genéricos: una página que pertenece a una serie anual o a un par de duplicados no vuelve a
@@ -288,30 +302,24 @@ class DeterministicQualityDetector:
                 now=now,
             ))
         elif page.token_count is not None and page.token_count < self._thin_threshold:
+            # #345 — una escasa cuyo texto son enlaces es de navegación: estructura, no defecto.
             navegacion = self._de_navegacion(page)
-            if navegacion is not None:
-                results.append(self._finding(
-                    site_id=site_id,
-                    finding_type="navigation",
-                    severity="info",
-                    confidence=1.0,
-                    page_id=page.id,
-                    source_url=page.url,
-                    signal={"token_count": page.token_count, **navegacion},
-                    now=now,
-                ))
-                results.extend(self._otros_hallazgos(page, site_id, now, orphan_page_ids))
-                return results
-            results.append(self._finding(
+            hallazgo = self._finding(
                 site_id=site_id,
-                finding_type="thin",
-                severity="warning",
+                finding_type="thin" if navegacion is None else "navigation",
+                severity="warning" if navegacion is None else "info",
                 confidence=1.0,
                 page_id=page.id,
                 source_url=page.url,
-                signal={"token_count": page.token_count, "threshold": self._thin_threshold},
+                signal={"token_count": page.token_count, "threshold": self._thin_threshold,
+                        **(navegacion or {})},
                 now=now,
-            ))
+            )
+            # Revisión de la PR #347: si quien cura ya dijo que esta página está bien cuando salía
+            # como `thin`, el tipo nuevo no se lo vuelve a preguntar.
+            if navegacion is not None and page.id in self._thin_descartadas:
+                hallazgo = hallazgo.model_copy(update={"status": "dismissed"})
+            results.append(hallazgo)
 
         results.extend(self._otros_hallazgos(page, site_id, now, orphan_page_ids))
         return results

@@ -87,8 +87,25 @@ async def test_un_modelo_que_no_responde_es_un_502_que_dice_cual_y_por_que(docs:
     assert r.status_code == 502, r.text
     mensaje = r.json()["detail"]["message"]
     assert "gemini-2.0-flash" in mensaje
-    assert "no longer available" in mensaje
     assert "Modelos IA" in mensaje, "tiene que decir dónde se arregla"
+
+
+async def test_el_motivo_del_proveedor_va_al_registro_y_no_a_la_pantalla(docs: Path, caplog) -> None:
+    """Revisión de la PR #347: el texto del proveedor lo vería cualquiera con el módulo de Informes,
+    y un SDK puede meter ahí la URL con su clave o la dirección interna del modelo."""
+    from server.app.modules.redaccion.services.copilot.copilot_service import CopilotService
+    from server.app.modules.redaccion.services.copilot.docs_retriever import DocsRetriever
+
+    servicio = CopilotService(
+        llm=_ModeloRetirado(),
+        retriever=DocsRetriever(embedding_service=_EmbeddingDeMentira(), docs_dir=docs),
+    )
+
+    with caplog.at_level("WARNING"):
+        r = await _preguntar(servicio)
+
+    assert "no longer available" not in r.text
+    assert "no longer available" in caplog.text
 
 
 async def test_un_fallo_del_buscador_no_se_atribuye_al_modelo() -> None:

@@ -194,3 +194,29 @@ class TestLaSemillaNoSeImpone:
         await db_session.flush()
 
         assert await _por_defecto(db_session) == ["gemini-2.5-flash"]
+
+
+class TestDosPromocionesALaVez:
+
+    @pytest.mark.asyncio
+    async def test_si_otra_transaccion_gana_es_un_409_y_no_un_500(self, db_session, monkeypatch) -> None:
+        """Revisión de la PR #347: el relevo no ve lo que otra transacción aún no ha confirmado.
+        Se simula dejando sin relevar, que es lo que esa otra transacción deja a la vista."""
+        from server.app.routers import hub_llm_configs_router
+
+        async def _no_ve_nada(*_a, **_k) -> None:
+            return None
+
+        await _proveedor(db_session)
+        db_session.add_all([
+            _modelo(id=_PRIMERA, nombre="gemini-2.5-flash", por_defecto=False),
+            _modelo(id=_SEGUNDA, nombre="gemini-2.0-flash"),
+        ])
+        await db_session.commit()
+        monkeypatch.setattr(hub_llm_configs_router, "_relevar_default", _no_ve_nada)
+
+        async with _cliente(db_session) as c:
+            r = await c.patch(f"/api/v1/hub/llm-configs/{_PRIMERA}", json={"is_default": True})
+
+        assert r.status_code == 409, r.text
+        assert await _por_defecto(db_session) == ["gemini-2.0-flash"]

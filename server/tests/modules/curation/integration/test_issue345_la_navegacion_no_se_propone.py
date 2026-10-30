@@ -94,3 +94,21 @@ async def test_retirar_la_propuesta_siempre_se_puede(db_session) -> None:
 
     assert vista.propuesta_at is None
     assert vista.de_navegacion is True
+
+
+@pytest.mark.asyncio
+async def test_volver_a_proponer_una_ya_propuesta_no_es_un_409(db_session) -> None:
+    """Revisión de la PR #347: proponer era idempotente, y una página propuesta antes de #345 que
+    ahora sale como de navegación convertía un reintento del cliente en un 409."""
+    from server.app.modules.agents_hub.database.operational_models import HubCrawledPage
+    from server.app.modules.curation import sitios
+
+    site_id, page_id = await _sitio_con_pagina(db_session)
+    pagina = await db_session.get(HubCrawledPage, page_id)
+    pagina.propuesta_at = datetime.now(timezone.utc)
+    pagina.propuesta_por = "primera@uji.es"
+    await db_session.commit()
+
+    vista = await sitios.marcar_propuesta(db_session, site_id, page_id, "otra@uji.es")
+
+    assert vista.propuesta_por == "primera@uji.es"

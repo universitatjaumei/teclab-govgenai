@@ -20,6 +20,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from langchain_core.messages import HumanMessage
 from pydantic import BaseModel
 from sqlalchemy import or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
 from server.app.api.deps import require_role, require_module
@@ -377,6 +378,26 @@ async def _relevar_default(
     await session.flush()
 
 
+async def _confirmar_por_defecto(session) -> None:
+    """`commit`, y un 409 si el índice de #343 lo rechaza.
+
+    El relevo deja una sola por defecto dentro de esta transacción, pero no ve lo que otra aún no ha
+    confirmado: dos personas promoviendo a la vez en el mismo nivel acaban aquí (revisión de la PR
+    #347). Es un conflicto de verdad, no un fallo del servidor.
+    """
+    try:
+        await session.commit()
+    except IntegrityError as fallo:
+        await session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "Otro cambio acaba de marcar un modelo por defecto en este nivel. Recarga la lista "
+                "y vuelve a intentarlo."
+            ),
+        ) from fallo
+
+
 @router.post("", response_model=LLMConfigRead, status_code=status.HTTP_201_CREATED)
 async def create_llm_config(
     body: LLMConfigCreate,
@@ -405,7 +426,7 @@ async def create_llm_config(
 
     config = HubLLMConfig(**payload)
     session.add(config)
-    await session.commit()
+    await _confirmar_por_defecto(session)
     await session.refresh(config)
     return config
 
@@ -439,7 +460,7 @@ async def update_llm_config(
     for field, value in body.model_dump(exclude_none=True).items():
         setattr(config, field, value)
 
-    await session.commit()
+    await _confirmar_por_defecto(session)
     await session.refresh(config)
     return config
 

@@ -26,7 +26,7 @@ from typing import Any
 
 import pytest
 
-from server.app.modules.curation.contenido_web import textos_de_enlace
+from server.app.modules.curation.contenido_web import contenido_y_enlaces
 from server.app.modules.curation.deterministic_detector import DeterministicQualityDetector
 
 _AHORA = datetime(2026, 10, 30, tzinfo=timezone.utc)
@@ -153,6 +153,41 @@ class TestLaNavegacionNoEsEscasa:
         assert set(mas_enlaces) & {"thin", "navigation"} == {"thin"}
 
 
+class TestElJuicioDeQuienCuraSeConserva:
+
+    @pytest.mark.asyncio
+    async def test_si_ya_descarto_la_escasa_la_de_navegacion_nace_descartada(self) -> None:
+        """Revisión de la PR #347: las páginas cuya `thin` había descartado el usuario de la OPAQ
+        volvían a la cola como `navigation` nueva, bloqueaban la ingesta y no se podían proponer."""
+        pagina = _objectius()
+
+        class _SesionConDescartes(_Sesion):
+            async def execute(self, stmt: Any) -> Any:
+                if getattr(stmt, "_model_hint", "page") != "finding":
+                    return await super().execute(stmt)
+
+                class _R:
+                    def scalars(self_inner) -> Any:
+                        return self_inner
+
+                    def all(self_inner) -> list:
+                        return [pagina.id]
+
+                return _R()
+
+        detector = DeterministicQualityDetector(
+            session=_SesionConDescartes([pagina]), finding_repo=_Repo(), now_fn=lambda: _AHORA
+        )
+        [hallazgo] = await detector.analyze(uuid.uuid4())
+
+        assert hallazgo.finding_type == "navigation"
+        assert hallazgo.status == "dismissed"
+
+    @pytest.mark.asyncio
+    async def test_sin_descarte_previo_nace_nueva(self) -> None:
+        assert (await _hallazgos(_objectius()))["navigation"].status == "new"
+
+
 class TestLosTextosDeEnlace:
 
     def test_salen_de_la_zona_de_contenido_y_sin_la_plantilla(self) -> None:
@@ -163,9 +198,28 @@ class TestLosTextosDeEnlace:
             "</main></body></html>"
         )
 
-        assert textos_de_enlace(html, "main", [".breadcrumb", ".mainMenu"]) == [
-            "La Comissió Acadèmica"
-        ]
+        _texto, _aviso, enlaces = contenido_y_enlaces(html, "main", [".breadcrumb", ".mainMenu"])
+
+        assert enlaces == ["La Comissió Acadèmica"]
+
+    @pytest.mark.asyncio
+    async def test_una_tarjeta_enlazada_casa_linea_a_linea(self) -> None:
+        """Revisión de la PR #347: un enlace con un título y una descripción dentro son dos líneas
+        del texto; con el texto del enlace en una sola cadena no casaban, y una rejilla de
+        tarjetas —la página de navegación más corriente— seguía saliendo como escasa."""
+        html = (
+            "<main><h1>Beques</h1>"
+            "<a href='/a'><h3>Predoctorals</h3><p>Convocatòries obertes</p></a>"
+            "<a href='/b'><h3>Mobilitat</h3><p>Estades a l'estranger</p></a></main>"
+        )
+        texto, _aviso, enlaces = contenido_y_enlaces(html, "main", [])
+
+        hallazgos = await _hallazgos(_Pagina(
+            url="https://www.uji.es/beques/", markdown_content=texto, token_count=20,
+            textos_de_enlace=enlaces,
+        ))
+
+        assert "navigation" in hallazgos
 
 
 class TestLoQueArrastraElTipoNuevo:
