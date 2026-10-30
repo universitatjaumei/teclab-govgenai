@@ -52,7 +52,7 @@ export function razonDelHallazgo(hallazgo: HallazgoConSenal, t: Traductor): stri
     }
 
     case 'navigation': {
-      const enlaces = numero(s.lineas_de_enlace)
+      const enlaces = numero(s.enlaces)
       const propio = numero(s.texto_propio)
       if (enlaces === null || propio === null) return ''
       return t('reason_navigation', { enlaces, propio })

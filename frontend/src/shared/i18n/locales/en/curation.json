@@ -192,7 +192,7 @@
   "reason_stale_threshold": "the site threshold is {{umbral}} days",
   "reason_thin": "{{tokens}} tokens; the site minimum is {{umbral}}",
   "reason_thin_short": "Only {{tokens}} tokens of content",
-  "reason_navigation": "{{enlaces}} lines are links; only {{propio}} tokens of own text",
+  "reason_navigation": "{{enlaces}} links and only {{propio}} tokens of own text",
   "reason_similarity": "{{porcentaje}}% similar",
   "reason_error_not_found": "Not found (404): the link points to something that is gone",
   "reason_error_transient": "Network or server failure: says nothing about the page",

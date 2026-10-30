@@ -112,7 +112,8 @@ def contenido_y_enlaces(
         return texto_visible(contenido), "html_no_analizable", []
     lineas = [
         linea
-        for enlace in arbol.find_all("a")
+        # Con `href`: `<a name="…">` marca un punto de la página y no lleva a ningún sitio.
+        for enlace in arbol.find_all("a", href=True)
         for linea in texto_visible(str(enlace)).split("\n")
         if linea
     ]

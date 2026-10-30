@@ -16,13 +16,12 @@ from sqlalchemy.exc import IntegrityError
 
 from server.app.core.auth.tenancy import assert_org_access, scope_query_to_orgs
 from server.app.modules.agents_hub.database.operational_models import (
-    HubContentFinding,
     HubCorpusSelection,
     HubCrawledPage,
     HubCrawlRun,
     HubWebSite,
 )
-from server.app.modules.curation.findings_repo import ESTADOS_ABIERTOS
+from server.app.modules.curation.findings_repo import paginas_de_navegacion
 from server.app.modules.curation.selection_contracts import PageView
 from server.app.modules.curation.site_repo import (
     CorpusSelectionRepo,
@@ -77,24 +76,24 @@ async def paginas(
     if solo_propuestas:
         consulta = consulta.where(HubCrawledPage.propuesta_at.is_not(None))
     filas = (await session.execute(consulta.order_by(HubCrawledPage.url))).scalars().all()
-    de_navegacion = await _paginas_de_navegacion(session, site_id)
+    de_navegacion = await paginas_de_navegacion(session, site_id)
     return [_vista(pagina, de_navegacion) for pagina in filas]
 
 
-async def _paginas_de_navegacion(session, site_id: uuid.UUID, page_id: uuid.UUID | None = None) -> set:
-    """Los ids de las páginas con un hallazgo `navigation` abierto (#345).
+_ES_DE_NAVEGACION = (
+    "Es una página de navegación: su texto son enlaces y el asistente no tendría nada que citar. "
+    "Si no lo es, márcala como correcta en la auditoría y podrás usarla."
+)
 
-    Abierto y no descartado: descartarlo es decir que el detector se equivocó, y entonces la página
-    vuelve a poder proponerse.
-    """
-    consulta = select(HubContentFinding.page_id).where(
-        HubContentFinding.site_id == site_id,
-        HubContentFinding.finding_type == "navigation",
-        HubContentFinding.status.in_(ESTADOS_ABIERTOS),
-    )
-    if page_id is not None:
-        consulta = consulta.where(HubContentFinding.page_id == page_id)
-    return set((await session.execute(consulta)).scalars().all())
+
+async def rechazar_si_es_de_navegacion(session, page_id: uuid.UUID) -> None:
+    """409 si la página tiene abierto un hallazgo `navigation` (#345). Para la ingesta manual de
+    Publicació, que no pasa por la propuesta (revisión de la PR #347)."""
+    pagina = await session.get(HubCrawledPage, page_id)
+    if pagina is not None and page_id in await paginas_de_navegacion(
+        session, pagina.site_id, page_id
+    ):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_ES_DE_NAVEGACION)
 
 
 def _vista(pagina: HubCrawledPage, de_navegacion: set) -> PageView:
@@ -138,7 +137,7 @@ async def marcar_propuesta(
     contexto (el 500 de #225).
     """
     pagina = await pagina_de_este_sitio(session, site_id, page_id)
-    de_navegacion = await _paginas_de_navegacion(session, site_id, page_id)
+    de_navegacion = await paginas_de_navegacion(session, site_id, page_id)
     if propuesta_por is None:
         pagina.propuesta_at = None
         pagina.propuesta_por = None
@@ -148,13 +147,7 @@ async def marcar_propuesta(
         pass
     elif pagina.id in de_navegacion:
         # #345 — retirar sí se puede siempre: una propuesta anterior no se queda atascada.
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                "Es una página de navegación: su texto son enlaces y el asistente no tendría nada "
-                "que citar. Si no lo es, márcala como correcta en la auditoría y podrás proponerla."
-            ),
-        )
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=_ES_DE_NAVEGACION)
     else:
         pagina.propuesta_at = datetime.now(timezone.utc)
         pagina.propuesta_por = propuesta_por

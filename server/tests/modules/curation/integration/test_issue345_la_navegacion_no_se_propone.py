@@ -112,3 +112,42 @@ async def test_volver_a_proponer_una_ya_propuesta_no_es_un_409(db_session) -> No
     vista = await sitios.marcar_propuesta(db_session, site_id, page_id, "otra@uji.es")
 
     assert vista.propuesta_por == "primera@uji.es"
+
+
+class TestPublicacionTampocoLaOfrece:
+    """Revisión de la PR #347 (Copilot): rechazar la propuesta no bastaba. Publicació enseña también
+    las páginas no propuestas, y desde ahí se podía publicar una de navegación sin descartar nada."""
+
+    @pytest.mark.asyncio
+    async def test_la_candidata_dice_que_es_de_navegacion(self, db_session) -> None:
+        from server.app.modules.curation.selection_service import CorpusSelectionService
+        from server.app.modules.curation.site_repo import CorpusSelectionRepo, CrawledPageRepo
+
+        site_id, page_id = await _sitio_con_pagina(db_session)
+        servicio = CorpusSelectionService(
+            db_session, CrawledPageRepo(db_session), CorpusSelectionRepo(db_session), None
+        )
+
+        [candidata] = await servicio.candidates(site_id, uuid.uuid4())
+
+        assert candidata.page_id == page_id
+        assert candidata.de_navegacion is True
+
+    @pytest.mark.asyncio
+    async def test_la_ingesta_manual_la_rechaza(self, db_session) -> None:
+        from server.app.modules.curation import sitios
+
+        _site_id, page_id = await _sitio_con_pagina(db_session)
+
+        with pytest.raises(HTTPException) as fallo:
+            await sitios.rechazar_si_es_de_navegacion(db_session, page_id)
+
+        assert fallo.value.status_code == 409
+
+    @pytest.mark.asyncio
+    async def test_descartado_el_hallazgo_se_puede_ingerir(self, db_session) -> None:
+        from server.app.modules.curation import sitios
+
+        _site_id, page_id = await _sitio_con_pagina(db_session, estado_del_hallazgo="dismissed")
+
+        await sitios.rechazar_si_es_de_navegacion(db_session, page_id)

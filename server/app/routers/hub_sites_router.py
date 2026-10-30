@@ -719,6 +719,8 @@ async def ingest_page(
     if not await sitios.es_de_la_organizacion(session, page_id, asistente.organizacion_id):
         # #242: sin esto, el contenido de una página de otra organización entraba en este corpus.
         raise HTTPException(status_code=404, detail="Página no encontrada para este asistente")
+    # #345 — la misma puerta que la propuesta: Publicació enseña también las no propuestas.
+    await sitios.rechazar_si_es_de_navegacion(session, page_id)
     servicio = await _servicio_que_puede_ingerir(session, chatbot_id)
     background_tasks.add_task(servicio.ingest_page, chatbot_id, page_id)
     return {"status": "queued", "chatbot_id": str(chatbot_id), "page_id": str(page_id)}

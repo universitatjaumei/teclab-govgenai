@@ -86,7 +86,7 @@ class CrawlConfig(BaseModel):
     stale_days: int = Field(default=365, ge=1, le=36_500)
     thin_min_tokens: int = Field(default=120, ge=0, le=100_000)
     #: #345 — una página escasa es de navegación si su texto propio (lo que no es enlace, título
-    #: incluido) no pasa de `nav_max_own_tokens` y tiene al menos `nav_min_links` líneas de enlace.
+    #: incluido) no pasa de `nav_max_own_tokens` y tiene al menos `nav_min_links` enlaces.
     #: Calibrado con el apartado de la Escola de Doctorat; ver el detector.
     nav_max_own_tokens: int = Field(default=20, ge=0, le=100_000)
     nav_min_links: int = Field(default=2, ge=1, le=1_000)
@@ -502,3 +502,5 @@ class CandidatePageView(BaseModel):
     #: 2026-10-08 — si quien curó la propuso para un asistente, y quién: Publicación filtra por ello.
     propuesta_at: datetime | None = None
     propuesta_por: str | None = None
+    #: #345 — página de navegación: no se ingiere a mano mientras el hallazgo siga abierto.
+    de_navegacion: bool = False

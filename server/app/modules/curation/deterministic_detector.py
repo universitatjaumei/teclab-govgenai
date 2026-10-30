@@ -334,15 +334,27 @@ class DeterministicQualityDetector:
         enlaces = getattr(page, "textos_de_enlace", None)
         if enlaces is None or not page.markdown_content:
             return None
-        de_enlace = set(enlaces)
-        lineas = [linea.strip() for linea in page.markdown_content.splitlines() if linea.strip()]
-        lineas_de_enlace = sum(1 for linea in lineas if linea in de_enlace)
-        texto_propio = estimate_tokens(
-            "\n".join(linea for linea in lineas if linea not in de_enlace)
-        )
-        if lineas_de_enlace < self._nav_min_enlaces or texto_propio > self._nav_max_texto_propio:
+        # Los largos primero: «La Comissió de Qualitat» antes que «Qualitat».
+        de_enlace = sorted(set(enlaces), key=len, reverse=True)
+        n_enlaces = 0
+        propio: list[str] = []
+        for linea in (linea.strip() for linea in page.markdown_content.splitlines()):
+            if not linea:
+                continue
+            # Revisión de la PR #347: dos enlaces en un mismo `<p>` son una sola línea, que no
+            # casaba entera con ninguno. Se quitan de la línea los textos de enlace que contiene —y
+            # se cuentan—; lo que queda es texto propio, así que una frase con un enlace dentro
+            # sigue contando casi entera.
+            resto = linea
+            for texto in de_enlace:
+                if texto in resto:
+                    n_enlaces += resto.count(texto)
+                    resto = resto.replace(texto, " ")
+            propio.append(resto.strip())
+        texto_propio = estimate_tokens("\n".join(trozo for trozo in propio if trozo))
+        if n_enlaces < self._nav_min_enlaces or texto_propio > self._nav_max_texto_propio:
             return None
-        return {"lineas_de_enlace": lineas_de_enlace, "texto_propio": texto_propio}
+        return {"enlaces": n_enlaces, "texto_propio": texto_propio}
 
     def _otros_hallazgos(
         self,

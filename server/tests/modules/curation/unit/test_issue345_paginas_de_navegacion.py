@@ -116,7 +116,7 @@ class TestLaNavegacionNoEsEscasa:
         assert "thin" not in hallazgos
         navegacion = hallazgos["navigation"]
         assert navegacion.severity == "info", "no es un defecto: es estructura del portal"
-        assert navegacion.signal["lineas_de_enlace"] == 5
+        assert navegacion.signal["enlaces"] == 5
 
     @pytest.mark.asyncio
     async def test_una_ficha_vacia_sigue_siendo_escasa(self) -> None:
@@ -242,3 +242,57 @@ class TestLoQueArrastraElTipoNuevo:
         from server.app.modules.curation.report_builder import _make_recommendation
 
         assert "'navigation'" not in _make_recommendation("navigation", 3)
+
+
+class TestLoQueVioCopilotEnLaPR347:
+
+    def test_un_ancla_sin_href_no_es_un_enlace(self) -> None:
+        """`<a name="contacte">` marca un punto de la página, no lleva a ningún sitio: contarlo
+        descontaba texto propio y podía esconder una escasa de verdad."""
+        html = "<main><h2><a name='c'>Contacte</a></h2><p><a href='/x'>Seu</a></p></main>"
+
+        _texto, _aviso, enlaces = contenido_y_enlaces(html, "main", [])
+
+        assert enlaces == ["Seu"]
+
+    def test_los_bytes_nulos_no_llegan_a_los_textos_de_enlace(self) -> None:
+        """JSONB rechaza `\x00`, y con él la página entera. Los enlaces pasan por `texto_visible`,
+        que ya lo quita."""
+        _texto, _aviso, enlaces = contenido_y_enlaces("<main><a href='/x'>Se\x00u</a></main>", "main", [])
+
+        assert enlaces == ["Seu"]
+
+    @pytest.mark.asyncio
+    async def test_varios_enlaces_en_una_misma_linea_tambien_son_navegacion(self) -> None:
+        """Dos enlaces dentro de un `<p>` son una sola línea del texto, que no casa con ninguno de
+        los dos. La clasificación dependía de la maquetación y no del contenido."""
+        html = (
+            "<main><h1>Organització</h1><p><a href='/a'>La Comissió Acadèmica</a> · "
+            "<a href='/b'>La Comissió de Qualitat</a></p></main>"
+        )
+        texto, _aviso, enlaces = contenido_y_enlaces(html, "main", [])
+
+        hallazgos = await _hallazgos(_Pagina(
+            url="https://www.uji.es/org/", markdown_content=texto, token_count=20,
+            textos_de_enlace=enlaces,
+        ))
+
+        assert "navigation" in hallazgos
+
+    @pytest.mark.asyncio
+    async def test_una_frase_con_un_enlace_dentro_sigue_siendo_texto_propio(self) -> None:
+        """Quitar el texto del enlace de la línea deja el resto como texto propio: una ficha con
+        frases que enlazan algo no se convierte en navegación."""
+        html = (
+            "<main><h1>Beca</h1><p>La sol·licitud es presenta a la <a href='/s'>Seu</a> abans del "
+            "30 de setembre, amb el formulari i el currículum, i es resol en dos mesos des de la "
+            "data de tancament de la convocatòria.</p><p><a href='/b'>Bases</a></p></main>"
+        )
+        texto, _aviso, enlaces = contenido_y_enlaces(html, "main", [])
+
+        hallazgos = await _hallazgos(_Pagina(
+            url="https://www.uji.es/beca/", markdown_content=texto, token_count=60,
+            textos_de_enlace=enlaces,
+        ))
+
+        assert "thin" in hallazgos

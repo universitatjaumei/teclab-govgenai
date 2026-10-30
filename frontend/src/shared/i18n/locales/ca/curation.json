@@ -192,7 +192,7 @@
   "reason_stale_threshold": "el criteri del lloc són {{umbral}} dies",
   "reason_thin": "{{tokens}} tokens; el mínim del lloc són {{umbral}}",
   "reason_thin_short": "Només {{tokens}} tokens de contingut",
-  "reason_navigation": "{{enlaces}} línies són enllaços; només {{propio}} tokens de text propi",
+  "reason_navigation": "{{enlaces}} enllaços i només {{propio}} tokens de text propi",
   "reason_similarity": "Semblança del {{porcentaje}} %",
   "reason_error_not_found": "No s’ha trobat (404): l’enllaç apunta a alguna cosa que ja no hi és",
   "reason_error_transient": "Fallada de xarxa o servidor: no diu res de la pàgina",

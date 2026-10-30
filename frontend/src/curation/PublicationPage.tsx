@@ -138,7 +138,8 @@ export function PublicationPage() {
   // Con el filtro, «marcar todo» marca sólo las propuestas: es el camino de publicar lo que se
   // propuso al curar sin ir página a página.
   const visibles = (candidates as CandidatePageView[]).filter((c) => !soloPropuestas || !!c.propuesta_at)
-  const publicables = visibles.filter((c) => !c.is_ingested)
+  // #345 — una de navegación no se ingiere mientras su hallazgo siga abierto: lo dice el servidor.
+  const publicables = visibles.filter((c) => !c.is_ingested && !c.de_navegacion)
 
   const alternarMarca = (pageId: string) =>
     setMarcadas((previas) => {
@@ -311,7 +312,7 @@ export function PublicationPage() {
                           type="checkbox"
                           data-testid={`marca-${c.page_id}`}
                           aria-label={c.url}
-                          disabled={!!c.is_ingested}
+                          disabled={!!c.is_ingested || !!c.de_navegacion}
                           checked={marcadas.has(String(c.page_id))}
                           onChange={() => alternarMarca(String(c.page_id))}
                         />
@@ -338,6 +339,9 @@ export function PublicationPage() {
                             {t('candidate_proposed')}
                           </span>
                         )}
+                        {c.de_navegacion && (
+                          <span className="ml-1 text-xs text-muted-foreground">{t('pages_navigation')}</span>
+                        )}
                       </td>
                       <td className="py-1 pr-2">{c.matched_rule ?? '—'}</td>
                       <td className="py-1 pr-2">{c.is_new ? '✓' : '—'}</td>
@@ -363,7 +367,7 @@ export function PublicationPage() {
                         <button
                           className="px-2 py-0.5 rounded border text-xs"
                           onClick={() => handleIngest(String(c.page_id))}
-                          disabled={ingestMutation.isPending || !!c.is_ingested}
+                          disabled={ingestMutation.isPending || !!c.is_ingested || !!c.de_navegacion}
                         >
                           {t('ingest')}
                         </button>

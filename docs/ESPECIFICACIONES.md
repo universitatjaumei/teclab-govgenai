@@ -304,8 +304,8 @@ para que una persona decida qué entra al corpus.
   el rastreo confirma cada página al guardarla en vez de bloquearlas todas hasta el final.
   **Una página de navegación no se propone** (#345): si su texto son enlaces —lo mide el
   rastreo, separando las líneas que son enlace del texto propio—, la auditoría la clasifica
-  aparte de las escasas y el servidor rechaza proponerla, salvo que quien cura descarte el
-  hallazgo. Tampoco entra sola al corpus: es un tipo bloqueante.
+  aparte de las escasas y el servidor rechaza proponerla o ingerirla a mano desde Publicació,
+  salvo que quien cura descarte el hallazgo. Tampoco entra sola al corpus: es un tipo bloqueante.
 - Salvaguardas contra el vaciado: una pasada parcial no puede dar de baja el resto del portal.
 - **El rastreo no sale de la red pública** (I15). Quien da de alta un sitio decide a dónde pide
   el servidor, y basta tener el módulo de curación (antes, ser administrador): hasta APER.1 eso alcanzaba la red
