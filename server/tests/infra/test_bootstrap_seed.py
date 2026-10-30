@@ -231,3 +231,33 @@ def test_should_report_what_it_created_and_what_it_skipped(seeded_database) -> N
     segunda = _run_bootstrap(async_url)
     assert "ya exist" in segunda.stdout.lower(), \
         "la segunda pasada debe decir que no hizo nada, no fingir que creó"
+
+
+# ---------------------------------------------------------------------------
+# #343 — la semilla no se impone a un modelo por defecto que ya existe
+# ---------------------------------------------------------------------------
+
+def test_should_not_mark_its_model_as_default_when_there_is_one(seeded_database) -> None:
+    """Así se juntaron tres modelos por defecto en producción: cada siembra marcaba el suyo. Con
+    el índice único de #343, además, marcarlo haría fallar la instalación."""
+    dsn, async_url = seeded_database
+    with psycopg2.connect(dsn) as conn, conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO hub_providers (id, name, provider_type) "
+            "VALUES ('google', 'Google', 'google_genai') ON CONFLICT DO NOTHING"
+        )
+        cur.execute(
+            "INSERT INTO hub_llm_configs (id, provider, model_name, temperature, top_p, "
+            "max_tokens, tier, label, is_default, purpose) "
+            "VALUES (%s, 'google', 'gemini-2.5-flash', 0.1, 1.0, 1000, 1, '', true, 'chat')",
+            (str(uuid.uuid4()),),
+        )
+
+    result = _run_bootstrap(async_url)
+
+    assert result.returncode == 0, result.stderr
+    assert _scalar(
+        dsn,
+        "SELECT string_agg(model_name, ',') FROM hub_llm_configs "
+        "WHERE is_default AND purpose = 'chat' AND tier = 1",
+    ) == "gemini-2.5-flash"

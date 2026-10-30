@@ -93,6 +93,7 @@ def _sesion(*, por_modelo: dict, filas: list | None = None):
     session.execute = AsyncMock(return_value=resultado)
     session.add = MagicMock()
     session.commit = AsyncMock()
+    session.flush = AsyncMock()
     session.refresh = AsyncMock(side_effect=_refresh)
     return session
 

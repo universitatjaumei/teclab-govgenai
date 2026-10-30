@@ -28,7 +28,7 @@ En una instalación nueva, los pasos 1–3 se hacen una sola vez. Los pasos 4–
 se repiten por cada chatbot nuevo. El paso 6 se prueba cuando el chatbot tiene documentos.
 
 > **Sistema preconfigurado:** Al arrancar por primera vez, el sistema crea automáticamente
-> un proveedor Google Gemini, una configuración del modelo `gemini-2.0-flash`,
+> un proveedor Google Gemini, una configuración del modelo `gemini-2.5-flash`,
 > un cliente "Cliente Demo" y un chatbot "Chatbot Demo".
 > Si solo quieres probar el sistema, puedes saltar directamente a la [Parte 3](#parte-3--ingestión-de-documentos).
 
@@ -226,7 +226,7 @@ curl -s http://localhost:8000/api/v1/hub/llm-configs \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-**Qué debes ver:** La configuración de desarrollo `Gemini Flash 2.0` ya aparece como `is_default: true` en tier 1.
+**Qué debes ver:** La configuración de desarrollo `Gemini 2.5 Flash` aparece como `is_default: true` en tier 1, salvo que ya hubiera otro modelo por defecto: sólo puede haber uno por nivel (#343).
 
 #### Ver los modelos disponibles de un proveedor
 

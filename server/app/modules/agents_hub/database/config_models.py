@@ -12,12 +12,14 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
     UniqueConstraint,
 )
 from sqlalchemy import false as sa_false
+from sqlalchemy import text as sa_text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -71,6 +73,19 @@ class HubLLMConfig(HubConfigBase):
         CheckConstraint(
             "purpose IN ('chat', 'embedding', 'rerank')",
             name="ck_llm_config_purpose",
+        ),
+        # #343 — una sola por defecto por nivel, propósito y organización. Quien resuelve por
+        # nivel coge la primera que devuelve la base, así que con dos el modelo lo decidía el
+        # plan de la consulta. `NULLS NOT DISTINCT` porque el caso normal es la plataforma, con
+        # la organización a nulo, y para un índice único corriente dos nulos son distintos.
+        Index(
+            "uq_llm_config_un_por_defecto",
+            "tier",
+            "purpose",
+            "organizacion_id",
+            unique=True,
+            postgresql_where=sa_text("is_default"),
+            postgresql_nulls_not_distinct=True,
         ),
     )
 
