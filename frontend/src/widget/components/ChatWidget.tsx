@@ -33,6 +33,7 @@ interface Props {
 interface StarRatingProps {
   interactionId: string
   apiUrl: string
+  widgetKey?: string
 }
 
 interface SourcePillsProps {
@@ -88,22 +89,34 @@ function SourcePills({ sources }: SourcePillsProps) {
   )
 }
 
-function StarRating({ interactionId, apiUrl }: StarRatingProps) {
+function StarRating({ interactionId, apiUrl, widgetKey }: StarRatingProps) {
   const [selected, setSelected] = useState<number | null>(null)
+  const [estado, setEstado] = useState<'guardada' | 'fallida' | null>(null)
   const { t } = useTranslation('chat')
 
   const handleClick = async (score: number) => {
     setSelected(score)
+    setEstado(null)
+    // #340 — el público del widget es anónimo: valora con la credencial de sitio, como conversa.
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (widgetKey) headers['X-Widget-Key'] = widgetKey
     // #278 — si la valoración no llega, la estrella no se queda marcada como si hubiera llegado.
+    // #340 — y se dice, en los dos casos: sin aviso, quien valoraba no sabía si había servido.
     try {
       const respuesta = await fetch(`${apiUrl}/hub/feedback/${interactionId}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ score }),
       })
-      if (!respuesta.ok) setSelected(null)
+      if (!respuesta.ok) {
+        setSelected(null)
+        setEstado('fallida')
+        return
+      }
+      setEstado('guardada')
     } catch {
       setSelected(null)
+      setEstado('fallida')
     }
   }
 
@@ -121,6 +134,11 @@ function StarRating({ interactionId, apiUrl }: StarRatingProps) {
           {star <= (selected ?? 0) ? '★' : '☆'}
         </button>
       ))}
+      {estado && (
+        <span role="status" style={{ fontSize: '0.75rem', marginLeft: '0.4rem' }}>
+          {t(estado === 'guardada' ? 'feedback_saved' : 'feedback_failed')}
+        </span>
+      )}
     </div>
   )
 }
@@ -403,7 +421,7 @@ export function ChatWidget({ chatbotId, apiUrl, lang, widgetKey, model, title }:
 
       {showRating && (
         <div style={{ padding: '0 0.75rem' }}>
-          <StarRating interactionId={interactionId!} apiUrl={apiUrl} />
+          <StarRating interactionId={interactionId!} apiUrl={apiUrl} widgetKey={widgetKey} />
         </div>
       )}
 

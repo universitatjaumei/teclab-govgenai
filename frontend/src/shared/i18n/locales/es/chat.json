@@ -10,6 +10,8 @@
   "widget_loading": "Cargando...",
   "feedback_rate": "Valorar respuesta",
   "feedback_stars": "estrellas",
+  "feedback_saved": "Gracias por tu valoración.",
+  "feedback_failed": "No se ha podido guardar la valoración. Vuelve a intentarlo.",
   "sources": "Fuentes",
   "no_sources": "Sin fuentes citadas",
   "status": {

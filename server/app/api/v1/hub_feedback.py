@@ -15,12 +15,18 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from server.app.api.deps import get_current_user
+from server.app.api.deps import get_current_user, get_current_user_optional
 from server.app.core.auth import UserInfo
+from server.app.core.auth.chatbot_access import VIA_WIDGET, assert_chatbot_access
+from server.app.core.auth.widget_key import (
+    CABECERA as CABECERA_WIDGET,
+    actor_anonimo_de_widget,
+    resolver_widget_key,
+)
 from server.app.core.auth.tenancy import assert_chatbot_org_access, assert_org_access
 from server.app.modules.agents_hub.database.config_models import HubChatbot
 from server.app.api.deps import get_session
@@ -99,6 +105,34 @@ class InteractionReviewOut(BaseModel):
     review_reference_answer: str | None = None
 
 
+async def _exigir_el_publico_del_widget(session, cabecera_widget, interaccion) -> None:
+    """403 salvo que la credencial sea del chatbot de la interacción, el chatbot sea
+    `public_anon` y la interacción sea del público de ese widget (#340).
+
+    Son las condiciones del chat, más la última: el público valora lo que preguntó por el
+    widget, no la conversación que alguien tuvo con sesión. Quien valora no se identifica —es
+    el sitio, no una persona—, así que lo que lo acota es el identificador de la interacción, que
+    sólo recibe quien hizo la pregunta.
+    """
+    clave = await resolver_widget_key(session, cabecera_widget)
+    chatbot = await session.get(HubChatbot, interaccion.chatbot_id)
+    publico = actor_anonimo_de_widget(interaccion.chatbot_id)
+    if (
+        clave is None
+        or chatbot is None
+        or clave.chatbot_id != interaccion.chatbot_id
+        or interaccion.user_id != publico.subject_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "ACCESS_MODE_FORBIDDEN",
+                "reason": "the widget credential cannot rate this interaction",
+            },
+        )
+    assert_chatbot_access(None, chatbot, via=VIA_WIDGET)
+
+
 def get_feedback_service(session: AsyncSession = Depends(get_session)) -> FeedbackService:
     """Las valoraciones y la revisión de interacciones (#274)."""
     return FeedbackService(session)
@@ -108,10 +142,22 @@ def get_feedback_service(session: AsyncSession = Depends(get_session)) -> Feedba
 async def submit_feedback(
     interaction_id: uuid.UUID,
     request: FeedbackRequest,
-    user: UserInfo = Depends(get_current_user),
+    http_request: Request,
+    user: UserInfo | None = Depends(get_current_user_optional),
     session: AsyncSession = Depends(get_session),
     service: FeedbackService = Depends(get_feedback_service),
 ) -> None:
+    # #340 — el público de un widget es anónimo: conversa con la credencial de sitio y con ella
+    # tiene que poder valorar. Sin sesión ni credencial, 401 ANTES de buscar la interacción, como
+    # el chat (SEC.8.5): si no, el 404 diría cuáles existen.
+    cabecera_widget = http_request.headers.get(CABECERA_WIDGET)
+    if user is None and not cabecera_widget:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing Authorization header. Use: Bearer <token>",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     # SEC.8.1: el GET de revisión comprobaba la organización desde SEC.2; este POST no
     # comprobaba nada y el servicio hace `UPDATE ... WHERE id = :id` a ciegas, así que
     # cualquier usuario autenticado —de cualquier organización— escribía sobre la
@@ -121,7 +167,9 @@ async def submit_feedback(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Interaction not found"
         )
-    if interaccion.user_id != user.user_id:
+    if user is None:
+        await _exigir_el_publico_del_widget(session, cabecera_widget, interaccion)
+    elif interaccion.user_id != user.user_id:
         await assert_chatbot_org_access(session, interaccion.chatbot_id, user)
 
     await service.submit_feedback(

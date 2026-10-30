@@ -732,6 +732,49 @@ describe('ChatWidget', () => {
     )
   })
 
+  // #340 — el público del widget es anónimo: valora con la credencial de sitio, como conversa.
+  // Sin ella el servidor respondía 401, la estrella se desmarcaba y el widget no decía nada.
+  async function valorar(respuesta: Response, props = {}) {
+    fetchMock
+      .mockResolvedValueOnce(
+        makeSseResponse([
+          { event: 'token', data: { delta: 'Respuesta.' } },
+          { event: 'done', data: { ...DONE_EVENT, interaction_id: 'iact-99' } },
+        ]),
+      )
+      .mockResolvedValueOnce(respuesta)
+    renderOpen(<ChatWidget {...DEFAULT_PROPS} {...props} />)
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Pregunta' } })
+    fireEvent.click(screen.getByRole('button', { name: /enviar/i }))
+    await waitFor(() => expect(screen.getByRole('group')).toBeInTheDocument())
+    await act(async () => {
+      fireEvent.click(screen.getAllByRole('button', { name: /estrellas/i })[3])
+    })
+  }
+
+  test('should_rate_with_the_widget_key', async () => {
+    await valorar(new Response(null, { status: 204 }), { widgetKey: 'wk-1' })
+
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      'http://localhost:8000/api/v1/hub/feedback/iact-99',
+      expect.objectContaining({ headers: expect.objectContaining({ 'X-Widget-Key': 'wk-1' }) }),
+    )
+  })
+
+  test('should_say_that_the_rating_was_saved', async () => {
+    await valorar(new Response(null, { status: 204 }), { widgetKey: 'wk-1' })
+
+    expect(await screen.findByRole('status')).toHaveTextContent(/gracias/i)
+    expect(screen.getAllByRole('button', { name: /estrellas/i })[3]).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  test('should_say_that_the_rating_could_not_be_saved', async () => {
+    await valorar(new Response('{}', { status: 401 }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent(/no se ha podido guardar/i)
+    expect(screen.getAllByRole('button', { name: /estrellas/i })[3]).toHaveAttribute('aria-pressed', 'false')
+  })
+
   test('should_render_source_pills_after_last_assistant_message', async () => {
     fetchMock.mockResolvedValueOnce(
       makeSseResponse([
