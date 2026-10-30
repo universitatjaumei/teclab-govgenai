@@ -23,6 +23,7 @@ from server.app.modules.agents_hub.ingestion.markdown_utils import (
 )
 from server.app.modules.curation.contenido_web import (
     texto_de_contenido,
+    textos_de_enlace,
     fecha_y_responsable,
     parece_html,
     titulo_de,
@@ -519,8 +520,16 @@ class SiteCrawler:
             )
             if aviso_de_recorte:
                 _log.info("Recorte de plantilla en %s: %s", url, aviso_de_recorte)
+            # #345 — qué líneas del texto eran enlaces: el texto guardado ya no lo dice, y es lo
+            # que separa una página de navegación de una escasa. De la misma zona que el texto.
+            enlaces: list[str] | None = textos_de_enlace(
+                body,
+                config.get("content_selector"),
+                config.get("boilerplate_selectors") or [],
+            )
         else:
             contenido = body
+            enlaces = None
         titulo = titulo_de(body) if es_html else extract_title_from_markdown(body)
         senales = [s.como_dict() for s in senales_de_dinamismo(body)] if es_html else []
 
@@ -540,6 +549,7 @@ class SiteCrawler:
             "content_published_at": publicada,
             "content_owner": responsable,
             "markdown_content": contenido,
+            "textos_de_enlace": enlaces,
             "title": titulo,
             "token_count": estimate_tokens(contenido),
             "language": detect_language(contenido),

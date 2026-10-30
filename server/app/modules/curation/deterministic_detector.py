@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from typing import Any, Callable
 from urllib.parse import urlparse
 
+from server.app.modules.agents_hub.ingestion.markdown_utils import estimate_tokens
 from server.app.modules.curation.contracts import ContentFinding
 
 _YEAR_SEG = re.compile(r"/((?:19|20)\d{2})(?=/|$)")
@@ -151,11 +152,18 @@ class DeterministicQualityDetector:
         thin_token_threshold: int = 120,
         stale_days: int = 365,
         version_series_policy: str = "series",
+        nav_max_texto_propio: int = 20,
+        nav_min_enlaces: int = 2,
         now_fn: Callable[[], datetime] | None = None,
     ) -> None:
         self._session = session
         self._repo = finding_repo
         self._thin_threshold = thin_token_threshold
+        # #345 — calibrados con las 32 páginas «Escassa» del apartado de la Escola de Doctorat: las
+        # de navegación tenían 0–6 tokens de texto propio y 4–8 líneas de enlace; las escasas de
+        # verdad, 24 o más. Son de cada sitio, como el umbral de `thin`.
+        self._nav_max_texto_propio = nav_max_texto_propio
+        self._nav_min_enlaces = nav_min_enlaces
         self._stale_days = stale_days
         # CUR.2.1 — qué significa un grupo de versiones por año **en este sitio**: series todas
         # vigentes, la nueva deroga a la vieja, o el año no significa nada. Lo decide la
@@ -280,6 +288,20 @@ class DeterministicQualityDetector:
                 now=now,
             ))
         elif page.token_count is not None and page.token_count < self._thin_threshold:
+            navegacion = self._de_navegacion(page)
+            if navegacion is not None:
+                results.append(self._finding(
+                    site_id=site_id,
+                    finding_type="navigation",
+                    severity="info",
+                    confidence=1.0,
+                    page_id=page.id,
+                    source_url=page.url,
+                    signal={"token_count": page.token_count, **navegacion},
+                    now=now,
+                ))
+                results.extend(self._otros_hallazgos(page, site_id, now, orphan_page_ids))
+                return results
             results.append(self._finding(
                 site_id=site_id,
                 finding_type="thin",
@@ -293,6 +315,26 @@ class DeterministicQualityDetector:
 
         results.extend(self._otros_hallazgos(page, site_id, now, orphan_page_ids))
         return results
+
+    def _de_navegacion(self, page: Any) -> dict[str, int] | None:
+        """La medida de la página si es de navegación, o `None` (#345).
+
+        De navegación: su texto son enlaces. Se cruzan las líneas del texto guardado con los textos
+        de enlace de la misma zona; lo que no es enlace —el título incluido— es texto propio. Sin
+        textos de enlace medidos (páginas rastreadas antes de #345) no se afirma nada.
+        """
+        enlaces = getattr(page, "textos_de_enlace", None)
+        if enlaces is None or not page.markdown_content:
+            return None
+        de_enlace = set(enlaces)
+        lineas = [linea.strip() for linea in page.markdown_content.splitlines() if linea.strip()]
+        lineas_de_enlace = sum(1 for linea in lineas if linea in de_enlace)
+        texto_propio = estimate_tokens(
+            "\n".join(linea for linea in lineas if linea not in de_enlace)
+        )
+        if lineas_de_enlace < self._nav_min_enlaces or texto_propio > self._nav_max_texto_propio:
+            return None
+        return {"lineas_de_enlace": lineas_de_enlace, "texto_propio": texto_propio}
 
     def _otros_hallazgos(
         self,

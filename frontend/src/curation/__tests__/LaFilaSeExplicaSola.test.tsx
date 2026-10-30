@@ -175,6 +175,21 @@ describe('cada hallazgo dice por qué lo es', () => {
     expect(razon).toContain('3')
   })
 
+  it('una de navegación dice cuántas líneas son enlaces y cuánto texto propio le queda (#345)', async () => {
+    const { razonDelHallazgo } = await import('../razonDelHallazgo')
+    const t = (clave: string, opciones?: Record<string, unknown>) =>
+      `${clave} ${JSON.stringify(opciones ?? {})}`
+
+    const razon = razonDelHallazgo(
+      { finding_type: 'navigation', signal: { lineas_de_enlace: 5, texto_propio: 2 } },
+      t,
+    )
+
+    expect(razon).toContain('reason_navigation')
+    expect(razon).toContain('"enlaces":5')
+    expect(razon).toContain('"propio":2')
+  })
+
   it('un hallazgo sin señal no deja la celda con «undefined»', async () => {
     // Los hallazgos de antes de CUR.8 pueden no traer umbral: la fila no puede mentir ni romperse.
     const { razonDelHallazgo } = await import('../razonDelHallazgo')

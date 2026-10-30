@@ -16,11 +16,13 @@ from sqlalchemy.exc import IntegrityError
 
 from server.app.core.auth.tenancy import assert_org_access, scope_query_to_orgs
 from server.app.modules.agents_hub.database.operational_models import (
+    HubContentFinding,
     HubCorpusSelection,
     HubCrawledPage,
     HubCrawlRun,
     HubWebSite,
 )
+from server.app.modules.curation.findings_repo import ESTADOS_ABIERTOS
 from server.app.modules.curation.selection_contracts import PageView
 from server.app.modules.curation.site_repo import (
     CorpusSelectionRepo,
@@ -66,7 +68,7 @@ async def borrar_sitio(session, site_id: uuid.UUID) -> None:
 
 async def paginas(
     session, site_id: uuid.UUID, estado: str | None, solo_propuestas: bool
-) -> list[HubCrawledPage]:
+) -> list[PageView]:
     # recorrido-acotado: ver `site_repo.listar_paginas`. Paginar este endpoint cambia un
     # contrato que consume el frontend (issue #159).
     consulta = select(HubCrawledPage).where(HubCrawledPage.site_id == site_id)
@@ -74,7 +76,31 @@ async def paginas(
         consulta = consulta.where(HubCrawledPage.status == estado)
     if solo_propuestas:
         consulta = consulta.where(HubCrawledPage.propuesta_at.is_not(None))
-    return list((await session.execute(consulta.order_by(HubCrawledPage.url))).scalars().all())
+    filas = (await session.execute(consulta.order_by(HubCrawledPage.url))).scalars().all()
+    de_navegacion = await _paginas_de_navegacion(session, site_id)
+    return [_vista(pagina, de_navegacion) for pagina in filas]
+
+
+async def _paginas_de_navegacion(session, site_id: uuid.UUID, page_id: uuid.UUID | None = None) -> set:
+    """Los ids de las páginas con un hallazgo `navigation` abierto (#345).
+
+    Abierto y no descartado: descartarlo es decir que el detector se equivocó, y entonces la página
+    vuelve a poder proponerse.
+    """
+    consulta = select(HubContentFinding.page_id).where(
+        HubContentFinding.site_id == site_id,
+        HubContentFinding.finding_type == "navigation",
+        HubContentFinding.status.in_(ESTADOS_ABIERTOS),
+    )
+    if page_id is not None:
+        consulta = consulta.where(HubContentFinding.page_id == page_id)
+    return set((await session.execute(consulta)).scalars().all())
+
+
+def _vista(pagina: HubCrawledPage, de_navegacion: set) -> PageView:
+    return PageView.model_validate(pagina).model_copy(
+        update={"de_navegacion": pagina.id in de_navegacion}
+    )
 
 
 async def pagina_o_404(session, page_id: uuid.UUID) -> HubCrawledPage:
@@ -112,13 +138,23 @@ async def marcar_propuesta(
     contexto (el 500 de #225).
     """
     pagina = await pagina_de_este_sitio(session, site_id, page_id)
+    de_navegacion = await _paginas_de_navegacion(session, site_id, page_id)
     if propuesta_por is None:
         pagina.propuesta_at = None
         pagina.propuesta_por = None
+    elif pagina.id in de_navegacion:
+        # #345 — retirar sí se puede siempre: una propuesta anterior no se queda atascada.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "Es una página de navegación: su texto son enlaces y el asistente no tendría nada "
+                "que citar. Si no lo es, márcala como correcta en la auditoría y podrás proponerla."
+            ),
+        )
     elif pagina.propuesta_at is None:
         pagina.propuesta_at = datetime.now(timezone.utc)
         pagina.propuesta_por = propuesta_por
-    vista = PageView.model_validate(pagina)
+    vista = _vista(pagina, de_navegacion)
     await session.commit()
     return vista
 

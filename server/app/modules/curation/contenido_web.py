@@ -16,6 +16,7 @@ from __future__ import annotations
 import html as _html
 from datetime import datetime, timezone
 import re
+from typing import Any
 
 _SCRIPT_O_ESTILO = re.compile(
     r"<(script|style|noscript|template)\b[\s\S]*?</\1>", re.IGNORECASE
@@ -99,29 +100,56 @@ def texto_de_contenido(
     if not contenido:
         return "", None
 
-    aviso: str | None = None
     try:
-        from bs4 import BeautifulSoup
-
-        arbol = BeautifulSoup(contenido, "html.parser")
-
-        if content_selector:
-            elegido = arbol.select_one(content_selector)
-            if elegido is None:
-                aviso = "content_selector_sin_coincidencia"
-            else:
-                arbol = elegido
-
-        for selector in [*(boilerplate_selectors or []), *_ETIQUETAS_DE_PLANTILLA]:
-            try:
-                for encontrado in arbol.select(selector):
-                    encontrado.decompose()
-            except Exception:  # noqa: BLE001 — un selector mal escrito no tumba el rastreo
-                continue
-
+        arbol, aviso = _zona_de_contenido(contenido, content_selector, boilerplate_selectors)
         return texto_visible(str(arbol)), aviso
     except Exception:  # noqa: BLE001 — HTML irrecuperable: mejor el texto entero que nada
         return texto_visible(contenido), "html_no_analizable"
+
+
+def textos_de_enlace(
+    contenido: str, content_selector: str | None, boilerplate_selectors: list[str] | None
+) -> list[str]:
+    """El texto de cada enlace de la **misma zona** que `texto_de_contenido` guarda (#345).
+
+    El texto guardado ya no tiene etiquetas, así que no dice qué líneas eran enlaces, y eso es lo
+    que distingue una página de navegación de una con poco contenido. Se guarda aparte y el
+    detector lo cruza con las líneas del texto. Misma zona, o el cruce compararía cosas distintas.
+    """
+    if not contenido:
+        return []
+    try:
+        arbol, _aviso = _zona_de_contenido(contenido, content_selector, boilerplate_selectors)
+    except Exception:  # noqa: BLE001 — sin árbol no hay enlaces que contar, y no tumba el rastreo
+        return []
+    textos = (_ESPACIOS.sub(" ", enlace.get_text(" ")).strip() for enlace in arbol.find_all("a"))
+    return [texto for texto in textos if texto]
+
+
+def _zona_de_contenido(
+    contenido: str, content_selector: str | None, boilerplate_selectors: list[str] | None
+) -> tuple[Any, str | None]:
+    """El árbol de la zona de contenido, sin la plantilla declarada, y el aviso si no cuadró."""
+    from bs4 import BeautifulSoup
+
+    aviso: str | None = None
+    arbol: Any = BeautifulSoup(contenido, "html.parser")
+
+    if content_selector:
+        elegido = arbol.select_one(content_selector)
+        if elegido is None:
+            aviso = "content_selector_sin_coincidencia"
+        else:
+            arbol = elegido
+
+    for selector in [*(boilerplate_selectors or []), *_ETIQUETAS_DE_PLANTILLA]:
+        try:
+            for encontrado in arbol.select(selector):
+                encontrado.decompose()
+        except Exception:  # noqa: BLE001 — un selector mal escrito no tumba el rastreo
+            continue
+
+    return arbol, aviso
 
 
 def fecha_y_responsable(

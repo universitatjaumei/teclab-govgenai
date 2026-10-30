@@ -1,0 +1,190 @@
+"""#345 — una página de navegación no es contenido escaso.
+
+Un usuario de la OPAQ auditó el apartado de la Escola de Doctorat y encontró 30 páginas en
+«Escassa», muchas de ellas **nodos de navegación**: páginas con enlaces y sin texto propio, como
+`/escola-doctorat/info-general/organitzacio/`. Una página así no es un defecto que corregir, es
+estructura del portal; mezclada con las escasas de verdad, la cola se llena de ruido.
+
+Bajar `thin_min_tokens` no lo arregla: esconde también las escasas de verdad. Y la jerarquía de las
+URL tampoco: medido el 30-10 en producción, **ninguna** de las páginas de navegación del ejemplo
+tenía páginas rastreadas bajo su ruta —enlazan a otras ramas del portal o a PDF—. Lo que las
+distingue es lo que dice el usuario: que su texto son enlaces. El rastreo guarda el texto visible
+sin las etiquetas, así que se guardan aparte los textos de los enlaces de la zona de contenido, y el
+detector separa las líneas que son enlace de las que son texto propio.
+
+**Calibrado con las 32 páginas «Escassa» de ese rastreo**, con el HTML del portal: las de
+navegación tienen 0–6 tokens de texto propio y 4–8 líneas de enlace; las escasas de verdad —fichas
+de curso con «Nom:», «Hores:» sin rellenar, páginas de vídeo, un contacto— 24 o más. De ahí los
+valores por omisión: navegación con 20 tokens propios como mucho y 2 líneas de enlace como poco.
+"""
+from __future__ import annotations
+
+import uuid
+from dataclasses import dataclass, field, replace
+from datetime import datetime, timezone
+from typing import Any
+
+import pytest
+
+from server.app.modules.curation.contenido_web import textos_de_enlace
+from server.app.modules.curation.deterministic_detector import DeterministicQualityDetector
+
+_AHORA = datetime(2026, 10, 30, tzinfo=timezone.utc)
+
+#: Lo que queda guardado de `/comissio/Objectius/` tras quitar la plantilla, y sus enlaces.
+_OBJECTIUS = "Objectius\nCursos 23/24-24/25\nCursos 25/26-26/27\nPresentació\nProgrames\nNormativa"
+_ENLACES_DE_OBJECTIUS = [
+    "Cursos 23/24-24/25", "Cursos 25/26-26/27", "Presentació", "Programes", "Normativa",
+]
+
+#: Una ficha de curso sin rellenar: es escasa de verdad, y tiene que seguir diciéndose.
+_FICHA = (
+    "Carrera investigadora\nNom: Carrera investigadora.\nHores:\nDates d'impartició:\n"
+    "Idiomes d'impartició:\nPlaces oferides:\nTaxa: gratuït\nObjectiu:\nProfessorat:\n"
+    "Accés als continguts\nDescarrega fitxa informativa\nVicerectorat d'Investigació\n"
+    "Presentació\nProgrames"
+)
+_ENLACES_DE_LA_FICHA = [
+    "Accés als continguts", "Descarrega fitxa informativa", "Presentació", "Programes",
+]
+
+
+@dataclass
+class _Pagina:
+    url: str
+    markdown_content: str | None
+    token_count: int | None
+    textos_de_enlace: list[str] | None = None
+    id: uuid.UUID = field(default_factory=uuid.uuid4)
+    status: str = "active"
+    error_message: str | None = None
+    error_kind: str | None = None
+    error_attempts: int | None = None
+    canonical_url: str | None = None
+    sitemap_lastmod: datetime | None = None
+    http_last_modified: datetime | None = None
+    content_year: int | None = None
+    content_published_at: datetime | None = None
+    content_owner: str | None = None
+    first_seen_at: datetime | None = None
+    render_signals: list[dict] | None = None
+
+
+class _Repo:
+    async def upsert(self, finding: Any) -> Any:
+        return finding
+
+
+class _Sesion:
+    def __init__(self, paginas: list[_Pagina]) -> None:
+        self._paginas = paginas
+
+    async def execute(self, stmt: Any) -> Any:
+        filas = self._paginas if getattr(stmt, "_model_hint", "page") == "page" else []
+
+        class _R:
+            def scalars(self_inner) -> Any:
+                return self_inner
+
+            def all(self_inner) -> list:
+                return filas
+
+        return _R()
+
+
+async def _hallazgos(pagina: _Pagina, **criterios: Any) -> dict[str, Any]:
+    detector = DeterministicQualityDetector(
+        session=_Sesion([pagina]), finding_repo=_Repo(), now_fn=lambda: _AHORA, **criterios
+    )
+    return {h.finding_type: h for h in await detector.analyze(uuid.uuid4())}
+
+
+def _objectius(**cambios: Any) -> _Pagina:
+    return replace(_Pagina(
+        url="https://www.uji.es/estudis/centres/escola-doctorat/base/info-general/organitzacio/"
+        "escola/comissio/Objectius/",
+        markdown_content=_OBJECTIUS, token_count=24, textos_de_enlace=_ENLACES_DE_OBJECTIUS,
+    ), **cambios)
+
+
+class TestLaNavegacionNoEsEscasa:
+
+    @pytest.mark.asyncio
+    async def test_una_pagina_cuyo_texto_son_enlaces_es_de_navegacion(self) -> None:
+        hallazgos = await _hallazgos(_objectius())
+
+        assert "thin" not in hallazgos
+        navegacion = hallazgos["navigation"]
+        assert navegacion.severity == "info", "no es un defecto: es estructura del portal"
+        assert navegacion.signal["lineas_de_enlace"] == 5
+
+    @pytest.mark.asyncio
+    async def test_una_ficha_vacia_sigue_siendo_escasa(self) -> None:
+        """También tiene enlaces, pero su texto propio son los campos de la ficha."""
+        hallazgos = await _hallazgos(_Pagina(
+            url="https://www.uji.es/x/carrera/", markdown_content=_FICHA, token_count=75,
+            textos_de_enlace=_ENLACES_DE_LA_FICHA,
+        ))
+
+        assert "thin" in hallazgos
+        assert "navigation" not in hallazgos
+
+    @pytest.mark.asyncio
+    async def test_sin_textos_de_enlace_medidos_no_se_afirma_nada_nuevo(self) -> None:
+        """Las páginas rastreadas antes de #345: hasta el siguiente rastreo, siguen como estaban."""
+        hallazgos = await _hallazgos(_objectius(textos_de_enlace=None))
+
+        assert "thin" in hallazgos
+        assert "navigation" not in hallazgos
+
+    @pytest.mark.asyncio
+    async def test_una_pagina_que_no_es_escasa_no_se_mira(self) -> None:
+        """Navegación es una forma de ser escasa: una página con texto de sobra no lo es."""
+        hallazgos = await _hallazgos(_objectius(token_count=500))
+
+        assert "navigation" not in hallazgos
+
+    @pytest.mark.asyncio
+    async def test_los_umbrales_son_de_cada_sitio(self) -> None:
+        exigente = await _hallazgos(_objectius(), nav_max_texto_propio=0)
+        mas_enlaces = await _hallazgos(_objectius(), nav_min_enlaces=6)
+
+        assert set(exigente) & {"thin", "navigation"} == {"thin"}
+        assert set(mas_enlaces) & {"thin", "navigation"} == {"thin"}
+
+
+class TestLosTextosDeEnlace:
+
+    def test_salen_de_la_zona_de_contenido_y_sin_la_plantilla(self) -> None:
+        html = (
+            "<html><body><div class='mainMenu'><a href='/a'>Menú</a></div><main>"
+            "<div class='breadcrumb'><a href='/'>Inici</a></div><h1>Organització</h1>"
+            "<ul><li><a href='/c'>La Comissió  Acadèmica</a></li><li><a href='/d'> </a></li></ul>"
+            "</main></body></html>"
+        )
+
+        assert textos_de_enlace(html, "main", [".breadcrumb", ".mainMenu"]) == [
+            "La Comissió Acadèmica"
+        ]
+
+
+class TestLoQueArrastraElTipoNuevo:
+
+    def test_la_navegacion_no_entra_sola_al_corpus(self) -> None:
+        """`thin` detenía la ingesta automática de estas páginas; al dejar de serlo, la detiene
+        `navigation`. Sin esto, una sección en modo automático las metería en el corpus."""
+        from server.app.modules.curation.quality_job import TIPOS_BLOQUEANTES_POR_DEFECTO
+
+        assert "navigation" in TIPOS_BLOQUEANTES_POR_DEFECTO
+
+    def test_la_reconciliacion_sabe_que_lo_emite_el_determinista(self) -> None:
+        from server.app.modules.curation.site_crawler_dispatcher import (
+            DeterministicDetectorDispatcher,
+        )
+
+        assert "navigation" in DeterministicDetectorDispatcher.finding_types
+
+    def test_el_informe_tiene_su_recomendacion(self) -> None:
+        from server.app.modules.curation.report_builder import _make_recommendation
+
+        assert "'navigation'" not in _make_recommendation("navigation", 3)

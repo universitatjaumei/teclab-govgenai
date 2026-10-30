@@ -126,3 +126,39 @@ describe('Pàgines: el que la revisió de la PR #246 va trobar', () => {
     expect(screen.getByRole('alert').textContent).toContain('Sense accés al mòdul')
   })
 })
+
+describe('Pàgines: una pàgina de navegació no es proposa (#345)', () => {
+  function pintarAmb(pagina: Record<string, unknown>) {
+    vi.mocked(useListSitePages).mockReturnValue({
+      data: [{ ...PAGINAS[1], id: 'p-org', title: 'Organització', ...pagina }],
+      isLoading: false,
+    } as never)
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter>
+          <PaginesPage />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+    fireEvent.change(screen.getByRole('combobox', { name: /lloc/i }), { target: { value: 'sitio-1' } })
+    return screen.getByTestId('pagina-p-org')
+  }
+
+  it('la casella no es pot marcar i la fila diu per què, com diu el servidor', () => {
+    const fila = pintarAmb({ de_navegacion: true })
+
+    expect(within(fila).getByRole('checkbox')).toBeDisabled()
+    expect(fila.textContent).toContain('navegació')
+  })
+
+  it('una proposta anterior sí que es pot retirar', () => {
+    const fila = pintarAmb({
+      de_navegacion: true, propuesta_at: '2026-10-08T09:00:00Z', propuesta_por: 'curadora@uji.es',
+    })
+
+    const casella = within(fila).getByRole('checkbox')
+    expect(casella).toBeEnabled()
+    fireEvent.click(casella)
+    expect(retirar).toHaveBeenCalled()
+  })
+})

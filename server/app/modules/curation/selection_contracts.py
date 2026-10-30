@@ -85,6 +85,11 @@ class CrawlConfig(BaseModel):
 
     stale_days: int = Field(default=365, ge=1, le=36_500)
     thin_min_tokens: int = Field(default=120, ge=0, le=100_000)
+    #: #345 — una página escasa es de navegación si su texto propio (lo que no es enlace, título
+    #: incluido) no pasa de `nav_max_own_tokens` y tiene al menos `nav_min_links` líneas de enlace.
+    #: Calibrado con el apartado de la Escola de Doctorat; ver el detector.
+    nav_max_own_tokens: int = Field(default=20, ge=0, le=100_000)
+    nav_min_links: int = Field(default=2, ge=1, le=1_000)
     #: `series` — varias versiones por año y **todas vigentes** (la UJI: acuerdos y actas).
     #: `superseded` — la nueva deroga a la vieja (un portal que versiona convocatorias).
     #: `off` — el año de la URL no significa nada aquí; agrupar sólo daría ruido.
@@ -199,6 +204,9 @@ class PageView(BaseModel):
     #: 2026-10-08 — propuesta para un asistente: cuándo y quién. Nula = no propuesta.
     propuesta_at: datetime | None = None
     propuesta_por: str | None = None
+    #: #345 — tiene abierto un hallazgo `navigation`: su texto son enlaces y no se puede proponer
+    #: para un asistente. Si quien cura lo descarta, vuelve a poder proponerse.
+    de_navegacion: bool = False
 
     model_config = {"from_attributes": True}
 

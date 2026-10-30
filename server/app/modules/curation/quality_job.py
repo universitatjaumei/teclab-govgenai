@@ -44,6 +44,9 @@ NOTA_DE_PAGINA_QUE_VOLVIO = (
 #: escrita no casa ningún hallazgo, no cierra la puerta nunca y **no da ningún síntoma**.
 TIPOS_BLOQUEANTES_POR_DEFECTO: frozenset[str] = frozenset({
     "empty", "needs_javascript", "crawl_error", "thin",
+    # #345 — salieron de `thin`, que ya las detenía: una página de enlaces no tiene nada que
+    # citar, y sin esto una sección en modo automático las metería en el corpus.
+    "navigation",
 })
 CLAVE_TIPOS_BLOQUEANTES = "tipos_bloqueantes"
 

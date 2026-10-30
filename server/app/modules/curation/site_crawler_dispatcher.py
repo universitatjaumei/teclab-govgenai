@@ -96,7 +96,7 @@ class DeterministicDetectorDispatcher:
     #: exacto (CUR.2) y el otro por significado. Ese solape es lo que hace que un tipo compartido
     #: sólo se reconcilie cuando los dos han pasado.
     finding_types = frozenset({
-        "empty", "thin", "stale", "crawl_error", "orphan_page",
+        "empty", "thin", "navigation", "stale", "crawl_error", "orphan_page",
         "needs_javascript", "superseded", "version_series", "duplicate",
     })
 
@@ -124,6 +124,8 @@ class DeterministicDetectorDispatcher:
                 thin_token_threshold=criterios.get("thin_min_tokens", 120),
                 stale_days=criterios.get("stale_days", 365),
                 version_series_policy=criterios.get("version_series_policy", "series"),
+                nav_max_texto_propio=criterios.get("nav_max_own_tokens", 20),
+                nav_min_enlaces=criterios.get("nav_min_links", 2),
             )
             hallazgos = await detector.analyze(site_id)
             await session.commit()

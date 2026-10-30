@@ -41,6 +41,10 @@ _RECOMMENDATIONS: dict[str, str] = {
         "{n} página(s) con contenido escaso (pocos tokens): amplíe el texto "
         "o consolide con páginas relacionadas."
     ),
+    "navigation": (
+        "{n} página(s) de navegación (enlaces sin texto propio): no requieren cambios; "
+        "no las proponga para el asistente, que no tendría nada que citar."
+    ),
     "stale": (
         "{n} página(s) con contenido potencialmente desactualizado: revise y "
         "actualice la información o indique la fecha de última revisión."

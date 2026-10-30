@@ -172,3 +172,16 @@ async def test_un_contenido_que_no_es_html_se_guarda_tal_cual():
     campos = await _rastrear(markdown)
 
     assert campos["markdown_content"] == markdown
+
+
+@pytest.mark.asyncio
+async def test_se_guardan_los_textos_de_los_enlaces_del_contenido():
+    """#345 — el texto guardado no dice qué líneas eran enlaces, y es lo que distingue una página
+    de navegación. Los del `<nav>` no: son plantilla y tampoco están en el texto."""
+    campos = await _rastrear(
+        _HTML_COMO_EL_DEL_PORTAL.replace(
+            "<p>Convocatoria", "<ul><li><a href='/b'>Bases</a></li></ul><p>Convocatoria"
+        )
+    )
+
+    assert campos["textos_de_enlace"] == ["Bases"]
