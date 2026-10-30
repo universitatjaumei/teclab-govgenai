@@ -12,7 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.app.modules.agents_hub.database.config_models import HubChatbot
 from server.app.modules.agents_hub.database.operational_models import HubDocument
-from server.app.modules.agents_hub.services.retrieval.citations import url_de_cita
+from server.app.modules.agents_hub.services.retrieval.citations import (
+    ANCLAS_CITABLES,
+    anclas_citables,
+    url_de_cita,
+)
 from server.app.modules.agents_hub.services.retrieval.metadata_filter import MetadataFilter
 from server.app.modules.agents_hub.services.retrieval.types import RetrievalContext, Source
 from server.app.modules.agents_hub.services.retrieval.metadata_filter import (
@@ -100,6 +104,8 @@ class LongContextRetrievalStrategy:
                         "cacheable": True,
                         "cache_block": is_cache_block,
                         "cache_ttl": cache_ttl if is_cache_block else None,
+                        # #336 — el documento va entero: el modelo puede citar sus apartados.
+                        ANCLAS_CITABLES: anclas_citables(d),
                         **marca_de_vigencia(d),
                     },
                 )

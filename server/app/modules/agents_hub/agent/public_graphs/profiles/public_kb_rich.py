@@ -60,6 +60,25 @@ REGLAS DE CITA (obligatorias):
    `[Directrius academiques, art. 1.7.a](url)`. Si el documento no se divide en articulos,
    nombra el apartado tal y como aparezca."""
 
+# #336 — en contexto largo el documento llega entero, con sus anclas en los encabezados, y su
+# URL es la del documento. La regla 5 general prohíbe añadir ancla porque, con fragmentos, el
+# ancla buena ya viene en la URL; aquí no viene, y prohibirla impedía citar el artículo.
+_REGLA_5 = CITATION_RULES[CITATION_RULES.index("5. COPIA") : CITATION_RULES.index("6. Nombra")]
+_REGLA_5_DOCUMENTO_ENTERO = """\
+5. COPIA la URL EXACTAMENTE como aparece en la linea `URL:` del documento. Para citar un
+   apartado concreto, anade a esa URL el ancla que el documento declara en su encabezado
+   entre llaves: si el encabezado dice `{#art-3}`, cita `URL#art-3`. Usa SOLO anclas que
+   aparezcan asi en el documento; si el apartado no tiene, cita la URL tal cual.
+"""
+
+
+def reglas_de_cita(retrieval_mode: str) -> str:
+    """Las reglas de cita del modo: la 5 cambia cuando el documento llega entero (#336)."""
+    if retrieval_mode == "MD_LONG_CONTEXT":
+        return CITATION_RULES.replace(_REGLA_5, _REGLA_5_DOCUMENTO_ENTERO)
+    return CITATION_RULES
+
+
 RANK_AND_VALIDITY_RULES = """\
 REGLAS DE RANGO Y VIGENCIA (obligatorias):
 1. Ante dos normas que regulan lo mismo, manda la de rango superior: ley > decreto >
@@ -141,7 +160,7 @@ class GenericAnswerTemplateStrategy:
             partes.extend([self._base, ""])
         if language:
             partes.extend([f"Responde en {language}.", ""])
-        partes.append(CITATION_RULES.strip())
+        partes.append(reglas_de_cita(self._retrieval_mode).strip())
 
         if self._retrieval_mode == "MD_AGENT_SELECTOR":
             # Nivel 0 (VIS.2): el router necesita saber qué TEMAS existen, no qué normas.

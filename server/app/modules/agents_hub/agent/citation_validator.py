@@ -4,6 +4,7 @@ import re
 import unicodedata
 
 from server.app.core.llm_text import texto_de
+from server.app.modules.agents_hub.services.retrieval.citations import ANCLAS_CITABLES
 
 # Issue #148 — los dos límites no son estética: quitan un coste **cuadrático**.
 #
@@ -34,6 +35,38 @@ NO_CITATION_FALLBACK = (
     "No tengo informacion suficiente en los documentos disponibles para responder a "
     "esta pregunta con citas verificables. Podrias reformular o proporcionar mas contexto?"
 )
+
+
+# #336 — una dirección escrita en el texto de la evidencia. Se corta en lo que no puede ir en
+# una URL sin escapar, y se le quita la puntuación que la cierra en la frase.
+_URL_EN_EL_TEXTO = re.compile(r"https?://[^\s<>\"'()\[\]]{1,2040}")
+
+
+def _anclas_leidas(sources: list) -> set[str]:
+    """`página#ancla` por cada ancla que la estrategia declara citable en esa evidencia.
+
+    Es lo que el modelo tuvo delante: en contexto largo, el documento entero con sus
+    encabezados. Un ancla que no está aquí sigue bajando al documento (HIB.D).
+    """
+    return {
+        f"{_sin_fragmento(url)}#{ancla}"
+        for s in sources
+        if (url := _url_de(s))
+        for ancla in ((getattr(s, "metadata", None) or {}).get(ANCLAS_CITABLES) or ())
+    }
+
+
+def _urls_escritas(sources: list) -> set[str]:
+    """Las direcciones que aparecen tal cual en el texto entregado (#336).
+
+    Enlazarlas no es inventar: el modelo las copió de la evidencia. Pero no cuentan como cita
+    del fundamento —una aplicación no es una norma—, así que no bastan para cumplir.
+    """
+    return {
+        u.rstrip(".,;:")
+        for s in sources
+        for u in _URL_EN_EL_TEXTO.findall(str(getattr(s, "content", "") or ""))
+    }
 
 
 def has_valid_citations(response_text: str, allowed_urls: set[str]) -> bool:
@@ -245,11 +278,14 @@ def aplicar_contrato(
             remisiones_despojadas=0,
         )
 
-    anclas = {u for u in (_url_de(s) for s in sources) if u}
+    anclas = {u for u in (_url_de(s) for s in sources) if u} | _anclas_leidas(sources)
     # La URL de la norma es citable por derecho propio: es el «o la norma» del criterio
     # «el articulo si se puede, la norma si no». Sin esto, degradar produciria una URL que
     # el propio contrato rechazaria.
-    allowed = anclas | {_sin_fragmento(u) for u in anclas}
+    citables = anclas | {_sin_fragmento(u) for u in anclas}
+    # #336 — lo que se puede enlazar es algo más que lo que se puede citar: una dirección que
+    # viene escrita en la evidencia conserva su enlace, pero no fundamenta la respuesta.
+    allowed = citables | _urls_escritas(sources)
 
     # HIB.0: el orden de estos dos pasos es el contrato.
     #
@@ -284,12 +320,12 @@ def aplicar_contrato(
         1 for _t, u in tras_degradar if u not in allowed and u not in urls_finales
     )
 
-    validas = list(dict.fromkeys(u for _t, u in finales if u in allowed))
+    validas = list(dict.fromkeys(u for _t, u in finales if u in citables))
     invalidas = list(
         dict.fromkeys(u for _t, u in tras_degradar if u not in allowed)
     )
 
-    if has_valid_citations(texto, allowed):
+    if has_valid_citations(texto, citables):
         return ResultadoDelContrato(
             texto=texto,
             cumple=True,
