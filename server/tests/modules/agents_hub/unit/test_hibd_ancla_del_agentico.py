@@ -29,6 +29,8 @@ from __future__ import annotations
 import inspect
 from pathlib import Path
 
+import pytest
+
 
 
 class TestSearchKnowledgeCitaConAncla:
@@ -75,21 +77,43 @@ class TestSearchKnowledgeCitaConAncla:
 
 class TestReadDocumentNoInventaAncla:
 
-    def test_should_cite_the_whole_document_without_an_anchor(self):
+    @pytest.mark.asyncio
+    async def test_should_cite_the_whole_document_without_an_anchor(self, monkeypatch):
         """Un documento entero no tiene un artículo al que apuntar.
 
-        `AgenticRetrievalStrategy.read` devuelve `canonical_url`, y eso es lo correcto: la
-        alternativa —elegir un ancla cualquiera del documento— produciría una cita que abre
+        La alternativa —elegir un ancla cualquiera del documento— produciría una cita que abre
         un artículo que no fundamenta nada, y el contrato de citas la aceptaría porque el
         ancla **existe**.
+
+        #334: la URL ya no es `canonical_url` tal cual sino `url_de_cita(doc, None)` —la página
+        del sitio en vez del PDF, como el vectorial—, y sin metadatos de fragmento no hay ancla
+        que poner. Se comprueba el resultado y no el código fuente, que es lo que cambió.
         """
-        from server.app.modules.agents_hub.services.retrieval import agentic_strategy
+        import uuid
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock
 
-        fuente = inspect.getsource(agentic_strategy.AgenticRetrievalStrategy.read)
+        from server.app.modules.agents_hub.services.retrieval.agentic_strategy import (
+            AgenticRetrievalStrategy,
+        )
+        from server.app.modules.agents_hub.services.retrieval.citations import BASE_DEL_SITIO
 
-        assert '"url": doc.canonical_url' in fuente
-        assert "with_anchor" not in fuente
-        assert "url_de_cita" not in fuente
+        monkeypatch.setenv(BASE_DEL_SITIO, "https://normativa.example.org")
+        doc = SimpleNamespace(
+            title="Reglament", canonical_url="https://example.org/r.pdf#art-3",
+            doc_metadata={"relative_path": "val_Reglament.md"}, source_kind="corpus",
+            markdown_content="## Article 3 {#art-3}", language="ca", token_count=10,
+            estat_vigencia=None,
+        )
+        sesion = AsyncMock()
+        sesion.get = AsyncMock(return_value=doc)
+        estrategia = AgenticRetrievalStrategy(sesion)
+        monkeypatch.setattr(estrategia, "_variant_id", AsyncMock(return_value=None))
+
+        leido = await estrategia.read(uuid.uuid4())
+
+        assert leido is not None
+        assert "#" not in leido["url"]
 
     def test_should_not_grow_an_anchor_on_a_whole_document_read(self):
         """Guardarraíl del arreglo equivocado.

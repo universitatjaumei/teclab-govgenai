@@ -29,6 +29,7 @@ from server.app.modules.agents_hub.agent.public_graphs.strategies.retrieval_cont
     EvidenceItem,
     RetrievalResult,
 )
+from server.app.modules.agents_hub.services.retrieval.citations import url_de_cita
 from server.app.modules.agents_hub.services.retrieval.metadata_filter import MetadataFilter
 
 logger = logging.getLogger(__name__)
@@ -131,18 +132,20 @@ class DocumentIndexProvider:
                 notas = {}
                 self.scores_medidos = False
 
-        return [
-            EvidenceItem(
-                source_id=str(d.id),
-                content=f"{(d.title or '(sin título)')[:INDEX_TITLE_MAX]} (id: {d.id})",
-                source_url=d.canonical_url,
-                title=d.title,
-                language=d.language,
-                score=notas.get(d.id, 1.0),
-                metadata={"index_entry": True, "score_medido": d.id in notas},
-            )
-            for d in documentos
-        ]
+        return [_a_evidencia(d, notas) for d in documentos]
+
+
+def _a_evidencia(d, notas: dict) -> EvidenceItem:
+    """La entrada del índice de un documento, citada como la cita el vectorial (#334)."""
+    return EvidenceItem(
+        source_id=str(d.id),
+        content=f"{(d.title or '(sin título)')[:INDEX_TITLE_MAX]} (id: {d.id})",
+        source_url=url_de_cita(d, None),
+        title=d.title,
+        language=d.language,
+        score=notas.get(d.id, 1.0),
+        metadata={"index_entry": True, "score_medido": d.id in notas},
+    )
 
 
 class MdAgentSelectorPipeline:

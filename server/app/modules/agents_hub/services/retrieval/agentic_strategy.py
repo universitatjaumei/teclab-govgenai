@@ -24,6 +24,7 @@ from server.app.modules.agents_hub.agent.tools.list_documents import list_docume
 from server.app.modules.agents_hub.agent.tools.read_document import read_document
 from server.app.modules.agents_hub.agent.tools.search_knowledge import search_knowledge
 from server.app.modules.agents_hub.database.operational_models import HubDocument
+from server.app.modules.agents_hub.services.retrieval.citations import url_de_cita
 from server.app.modules.agents_hub.services.retrieval.metadata_filter import MetadataFilter
 from server.app.modules.agents_hub.services.retrieval.types import RetrievalContext
 from server.app.modules.agents_hub.services.retrieval.metadata_filter import (
@@ -99,7 +100,7 @@ class AgenticRetrievalStrategy:
             {
                 "id": str(d.id),
                 "title": d.title,
-                "url": d.canonical_url,
+                "url": url_de_cita(d, None),
                 "language": d.language,
                 "token_count": d.token_count,
                 "resum_router": (d.doc_metadata or {}).get("resum_router"),
@@ -123,7 +124,8 @@ class AgenticRetrievalStrategy:
             return None
         return {
             "title": doc.title,
-            "url": doc.canonical_url,
+            # #334 — la URL que cita el vectorial: la página del sitio, no el PDF.
+            "url": url_de_cita(doc, None),
             "markdown_content": doc.markdown_content,
             "language": doc.language,
             # Lo que cuesta leerlo entero. El loop lo necesita para no volcar en la
