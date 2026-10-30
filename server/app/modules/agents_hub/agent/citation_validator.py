@@ -170,6 +170,17 @@ def citas_de(texto: str) -> list[tuple[str, str]]:
     return [(titulo, url.strip()) for titulo, url in _MD_LINK.findall(texto)]
 
 
+def evidencias_citadas(texto: str, evidencias: list) -> list:
+    """Las evidencias que el texto cita, en el orden en que llegaron (#335).
+
+    Cuenta el documento, no el ancla: una cita a `página#art-3` es de la evidencia `página`. Es
+    para el modo de contexto largo, donde todo el corpus es citable y devolverlo entero como
+    fuentes no informa de nada.
+    """
+    citadas = {_sin_fragmento(url) for _titulo, url in citas_de(texto)}
+    return [e for e in evidencias if (u := _url_de(e)) and _sin_fragmento(u) in citadas]
+
+
 class ResultadoDelContrato:
     """El texto que el contrato deja, y el desglose de lo que hizo para dejarlo.
 
