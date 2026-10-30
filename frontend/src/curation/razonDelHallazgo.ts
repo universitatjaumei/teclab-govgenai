@@ -51,6 +51,13 @@ export function razonDelHallazgo(hallazgo: HallazgoConSenal, t: Traductor): stri
         : t('reason_thin', { tokens, umbral })
     }
 
+    case 'navigation': {
+      const enlaces = numero(s.enlaces)
+      const propio = numero(s.texto_propio)
+      if (enlaces === null || propio === null) return ''
+      return t('reason_navigation', { enlaces, propio })
+    }
+
     case 'duplicate':
     case 'contradiction': {
       const similitud = numero(s.similarity)

@@ -44,6 +44,7 @@ from server.app.modules.agents_hub.database.connection import (
     create_async_engine,
     create_session_factory,
 )
+from server.app.modules.agents_hub.database.seeds import hay_modelo_por_defecto
 
 # Claves naturales del sembrado. Cambiarlas rompe la idempotencia sobre
 # instalaciones ya sembradas: crearía un segundo juego de entidades.
@@ -269,7 +270,10 @@ async def _sembrar(
                         model_name="llama3.1:8b",
                         label="Modelo local por defecto",
                         tier=1,
-                        is_default=True,
+                        # #343 — sólo si nadie eligió otro antes: una semilla no se impone.
+                        is_default=not await hay_modelo_por_defecto(
+                            session, tier=1, purpose="chat"
+                        ),
                     )
                     session.add(llm_config)
                     informe.registrar("Configuración de LLM por defecto", True)

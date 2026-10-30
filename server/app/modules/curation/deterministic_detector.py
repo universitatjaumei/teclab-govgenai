@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from typing import Any, Callable
 from urllib.parse import urlparse
 
+from server.app.modules.agents_hub.ingestion.markdown_utils import estimate_tokens
 from server.app.modules.curation.contracts import ContentFinding
 
 _YEAR_SEG = re.compile(r"/((?:19|20)\d{2})(?=/|$)")
@@ -151,11 +152,19 @@ class DeterministicQualityDetector:
         thin_token_threshold: int = 120,
         stale_days: int = 365,
         version_series_policy: str = "series",
+        nav_max_texto_propio: int = 20,
+        nav_min_enlaces: int = 2,
         now_fn: Callable[[], datetime] | None = None,
     ) -> None:
         self._session = session
         self._repo = finding_repo
         self._thin_threshold = thin_token_threshold
+        # #345 — calibrados con las 32 páginas «Escassa» del apartado de la Escola de Doctorat: las
+        # de navegación tenían 0–6 tokens de texto propio y 4–8 líneas de enlace; las escasas de
+        # verdad, 24 o más. Son de cada sitio, como el umbral de `thin`.
+        self._nav_max_texto_propio = nav_max_texto_propio
+        self._nav_min_enlaces = nav_min_enlaces
+        self._thin_descartadas: set[uuid.UUID] = set()
         self._stale_days = stale_days
         # CUR.2.1 — qué significa un grupo de versiones por año **en este sitio**: series todas
         # vigentes, la nueva deroga a la vieja, o el año no significa nada. Lo decide la
@@ -165,6 +174,7 @@ class DeterministicQualityDetector:
 
     async def analyze(self, site_id: uuid.UUID) -> list[ContentFinding]:
         from server.app.modules.agents_hub.database.operational_models import (
+            HubContentFinding,
             HubCrawledPage,
             HubDocument,
         )
@@ -192,6 +202,18 @@ class DeterministicQualityDetector:
             doc_result = await self._session.execute(doc_stmt)
             for doc in doc_result.scalars().all():
                 orphan_page_ids.add(doc.crawled_page_id)
+
+        # #345 — las páginas cuya `thin` descartó quien cura: si ahora salen como de navegación,
+        # ese juicio se conserva (ver `_check_page`).
+        descartadas = select(HubContentFinding.page_id).where(
+            HubContentFinding.site_id == site_id,
+            HubContentFinding.finding_type == "thin",
+            HubContentFinding.status == "dismissed",
+        )
+        descartadas._model_hint = "finding"  # type: ignore[attr-defined]
+        self._thin_descartadas = set(
+            (await self._session.execute(descartadas)).scalars().all()
+        )
 
         # CUR.2 — primero los hallazgos **de grupo**, porque son los específicos y se comen a los
         # genéricos: una página que pertenece a una serie anual o a un par de duplicados no vuelve a
@@ -280,19 +302,59 @@ class DeterministicQualityDetector:
                 now=now,
             ))
         elif page.token_count is not None and page.token_count < self._thin_threshold:
-            results.append(self._finding(
+            # #345 — una escasa cuyo texto son enlaces es de navegación: estructura, no defecto.
+            navegacion = self._de_navegacion(page)
+            hallazgo = self._finding(
                 site_id=site_id,
-                finding_type="thin",
-                severity="warning",
+                finding_type="thin" if navegacion is None else "navigation",
+                severity="warning" if navegacion is None else "info",
                 confidence=1.0,
                 page_id=page.id,
                 source_url=page.url,
-                signal={"token_count": page.token_count, "threshold": self._thin_threshold},
+                signal={"token_count": page.token_count, "threshold": self._thin_threshold,
+                        **(navegacion or {})},
                 now=now,
-            ))
+            )
+            # Revisión de la PR #347: si quien cura ya dijo que esta página está bien cuando salía
+            # como `thin`, el tipo nuevo no se lo vuelve a preguntar.
+            if navegacion is not None and page.id in self._thin_descartadas:
+                hallazgo = hallazgo.model_copy(update={"status": "dismissed"})
+            results.append(hallazgo)
 
         results.extend(self._otros_hallazgos(page, site_id, now, orphan_page_ids))
         return results
+
+    def _de_navegacion(self, page: Any) -> dict[str, int] | None:
+        """La medida de la página si es de navegación, o `None` (#345).
+
+        De navegación: su texto son enlaces. Se cruzan las líneas del texto guardado con los textos
+        de enlace de la misma zona; lo que no es enlace —el título incluido— es texto propio. Sin
+        textos de enlace medidos (páginas rastreadas antes de #345) no se afirma nada.
+        """
+        enlaces = getattr(page, "textos_de_enlace", None)
+        if enlaces is None or not page.markdown_content:
+            return None
+        # Los largos primero: «La Comissió de Qualitat» antes que «Qualitat».
+        de_enlace = sorted(set(enlaces), key=len, reverse=True)
+        n_enlaces = 0
+        propio: list[str] = []
+        for linea in (linea.strip() for linea in page.markdown_content.splitlines()):
+            if not linea:
+                continue
+            # Revisión de la PR #347: dos enlaces en un mismo `<p>` son una sola línea, que no
+            # casaba entera con ninguno. Se quitan de la línea los textos de enlace que contiene —y
+            # se cuentan—; lo que queda es texto propio, así que una frase con un enlace dentro
+            # sigue contando casi entera.
+            resto = linea
+            for texto in de_enlace:
+                if texto in resto:
+                    n_enlaces += resto.count(texto)
+                    resto = resto.replace(texto, " ")
+            propio.append(resto.strip())
+        texto_propio = estimate_tokens("\n".join(trozo for trozo in propio if trozo))
+        if n_enlaces < self._nav_min_enlaces or texto_propio > self._nav_max_texto_propio:
+            return None
+        return {"enlaces": n_enlaces, "texto_propio": texto_propio}
 
     def _otros_hallazgos(
         self,

@@ -58,6 +58,25 @@ async def _seed_providers(session: AsyncSession) -> None:
     logger.info("Proveedores del hub verificados o creados")
 
 
+async def hay_modelo_por_defecto(session: AsyncSession, *, tier: int, purpose: str) -> bool:
+    """¿Tiene ya la plataforma un modelo por defecto en ese nivel y propósito? (#343)
+
+    Una semilla no se impone: si alguien eligió uno, la suya entra sin la marca. Así se juntaron
+    tres en producción —esta semilla, la de `bootstrap` y la que puso una persona—, y el que se
+    usaba lo decidía la base.
+    """
+    return (
+        await session.execute(
+            select(HubLLMConfig.id).where(
+                HubLLMConfig.tier == tier,
+                HubLLMConfig.purpose == purpose,
+                HubLLMConfig.is_default.is_(True),
+                HubLLMConfig.organizacion_id.is_(None),
+            )
+        )
+    ).first() is not None
+
+
 async def _seed_llm_config(session: AsyncSession) -> None:
     existing = await session.get(HubLLMConfig, _DEV_LLM_CONFIG_ID)
     if existing:
@@ -66,12 +85,14 @@ async def _seed_llm_config(session: AsyncSession) -> None:
         HubLLMConfig(
             id=_DEV_LLM_CONFIG_ID,
             provider="google",
-            model_name="gemini-2.0-flash",
+            # #343 — era `gemini-2.0-flash`, retirado por Google: una instalación nueva nacía con
+            # el modelo por defecto roto.
+            model_name="gemini-2.5-flash",
             temperature=0.7,
             max_tokens=2048,
             tier=1,
-            label="Gemini Flash 2.0",
-            is_default=True,
+            label="Gemini 2.5 Flash",
+            is_default=not await hay_modelo_por_defecto(session, tier=1, purpose="chat"),
             api_key_secret_name="GOOGLE_API_KEY",
         )
     )

@@ -5,6 +5,8 @@ Deploy: edge — el copilot consume LLM + embeddings + factories del módulo red
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,8 +25,12 @@ from server.app.modules.redaccion.services.copilot import (
     CopilotTranslateRequest,
     CopilotTranslateResponse,
 )
+from server.app.modules.redaccion.services.copilot.copilot_service import ElModeloNoResponde
 from server.app.modules.redaccion.services.copilot.docs_retriever import DocsRetriever
+from server.app.routers.redaccion._actor import nombre_del_modelo
 
+
+_log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/redaccion/copilot", tags=["redaccion-copilot"],
     # INF.7 — el modulo se exige a nivel de router: asi no se puede olvidar en un
@@ -124,12 +130,27 @@ async def ask_copilot(
                 workspace_id=body.workspace_id,
             )
 
-    return await service.answer(
-        question=body.question,
-        module=body.module,
-        top_k=body.top_k,
-        contexto_del_informe=contexto,
-    )
+    try:
+        return await service.answer(
+            question=body.question,
+            module=body.module,
+            top_k=body.top_k,
+            contexto_del_informe=contexto,
+        )
+    except ElModeloNoResponde as fallo:
+        # #344 — era un 500 sin explicación. Lo mismo que el 503 de arriba: decir qué mirar.
+        # El motivo del proveedor va al registro y no a la pantalla (revisión de la PR #347): lo ve
+        # cualquiera con el módulo de Informes, y un SDK puede meter ahí la URL con su clave o la
+        # dirección interna del modelo.
+        modelo = nombre_del_modelo(fallo.modelo)
+        _log.warning("El modelo %s no ha respondido al Copilot: %s", modelo, fallo.motivo)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=(
+                f"El modelo «{modelo}» no ha respondido. Si persiste, quien administra la "
+                "plataforma tiene que revisar el modelo del nivel 1 en Modelos IA."
+            ),
+        ) from fallo
 
 
 @router.post("/translate", response_model=CopilotTranslateResponse)

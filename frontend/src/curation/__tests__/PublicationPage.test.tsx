@@ -143,3 +143,23 @@ describe('PublicationPage (curation)', () => {
     })
   })
 })
+
+describe('PublicationPage: una página de navegación no se publica (#345)', () => {
+  it('su botón y su casilla están desactivados y la fila dice por qué, como dice el servidor', async () => {
+    mockSites.list = [SITE]
+    mockChatbots.list = [CHATBOT]
+    mockCandidates.list = [{ ...CANDIDATE_A, de_navegacion: true }, CANDIDATE_B]
+
+    const { PublicationPage } = await import('../PublicationPage')
+    render(wrap(<PublicationPage />))
+    elegirSitioYChatbot()
+
+    await waitFor(() => screen.getByText('https://ej.es/a'))
+    const botones = screen.getAllByText(/^ingerir$/i)
+    expect(botones[0]).toBeDisabled()
+    expect(botones[1]).toBeEnabled()
+    const fila = screen.getByText('https://ej.es/a').closest('tr') as HTMLElement
+    expect(fila.querySelector('input[type="checkbox"]')).toBeDisabled()
+    expect(fila.textContent).toMatch(/navegaci/i)
+  })
+})

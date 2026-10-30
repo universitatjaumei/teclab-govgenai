@@ -243,6 +243,11 @@ class HubCrawledPage(HubOperationalBase):
         JSONB, nullable=True, default=list
     )
 
+    # #345 — el texto de cada enlace de la zona de contenido. `markdown_content` ya no tiene
+    # etiquetas, y saber qué líneas eran enlaces es lo que separa una página de navegación de una
+    # escasa. Se recoge al rastrear, como `render_signals`. Nulo = rastreada antes de #345.
+    textos_de_enlace: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+
     # CUR.1 — la fecha que la propia página publica y la unidad que la mantiene. El portal las sirve
     # en el HTML y las estábamos ignorando: `stale` adivinaba la antigüedad del año más reciente
     # citado en el texto y marcaba tres de cada cuatro páginas. Con esto, «desactualizada» es un

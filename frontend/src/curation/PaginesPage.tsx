@@ -131,8 +131,13 @@ export function PaginesPage() {
                       type="checkbox"
                       checked={!!p.propuesta_at}
                       onChange={() => alternar(p)}
+                      // #345 — lo decide el servidor; retirar una propuesta anterior sí se puede.
+                      disabled={!!p.de_navegacion && !p.propuesta_at}
                       aria-label={t('pages_propose_aria', { page: p.title ?? p.url })}
                     />
+                    {p.de_navegacion && (
+                      <span className="text-xs text-muted-foreground">{t('pages_navigation')}</span>
+                    )}
                     {p.propuesta_at && (
                       <span className="text-xs text-muted-foreground">
                         {t('pages_proposed_by', {

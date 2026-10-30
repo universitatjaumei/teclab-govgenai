@@ -67,7 +67,8 @@ Las dos son **criterios de juicio**, así que se ponen en el sitio y se pueden s
 sección (nulo hereda). Un apartado que alimenta al asistente puede ser más exigente que su portal.
 
 **Puerta de calidad** — `tipos_bloqueantes`. Por defecto los de legibilidad: `empty`,
-`needs_javascript`, `crawl_error` y `thin`. `stale` **no** bloquea: dice que la página es vieja, no
+`needs_javascript`, `crawl_error`, `thin` y `navigation` (#345: las páginas cuyo texto son enlaces,
+que antes salían como `thin`; una lista que bloquea `thin` bloquea también `navigation`). `stale` **no** bloquea: dice que la página es vieja, no
 que no se pueda leer, y bloquear por eso dejaría fuera medio portal. Una lista puesta **sustituye**
 al defecto, en los dos sentidos: se puede endurecer y se puede relajar.
 

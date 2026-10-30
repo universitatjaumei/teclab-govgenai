@@ -143,7 +143,7 @@ export function FindingsPage() {
                   `retirada_masiva_detenida` (la salvaguarda paró una retirada entera). El
                   segundo es el más importante de la lista: si no se ve, la única señal de que la
                   automatización se detuvo se queda en el log del servidor. */}
-              {['superseded','duplicate','contradiction','empty','thin','stale','crawl_error','orphan_page','needs_javascript','content_updated','version_series','page_gone','retirada_masiva_detenida','auto_ingesta_detenida'].map((ft) => (
+              {['superseded','duplicate','contradiction','empty','thin','navigation','stale','crawl_error','orphan_page','needs_javascript','content_updated','version_series','page_gone','retirada_masiva_detenida','auto_ingesta_detenida'].map((ft) => (
                 <option key={ft} value={ft}>{t(`type_${ft}` as Parameters<typeof t>[0])}</option>
               ))}
             </select>

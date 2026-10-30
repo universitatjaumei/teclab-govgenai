@@ -20,6 +20,9 @@ FindingType = Literal[
     "contradiction",
     "empty",
     "thin",
+    # #345: una página escasa cuyo texto son enlaces. No es un defecto, es estructura del portal,
+    # y mezclada con `thin` llenaba de ruido la cola de las escasas de verdad.
+    "navigation",
     # RAS.5: una pagina que ya estaba en el corpus de un asistente ha cambiado en el portal y se
     # ha reingerido. No es un defecto: es el aviso de que lo que el asistente responde sobre esa
     # pagina ha cambiado, para poder revisarlo. Antes el cambio se detectaba y no se propagaba.

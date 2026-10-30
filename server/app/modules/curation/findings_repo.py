@@ -26,6 +26,25 @@ ESTADOS_ABIERTOS = ("new", "confirmed")
 FILTRO_ABIERTOS = "open"
 
 
+async def paginas_de_navegacion(
+    session: AsyncSession, site_id: uuid.UUID, page_id: uuid.UUID | None = None
+) -> set[uuid.UUID]:
+    """Los ids de las páginas del sitio con un hallazgo `navigation` abierto (#345).
+
+    Una sola consulta para las tres puertas —proponer, Publicació y la ingesta manual—: si cada una
+    tuviera la suya, una página bloqueada en una se colaría por otra. Abierto y no descartado:
+    descartarlo es decir que el detector se equivocó, y entonces la página vuelve a poder usarse.
+    """
+    consulta = select(HubContentFinding.page_id).where(
+        HubContentFinding.site_id == site_id,
+        HubContentFinding.finding_type == "navigation",
+        HubContentFinding.status.in_(ESTADOS_ABIERTOS),
+    )
+    if page_id is not None:
+        consulta = consulta.where(HubContentFinding.page_id == page_id)
+    return {fila for fila in (await session.execute(consulta)).scalars().all() if fila is not None}
+
+
 class ContentFindingRepo:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session

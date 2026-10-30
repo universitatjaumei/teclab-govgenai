@@ -379,6 +379,16 @@ def test_ingest_page_returns_202(monkeypatch):
         "server.app.routers.hub_sites_router._servicio_que_puede_ingerir", _servicio_doble
     )
 
+    # #345 — la puerta de las páginas de navegación consulta los hallazgos, y esta sesión es un
+    # doble. Se prueba contra la base en
+    # `tests/modules/curation/integration/test_issue345_la_navegacion_no_se_propone.py`.
+    async def _no_es_de_navegacion(sesion, pid):
+        return None
+
+    monkeypatch.setattr(
+        "server.app.modules.curation.sitios.rechazar_si_es_de_navegacion", _no_es_de_navegacion
+    )
+
     from server.app.routers.hub_sites_router import router
     app = FastAPI()
     from server.app.api.deps import get_session

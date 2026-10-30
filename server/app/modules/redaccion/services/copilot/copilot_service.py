@@ -27,6 +27,20 @@ que se te pasan como contexto. Si la respuesta no está en el contexto, di expl�
 Cita las secciones relevantes mencionando el título del documento entre corchetes."""
 
 
+class ElModeloNoResponde(Exception):
+    """La llamada al modelo falló: el proveedor lo rechazó, no respondió o no existe (#344).
+
+    Lleva el modelo para que quien la recoja pueda decir **cuál**; el motivo es la excepción
+    encadenada. Se levanta sólo alrededor de la llamada al modelo: un fallo del buscador no es del
+    modelo, y atribuírselo mandaría a mirar la pantalla equivocada.
+    """
+
+    def __init__(self, modelo: Any, motivo: Exception) -> None:
+        super().__init__(str(motivo))
+        self.modelo = modelo
+        self.motivo = motivo
+
+
 class CopilotService:
     def __init__(
         self,
@@ -78,7 +92,10 @@ class CopilotService:
                 ),
             },
         ]
-        response = await self._llm.ainvoke(messages)
+        try:
+            response = await self._llm.ainvoke(messages)
+        except Exception as fallo:  # el proveedor puede fallar de muchas maneras
+            raise ElModeloNoResponde(self._llm, fallo) from fallo
         raw = texto_de(response)
         return CopilotAnswer(
             answer=raw,

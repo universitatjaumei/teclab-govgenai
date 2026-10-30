@@ -14,6 +14,8 @@ from typing import Any
 
 from sqlalchemy import delete, select
 
+from server.app.modules.curation.findings_repo import paginas_de_navegacion
+
 
 class CorpusSelectionService:
     """Orquesta la selección de corpus para un par (sitio, chatbot)."""
@@ -68,6 +70,9 @@ class CorpusSelectionService:
         # DIN.3 — las secciones a las que apuntan, cargadas antes del bucle: `matches` es
         # sincrónica y aquí se evalúa una vez por página.
         secciones = await self._selection_repo.secciones_de(site_sels)
+        # #345 — Publicació enseña también las no propuestas: sin esto, una página de navegación
+        # se publicaba desde aquí aunque no se pudiera proponer (revisión de la PR #347).
+        de_navegacion = await paginas_de_navegacion(self._session, site_id)
 
         # 4. Construir candidatas
         candidates = []
@@ -91,6 +96,7 @@ class CorpusSelectionService:
                     is_ingested=(page.id in ingested_ids),
                     propuesta_at=getattr(page, "propuesta_at", None),
                     propuesta_por=getattr(page, "propuesta_por", None),
+                    de_navegacion=page.id in de_navegacion,
                 )
             )
 
