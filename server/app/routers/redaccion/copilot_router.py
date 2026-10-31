@@ -18,16 +18,25 @@ from server.app.modules.agents_hub.services.embedding_resolver import (
     resolve_embedding_service,
 )
 from server.app.modules.agents_hub.services.model_factory import get_model_for_tier
+from server.app.modules.redaccion.services.actividades_llm import ActividadLLM, PARA_QUE_SIRVE
+from server.app.modules.redaccion.services.charts.chart_factory import ChartFactory
 from server.app.modules.redaccion.services.copilot import (
     CopilotAnswer,
     CopilotAskRequest,
     CopilotService,
     CopilotTranslateRequest,
     CopilotTranslateResponse,
+    CopilotTranslator,
 )
 from server.app.modules.redaccion.services.copilot.copilot_service import ElModeloNoResponde
 from server.app.modules.redaccion.services.copilot.docs_retriever import DocsRetriever
+from server.app.modules.redaccion.services.copilot.models import CopilotTargetKind
+from server.app.modules.redaccion.services.transformation.etl_factory import ETLFactory
 from server.app.routers.redaccion._actor import nombre_del_modelo
+from server.app.routers.redaccion.scripts_router import (
+    get_script_proposal_service,
+    modelo_de_la_actividad,
+)
 
 
 _log = logging.getLogger(__name__)
@@ -138,30 +147,75 @@ async def ask_copilot(
             contexto_del_informe=contexto,
         )
     except ElModeloNoResponde as fallo:
-        # #344 — era un 500 sin explicación. Lo mismo que el 503 de arriba: decir qué mirar.
-        # El motivo del proveedor va al registro y no a la pantalla (revisión de la PR #347): lo ve
-        # cualquiera con el módulo de Informes, y un SDK puede meter ahí la URL con su clave o la
-        # dirección interna del modelo.
-        modelo = nombre_del_modelo(fallo.modelo)
-        _log.warning("El modelo %s no ha respondido al Copilot: %s", modelo, fallo.motivo)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=(
-                f"El modelo «{modelo}» no ha respondido. Si persiste, quien administra la "
-                "plataforma tiene que revisar el modelo del nivel 1 en Modelos IA."
-            ),
-        ) from fallo
+        raise _no_responde(fallo, "el modelo del nivel 1") from fallo
+
+
+def _no_responde(fallo: ElModeloNoResponde, donde: str) -> HTTPException:
+    """#344 — era un 500 sin explicación. Lo mismo que los 503: decir qué mirar.
+
+    El motivo del proveedor va al registro y no a la pantalla (revisión de la PR #347): lo ve
+    cualquiera con el módulo de Informes, y un SDK puede meter ahí la URL con su clave o la
+    dirección interna del modelo.
+    """
+    modelo = nombre_del_modelo(fallo.modelo)
+    _log.warning("El modelo %s no ha respondido al Copilot: %s", modelo, fallo.motivo)
+    return HTTPException(
+        status_code=status.HTTP_502_BAD_GATEWAY,
+        detail=(
+            f"El modelo «{modelo}» no ha respondido. Si persiste, quien administra la "
+            f"plataforma tiene que revisar {donde} en Modelos IA."
+        ),
+    )
+
+
+#: La actividad de cada modo de traducción, que es la que dice su nivel y su prompt (#348).
+_ACTIVIDAD_DEL_MODO: dict[CopilotTargetKind, ActividadLLM] = {
+    "chart_config": ActividadLLM.CONFIGURACION_DE_GRAFICO,
+    "etl_ops": ActividadLLM.TRANSFORMACION_ETL,
+    "script_proposal": ActividadLLM.PROPUESTA_DE_SCRIPT,
+}
+
+
+async def _traductor(
+    target_kind: CopilotTargetKind, session: AsyncSession, current_user: UserInfo
+) -> CopilotTranslator:
+    """El traductor con **sólo** la fábrica del modo pedido (#348).
+
+    Antes salía de `get_copilot_service`, sin ninguna fábrica: cada traducción era un 500. Se
+    resuelve sólo el modo que se pide porque cada uno tiene su modelo —un gráfico no puede fallar
+    porque falte el auditor de scripts— y sin embeddings, que sólo sirven para buscar en la
+    documentación. El 503 de un nivel sin modelo lo da `modelo_de_la_actividad`.
+    """
+    if target_kind == "script_proposal":
+        propuesta = await get_script_proposal_service(session=session, current_user=current_user)
+        return CopilotTranslator(modelo=propuesta.modelo, script_proposal=propuesta)
+
+    modelo, resuelta = await modelo_de_la_actividad(
+        _ACTIVIDAD_DEL_MODO[target_kind],
+        LocalConfigProvider(session),
+        organizacion_id=organizacion_unica_de(current_user),
+    )
+    fabrica = ChartFactory if target_kind == "chart_config" else ETLFactory
+    instancia = fabrica(modelo, nombre_del_modelo(modelo), system_prompt=resuelta.template_text)
+    if target_kind == "chart_config":
+        return CopilotTranslator(modelo=modelo, chart_factory=instancia)
+    return CopilotTranslator(modelo=modelo, etl_factory=instancia)
 
 
 @router.post("/translate", response_model=CopilotTranslateResponse)
 async def translate_copilot(
     body: CopilotTranslateRequest,
-    user: UserInfo = Depends(get_current_user),  # noqa: ARG001 — autoriza: se pide por su efecto
-    service: CopilotService = Depends(get_copilot_service),
+    user: UserInfo = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
 ) -> CopilotTranslateResponse:
     """Traduce instrucción NL a configuración estructurada (chart / ETL / script)."""
-    return await service.translate_nl_to_config(
-        instruction=body.instruction,
-        target_kind=body.target_kind,
-        sample_schema=body.sample_schema,
-    )
+    traductor = await _traductor(body.target_kind, session, user)
+    try:
+        return await traductor.translate_nl_to_config(
+            instruction=body.instruction,
+            target_kind=body.target_kind,
+            sample_schema=body.sample_schema,
+        )
+    except ElModeloNoResponde as fallo:
+        actividad = _ACTIVIDAD_DEL_MODO[body.target_kind]
+        raise _no_responde(fallo, f"el modelo del nivel que {PARA_QUE_SIRVE[actividad]}") from fallo

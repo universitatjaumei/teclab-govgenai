@@ -4,7 +4,7 @@ Deploy: edge — consume LLM + embeddings + factories del módulo redacción.
 """
 
 from .docs_retriever import DocsRetriever, IndexedChunk
-from .copilot_service import CopilotService
+from .copilot_service import CopilotService, CopilotTranslator
 from .models import (
     CopilotAnswer,
     CopilotTranslateRequest,
@@ -15,6 +15,7 @@ from .models import (
 
 __all__ = [
     "CopilotService",
+    "CopilotTranslator",
     "CopilotAnswer",
     "CopilotAskRequest",
     "CopilotTranslateRequest",

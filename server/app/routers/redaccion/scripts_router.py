@@ -83,7 +83,7 @@ router = APIRouter(prefix="/redaccion/scripts", tags=["redaccion-scripts"],
 # DI overrides
 # ---------------------------------------------------------------------------
 
-async def _modelo_de(
+async def modelo_de_la_actividad(
     actividad: ActividadLLM, proveedor: Any, *, organizacion_id: Any = None
 ):
     """El modelo y el prompt de una actividad, resueltos (PRO.2 + PRO.2.1).
@@ -125,10 +125,10 @@ async def get_script_proposal_service(
     # MT.3 — los dos niveles se resuelven para la misma organización: quien escribe el script y
     # quien lo audita tienen que salir del mismo contrato, o el consumo se reparte entre dos.
     de_quien = organizacion_unica_de(current_user)
-    redactor, propuesta = await _modelo_de(
+    redactor, propuesta = await modelo_de_la_actividad(
         ActividadLLM.PROPUESTA_DE_SCRIPT, proveedor, organizacion_id=de_quien
     )
-    auditor, auditoria = await _modelo_de(
+    auditor, auditoria = await modelo_de_la_actividad(
         ActividadLLM.AUDITORIA_DE_SCRIPT, proveedor, organizacion_id=de_quien
     )
 

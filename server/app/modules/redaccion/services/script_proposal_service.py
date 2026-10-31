@@ -214,6 +214,11 @@ class ScriptProposalService:
         self._system_prompt = system_prompt
         self._auditor_system_prompt = auditor_system_prompt
 
+    @property
+    def modelo(self) -> Any:
+        """El modelo que escribe: el que el Copilot nombra si la propuesta falla (#348)."""
+        return self._llm
+
     async def propose(
         self,
         prompt_nl: str,

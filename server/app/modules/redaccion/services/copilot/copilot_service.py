@@ -1,7 +1,7 @@
-"""Servicio Copilot: dos modos.
+"""Copilot: dos modos, en dos clases (#348).
 
 1. `answer(question, module)`: RAG sobre la documentación interna + síntesis LLM con citas.
-2. `translate_nl_to_config(instruction, target_kind)`: traduce instrucción NL a configuración
+2. `CopilotTranslator.translate_nl_to_config(instruction, target_kind)`: traduce instrucción NL a configuración
    estructurada para los wizards (chart, ETL, script proposal).
 """
 
@@ -42,19 +42,9 @@ class ElModeloNoResponde(Exception):
 
 
 class CopilotService:
-    def __init__(
-        self,
-        llm: Any,
-        retriever: DocsRetriever,
-        chart_factory: Any | None = None,
-        etl_factory: Any | None = None,
-        script_proposal: Any | None = None,
-    ) -> None:
+    def __init__(self, llm: Any, retriever: DocsRetriever) -> None:
         self._llm = llm
         self._retriever = retriever
-        self._chart_factory = chart_factory
-        self._etl_factory = etl_factory
-        self._script_proposal = script_proposal
 
     async def answer(
         self,
@@ -102,6 +92,28 @@ class CopilotService:
             source_refs=[c.to_source_ref() for c in chunks],
         )
 
+
+class CopilotTranslator:
+    """El modo traducción: instrucción en lenguaje natural → configuración de un asistente (#348).
+
+    Estaba dentro de `CopilotService`, que el router construía con el modelo del nivel 1 y el
+    buscador de documentación y **sin ninguna fábrica**: cada traducción era un 500. Va aparte
+    porque no comparte nada con el modo pregunta: no busca en la documentación, y cada modo
+    tiene el modelo y el prompt de su actividad. `modelo` es el que se nombra si falla.
+    """
+
+    def __init__(
+        self,
+        modelo: Any,
+        chart_factory: Any | None = None,
+        etl_factory: Any | None = None,
+        script_proposal: Any | None = None,
+    ) -> None:
+        self._modelo = modelo
+        self._chart_factory = chart_factory
+        self._etl_factory = etl_factory
+        self._script_proposal = script_proposal
+
     async def translate_nl_to_config(
         self,
         instruction: str,
@@ -109,9 +121,21 @@ class CopilotService:
         sample_schema: dict[str, Any] | None = None,
     ) -> CopilotTranslateResponse:
         schema = sample_schema or {}
+        try:
+            return await self._traducir(instruction, target_kind, schema)
+        except ValueError:
+            raise
+        except Exception as fallo:  # el proveedor puede fallar de muchas maneras
+            # #348 — las fábricas ya absorben las respuestas que no se entienden (reintentan o
+            # bajan al script), así que lo que sale de ellas es la llamada al modelo.
+            raise ElModeloNoResponde(self._modelo, fallo) from fallo
+
+    async def _traducir(
+        self, instruction: str, target_kind: CopilotTargetKind, schema: dict[str, Any]
+    ) -> CopilotTranslateResponse:
         if target_kind == "chart_config":
             if self._chart_factory is None:
-                raise ValueError("ChartFactory no configurada en este CopilotService")
+                raise ValueError("ChartFactory no configurada en este CopilotTranslator")
             # PRO.8 — esto llamaba a `generate_script`, así que el `target_kind` mentía: pedía
             # una configuración y devolvía código. Ahora devuelve configuración cuando la
             # petición cabe en el catálogo, y baja al script sólo cuando no cabe.
@@ -123,7 +147,7 @@ class CopilotService:
             )
         if target_kind == "etl_ops":
             if self._etl_factory is None:
-                raise ValueError("ETLFactory no configurada en este CopilotService")
+                raise ValueError("ETLFactory no configurada en este CopilotTranslator")
             result = await self._etl_factory.generate_operations_from_nl(
                 nl_prompt=instruction, schema=schema
             )
@@ -132,7 +156,7 @@ class CopilotService:
             )
         if target_kind == "script_proposal":
             if self._script_proposal is None:
-                raise ValueError("ScriptProposalService no configurado en este CopilotService")
+                raise ValueError("ScriptProposalService no configurado en este CopilotTranslator")
             result = await self._script_proposal.propose(
                 prompt_nl=instruction, sample_schema=schema or None
             )
