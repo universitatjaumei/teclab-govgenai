@@ -14,7 +14,7 @@ from typing import Any
 import pytest
 
 from server.app.modules.redaccion.services.charts.chart_factory import ChartFactory
-from server.app.modules.redaccion.services.copilot.copilot_service import CopilotService
+from server.app.modules.redaccion.services.copilot.copilot_service import CopilotTranslator
 
 
 class _LLMQueDevuelve:
@@ -146,9 +146,7 @@ async def test_el_copiloto_devuelve_la_configuracion_y_no_el_script() -> None:
             }
         )
     )
-    servicio = CopilotService(
-        llm=llm, retriever=None, chart_factory=ChartFactory(llm, "m")
-    )
+    servicio = CopilotTranslator(chart_factory=ChartFactory(llm, "m"))
     respuesta = await servicio.translate_nl_to_config(
         instruction="una tarta del reparto por capítulo",
         target_kind="chart_config",

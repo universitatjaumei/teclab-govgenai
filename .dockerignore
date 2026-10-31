@@ -29,3 +29,7 @@ data/
 *.md
 .claude/
 .github/
+
+# #346 — la ayuda del Copilot sí va a la imagen. Va después de cualquier exclusión de Markdown:
+# en `.dockerignore` gana la última regla que casa.
+!docs/ayuda/

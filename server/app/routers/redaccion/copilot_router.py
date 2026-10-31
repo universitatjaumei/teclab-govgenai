@@ -18,16 +18,28 @@ from server.app.modules.agents_hub.services.embedding_resolver import (
     resolve_embedding_service,
 )
 from server.app.modules.agents_hub.services.model_factory import get_model_for_tier
+from server.app.modules.redaccion.services.actividades_llm import ActividadLLM
+from server.app.modules.redaccion.services.charts.chart_factory import ChartFactory
 from server.app.modules.redaccion.services.copilot import (
     CopilotAnswer,
     CopilotAskRequest,
     CopilotService,
     CopilotTranslateRequest,
     CopilotTranslateResponse,
+    CopilotTranslator,
 )
-from server.app.modules.redaccion.services.copilot.copilot_service import ElModeloNoResponde
+from server.app.modules.redaccion.services.copilot.copilot_service import (
+    ElModeloNoResponde,
+    ModeloVigilado,
+)
 from server.app.modules.redaccion.services.copilot.docs_retriever import DocsRetriever
+from server.app.modules.redaccion.services.copilot.models import CopilotTargetKind
+from server.app.modules.redaccion.services.transformation.etl_factory import ETLFactory
 from server.app.routers.redaccion._actor import nombre_del_modelo
+from server.app.routers.redaccion.scripts_router import (
+    construir_propuesta,
+    modelo_de_la_actividad,
+)
 
 
 _log = logging.getLogger(__name__)
@@ -40,10 +52,10 @@ router = APIRouter(prefix="/redaccion/copilot", tags=["redaccion-copilot"],
 )
 
 #: El **retriever** se conserva entre peticiones, no el servicio entero: es donde vive el
-#: índice, y uno nuevo por petición volvería a embeber los ~387 fragmentos de `docs/` en cada
-#: pregunta. El servicio sí se construye cada vez, para que cambiar el modelo en el panel tenga
-#: efecto sin reiniciar. El índice es de la documentación del proyecto, que no cambia sin un
-#: despliegue; si algún día hace falta invalidarlo en caliente, será otro prompt.
+#: índice, y uno nuevo por petición volvería a embeber toda la ayuda (`docs/ayuda/`, #346) en
+#: cada pregunta. El servicio sí se construye cada vez, para que cambiar el modelo en el panel
+#: tenga efecto sin reiniciar. La ayuda no cambia sin un despliegue; si algún día hace falta
+#: invalidar el índice en caliente, será otro prompt.
 _retriever: DocsRetriever | None = None
 
 
@@ -138,30 +150,78 @@ async def ask_copilot(
             contexto_del_informe=contexto,
         )
     except ElModeloNoResponde as fallo:
-        # #344 — era un 500 sin explicación. Lo mismo que el 503 de arriba: decir qué mirar.
-        # El motivo del proveedor va al registro y no a la pantalla (revisión de la PR #347): lo ve
-        # cualquiera con el módulo de Informes, y un SDK puede meter ahí la URL con su clave o la
-        # dirección interna del modelo.
-        modelo = nombre_del_modelo(fallo.modelo)
-        _log.warning("El modelo %s no ha respondido al Copilot: %s", modelo, fallo.motivo)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=(
-                f"El modelo «{modelo}» no ha respondido. Si persiste, quien administra la "
-                "plataforma tiene que revisar el modelo del nivel 1 en Modelos IA."
-            ),
-        ) from fallo
+        raise _no_responde(fallo, "el modelo del nivel 1") from fallo
+
+
+def _no_responde(fallo: ElModeloNoResponde, donde: str) -> HTTPException:
+    """#344 — era un 500 sin explicación. Lo mismo que los 503: decir qué mirar.
+
+    El motivo del proveedor va al registro y no a la pantalla (revisión de la PR #347): lo ve
+    cualquiera con el módulo de Informes, y un SDK puede meter ahí la URL con su clave o la
+    dirección interna del modelo.
+    """
+    modelo = nombre_del_modelo(fallo.modelo)
+    _log.warning("El modelo %s no ha respondido al Copilot: %s", modelo, fallo.motivo)
+    return HTTPException(
+        status_code=status.HTTP_502_BAD_GATEWAY,
+        detail=(
+            f"El modelo «{modelo}» no ha respondido. Si persiste, quien administra la "
+            f"plataforma tiene que revisar {donde} en Modelos IA."
+        ),
+    )
+
+
+#: La actividad de cada modo de traducción, que es la que dice su nivel y su prompt (#348).
+_ACTIVIDAD_DEL_MODO: dict[CopilotTargetKind, ActividadLLM] = {
+    "chart_config": ActividadLLM.CONFIGURACION_DE_GRAFICO,
+    "etl_ops": ActividadLLM.TRANSFORMACION_ETL,
+    "script_proposal": ActividadLLM.PROPUESTA_DE_SCRIPT,
+}
+
+
+async def _traductor(
+    target_kind: CopilotTargetKind, session: AsyncSession, current_user: UserInfo
+) -> CopilotTranslator:
+    """El traductor con **sólo** la fábrica del modo pedido (#348).
+
+    Antes salía de `get_copilot_service`, sin ninguna fábrica: cada traducción era un 500. Se
+    resuelve sólo el modo que se pide porque cada uno tiene su modelo —un gráfico no puede fallar
+    porque falte el auditor de scripts— y sin embeddings, que sólo sirven para buscar en la
+    documentación. El 503 de un nivel sin modelo lo da `modelo_de_la_actividad`.
+    """
+    if target_kind == "script_proposal":
+        propuesta = await construir_propuesta(session, current_user, envolver=ModeloVigilado)
+        return CopilotTranslator(script_proposal=propuesta)
+
+    modelo, resuelta = await modelo_de_la_actividad(
+        _ACTIVIDAD_DEL_MODO[target_kind],
+        LocalConfigProvider(session),
+        organizacion_id=organizacion_unica_de(current_user),
+    )
+    vigilado = ModeloVigilado(modelo)
+    nombre = nombre_del_modelo(modelo)
+    if target_kind == "chart_config":
+        return CopilotTranslator(
+            chart_factory=ChartFactory(vigilado, nombre, system_prompt=resuelta.template_text)
+        )
+    return CopilotTranslator(
+        etl_factory=ETLFactory(vigilado, nombre, system_prompt=resuelta.template_text)
+    )
 
 
 @router.post("/translate", response_model=CopilotTranslateResponse)
 async def translate_copilot(
     body: CopilotTranslateRequest,
-    user: UserInfo = Depends(get_current_user),  # noqa: ARG001 — autoriza: se pide por su efecto
-    service: CopilotService = Depends(get_copilot_service),
+    user: UserInfo = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
 ) -> CopilotTranslateResponse:
     """Traduce instrucción NL a configuración estructurada (chart / ETL / script)."""
-    return await service.translate_nl_to_config(
-        instruction=body.instruction,
-        target_kind=body.target_kind,
-        sample_schema=body.sample_schema,
-    )
+    traductor = await _traductor(body.target_kind, session, user)
+    try:
+        return await traductor.translate_nl_to_config(
+            instruction=body.instruction,
+            target_kind=body.target_kind,
+            sample_schema=body.sample_schema,
+        )
+    except ElModeloNoResponde as fallo:
+        raise _no_responde(fallo, "ese modelo") from fallo
