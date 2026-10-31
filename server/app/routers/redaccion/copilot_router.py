@@ -49,10 +49,10 @@ router = APIRouter(prefix="/redaccion/copilot", tags=["redaccion-copilot"],
 )
 
 #: El **retriever** se conserva entre peticiones, no el servicio entero: es donde vive el
-#: índice, y uno nuevo por petición volvería a embeber los ~387 fragmentos de `docs/` en cada
-#: pregunta. El servicio sí se construye cada vez, para que cambiar el modelo en el panel tenga
-#: efecto sin reiniciar. El índice es de la documentación del proyecto, que no cambia sin un
-#: despliegue; si algún día hace falta invalidarlo en caliente, será otro prompt.
+#: índice, y uno nuevo por petición volvería a embeber toda la ayuda (`docs/ayuda/`, #346) en
+#: cada pregunta. El servicio sí se construye cada vez, para que cambiar el modelo en el panel
+#: tenga efecto sin reiniciar. La ayuda no cambia sin un despliegue; si algún día hace falta
+#: invalidar el índice en caliente, será otro prompt.
 _retriever: DocsRetriever | None = None
 
 

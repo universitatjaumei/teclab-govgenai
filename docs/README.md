@@ -29,6 +29,7 @@ todas envejecen igual:
 | [`Arquitectura.md`](Arquitectura.md) | **Cómo está construida**: los módulos que existen, las dos fronteras —cloud/edge y organización—, datos, recuperación, frontend, despliegue y stack medido |
 | [`INSTALACION.md`](INSTALACION.md) | De clonar a un sistema que responde: los dos caminos, la elección de **modelos locales o por API** con lo que cuesta cada una, las variables que importan y las trampas conocidas |
 | [`GUIA_DE_USO.md`](GUIA_DE_USO.md) | Qué hace cada rol con la plataforma ya instalada: del alta de una organización a un asistente publicado, un informe aprobado o un portal curado |
+| [`ayuda/`](ayuda/) | **La ayuda para quien usa la plataforma**: guías breves por tarea de Informes y Curación, en castellano y en valenciano. Es lo **único** de `docs/` que va en la imagen, porque es lo que consulta el Copilot; el resto está escrito para quien desarrolla (#346). Al añadir una guía, va en las dos lenguas y con el mismo nombre de fichero |
 | [`MULTITENENCIA.md`](MULTITENENCIA.md) | Inventario del ámbito **tabla por tabla**: qué es de la plataforma, qué de cada organización y por qué camino se llega a ella. Lo mantiene honesto su propio test |
 | [`../AGENTS.md`](../AGENTS.md) | Las reglas duras para agentes de programación, y de paso el contrato de estilo del proyecto |
 | [`../CONTRIBUTING.md`](../CONTRIBUTING.md) | Cómo se trabaja aquí |

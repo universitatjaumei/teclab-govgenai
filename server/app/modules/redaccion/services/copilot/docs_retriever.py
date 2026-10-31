@@ -11,6 +11,11 @@ from .models import CopilotModule, SourceRef
 
 _log = logging.getLogger(__name__)
 
+#: La ayuda para quien usa la plataforma (#346), con ruta absoluta: `Path("docs")` dependía del
+#: directorio de trabajo, y apuntaba además a la documentación de desarrollo. Seis carpetas por
+#: encima de este fichero está la raíz del repositorio, y en la imagen, `/app`.
+AYUDA = Path(__file__).resolve().parents[6] / "docs" / "ayuda"
+
 #: El propósito con el que se embebe la documentación. Es el mismo valor que usa la ingesta del
 #: corpus (`embedding_service.PURPOSE_DOCUMENT`), y se escribe aquí para no importar el módulo
 #: de embeddings desde el retriever: lo único que necesita del servicio es su interfaz.
@@ -51,7 +56,7 @@ class DocsRetriever:
         chunk_size: int = 1200,
     ) -> None:
         self._embedding = embedding_service
-        self._docs_dir = docs_dir or Path("docs")
+        self._docs_dir = docs_dir or AYUDA
         self._chunk_size = chunk_size
         self._chunks: list[IndexedChunk] = []
         # PRO.6 — el índice se construye **al primer uso**, no al arrancar. Medido: 46 ficheros

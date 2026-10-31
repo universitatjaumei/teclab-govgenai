@@ -72,6 +72,12 @@ COPY server/app/ ./server/app/
 COPY server/migrations/ ./server/migrations/
 COPY server/alembic.ini ./server/alembic.ini
 
+# #346 — la ayuda del Copilot, y sólo ella. El resto de `docs/` está escrito para quien
+# desarrolla y no debe quedar al alcance de cualquier usuario del módulo de Informes. Sin esta
+# línea el índice sale vacío y el Copilot contesta «No tengo esa información» sin preguntar al
+# modelo, que es como estuvo en producción hasta el 2026-10-31.
+COPY docs/ayuda/ ./docs/ayuda/
+
 ENV PATH="/app/server/.venv/bin:$PATH"
 ENV PYTHONPATH="/app"
 ENV PYTHONUNBUFFERED=1
