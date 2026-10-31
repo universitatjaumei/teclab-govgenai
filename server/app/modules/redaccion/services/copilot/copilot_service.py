@@ -41,6 +41,29 @@ class ElModeloNoResponde(Exception):
         self.motivo = motivo
 
 
+class ModeloVigilado:
+    """Un modelo cuya llamada, si falla, dice que ha sido **él** (revisión de la PR #349).
+
+    El modo traducción pasa por fábricas que llaman al modelo desde dentro —y la de scripts, a dos
+    modelos de dos niveles—. Recoger el fallo fuera atribuía al que escribe lo que fallaba en el
+    auditor, y convertía en «el modelo no responde» cualquier error de la fábrica. Envuelto así,
+    sólo la llamada al modelo levanta `ElModeloNoResponde`, y con el modelo que de verdad falló.
+    El resto de atributos —el nombre, sobre todo— se leen del modelo envuelto.
+    """
+
+    def __init__(self, modelo: Any) -> None:
+        self._modelo = modelo
+
+    async def ainvoke(self, *args: Any, **kwargs: Any) -> Any:
+        try:
+            return await self._modelo.ainvoke(*args, **kwargs)
+        except Exception as fallo:  # el proveedor puede fallar de muchas maneras
+            raise ElModeloNoResponde(self._modelo, fallo) from fallo
+
+    def __getattr__(self, nombre: str) -> Any:
+        return getattr(self._modelo, nombre)
+
+
 class CopilotService:
     def __init__(self, llm: Any, retriever: DocsRetriever) -> None:
         self._llm = llm
@@ -99,17 +122,16 @@ class CopilotTranslator:
     Estaba dentro de `CopilotService`, que el router construía con el modelo del nivel 1 y el
     buscador de documentación y **sin ninguna fábrica**: cada traducción era un 500. Va aparte
     porque no comparte nada con el modo pregunta: no busca en la documentación, y cada modo
-    tiene el modelo y el prompt de su actividad. `modelo` es el que se nombra si falla.
+    tiene el modelo y el prompt de su actividad. Las fábricas llevan sus modelos envueltos en
+    `ModeloVigilado`, que es lo que hace que un fallo nombre al modelo que falló.
     """
 
     def __init__(
         self,
-        modelo: Any,
         chart_factory: Any | None = None,
         etl_factory: Any | None = None,
         script_proposal: Any | None = None,
     ) -> None:
-        self._modelo = modelo
         self._chart_factory = chart_factory
         self._etl_factory = etl_factory
         self._script_proposal = script_proposal
@@ -121,18 +143,6 @@ class CopilotTranslator:
         sample_schema: dict[str, Any] | None = None,
     ) -> CopilotTranslateResponse:
         schema = sample_schema or {}
-        try:
-            return await self._traducir(instruction, target_kind, schema)
-        except ValueError:
-            raise
-        except Exception as fallo:  # el proveedor puede fallar de muchas maneras
-            # #348 — las fábricas ya absorben las respuestas que no se entienden (reintentan o
-            # bajan al script), así que lo que sale de ellas es la llamada al modelo.
-            raise ElModeloNoResponde(self._modelo, fallo) from fallo
-
-    async def _traducir(
-        self, instruction: str, target_kind: CopilotTargetKind, schema: dict[str, Any]
-    ) -> CopilotTranslateResponse:
         if target_kind == "chart_config":
             if self._chart_factory is None:
                 raise ValueError("ChartFactory no configurada en este CopilotTranslator")

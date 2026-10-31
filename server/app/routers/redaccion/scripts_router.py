@@ -11,7 +11,7 @@ import json
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
 from pydantic import BaseModel, Field, ValidationError
@@ -101,11 +101,15 @@ async def modelo_de_la_actividad(
             resuelta.tier, proveedor, organizacion_id=organizacion_id
         )
     except Exception as fallo:
+        # El motivo va al registro y no a la pantalla (revisión de la PR #349): desde #348 este
+        # 503 lo ve cualquiera con el módulo de Informes por el Copilot, y construir el cliente de
+        # un proveedor puede fallar con la URL o la clave dentro.
+        _log.warning("Sin modelo para el nivel %s: %s", resuelta.tier, fallo)
         raise HTTPException(
             status_code=503,
             detail=(
                 f"No hay modelo configurado para el nivel {resuelta.tier}, que es el que "
-                f"{PARA_QUE_SIRVE[actividad]}. Asígnale uno en Modelos IA ({fallo})."
+                f"{PARA_QUE_SIRVE[actividad]}. Asígnale uno en Modelos IA."
             ),
         ) from fallo
     return modelo, resuelta
@@ -121,6 +125,19 @@ async def get_script_proposal_service(
     distintas: **nivel 2 escribe** y **nivel 3, superior, audita**. La auditoría con modelo va
     encima de la determinista de PRO.1, nunca en su lugar.
     """
+    return await construir_propuesta(session, current_user)
+
+
+async def construir_propuesta(
+    session: AsyncSession,
+    current_user: UserInfo,
+    envolver: Callable[[Any], Any] = lambda modelo: modelo,
+) -> ScriptProposalService:
+    """`get_script_proposal_service` sin `Depends`, y con un `envolver` para cada modelo.
+
+    El Copilot (#348) lo usa para que un fallo del modelo diga **cuál** de los dos falló: el que
+    escribe o el que audita (revisión de la PR #349).
+    """
     proveedor = LocalConfigProvider(session)
     # MT.3 — los dos niveles se resuelven para la misma organización: quien escribe el script y
     # quien lo audita tienen que salir del mismo contrato, o el consumo se reparte entre dos.
@@ -133,9 +150,9 @@ async def get_script_proposal_service(
     )
 
     return ScriptProposalService(
-        llm=redactor,
+        llm=envolver(redactor),
         model_name=nombre_del_modelo(redactor),
-        auditor_llm=auditor,
+        auditor_llm=envolver(auditor),
         auditor_model_name=nombre_del_modelo(auditor),
         system_prompt=propuesta.template_text,
         auditor_system_prompt=auditoria.template_text,

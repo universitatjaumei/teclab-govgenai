@@ -146,7 +146,7 @@ async def test_el_copiloto_devuelve_la_configuracion_y_no_el_script() -> None:
             }
         )
     )
-    servicio = CopilotTranslator(modelo=llm, chart_factory=ChartFactory(llm, "m"))
+    servicio = CopilotTranslator(chart_factory=ChartFactory(llm, "m"))
     respuesta = await servicio.translate_nl_to_config(
         instruction="una tarta del reparto por capítulo",
         target_kind="chart_config",

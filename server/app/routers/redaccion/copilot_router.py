@@ -18,7 +18,7 @@ from server.app.modules.agents_hub.services.embedding_resolver import (
     resolve_embedding_service,
 )
 from server.app.modules.agents_hub.services.model_factory import get_model_for_tier
-from server.app.modules.redaccion.services.actividades_llm import ActividadLLM, PARA_QUE_SIRVE
+from server.app.modules.redaccion.services.actividades_llm import ActividadLLM
 from server.app.modules.redaccion.services.charts.chart_factory import ChartFactory
 from server.app.modules.redaccion.services.copilot import (
     CopilotAnswer,
@@ -28,13 +28,16 @@ from server.app.modules.redaccion.services.copilot import (
     CopilotTranslateResponse,
     CopilotTranslator,
 )
-from server.app.modules.redaccion.services.copilot.copilot_service import ElModeloNoResponde
+from server.app.modules.redaccion.services.copilot.copilot_service import (
+    ElModeloNoResponde,
+    ModeloVigilado,
+)
 from server.app.modules.redaccion.services.copilot.docs_retriever import DocsRetriever
 from server.app.modules.redaccion.services.copilot.models import CopilotTargetKind
 from server.app.modules.redaccion.services.transformation.etl_factory import ETLFactory
 from server.app.routers.redaccion._actor import nombre_del_modelo
 from server.app.routers.redaccion.scripts_router import (
-    get_script_proposal_service,
+    construir_propuesta,
     modelo_de_la_actividad,
 )
 
@@ -187,19 +190,23 @@ async def _traductor(
     documentación. El 503 de un nivel sin modelo lo da `modelo_de_la_actividad`.
     """
     if target_kind == "script_proposal":
-        propuesta = await get_script_proposal_service(session=session, current_user=current_user)
-        return CopilotTranslator(modelo=propuesta.modelo, script_proposal=propuesta)
+        propuesta = await construir_propuesta(session, current_user, envolver=ModeloVigilado)
+        return CopilotTranslator(script_proposal=propuesta)
 
     modelo, resuelta = await modelo_de_la_actividad(
         _ACTIVIDAD_DEL_MODO[target_kind],
         LocalConfigProvider(session),
         organizacion_id=organizacion_unica_de(current_user),
     )
-    fabrica = ChartFactory if target_kind == "chart_config" else ETLFactory
-    instancia = fabrica(modelo, nombre_del_modelo(modelo), system_prompt=resuelta.template_text)
+    vigilado = ModeloVigilado(modelo)
+    nombre = nombre_del_modelo(modelo)
     if target_kind == "chart_config":
-        return CopilotTranslator(modelo=modelo, chart_factory=instancia)
-    return CopilotTranslator(modelo=modelo, etl_factory=instancia)
+        return CopilotTranslator(
+            chart_factory=ChartFactory(vigilado, nombre, system_prompt=resuelta.template_text)
+        )
+    return CopilotTranslator(
+        etl_factory=ETLFactory(vigilado, nombre, system_prompt=resuelta.template_text)
+    )
 
 
 @router.post("/translate", response_model=CopilotTranslateResponse)
@@ -217,5 +224,4 @@ async def translate_copilot(
             sample_schema=body.sample_schema,
         )
     except ElModeloNoResponde as fallo:
-        actividad = _ACTIVIDAD_DEL_MODO[body.target_kind]
-        raise _no_responde(fallo, f"el modelo del nivel que {PARA_QUE_SIRVE[actividad]}") from fallo
+        raise _no_responde(fallo, "ese modelo") from fallo

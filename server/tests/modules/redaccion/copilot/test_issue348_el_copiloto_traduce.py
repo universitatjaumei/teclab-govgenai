@@ -191,3 +191,39 @@ async def test_un_modelo_que_no_responde_es_un_502_que_dice_cual(niveles, caplog
     assert "gemini-2.0-flash" in r.json()["detail"]["message"]
     assert "no longer available" not in r.text, "el texto del proveedor va al registro"
     assert "no longer available" in caplog.text
+
+
+async def test_si_falla_el_auditor_se_nombra_al_auditor_y_no_al_que_escribe(niveles) -> None:
+    """Revisión de la PR #349: el fallo se recogía fuera de la fábrica, así que en el modo script
+    siempre se nombraba al modelo que escribe, aunque fallara el que audita. Mandaba a arreglar
+    un modelo que funcionaba."""
+
+    class _AuditorRetirado:
+        model = "auditor-retirado"
+
+        async def ainvoke(self, messages):
+            raise RuntimeError("404 NOT_FOUND")
+
+    modelos, _ = niveles
+    modelos[2] = _Modelo("gemini-2.5-flash", _SCRIPT)
+    modelos[3] = _AuditorRetirado()
+
+    r = await _traducir("script_proposal", "Las cinco primeras filas")
+
+    assert r.status_code == 502, r.text
+    assert "auditor-retirado" in r.json()["detail"]["message"]
+    assert "gemini-2.5-flash" not in r.json()["detail"]["message"]
+
+
+async def test_el_503_no_ensena_el_motivo_del_proveedor(niveles, monkeypatch) -> None:
+    from server.app.routers.redaccion import scripts_router
+
+    async def _roto(tier, _proveedor, **_k):
+        raise ValueError("https://api.example/v1?key=SECRETO")
+
+    monkeypatch.setattr(scripts_router, "get_model_for_tier", _roto)
+
+    r = await _traducir("chart_config")
+
+    assert r.status_code == 503
+    assert "SECRETO" not in r.text

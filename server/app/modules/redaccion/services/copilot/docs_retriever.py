@@ -87,13 +87,18 @@ class DocsRetriever:
 
         pendientes: list[IndexedChunk] = []
         for md_path in sorted(self._docs_dir.rglob("*.md")):
-            module = self._infer_module(md_path)
+            # Revisión de la PR #349: la ruta que se guarda y se cita es la de dentro de la ayuda
+            # (`ayuda/redaccion/es/…`). Con la absoluta, cada respuesta enseñaba la ruta del
+            # contenedor, y el módulo se deducía también de las carpetas de encima: un checkout
+            # bajo `/srv/chatbots/` habría hecho de todo «chatbots».
+            relativa = Path(self._docs_dir.name) / md_path.relative_to(self._docs_dir)
+            module = self._infer_module(relativa)
             for idx, chunk in enumerate(self._chunk_markdown(md_path)):
                 if not chunk.strip():
                     continue
                 pendientes.append(IndexedChunk(
                     text=chunk,
-                    source_path=str(md_path),
+                    source_path=relativa.as_posix(),
                     module=module,
                     chunk_idx=idx,
                     embedding=[],
@@ -140,7 +145,20 @@ class DocsRetriever:
         candidates = [c for c in self._chunks if _entra(c.module, module)]
         scored = [(_cosine(query_emb, c.embedding), c) for c in candidates]
         scored.sort(key=lambda pair: pair[0], reverse=True)
-        return [chunk for _score, chunk in scored[:top_k]]
+        # Cada guía está en dos lenguas y los embeddings son multilingües: sin esto, las dos
+        # versiones del mismo fragmento ocupaban dos de los `top_k` huecos (revisión de la PR
+        # #349). Queda la que puntúa más, que suele ser la de la lengua de la pregunta.
+        elegidos: list[IndexedChunk] = []
+        vistos: set[tuple[str, int]] = set()
+        for _score, chunk in scored:
+            clave = (_sin_lengua(chunk.source_path), chunk.chunk_idx)
+            if clave in vistos:
+                continue
+            vistos.add(clave)
+            elegidos.append(chunk)
+            if len(elegidos) == top_k:
+                break
+        return elegidos
 
     def _chunk_markdown(self, path: Path) -> Iterator[str]:
         """Particiona el archivo por párrafos (doble newline) acumulando hasta `chunk_size`."""
@@ -185,6 +203,18 @@ def _entra(modulo_del_fragmento: CopilotModule, modulo_pedido: CopilotModule | N
     if modulo_pedido is None:
         return True
     return modulo_del_fragmento in (modulo_pedido, "general")
+
+
+#: Las carpetas de lengua de la ayuda (#346): `ayuda/<módulo>/<lengua>/<guía>.md`.
+LENGUAS = frozenset({"es", "val"})
+
+
+def _sin_lengua(source_path: str) -> str:
+    """La guía sin su lengua: las dos traducciones de un fragmento comparten esta clave."""
+    ruta = Path(source_path)
+    if ruta.parent.name in LENGUAS:
+        return (ruta.parent.parent / ruta.name).as_posix()
+    return ruta.as_posix()
 
 
 def _cosine(a: list[float], b: list[float]) -> float:

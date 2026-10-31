@@ -140,7 +140,6 @@ async def test_should_translate_nl_to_chart_config_when_target_is_chart() -> Non
     mock_chart_factory.generate_chart_from_nl = AsyncMock(return_value=chart_result)
 
     service = CopilotTranslator(
-        modelo=modelo_de_chat(),
         chart_factory=mock_chart_factory,
     )
 
@@ -179,7 +178,6 @@ async def test_should_translate_nl_to_etl_operations_when_target_is_data_transfo
     mock_etl_factory.generate_operations_from_nl = AsyncMock(return_value=etl_result)
 
     service = CopilotTranslator(
-        modelo=modelo_de_chat(),
         etl_factory=mock_etl_factory,
     )
 
@@ -214,7 +212,6 @@ async def test_should_translate_nl_to_script_proposal_when_target_is_admin_scrip
     mock_script_proposal.propose = AsyncMock(return_value=proposal_result)
 
     service = CopilotTranslator(
-        modelo=modelo_de_chat(),
         script_proposal=mock_script_proposal,
     )
 
@@ -237,7 +234,7 @@ async def test_should_translate_nl_to_script_proposal_when_target_is_admin_scrip
 
 @pytest.mark.asyncio
 async def test_translate_raises_when_factory_missing_for_target_kind() -> None:
-    service = CopilotTranslator(modelo=modelo_de_chat())
+    service = CopilotTranslator()
 
     with pytest.raises(ValueError, match="ChartFactory"):
         await service.translate_nl_to_config(

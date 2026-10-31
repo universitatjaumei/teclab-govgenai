@@ -56,16 +56,47 @@ async def test_lo_que_se_indexa_es_la_ayuda_de_los_dos_modulos_en_las_dos_lengua
     buscador = DocsRetriever(embedding_service=_Embeddings())
     await buscador.index()
 
-    rutas = {Path(c.source_path).resolve() for c in buscador.chunks}
+    rutas = {Path(c.source_path) for c in buscador.chunks}
     assert rutas, "la ayuda no puede estar vacía: es lo que hace responder al Copilot"
-    fuera = [r for r in rutas if _AYUDA.resolve() not in r.parents]
+    fuera = [r for r in rutas if r.parts[0] != "ayuda" or not (_RAIZ / "docs" / r).is_file()]
     assert not fuera, f"se ha indexado algo de fuera de docs/ayuda/: {fuera}"
 
     modulos = {c.module for c in buscador.chunks}
-    assert {"redaccion", "general"} <= modulos, "Informes y Curación, cada una en su módulo"
+    assert {"redaccion", "general"} <= modulos, "Informes en su módulo; Curación, en general"
 
-    lenguas = {r.relative_to(_AYUDA.resolve()).parts[1] for r in rutas}
+    lenguas = {r.parts[2] for r in rutas}
     assert lenguas == {"es", "val"}
+
+
+@pytest.mark.asyncio
+async def test_lo_que_se_cita_no_ensena_rutas_del_servidor() -> None:
+    """Revisión de la PR #349: con la ruta absoluta, cada cita llevaba `/app/docs/…` o la del
+    disco de quien desarrolla."""
+    from server.app.modules.redaccion.services.copilot.docs_retriever import DocsRetriever
+
+    buscador = DocsRetriever(embedding_service=_Embeddings())
+    await buscador.index()
+
+    for fragmento in buscador.chunks:
+        assert fragmento.source_path.startswith("ayuda/"), fragmento.source_path
+        assert str(_RAIZ) not in fragmento.to_source_ref().path
+
+
+@pytest.mark.asyncio
+async def test_las_dos_lenguas_de_una_guia_no_ocupan_dos_huecos(tmp_path: Path) -> None:
+    from server.app.modules.redaccion.services.copilot.docs_retriever import DocsRetriever
+
+    for lengua in ("es", "val"):
+        carpeta = tmp_path / "ayuda" / "redaccion" / lengua
+        carpeta.mkdir(parents=True)
+        (carpeta / "reintentar.md").write_text("# Reintentar\n\nPulsa Regenerar.\n", encoding="utf-8")
+        (carpeta / "exportar.md").write_text("# Exportar\n\nExportar a Word.\n", encoding="utf-8")
+
+    buscador = DocsRetriever(embedding_service=_Embeddings(), docs_dir=tmp_path / "ayuda")
+    elegidos = await buscador.retrieve("¿cómo reintento?", module="redaccion", top_k=4)
+
+    guias = [Path(c.source_path).name for c in elegidos]
+    assert sorted(guias) == ["exportar.md", "reintentar.md"]
 
 
 def test_cada_guia_existe_en_las_dos_lenguas() -> None:
