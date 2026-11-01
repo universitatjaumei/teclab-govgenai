@@ -419,14 +419,15 @@ export function LLMConfigsPage() {
                     <input id="llm-api-key" {...register('api_key_secret_name')} placeholder={t('hub.llm_config_api_key_placeholder')} className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background font-mono" />
                     <p className="text-xs text-muted-foreground mt-1">{t('hub.llm_config_api_key_hint')}</p>
                   </div>
+                  {/* `step="any"` (#351): con 0.1, un top_p de 0,95 bloqueaba el envío entero. */}
                   <div className="grid grid-cols-3 gap-3">
                     <div>
                       <label htmlFor="llm-temperature" className="text-sm font-medium">{t('hub.llm_config_temperature')}</label>
-                      <input id="llm-temperature" type="number" step="0.1" {...register('temperature', { valueAsNumber: true })} className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background" />
+                      <input id="llm-temperature" type="number" step="any" {...register('temperature', { valueAsNumber: true })} className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background" />
                     </div>
                     <div>
                       <label htmlFor="llm-top-p" className="text-sm font-medium">{t('hub.llm_config_top_p')}</label>
-                      <input id="llm-top-p" type="number" step="0.1" min="0" max="1" {...register('top_p', { valueAsNumber: true })} className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background" />
+                      <input id="llm-top-p" type="number" step="any" min="0" max="1" {...register('top_p', { valueAsNumber: true })} className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background" />
                     </div>
                     <div>
                       <label htmlFor="llm-max-tokens" className="text-sm font-medium">{t('hub.llm_config_max_tokens')}</label>

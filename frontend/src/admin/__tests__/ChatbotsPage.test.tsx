@@ -574,3 +574,33 @@ describe('#351 — un umbral calibrado midiendo se puede guardar', () => {
     expect(enviado.min_retrieval_score).toBe(0.27)
   })
 })
+
+describe('Revisión de la PR #356 — un umbral inválido se dice, no se calla', () => {
+  // Sin `noValidate` mandaba la validación nativa, y con ella un globo junto a un campo que nadie
+  // había tocado; sin el error pintado, un fallo del esquema bloqueaba el envío sin nada en
+  // pantalla. Las dos cosas son el síntoma de #351.
+  it('should_show_why_it_does_not_save_when_the_threshold_is_empty', async () => {
+    await openEditDialog()
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(/umbral de calidad/i), { target: { value: '' } })
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /guardar/i }))
+    })
+
+    expect(mockUpdateMutate).not.toHaveBeenCalled()
+    expect(document.getElementById('chatbot-quality-threshold-error')).not.toBeNull()
+  })
+
+  it('should_show_the_error_of_a_value_out_of_range', async () => {
+    const fuera: ChatbotRead = { ...DEMO_CHATBOT, min_retrieval_results: 25, min_retrieval_score: 1.5 }
+    await openEditDialog(fuera, [fuera])
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /guardar/i }))
+    })
+
+    expect(mockUpdateMutate).not.toHaveBeenCalled()
+    expect(document.getElementById('chatbot-min-results-error')).not.toBeNull()
+    expect(document.getElementById('chatbot-min-score-error')).not.toBeNull()
+  })
+})
