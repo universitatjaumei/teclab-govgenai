@@ -617,7 +617,7 @@ export function ChatbotsPage() {
                 </div>
               )}
 
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-3" noValidate>
                 <div>
                   <label htmlFor="chatbot-name" className="text-sm font-medium">{t('hub.chatbot_name')}</label>
                   <input
@@ -857,17 +857,22 @@ export function ChatbotsPage() {
                             })}
                           </div>
                         )}
+                        {/* #351 — `step="any"` en los dos umbrales: se calibran midiendo (0,69), y
+                            con un paso de 0,05 la validación nativa bloqueaba el envío entero sin
+                            que saliera ninguna petición. El rango lo comprueba el esquema, y su
+                            error se pinta debajo de cada campo: el formulario es `noValidate`. */}
                         <div>
                           <label htmlFor="chatbot-quality-threshold" className="text-sm font-medium">{t('hub.chatbot_quality_threshold')}</label>
                           <input
                             type="number"
                             min={0}
                             max={1}
-                            step={0.05}
+                            step="any"
                             id="chatbot-quality-threshold"
                             {...register('quality_threshold', { valueAsNumber: true })}
                             className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
                           />
+                          {errors.quality_threshold && <p id="chatbot-quality-threshold-error" className="text-destructive text-xs mt-1">{errors.quality_threshold.message}</p>}
                         </div>
                         <div>
                           <label htmlFor="chatbot-min-results" className="text-sm font-medium">{t('hub.chatbot_min_results')}</label>
@@ -879,6 +884,7 @@ export function ChatbotsPage() {
                             {...register('min_retrieval_results', { valueAsNumber: true })}
                             className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
                           />
+                          {errors.min_retrieval_results && <p id="chatbot-min-results-error" className="text-destructive text-xs mt-1">{errors.min_retrieval_results.message}</p>}
                         </div>
                         <div>
                           <label htmlFor="chatbot-min-score" className="text-sm font-medium">{t('hub.chatbot_min_score')}</label>
@@ -886,11 +892,12 @@ export function ChatbotsPage() {
                             type="number"
                             min={0}
                             max={1}
-                            step={0.05}
+                            step="any"
                             id="chatbot-min-score"
                             {...register('min_retrieval_score', { valueAsNumber: true })}
                             className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
                           />
+                          {errors.min_retrieval_score && <p id="chatbot-min-score-error" className="text-destructive text-xs mt-1">{errors.min_retrieval_score.message}</p>}
                         </div>
                         <div className="flex items-center gap-2">
                           <input

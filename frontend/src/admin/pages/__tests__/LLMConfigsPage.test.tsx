@@ -154,3 +154,21 @@ describe('LLMConfigsPage', () => {
     })
   })
 })
+
+describe('Revisión de la PR #356 — los decimales del modelo no bloquean el guardado', () => {
+  // Mismo defecto que #351: con `step="0.1"`, un top_p de 0,95 —habitual, y el servidor lo
+  // acepta— era inválido para el navegador, que bloqueaba el envío sin ninguna petición.
+  it('should_accept_values_that_are_not_multiples_of_0_1', async () => {
+    renderPage([{ ...DEMO_CONFIG, temperature: 0.25, top_p: 0.95 }])
+    await waitFor(() => screen.getByText('Gemini Flash'))
+    await act(async () => {
+      fireEvent.click(screen.getByText('Gemini Flash'))
+    })
+
+    const temperatura = document.getElementById('llm-temperature') as HTMLInputElement
+    const topP = document.getElementById('llm-top-p') as HTMLInputElement
+    expect(topP).toHaveValue(0.95)
+    expect(temperatura.checkValidity()).toBe(true)
+    expect(topP.checkValidity()).toBe(true)
+  })
+})
