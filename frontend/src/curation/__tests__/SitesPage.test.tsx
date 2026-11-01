@@ -160,9 +160,9 @@ describe('#357 y #360 — «Rastrear ahora» dice qué pasa, con lo que dice el 
     ;(useTriggerSiteCrawl as ReturnType<typeof vi.fn>).mockReturnValue({ mutateAsync, isPending: false })
     mockSites.list = [sitio]
     const { SitesPage } = await import('../SitesPage')
-    render(wrap(<SitesPage />))
+    const vista = render(wrap(<SitesPage />))
     const boton = (await screen.findAllByRole('button', { name: /rastrear ahora/i }))[0]
-    return { boton, mutateAsync }
+    return { boton, mutateAsync, vista }
   }
 
   it('con un rastreo en marcha según el servidor, dice desde cuándo y no deja lanzar otro', async () => {
@@ -188,6 +188,41 @@ describe('#357 y #360 — «Rastrear ahora» dice qué pasa, con lo que dice el 
     })
 
     expect(boton).toBeDisabled()
+  })
+
+  it('aceptado y sin marca en la lista refrescada, dice que ha terminado', async () => {
+    const { boton } = await pintar(SITE)
+    await act(async () => {
+      fireEvent.click(boton)
+    })
+
+    expect((await screen.findByRole('status')).textContent).toMatch(/ha terminado/i)
+  })
+
+  it('si el sitio queda en error, dice que ha terminado con error', async () => {
+    const { boton } = await pintar({ ...SITE, status: 'error' })
+    await act(async () => {
+      fireEvent.click(boton)
+    })
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/con error/i)
+  })
+
+  it('si el servidor dice que hay uno en marcha, eso manda sobre el error del clic', async () => {
+    const { boton, vista } = await pintar(SITE, () =>
+      Promise.reject(new Error('Ya hay un rastreo de este sitio en marcha.')),
+    )
+    await act(async () => {
+      fireEvent.click(boton)
+    })
+    await screen.findByRole('alert')
+
+    mockSites.list = [{ ...SITE, rastreo_en_curso_desde: '2026-11-01T10:42:00Z' }]
+    const { SitesPage } = await import('../SitesPage')
+    vista.rerender(wrap(<SitesPage />))
+
+    await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/rastreando desde/i))
+    expect(screen.queryByRole('alert')).toBeNull()
   })
 
   it('si no se ha podido lanzar —un 409, por ejemplo—, dice el motivo y deja reintentar', async () => {

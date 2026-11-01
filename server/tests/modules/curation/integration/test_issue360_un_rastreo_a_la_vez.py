@@ -21,7 +21,8 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from sqlalchemy import select
 
-AHORA = datetime(2026, 11, 1, 10, 42, 0, tzinfo=timezone.utc)
+# Ahora de verdad: el contrato no enseña marcas caducadas, y lo decide con el reloj.
+AHORA = datetime.now(timezone.utc).replace(microsecond=0)
 
 
 async def _sitio(db_session, nombre: str = "Escola de Doctorat"):
@@ -247,7 +248,7 @@ class TestElPlanificador:
         marcas_vistas: list = []
 
         class _Trabajo:
-            async def run_for_site(self, site_id, section_id=None):
+            async def run_for_site(self, site_id, section_id=None, reservado_en=None):
                 async with fabrica() as s:
                     marcas_vistas.append(await _marca(s, site_id))
                 await liberar(fabrica, site_id)
@@ -274,7 +275,7 @@ class TestElPlanificador:
         llamadas: list = []
 
         class _Trabajo:
-            async def run_for_site(self, site_id, section_id=None):
+            async def run_for_site(self, site_id, section_id=None, reservado_en=None):
                 llamadas.append(section_id)
 
         try:
@@ -283,3 +284,72 @@ class TestElPlanificador:
             await motor.dispose()
 
         assert llamadas == []
+
+
+class TestLoQueEncontroLaRevision:
+    """Revisión de la PR #361."""
+
+    @pytest.mark.asyncio
+    async def test_liberar_solo_quita_la_marca_propia(self, db_session):
+        """Un rastreo que dura más que la caducidad no puede borrar la marca del que tomó el
+        relevo: el sitio aparecería libre y un tercero arrancaría a la vez."""
+        from server.app.modules.curation.rastreo_en_curso import CADUCIDAD, liberar, reservar
+
+        sitio = await _sitio(db_session)
+        sitio_id = sitio.id
+        viejo = AHORA - CADUCIDAD - timedelta(minutes=5)
+        await reservar(db_session, sitio_id, None, viejo)
+        await reservar(db_session, sitio_id, None, AHORA)  # el relevo, tras la caducidad
+
+        await liberar(_factoria(db_session), sitio_id, viejo)
+
+        assert await _marca(db_session, sitio_id) == AHORA
+
+    @pytest.mark.asyncio
+    async def test_un_sitio_que_no_existe_no_se_da_por_reservado(self, db_session):
+        from server.app.modules.curation.rastreo_en_curso import reservar
+
+        assert await reservar(db_session, uuid.uuid4(), None, AHORA) is not None
+
+    @pytest.mark.asyncio
+    async def test_el_contrato_no_ensena_una_marca_caducada(self, db_session):
+        from server.app.modules.agents_hub.database.operational_models import HubWebSite
+        from server.app.modules.curation.rastreo_en_curso import CADUCIDAD, reservar
+        from server.app.modules.curation.selection_contracts import SiteView
+
+        sitio = await _sitio(db_session)
+        sitio_id = sitio.id
+        await reservar(db_session, sitio_id, None, AHORA - CADUCIDAD - timedelta(minutes=5))
+
+        fila = (
+            await db_session.execute(
+                select(HubWebSite)
+                .where(HubWebSite.id == sitio_id)
+                .execution_options(populate_existing=True)
+            )
+        ).scalar_one()
+        assert SiteView.model_validate(fila).rastreo_en_curso_desde is None
+
+    @pytest.mark.asyncio
+    async def test_una_seccion_borrada_a_mitad_no_deja_el_corte_sin_anotar(self, db_session):
+        from server.app.modules.agents_hub.database.operational_models import HubCrawlRun
+        from server.app.modules.curation.diario import DiarioDePasadas
+        from server.app.modules.curation.rastreo_en_curso import (
+            interrumpir_los_que_quedaron,
+            reservar,
+        )
+
+        sitio = await _sitio(db_session)
+        sitio_id = sitio.id
+        await reservar(db_session, sitio_id, uuid.uuid4(), AHORA)  # una sección que ya no existe
+
+        await interrumpir_los_que_quedaron(
+            _factoria(db_session), DiarioDePasadas(_factoria(db_session)), AHORA
+        )
+
+        pasadas = (
+            await db_session.execute(select(HubCrawlRun).where(HubCrawlRun.site_id == sitio_id))
+        ).scalars().all()
+        assert len(pasadas) == 1
+        assert pasadas[0].section_id is None
+        assert await _marca(db_session, sitio_id) is None

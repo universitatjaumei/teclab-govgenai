@@ -60,6 +60,8 @@
   "crawl_now": "Rastrear ahora",
   "crawl_started": "El rastreo ha empezado. Tarda unos minutos —en un sitio grande, más de diez—. Cuando termine se actualizará «Último rastreo» y la pasada aparecerá en el «Diario de pasadas», dentro de «Secciones del sitio».",
   "crawl_running": "Rastreando desde las {{hora}}. Tarda unos minutos —en un sitio grande, más de diez—. Al terminar se actualiza «Último rastreo» y la pasada aparece en el «Diario de pasadas», dentro de «Secciones del sitio».",
+  "crawl_ended_with_error": "El rastreo ha terminado con error. El detalle está en el «Diario de pasadas», dentro de «Secciones del sitio».",
+  "crawl_finished": "El rastreo ha terminado: «Último rastreo» ya está al día y la pasada está en el «Diario de pasadas», dentro de «Secciones del sitio».",
   "crawl_failed": "No se ha podido lanzar el rastreo: {{error}}",
   "crawl_failed_unknown": "el servidor no ha dado el motivo",
   "site_delete_failed": "No se ha podido eliminar el sitio.",

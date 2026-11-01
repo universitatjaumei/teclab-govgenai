@@ -681,7 +681,10 @@ class SiteQualityAnalysisJob:
             logger.exception("No se pudo registrar el aviso de actualización de %s", page.url)
 
     async def run_for_site(
-        self, site_id: uuid.UUID, section_id: uuid.UUID | None = None
+        self,
+        site_id: uuid.UUID,
+        section_id: uuid.UUID | None = None,
+        reservado_en: datetime | None = None,
     ) -> SiteQualitySummary:
         """Ejecuta el ciclo completo de calidad para un ámbito del sitio.
 
@@ -693,6 +696,8 @@ class SiteQualityAnalysisJob:
 
         #360 — al terminar quita la marca de «rastreo en curso» del sitio, **también si falla**:
         quien pidió el rastreo la puso al reservarlo, y una marca que se queda bloquea el sitio.
+        `reservado_en` es cuándo la puso: sólo se quita esa, no la de otro que tomara el relevo
+        tras la caducidad.
         """
         from server.app.modules.curation.rastreo_en_curso import liberar
 
@@ -700,7 +705,7 @@ class SiteQualityAnalysisJob:
             return await self._pasada(site_id, section_id)
         finally:
             try:
-                await liberar(self._session_factory, site_id)
+                await liberar(self._session_factory, site_id, reservado_en)
             except Exception:  # no tapar el resultado de la pasada por no poder liberar
                 logger.exception("No se pudo quitar la marca de rastreo del sitio %s", site_id)
 
@@ -984,12 +989,19 @@ class SiteQualityAnalysisJob:
             logger.exception("No se pudo anotar la pasada del sitio %s en el diario", site_id)
 
     async def _etiqueta_del_ambito(self, section_id: uuid.UUID | None) -> str:
-        """El nombre de la sección, o «sitio». Se guarda en texto porque el diario es historia:
-        si alguien borra la sección, la fila tiene que seguir diciendo qué cubrió."""
-        if section_id is None:
-            return ETIQUETA_DEL_SITIO_ENTERO
-        from server.app.modules.agents_hub.database.operational_models import HubWebSection
+        return await etiqueta_del_ambito(self._session_factory, section_id)
 
-        async with self._session_factory() as session:
-            seccion = await session.get(HubWebSection, section_id)
-            return getattr(seccion, "name", None) or str(section_id)
+
+async def etiqueta_del_ambito(session_factory: Any, section_id: uuid.UUID | None) -> str:
+    """El nombre de la sección, o «sitio». Se guarda en texto porque el diario es historia: si
+    alguien borra la sección, la fila tiene que seguir diciendo qué cubrió.
+
+    Una sola definición: la usan la pasada que termina y la que un reinicio cortó (#360), y con
+    dos ya se habían separado al nombrar una sección borrada."""
+    if section_id is None:
+        return ETIQUETA_DEL_SITIO_ENTERO
+    from server.app.modules.agents_hub.database.operational_models import HubWebSection
+
+    async with session_factory() as session:
+        seccion = await session.get(HubWebSection, section_id)
+        return getattr(seccion, "name", None) or str(section_id)

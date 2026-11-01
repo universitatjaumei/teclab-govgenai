@@ -148,6 +148,17 @@ class SiteView(BaseModel):
 
     model_config = {"from_attributes": True}
 
+    @field_validator("rastreo_en_curso_desde")
+    @classmethod
+    def _sin_marcas_caducadas(cls, desde: datetime | None) -> datetime | None:
+        """Una marca caducada no se enseña (revisión de la PR #361): el servidor ya dejaría lanzar
+        otro rastreo, y el panel diría «rastreando» y bloquearía el botón para siempre."""
+        from datetime import timezone
+
+        from server.app.modules.curation.rastreo_en_curso import vigente
+
+        return desde if vigente(desde, datetime.now(timezone.utc)) else None
+
     @model_validator(mode="before")
     @classmethod
     def _desde_config_json(cls, datos: Any) -> Any:

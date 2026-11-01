@@ -318,10 +318,10 @@ async def encolar_rastreo(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="El rastreo no está disponible en esta instalación: el trabajo de calidad está apagado.",
         )
-    # #360 — uno a la vez por sitio. La marca la quita el trabajo al terminar, también si falla.
-    ocupado_desde = await rastreo_en_curso.reservar(
-        session, site_id, None, datetime.now(timezone.utc)
-    )
+    # #360 — uno a la vez por sitio. La marca la quita el trabajo al terminar, también si falla;
+    # con `reservado_en`, sólo la suya.
+    ahora = datetime.now(timezone.utc)
+    ocupado_desde = await rastreo_en_curso.reservar(session, site_id, None, ahora)
     if ocupado_desde is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -330,7 +330,7 @@ async def encolar_rastreo(
                 "sitios dice desde cuándo."
             ),
         )
-    background_tasks.add_task(quality_job.run_for_site, site_id)
+    background_tasks.add_task(quality_job.run_for_site, site_id, reservado_en=ahora)
 
 
 # ──────────────────────── Páginas del sitio ────────────────────────

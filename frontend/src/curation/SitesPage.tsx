@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react'
+import { Fragment, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
 import { useForm, useWatch } from 'react-hook-form'
@@ -70,7 +70,12 @@ const PROFUNDIDAD_DEL_SONDEO = 3
  *  un rastreo **en marcha** no lo sabe ella: lo dice el servidor en `rastreo_en_curso_desde`
  *  (#360). Antes lo deducía comparando lo que el sitio traía antes y después, y la revisión de la
  *  PR #359 lo señaló como lógica de estado en el cliente. */
-type Envio = { estado: 'enviando' } | { estado: 'error'; error: string }
+type Envio =
+  | { estado: 'enviando' }
+  // Aceptado y con la lista ya refrescada: lo que diga el servidor a partir de aquí es de este
+  // rastreo. Si la marca ya no está, es que ha terminado (revisión de la PR #361).
+  | { estado: 'pedido' }
+  | { estado: 'error'; error: string }
 
 /** La hora de un instante del contrato, en la lengua de la interfaz. */
 function hora(instante: string, lengua: string): string {
@@ -247,18 +252,20 @@ export function SitesPage() {
         return siguiente
       })
     poner({ estado: 'enviando' })
+    const refrescar = () => qc.invalidateQueries({ queryKey: getListSitesQueryKey() })
     // `mutateAsync` y no los callbacks de `mutate`: con una mutación compartida, TanStack sólo
     // llama a los de la última llamada, y el primer sitio se quedaba sin aviso.
     crawlMutation
       .mutateAsync({ siteId })
-      .then(() => {
-        poner(null)
-        // La marca de «rastreo en curso» ya está puesta: se pide la lista para enseñarla.
-        return qc.invalidateQueries({ queryKey: getListSitesQueryKey() })
+      // La marca ya está puesta: se espera a la lista que la trae antes de soltar el botón, o
+      // durante ese rato se podría pulsar otra vez y recibir un 409.
+      .then(() => refrescar())
+      .then(() => poner({ estado: 'pedido' }))
+      .catch((e: unknown) => {
+        poner({ estado: 'error', error: mensajeDelFallo(e, t('crawl_failed_unknown')) })
+        // Un 409 es que otro rastreo ya va: la lista lo enseñará.
+        return refrescar()
       })
-      .catch((e: unknown) =>
-        poner({ estado: 'error', error: mensajeDelFallo(e, t('crawl_failed_unknown')) }),
-      )
   }
 
   return (
@@ -358,26 +365,34 @@ export function SitesPage() {
                   </td>
                 </tr>
                 {(() => {
+                  // Lo que diga el servidor manda: si hay un rastreo en marcha, eso es lo que se
+                  // enseña, aunque el último clic de aquí fallara (otro lo había lanzado antes).
                   const envio = envios[site.id]
-                  if (envio?.estado === 'error') {
-                    return (
-                      <tr className="border-b">
-                        <td colSpan={6} className="py-2 px-2 text-xs">
-                          <p role="alert" className="text-destructive">
-                            {t('crawl_failed', { error: envio.error })}
-                          </p>
-                        </td>
-                      </tr>
+                  let aviso: ReactNode = null
+                  if (site.rastreo_en_curso_desde) {
+                    aviso = (
+                      <p role="status" className="text-green-800">
+                        {t('crawl_running', { hora: hora(site.rastreo_en_curso_desde, i18n.language) })}
+                      </p>
                     )
+                  } else if (envio?.estado === 'error') {
+                    aviso = (
+                      <p role="alert" className="text-destructive">
+                        {t('crawl_failed', { error: envio.error })}
+                      </p>
+                    )
+                  } else if (envio?.estado === 'pedido') {
+                    aviso =
+                      site.status === 'error' ? (
+                        <p role="alert" className="text-destructive">{t('crawl_ended_with_error')}</p>
+                      ) : (
+                        <p role="status" className="text-green-800">{t('crawl_finished')}</p>
+                      )
                   }
-                  if (!site.rastreo_en_curso_desde) return null
+                  if (aviso === null) return null
                   return (
                     <tr className="border-b">
-                      <td colSpan={6} className="py-2 px-2 text-xs">
-                        <p role="status" className="text-green-800">
-                          {t('crawl_running', { hora: hora(site.rastreo_en_curso_desde, i18n.language) })}
-                        </p>
-                      </td>
+                      <td colSpan={6} className="py-2 px-2 text-xs">{aviso}</td>
                     </tr>
                   )
                 })()}
