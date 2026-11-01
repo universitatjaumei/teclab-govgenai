@@ -47,6 +47,14 @@ que volver.
 **Si el commit resuelve una issue, lleva `Closes #N`** en su cuerpo o en el de la PR. Un asunto
 `fix(#92):` no cierra nada, y se acumulan resueltas y abiertas: pasó con once. Lo comprueba CI.
 
+**Antes de mezclar a `main`, revisión `code-review high` de la PR entera**, aunque CI esté en
+verde, y decide sobre cada hallazgo: lo aplicado va en un commit propio («lo que encontró la
+revisión de la PR #N») y lo rebatido, con su motivo, en ese mensaje y en la fila de `HISTORIAL.md`.
+Si el arreglo es sustancial, se vuelve a revisar. Después se atienden los hilos de Copilot, que
+complementan esta revisión y no la sustituyen: dependen de una cuota que se agota. No es una
+revisión independiente —la hace el mismo modelo—, así que no se presenta como tal. Razón y cifras
+en `docs/MARCO_DESARROLLO_AGENTICO.md` §7.5.
+
 **Los avisos de GitHub los revisa `avisos.yml`, no tu memoria**: alertas de Dependabot al
 desplegar, hilos de Copilot al mezclar. Tras decidir sobre un comentario de Copilot —arreglarlo o
 rebatirlo— **resuelve el hilo**; si no, la PR queda roja. Razón en el test homónimo.

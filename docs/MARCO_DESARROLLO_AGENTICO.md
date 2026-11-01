@@ -925,6 +925,58 @@ puede construir —porque la señal no se puede leer, o leerla exigiría una exc
 pedir—, la respuesta del marco no es una puerta aparente: es **retirarla y anotar el hueco**. Un
 control que no puede mirar es peor que ninguno, porque el hueco deja de verse.
 
+### 7.5 Una revisión antes de mezclar, aunque todo esté en verde
+
+§7.4 trata la revisión automática **de la forja**: llega cuando llega, se resuelve hilo a hilo y
+es una foto. Falta la otra mitad, la que no depende de la forja: **antes de mezclar a la rama
+principal, el agente revisa la *pull request* entera con un revisor de código a esfuerzo alto**, y
+decide sobre cada hallazgo antes de pulsar el botón.
+
+**Por qué hace falta, si la integración continua ya ha pasado.** Porque lo que encuentra es
+justo lo que los tests del propio autor no buscan. En una sola jornada de este proyecto
+(2026-11-01) se revisaron así cuatro *pull requests*, **todas con la integración continua en
+verde**, y las cuatro tenían defectos reales: **[n=1]**
+
+| *Pull request* | Revisión del agente | Revisión de la forja |
+|---|---|---|
+| Copilot en la lengua de la pregunta + interruptor del panel | 9 hallazgos, 6 aplicados | — |
+| Umbrales guardables + una dependencia | 7, 5 aplicados; uno era el mismo defecto en otra pantalla | — |
+| Avisos de «Rastrear ahora» + confirmación de borrado | dos rondas de 9 | 2, ya cubiertos |
+| Un rastreo a la vez por sitio | 10, 9 aplicados; dos eran agujeros en la propia reserva | 5, **uno nuevo** |
+
+Lo que salió no eran erratas: una reserva que podía darse por buena sin haber puesto la marca,
+una liberación que borraba la marca de otro proceso, un aviso que se quedaba colgado para siempre
+si el reloj del navegador iba adelantado, un error que se presentaba como «el servidor no
+responde» cuando sí había respondido. Carreras, estados que no terminan y mensajes que mienten:
+la clase de defecto que un test escrito por quien escribió el código confirma en vez de cazar.
+
+**Las dos revisiones se complementan, y ninguna sustituye a la otra.** Coincidieron en lo grueso,
+pero cada una vio algo que la otra no: la de la forja, que una cancelación durante el apagado
+borraba la marca que el arranque necesitaba para anotar el corte; la del agente, varios defectos
+que la forja no comentó. Y la de la forja **depende de una cuota que se agota**: en una *pull
+request* de la víspera no llegó a revisar, y la del agente fue la única. Una puerta que puede no
+abrirse por motivos ajenos al código no puede ser la única. **[n=1]**
+
+Tres reglas, cada una contra un modo de degradarse:
+
+- **Cada hallazgo se aplica o se rebate por escrito.** Igual que un hilo de §7.4: lo que se exige
+  no es obedecer, sino decidir. Lo aplicado va en un commit propio («lo que encontró la revisión
+  de la PR #N») y lo rebatido, con su motivo, en ese mismo mensaje y en la fila del historial.
+  Una revisión cuyos hallazgos se descartan en silencio no se distingue de no haberla hecho.
+- **Lo que se cambia por la revisión se vuelve a revisar si es sustancial.** Una de las *pull
+  requests* de la tabla necesitó una segunda ronda porque el arreglo de la primera introducía su
+  propio defecto —deducir en el cliente un estado que tenía que decir el servidor—, y la segunda
+  lo señaló. Lo que se toca para contestar a la revisión es código nuevo sin revisar.
+- **No se presenta como más de lo que es.** La revisa un agente del mismo modelo que escribió el
+  código: reduce errores, pero **no es una revisión independiente** ni sustituye a una auditoría
+  externa ni al juicio de una persona sobre lo que se despliega. Escribirlo es lo que impide que
+  una tabla como la de arriba se lea como garantía de calidad.
+
+**Lo generalizable**: la integración continua dice que el código hace lo que su autor comprobó;
+no dice si comprobó lo que importaba. Entre el verde y la mezcla cabe una revisión deliberada de
+la *pull request* completa, con sus hallazgos decididos uno a uno y su rastro escrito. Cuesta
+minutos, y en este proyecto encontró algo en todas las ocasiones en que se hizo.
+
 ---
 
 ## 8. Apertura del repositorio
