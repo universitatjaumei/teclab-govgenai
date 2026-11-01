@@ -533,12 +533,18 @@ async def update_chatbot(
     # la API: se mandaba `valid_until: null`, el campo se descartaba y la fecha seguía ahí.
     #
     # `model_fields_set` distingue lo que el cliente **envió** de lo que simplemente no
-    # venía, que es la diferencia que hace falta aquí y que `exclude_none` no puede ver. No
-    # se cambia el criterio del resto de campos —donde `None` sí es «heredar»— porque ahí el
-    # comportamiento actual es el correcto.
+    # venía, que es la diferencia que hace falta aquí y que `exclude_none` no puede ver.
+    #
+    # #339 — un campo heredable cuyo `null` el panel tiene que poder mandar («volver a
+    # heredar») también va en esta lista: con `exclude_none` el `null` se descarta y guardar no
+    # cambia nada. No se pasa todo a `exclude_unset` porque `ChatbotUpdate` tiene opcionales
+    # que en la tabla son NOT NULL (`name`, `is_active`…): un `null` explícito ahí acabaría en
+    # un 500 en vez de en «no tocar».
     for campo in ("valid_from", "valid_until", "total_token_budget", "no_answer_message",
               "user_daily_token_quota", "chatbot_daily_token_quota",
-              "anon_ip_daily_token_quota"):
+              "anon_ip_daily_token_quota",
+              # #339 — el panel manda `null` para volver a heredar.
+              "show_citation_corrections"):
         if campo in body.model_fields_set:
             payload[campo] = getattr(body, campo)
 
