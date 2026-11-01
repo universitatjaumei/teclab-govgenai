@@ -353,3 +353,36 @@ class TestLoQueEncontroLaRevision:
         assert len(pasadas) == 1
         assert pasadas[0].section_id is None
         assert await _marca(db_session, sitio_id) is None
+
+
+class TestLaCancelacion:
+
+    @pytest.mark.asyncio
+    async def test_si_se_cancela_al_apagar_la_marca_se_queda_para_el_arranque(self, db_session):
+        """Revisión de Copilot en la PR #361: una cancelación al apagar no es un fallo de la
+        pasada. Si el `finally` quitaba la marca, el arranque siguiente ya no podía anotar la
+        pasada como interrumpida, que es justo lo que #360 promete."""
+        import asyncio
+
+        from server.app.modules.curation.quality_job import SiteQualityAnalysisJob
+        from server.app.modules.curation.rastreo_en_curso import reservar
+
+        class _RastreadorCancelado:
+            async def crawl_site(self, site_id, section_id=None):
+                raise asyncio.CancelledError()
+
+        sitio = await _sitio(db_session)
+        sitio_id = sitio.id
+        await reservar(db_session, sitio_id, None, AHORA)
+        trabajo = SiteQualityAnalysisJob(
+            session_factory=_factoria(db_session),
+            site_crawler=_RastreadorCancelado(),
+            detectors=[],
+            watcher=None,
+            selection_repo=None,
+        )
+
+        with pytest.raises(asyncio.CancelledError):
+            await trabajo.run_for_site(sitio_id, reservado_en=AHORA)
+
+        assert await _marca(db_session, sitio_id) == AHORA
