@@ -139,6 +139,9 @@ class SiteView(BaseModel):
     last_crawled_at: datetime | None
     status: str
     created_at: datetime
+    #: #360 — desde cuándo se está rastreando; nulo si no hay rastreo en marcha. Lo decide el
+    #: servidor: el panel lo enseña y bloquea «Rastrear ahora» con esto, sin deducirlo.
+    rastreo_en_curso_desde: datetime | None = None
     #: RAS.5 — quien mira la lista tiene que poder ver con qué cortesía y con qué filtro se está
     #: rastreando cada apartado. Antes no salía, así que no había forma de revisarlo.
     crawl_config: CrawlConfig | None = None

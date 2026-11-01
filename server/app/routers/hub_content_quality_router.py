@@ -298,8 +298,12 @@ async def analyze_site(
     Deploy: edge. Responde 202 Accepted inmediatamente.
     """
     await assert_site_org_access(session, site_id, current_user)
-    if quality_job is not None:
-        background_tasks.add_task(quality_job.run_for_site, site_id)
+    # #360 — lanza lo mismo que «Rastrear ahora», así que reserva igual: 503 sin trabajo de
+    # calidad y 409 si el sitio ya se está rastreando. Antes encolaba sin mirar, y ahora además
+    # le habría quitado la marca al rastreo que ya corría.
+    from server.app.routers.hub_sites_router import encolar_rastreo
+
+    await encolar_rastreo(session, site_id, quality_job, background_tasks)
     return {"status": "queued", "site_id": str(site_id)}
 
 

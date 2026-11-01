@@ -690,7 +690,24 @@ class SiteQualityAnalysisJob:
         comportamiento de siempre.
 
         Nunca propaga excepción: todos los errores se acumulan en summary.errors.
+
+        #360 — al terminar quita la marca de «rastreo en curso» del sitio, **también si falla**:
+        quien pidió el rastreo la puso al reservarlo, y una marca que se queda bloquea el sitio.
         """
+        from server.app.modules.curation.rastreo_en_curso import liberar
+
+        try:
+            return await self._pasada(site_id, section_id)
+        finally:
+            try:
+                await liberar(self._session_factory, site_id)
+            except Exception:  # no tapar el resultado de la pasada por no poder liberar
+                logger.exception("No se pudo quitar la marca de rastreo del sitio %s", site_id)
+
+    async def _pasada(
+        self, site_id: uuid.UUID, section_id: uuid.UUID | None
+    ) -> SiteQualitySummary:
+        """El ciclo de `run_for_site`, sin la marca de rastreo en curso."""
         summary = SiteQualitySummary(section_id=section_id)
         comenzado = datetime.now(timezone.utc)
 

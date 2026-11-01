@@ -240,6 +240,33 @@ def test_trigger_crawl_says_503_when_the_quality_job_is_off():
     assert "rastreo" in resp.text
 
 
+def test_trigger_crawl_says_409_when_the_site_is_already_being_crawled(monkeypatch):
+    """#360 — uno a la vez por sitio: el segundo se rechaza y no se encola nada."""
+    from datetime import datetime, timezone
+
+    from server.app.modules.curation import rastreo_en_curso
+
+    async def _ocupado(session, site_id, section_id, now):
+        return datetime(2026, 11, 1, 10, 42, tzinfo=timezone.utc)
+
+    monkeypatch.setattr(rastreo_en_curso, "reservar", _ocupado)
+    site_id = uuid.uuid4()
+    session = AsyncMock()
+    session.get = AsyncMock(return_value=_fake_site(id=site_id))
+    quality_job = MagicMock()
+    quality_job.run_for_site = AsyncMock()
+
+    client = TestClient(_build_app(session_mock=session, quality_job_mock=quality_job))
+    resp = client.post(
+        f"/api/v1/hub/sites/{site_id}/crawl",
+        headers={"Authorization": f"Bearer {_make_token()}"},
+    )
+
+    assert resp.status_code == 409
+    assert "en marcha" in resp.text
+    quality_job.run_for_site.assert_not_called()
+
+
 # ───────────────────────── Test de páginas ─────────────────────────
 
 

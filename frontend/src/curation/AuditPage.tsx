@@ -7,6 +7,7 @@ import {
   getListSiteFindingsQueryKey,
 } from '@/shared/api/generated/hub-content-quality/hub-content-quality'
 import type { SiteView } from '@/shared/api/generated/model'
+import { mensajeDelFallo } from '@/utilidades/mensajeDelFallo'
 import { WebQualityReportViewer } from './WebQualityReportViewer'
 
 /**
@@ -50,13 +51,24 @@ export function AuditPage() {
           ))}
         </select>
         <button
-          className="px-3 py-1.5 rounded border text-sm"
+          className="px-3 py-1.5 rounded border text-sm disabled:opacity-50"
           disabled={!selectedSiteId || analyzeMutation.isPending}
           onClick={() => selectedSiteId && analyzeMutation.mutate({ siteId: selectedSiteId })}
         >
           {t('analyze_now')}
         </button>
       </div>
+
+      {/* #360 — lanza lo mismo que «Rastrear ahora» y, como él, no decía nada: ni que había
+          empezado ni, ahora que el servidor responde 409 si el sitio ya se rastrea, por qué no. */}
+      {analyzeMutation.variables?.siteId === selectedSiteId && analyzeMutation.isSuccess && (
+        <p role="status" className="text-xs text-green-800">{t('crawl_started')}</p>
+      )}
+      {analyzeMutation.variables?.siteId === selectedSiteId && analyzeMutation.isError && (
+        <p role="alert" className="text-xs text-destructive">
+          {t('crawl_failed', { error: mensajeDelFallo(analyzeMutation.error, t('crawl_failed_unknown')) })}
+        </p>
+      )}
 
       {selectedSiteId && <WebQualityReportViewer siteId={selectedSiteId} />}
     </div>
