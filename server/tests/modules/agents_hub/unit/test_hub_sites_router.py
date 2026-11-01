@@ -223,6 +223,23 @@ def test_trigger_crawl_returns_202_and_calls_job():
     assert resp.status_code == 202
 
 
+def test_trigger_crawl_says_503_when_the_quality_job_is_off():
+    """Revisión de la PR #359: con el trabajo de calidad apagado respondía 202 «queued» sin
+    encolar nada, y el panel —que ya avisa de que el rastreo ha empezado (#357)— lo afirmaba."""
+    site_id = uuid.uuid4()
+    session = AsyncMock()
+    session.get = AsyncMock(return_value=_fake_site(id=site_id))
+
+    client = TestClient(_build_app(session_mock=session))
+    resp = client.post(
+        f"/api/v1/hub/sites/{site_id}/crawl",
+        headers={"Authorization": f"Bearer {_make_token()}"},
+    )
+
+    assert resp.status_code == 503
+    assert "rastreo" in resp.text
+
+
 # ───────────────────────── Test de páginas ─────────────────────────
 
 

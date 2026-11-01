@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import i18n from '@/shared/i18n'
@@ -15,6 +15,8 @@ vi.mock('@/shared/api/generated/hub-sites/hub-sites', () => ({
   useReconnoiterSite: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
   // CUR.7 — la fila del sitio deja cambiar el alcance del análisis semántico.
   usePatchSite: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+  // #358 — la confirmación de borrado dice cuántas páginas se pierden.
+  useListSitePages: vi.fn(() => ({ data: [{ id: 'p1' }, { id: 'p2' }, { id: 'p3' }], isLoading: false })),
   getListSitesQueryKey: vi.fn(() => ['listSites']),
 }))
 
@@ -82,8 +84,8 @@ describe('SitesPage (curation)', () => {
 
   it('"Rastrear ahora" invoca useTriggerSiteCrawl', async () => {
     const { useTriggerSiteCrawl } = await import('@/shared/api/generated/hub-sites/hub-sites')
-    const mutateFn = vi.fn()
-    ;(useTriggerSiteCrawl as ReturnType<typeof vi.fn>).mockReturnValue({ mutate: mutateFn, isPending: false })
+    const mutateAsync = vi.fn(() => Promise.resolve({}))
+    ;(useTriggerSiteCrawl as ReturnType<typeof vi.fn>).mockReturnValue({ mutateAsync, isPending: false })
 
     mockSites.list = [SITE]
     const { SitesPage } = await import('../SitesPage')
@@ -92,7 +94,7 @@ describe('SitesPage (curation)', () => {
     const crawlBtn = await screen.findAllByText(/rastrear ahora/i)
     fireEvent.click(crawlBtn[0])
 
-    expect(mutateFn).toHaveBeenCalledWith({ siteId: SITE.id })
+    expect(mutateAsync).toHaveBeenCalledWith({ siteId: SITE.id })
   })
 
   it('muestra formulario al pulsar "Nuevo sitio"', async () => {
@@ -140,5 +142,155 @@ describe('SitesPage (curation)', () => {
     onSuccess!()
 
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: getListSitesQueryKey() })
+  })
+})
+
+describe('#357 — «Rastrear ahora» dice que ha empezado y cuándo ha terminado', () => {
+  // El doble se restablece al acabar cada test: `mockReturnValue` persiste entre tests y el
+  // resultado dependía del orden (revisión de la PR #359).
+  afterEach(async () => {
+    const { useTriggerSiteCrawl } = await import('@/shared/api/generated/hub-sites/hub-sites')
+    ;(useTriggerSiteCrawl as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      mutateAsync: vi.fn(() => Promise.resolve({})),
+      isPending: false,
+    }))
+  })
+
+  async function pulsar(resultado: () => Promise<unknown>, sitio: object = SITE) {
+    const { useTriggerSiteCrawl } = await import('@/shared/api/generated/hub-sites/hub-sites')
+    const mutateAsync = vi.fn(resultado)
+    ;(useTriggerSiteCrawl as ReturnType<typeof vi.fn>).mockReturnValue({ mutateAsync, isPending: false })
+    mockSites.list = [sitio]
+    const { SitesPage } = await import('../SitesPage')
+    const vista = render(wrap(<SitesPage />))
+    const boton = (await screen.findAllByRole('button', { name: /rastrear ahora/i }))[0]
+    await act(async () => {
+      fireEvent.click(boton)
+    })
+    return { boton, vista }
+  }
+
+  it('avisa de que el rastreo ha empezado y de dónde se verá', async () => {
+    await pulsar(() => Promise.resolve({}))
+
+    const aviso = await screen.findByRole('status')
+    expect(aviso.textContent).toMatch(/ha empezado/i)
+    expect(aviso.textContent).toMatch(/último rastreo/i)
+    expect(aviso.textContent).toMatch(/diario de pasadas/i)
+  })
+
+  it('no deja volver a pulsarlo mientras se envía', async () => {
+    const { boton } = await pulsar(() => new Promise(() => {}))
+
+    expect(boton).toBeDisabled()
+  })
+
+  it('aceptado, vuelve a dejarlo pulsar: si sigue en marcha lo tiene que decir el servidor (#360)', async () => {
+    const { boton } = await pulsar(() => Promise.resolve({}))
+
+    await screen.findByRole('status')
+    expect(boton).not.toBeDisabled()
+  })
+
+  it('dice el error si no se ha podido lanzar, y deja reintentar', async () => {
+    const { boton } = await pulsar(() => Promise.reject(new Error('El servidor no responde')))
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/el servidor no responde/i)
+    expect(boton).not.toBeDisabled()
+  })
+
+  it('cuando el sitio trae un «Último rastreo» posterior, dice que ha terminado', async () => {
+    const { vista } = await pulsar(() => Promise.resolve({}))
+    await screen.findByRole('status')
+
+    mockSites.list = [{ ...SITE, last_crawled_at: new Date(Date.now() + 60_000).toISOString() }]
+    const { SitesPage } = await import('../SitesPage')
+    vista.rerender(wrap(<SitesPage />))
+
+    // El estado vive en el componente: `rerender` con el mismo árbol lo conserva.
+    await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/ha terminado/i))
+  })
+
+  it('compara con lo que el servidor traía antes, no con el reloj del navegador', async () => {
+    // Con un «Último rastreo» anterior al clic —el reloj del navegador adelantado, o un
+    // rastreo que empezó antes de la respuesta— también ha terminado: ha cambiado.
+    const conFecha = { ...SITE, last_crawled_at: '2026-10-30T13:02:46Z' }
+    const { vista } = await pulsar(() => Promise.resolve({}), conFecha)
+    await screen.findByRole('status')
+
+    mockSites.list = [{ ...conFecha, last_crawled_at: '2026-10-30T13:02:47Z' }]
+    const { SitesPage } = await import('../SitesPage')
+    vista.rerender(wrap(<SitesPage />))
+
+    await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/ha terminado/i))
+  })
+
+  it('si el sitio pasa a error sin fecha nueva, dice que ha terminado con error', async () => {
+    const { vista } = await pulsar(() => Promise.resolve({}))
+    await screen.findByRole('status')
+
+    mockSites.list = [{ ...SITE, status: 'error' }]
+    const { SitesPage } = await import('../SitesPage')
+    vista.rerender(wrap(<SitesPage />))
+
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/con error/i))
+  })
+})
+
+describe('#358 — «Eliminar» pide confirmación', () => {
+  // Borraba con un clic, en cascada y sin deshacer: páginas, hallazgos revisados, secciones y
+  // diario. Y el botón está en la misma fila que «Rastrear ahora».
+  async function abrir(mutateFn = vi.fn()) {
+    const { useDeleteSite } = await import('@/shared/api/generated/hub-sites/hub-sites')
+    ;(useDeleteSite as ReturnType<typeof vi.fn>).mockImplementation(() => ({ mutate: mutateFn, isPending: false, reset: vi.fn() }))
+    mockSites.list = [SITE]
+    const { SitesPage } = await import('../SitesPage')
+    render(wrap(<SitesPage />))
+    fireEvent.click((await screen.findAllByRole('button', { name: /^eliminar$/i }))[0])
+    return mutateFn
+  }
+
+  it('no borra al pulsar: abre una confirmación con el sitio y lo que se pierde', async () => {
+    const mutateFn = await abrir()
+
+    expect(mutateFn).not.toHaveBeenCalled()
+    const dialogo = await screen.findByRole('dialog')
+    expect(dialogo.textContent).toContain('Portal Institucional')
+    expect(dialogo.textContent).toMatch(/3 páginas/)
+    expect(dialogo.textContent).toMatch(/hallazgos/i)
+    expect(dialogo.textContent).toMatch(/no se puede deshacer/i)
+  })
+
+  it('cancelar no envía nada', async () => {
+    const mutateFn = await abrir()
+    const dialogo = await screen.findByRole('dialog')
+    fireEvent.click(within(dialogo).getByRole('button', { name: /cancelar/i }))
+
+    expect(mutateFn).not.toHaveBeenCalled()
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('mientras se borra, «Cancelar» no deja creer que no se ha borrado', async () => {
+    const { useDeleteSite } = await import('@/shared/api/generated/hub-sites/hub-sites')
+    ;(useDeleteSite as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      mutate: vi.fn(),
+      isPending: true,
+      reset: vi.fn(),
+    }))
+    mockSites.list = [SITE]
+    const { SitesPage } = await import('../SitesPage')
+    render(wrap(<SitesPage />))
+    fireEvent.click((await screen.findAllByRole('button', { name: /^eliminar$/i }))[0])
+
+    const dialogo = await screen.findByRole('dialog')
+    expect(within(dialogo).getByRole('button', { name: /cancelar/i })).toBeDisabled()
+  })
+
+  it('confirmar borra ese sitio', async () => {
+    const mutateFn = await abrir()
+    const dialogo = await screen.findByRole('dialog')
+    fireEvent.click(within(dialogo).getByRole('button', { name: /^eliminar$/i }))
+
+    expect(mutateFn.mock.calls[0][0]).toEqual({ siteId: SITE.id })
   })
 })

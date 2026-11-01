@@ -19,6 +19,10 @@ vi.mock('@/shared/api/generated/hub-sites/hub-sites', () => ({
   useCreateSite: () => ({ mutate: createMutate, isPending: false }),
   useDeleteSite: () => ({ mutate: vi.fn() }),
   useTriggerSiteCrawl: () => ({ mutate: vi.fn() }),
+
+  // #358 — la confirmación de borrado cuenta las páginas del sitio.
+
+  useListSitePages: vi.fn(() => ({ data: undefined })),
   // CUR.6 — el formulario de alta ofrece el reconocimiento previo del apartado.
   useReconnoiterSite: () => ({ mutateAsync: vi.fn(), isPending: false }),
   // CUR.7 — la fila del sitio deja cambiar el alcance del análisis semántico.

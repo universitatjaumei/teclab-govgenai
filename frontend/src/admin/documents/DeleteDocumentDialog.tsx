@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { ConfirmDialog } from './ConfirmDialog'
+import { ConfirmDialog } from '@/shared/components/ConfirmDialog'
 import type { HubDocumentOut } from '@/shared/api/generated/model'
 
 /**

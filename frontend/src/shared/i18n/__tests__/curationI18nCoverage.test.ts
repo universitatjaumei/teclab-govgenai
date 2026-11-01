@@ -84,7 +84,10 @@ describe('CUR.2 — i18n de curación', () => {
     const muertas = claves(es as Diccionario).filter((k) => {
       if (PREFIJOS_DINAMICOS.some((p) => k.startsWith(p))) return false
       if (CLAVES_DINAMICAS.includes(k)) return false
-      return !codigoCuracion.includes(`'${k}'`) && !codigoCuracion.includes(`"${k}"`)
+      // Los plurales de i18next (`x_one`, `x_other`) se piden por su base: `t('x', { count })`
+      // (#358).
+      const base = k.replace(/_(zero|one|two|few|many|other)$/, '')
+      return !codigoCuracion.includes(`'${base}'`) && !codigoCuracion.includes(`"${base}"`)
     })
 
     expect(

@@ -301,8 +301,14 @@ async def trigger_crawl(
     """
     await assert_site_org_access(session, site_id, current_user)
 
-    if quality_job is not None:
-        background_tasks.add_task(quality_job.run_for_site, site_id)
+    # Revisión de la PR #359 — sin trabajo de calidad respondía 202 «queued» sin encolar nada, y
+    # el panel avisa de que el rastreo ha empezado (#357): habría afirmado algo falso.
+    if quality_job is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="El rastreo no está disponible en esta instalación: el trabajo de calidad está apagado.",
+        )
+    background_tasks.add_task(quality_job.run_for_site, site_id)
 
     return {"status": "queued", "site_id": str(site_id)}
 

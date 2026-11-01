@@ -3,7 +3,7 @@ import { RefreshCw, Trash2 } from 'lucide-react'
 
 import type { RecalculateCorpusOut } from '@/shared/api/generated/model'
 import { Progress } from '@/components/ui/progress'
-import { ConfirmDialog } from './ConfirmDialog'
+import { ConfirmDialog } from '@/shared/components/ConfirmDialog'
 import { formatTokens } from './format'
 
 /**
