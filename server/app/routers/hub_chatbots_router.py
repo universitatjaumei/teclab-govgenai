@@ -538,7 +538,9 @@ async def update_chatbot(
     # comportamiento actual es el correcto.
     for campo in ("valid_from", "valid_until", "total_token_budget", "no_answer_message",
               "user_daily_token_quota", "chatbot_daily_token_quota",
-              "anon_ip_daily_token_quota"):
+              "anon_ip_daily_token_quota",
+              # #339 — el panel manda `null` para volver a heredar.
+              "show_citation_corrections"):
         if campo in body.model_fields_set:
             payload[campo] = getattr(body, campo)
 

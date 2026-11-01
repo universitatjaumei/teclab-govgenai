@@ -89,6 +89,15 @@ function etiquetaModelo(config: LLMConfigRead): string {
  * Los tres estados importan: `null` hereda, `0` es sin limite y un numero es el techo.
  * Mandar `0` donde el usuario dejo el campo vacio le pondria "sin limite" sin pedirlo.
  */
+/** #339 — el valor del formulario al contrato: vacío hereda (null), y si no, sí o no. */
+function aInterruptor(valor: '' | 'si' | 'no'): boolean | null {
+  return valor === '' ? null : valor === 'si'
+}
+
+function deInterruptor(valor: boolean | null | undefined): '' | 'si' | 'no' {
+  return valor == null ? '' : valor ? 'si' : 'no'
+}
+
 function aCuota(valor: string): number | null {
   const limpio = valor.trim()
   if (limpio === '') return null
@@ -184,6 +193,7 @@ export function ChatbotsPage() {
       min_retrieval_results: 2,
       min_retrieval_score: 0.0,
       reranker_enabled: false,
+      show_citation_corrections: '',
       answer_template: 'generic',
       llm_config_id: '',
       organizacion_id: '',
@@ -255,6 +265,7 @@ export function ChatbotsPage() {
       min_retrieval_results: 2,
       min_retrieval_score: 0.0,
       reranker_enabled: false,
+      show_citation_corrections: '',
       answer_template: 'generic',
       // Al crear se propone la configuración marcada por defecto, que es una sugerencia
       // visible en el desplegable y no un identificador oculto en el código.
@@ -293,6 +304,7 @@ export function ChatbotsPage() {
       min_retrieval_results: c.min_retrieval_results ?? 2,
       min_retrieval_score: c.min_retrieval_score ?? 0.0,
       reranker_enabled: c.reranker_enabled ?? false,
+      show_citation_corrections: deInterruptor(c.show_citation_corrections),
       answer_template: c.answer_template ?? 'generic',
       // La del chatbot, no la de por defecto: es lo que impide que guardar una edición
       // cualquiera lo mueva de modelo sin que nadie lo haya pedido.
@@ -376,6 +388,7 @@ export function ChatbotsPage() {
           min_retrieval_results: values.min_retrieval_results,
           min_retrieval_score: values.min_retrieval_score,
           reranker_enabled: values.reranker_enabled,
+          show_citation_corrections: aInterruptor(values.show_citation_corrections),
           answer_template: values.answer_template,
           // SEC.4.1: vacio viaja como null. El backend distingue «sin ventana» de «con
           // fecha», y '' no es ninguna de las dos cosas.
@@ -409,6 +422,7 @@ export function ChatbotsPage() {
           min_retrieval_results: values.min_retrieval_results,
           min_retrieval_score: values.min_retrieval_score,
           reranker_enabled: values.reranker_enabled,
+          show_citation_corrections: aInterruptor(values.show_citation_corrections),
           answer_template: values.answer_template,
           // SEC.4.1: vacio viaja como null. El backend distingue «sin ventana» de «con
           // fecha», y '' no es ninguna de las dos cosas.
@@ -886,6 +900,24 @@ export function ChatbotsPage() {
                             className="rounded"
                           />
                           <label htmlFor="reranker_enabled" className="text-sm">{t('hub.chatbot_reranker_enabled')}</label>
+                        </div>
+                        <div>
+                          <label htmlFor="chatbot-show-citation-corrections" className="text-sm font-medium">
+                            {t('hub.chatbot_show_citation_corrections')}
+                          </label>
+                          <select
+                            id="chatbot-show-citation-corrections"
+                            aria-describedby="chatbot-show-citation-corrections-ayuda"
+                            {...register('show_citation_corrections')}
+                            className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
+                          >
+                            <option value="">{t('hub.chatbot_show_citation_corrections_heredar')}</option>
+                            <option value="si">{t('hub.chatbot_show_citation_corrections_si')}</option>
+                            <option value="no">{t('hub.chatbot_show_citation_corrections_no')}</option>
+                          </select>
+                          <p id="chatbot-show-citation-corrections-ayuda" className="text-xs text-muted-foreground mt-1">
+                            {t('hub.chatbot_show_citation_corrections_ayuda')}
+                          </p>
                         </div>
                         <div>
                           <label htmlFor="chatbot-answer-template" className="text-sm font-medium">{t('hub.chatbot_answer_template')}</label>

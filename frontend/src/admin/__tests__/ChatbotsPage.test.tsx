@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest'
-import { render, screen, waitFor, act, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, act, fireEvent, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import i18n from '@/shared/i18n'
@@ -490,5 +490,59 @@ describe('El interruptor de actividad nombra el estado, no otra acción', () => 
     })
 
     expect(screen.queryByRole('dialog')).toBeNull()
+  })
+})
+
+describe('#339 — las correcciones de las citas se eligen en el formulario', () => {
+  // Tres estados y no una casilla: nulo es «heredar» (apagado), y una casilla no puede volver
+  // a él una vez marcada.
+  const control = () => screen.getByLabelText(/correcciones de las citas/i)
+
+  async function guardar() {
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /guardar/i }))
+    })
+    await waitFor(() => expect(mockUpdateMutate).toHaveBeenCalled())
+    return mockUpdateMutate.mock.calls[0][0].data
+  }
+
+  it('should_show_inherit_when_the_chatbot_has_null', async () => {
+    await openEditDialog({ ...DEMO_CHATBOT, show_citation_corrections: null })
+
+    expect(control()).toHaveValue('')
+    expect(within(control()).getByRole('option', { name: /heredar/i })).toBeInTheDocument()
+  })
+
+  it('should_explain_what_it_does', async () => {
+    await openEditDialog()
+
+    expect(screen.getByText(/se sustituye al final/i)).toBeInTheDocument()
+  })
+
+  it('should_preload_and_keep_true', async () => {
+    const encendido = { ...DEMO_CHATBOT, show_citation_corrections: true }
+    await openEditDialog(encendido, [encendido])
+
+    expect(control()).toHaveValue('si')
+    expect((await guardar()).show_citation_corrections).toBe(true)
+  })
+
+  it('should_send_false_when_no_is_chosen', async () => {
+    await openEditDialog()
+    await act(async () => {
+      fireEvent.change(control(), { target: { value: 'no' } })
+    })
+
+    expect((await guardar()).show_citation_corrections).toBe(false)
+  })
+
+  it('should_send_null_to_go_back_to_inherit', async () => {
+    const encendido = { ...DEMO_CHATBOT, show_citation_corrections: true }
+    await openEditDialog(encendido, [encendido])
+    await act(async () => {
+      fireEvent.change(control(), { target: { value: '' } })
+    })
+
+    expect((await guardar()).show_citation_corrections).toBeNull()
   })
 })

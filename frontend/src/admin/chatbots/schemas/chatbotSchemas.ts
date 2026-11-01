@@ -23,6 +23,9 @@ export const chatbotCreateSchema = z.object({
   min_retrieval_results: z.number().int().min(1).max(20),
   min_retrieval_score: z.number().min(0).max(1),
   reranker_enabled: z.boolean(),
+  // #339 — tres estados, como las cuotas: cadena vacía = heredar (nulo, apagado). Una casilla
+  // no puede volver a «heredar» una vez marcada.
+  show_citation_corrections: z.enum(['', 'si', 'no']),
   answer_template: z.string(),
   // FIX.1: el modelo se elige en el formulario. Antes era una constante del fichero de la
   // página, así que no se podía cambiar y una edición cualquiera lo reasignaba en silencio.
