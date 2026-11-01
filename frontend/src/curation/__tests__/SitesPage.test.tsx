@@ -179,11 +179,17 @@ describe('#357 — «Rastrear ahora» dice que ha empezado y cuándo ha terminad
     expect(aviso.textContent).toMatch(/diario de pasadas/i)
   })
 
-  it('no deja volver a pulsarlo mientras el rastreo dura', async () => {
+  it('no deja volver a pulsarlo mientras se envía', async () => {
+    const { boton } = await pulsar(() => new Promise(() => {}))
+
+    expect(boton).toBeDisabled()
+  })
+
+  it('aceptado, vuelve a dejarlo pulsar: si sigue en marcha lo tiene que decir el servidor (#360)', async () => {
     const { boton } = await pulsar(() => Promise.resolve({}))
 
     await screen.findByRole('status')
-    expect(boton).toBeDisabled()
+    expect(boton).not.toBeDisabled()
   })
 
   it('dice el error si no se ha podido lanzar, y deja reintentar', async () => {
@@ -203,6 +209,31 @@ describe('#357 — «Rastrear ahora» dice que ha empezado y cuándo ha terminad
 
     // El estado vive en el componente: `rerender` con el mismo árbol lo conserva.
     await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/ha terminado/i))
+  })
+
+  it('compara con lo que el servidor traía antes, no con el reloj del navegador', async () => {
+    // Con un «Último rastreo» anterior al clic —el reloj del navegador adelantado, o un
+    // rastreo que empezó antes de la respuesta— también ha terminado: ha cambiado.
+    const conFecha = { ...SITE, last_crawled_at: '2026-10-30T13:02:46Z' }
+    const { vista } = await pulsar(() => Promise.resolve({}), conFecha)
+    await screen.findByRole('status')
+
+    mockSites.list = [{ ...conFecha, last_crawled_at: '2026-10-30T13:02:47Z' }]
+    const { SitesPage } = await import('../SitesPage')
+    vista.rerender(wrap(<SitesPage />))
+
+    await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/ha terminado/i))
+  })
+
+  it('si el sitio pasa a error sin fecha nueva, dice que ha terminado con error', async () => {
+    const { vista } = await pulsar(() => Promise.resolve({}))
+    await screen.findByRole('status')
+
+    mockSites.list = [{ ...SITE, status: 'error' }]
+    const { SitesPage } = await import('../SitesPage')
+    vista.rerender(wrap(<SitesPage />))
+
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/con error/i))
   })
 })
 
@@ -237,6 +268,22 @@ describe('#358 — «Eliminar» pide confirmación', () => {
 
     expect(mutateFn).not.toHaveBeenCalled()
     expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('mientras se borra, «Cancelar» no deja creer que no se ha borrado', async () => {
+    const { useDeleteSite } = await import('@/shared/api/generated/hub-sites/hub-sites')
+    ;(useDeleteSite as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      mutate: vi.fn(),
+      isPending: true,
+      reset: vi.fn(),
+    }))
+    mockSites.list = [SITE]
+    const { SitesPage } = await import('../SitesPage')
+    render(wrap(<SitesPage />))
+    fireEvent.click((await screen.findAllByRole('button', { name: /^eliminar$/i }))[0])
+
+    const dialogo = await screen.findByRole('dialog')
+    expect(within(dialogo).getByRole('button', { name: /cancelar/i })).toBeDisabled()
   })
 
   it('confirmar borra ese sitio', async () => {
