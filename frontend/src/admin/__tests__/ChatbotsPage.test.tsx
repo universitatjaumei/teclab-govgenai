@@ -546,3 +546,31 @@ describe('#339 — las correcciones de las citas se eligen en el formulario', ()
     expect((await guardar()).show_citation_corrections).toBeNull()
   })
 })
+
+describe('#351 — un umbral calibrado midiendo se puede guardar', () => {
+  // El `step` del input bloqueaba el envío por validación nativa: 0,69 no es múltiplo de
+  // 0,05, el navegador no dejaba enviar y no salía ninguna petición.
+  const calibrado: ChatbotRead = { ...DEMO_CHATBOT, quality_threshold: 0.69, min_retrieval_score: 0.27 }
+
+  it('should_accept_a_threshold_that_is_not_a_multiple_of_the_step', async () => {
+    await openEditDialog(calibrado, [calibrado])
+
+    const umbral = screen.getByLabelText(/umbral de calidad/i) as HTMLInputElement
+    const puntuacion = document.getElementById('chatbot-min-score') as HTMLInputElement
+    expect(umbral).toHaveValue(0.69)
+    expect(umbral.checkValidity()).toBe(true)
+    expect(puntuacion.checkValidity()).toBe(true)
+  })
+
+  it('should_send_the_calibrated_threshold_unchanged', async () => {
+    await openEditDialog(calibrado, [calibrado])
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /guardar/i }))
+    })
+
+    await waitFor(() => expect(mockUpdateMutate).toHaveBeenCalled())
+    const enviado = mockUpdateMutate.mock.calls[0][0].data
+    expect(enviado.quality_threshold).toBe(0.69)
+    expect(enviado.min_retrieval_score).toBe(0.27)
+  })
+})
