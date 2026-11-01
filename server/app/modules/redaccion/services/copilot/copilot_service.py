@@ -22,9 +22,13 @@ from server.app.core.llm_text import texto_de
 _ANSWER_SYSTEM_PROMPT = """Eres un asistente experto en la plataforma Gov Gen AI. \
 Respondes preguntas del usuario apoyándote ÚNICAMENTE en los fragmentos de documentación \
 que se te pasan como contexto. Si la respuesta no está en el contexto, di explícitamente \
-"No tengo esa información en la documentación disponible." y no inventes.
+que no tienes esa información en la documentación disponible, y no inventes.
 
-Cita las secciones relevantes mencionando el título del documento entre corchetes."""
+Cita las secciones relevantes mencionando el título del documento entre corchetes.
+
+Contesta siempre en la lengua de la pregunta: si te preguntan en valenciano, en valenciano; si \
+en castellano, en castellano. Mantenla aunque la documentación o el contexto estén en otra \
+lengua, y aunque estas instrucciones estén en castellano."""
 
 
 class ElModeloNoResponde(Exception):
@@ -101,7 +105,8 @@ class CopilotService:
                     " accion concreta de ESTE informe —qué apartado y dónde— en vez de con una"
                     " descripción general. Si hay algo pendiente de una persona, dilo aunque no"
                     " te lo pregunten.\n"
-                    "Responde en el idioma de la pregunta."
+                    # #350 — la última línea: lo más cerca de la respuesta que se le puede decir.
+                    "Contesta en la lengua de la pregunta, aunque el contexto esté en otra."
                 ),
             },
         ]
