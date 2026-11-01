@@ -82,8 +82,12 @@ class CopilotService:
     ) -> CopilotAnswer:
         chunks = await self._retriever.retrieve(question, module=module, top_k=top_k)
         if not chunks and not contexto_del_informe:
+            # #350 — aquí no hay modelo que vea la lengua de la pregunta: va en las dos.
             return CopilotAnswer(
-                answer="No tengo esa información en la documentación disponible.",
+                answer=(
+                    "No tengo esa información en la documentación disponible. / "
+                    "No tinc eixa informació en la documentació disponible."
+                ),
                 source_refs=[],
             )
         context_block = "\n\n---\n\n".join(

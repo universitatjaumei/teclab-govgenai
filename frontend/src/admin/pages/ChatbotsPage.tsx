@@ -84,11 +84,6 @@ function etiquetaModelo(config: LLMConfigRead): string {
   return config.is_default ? `${conEtiqueta} (por defecto)` : conEtiqueta
 }
 
-/** Cadena vacia = heredar de la organizacion (null); si no, el numero.
- *
- * Los tres estados importan: `null` hereda, `0` es sin limite y un numero es el techo.
- * Mandar `0` donde el usuario dejo el campo vacio le pondria "sin limite" sin pedirlo.
- */
 /** #339 — el valor del formulario al contrato: vacío hereda (null), y si no, sí o no. */
 function aInterruptor(valor: '' | 'si' | 'no'): boolean | null {
   return valor === '' ? null : valor === 'si'
@@ -98,6 +93,11 @@ function deInterruptor(valor: boolean | null | undefined): '' | 'si' | 'no' {
   return valor == null ? '' : valor ? 'si' : 'no'
 }
 
+/** Cadena vacia = heredar de la organizacion (null); si no, el numero.
+ *
+ * Los tres estados importan: `null` hereda, `0` es sin limite y un numero es el techo.
+ * Mandar `0` donde el usuario dejo el campo vacio le pondria "sin limite" sin pedirlo.
+ */
 function aCuota(valor: string): number | null {
   const limpio = valor.trim()
   if (limpio === '') return null

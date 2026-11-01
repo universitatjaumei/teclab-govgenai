@@ -47,9 +47,9 @@ async def test_el_prompt_de_sistema_manda_contestar_en_la_lengua_de_la_pregunta(
 
     assert "lengua de la pregunta" in sistema
     assert "valenciano" in sistema, "la lengua que se le escapaba tiene que estar nombrada"
-    # Hay que decirle que el contexto puede estar en otra lengua, y que no manda.
-    assert "aunque" in sistema
-    assert "contexto" in sistema
+    # Hay que decirle que el contexto puede estar en otra lengua, y que no manda. La frase
+    # entera: «contexto» ya estaba antes de #350 y «aunque» puede salir en cualquier parte.
+    assert "Mantenla aunque la documentación o el contexto estén en otra" in " ".join(sistema.split())
 
 
 @pytest.mark.asyncio
@@ -68,3 +68,25 @@ async def test_lo_ultimo_que_lee_es_la_lengua_de_la_pregunta() -> None:
     ultima_linea = usuario.strip().splitlines()[-1]
     assert "lengua de la pregunta" in ultima_linea
     assert "Com exporte l'informe a Word?" in usuario
+
+
+class _BuscadorVacio:
+    async def retrieve(self, question, module=None, top_k=4):
+        return []
+
+
+@pytest.mark.asyncio
+async def test_sin_ayuda_tampoco_contesta_solo_en_castellano() -> None:
+    """Revisión de la PR #352: sin fragmentos no se llama al modelo y la respuesta es fija. Era
+    la frase en castellano, que es justo lo que #350 quería quitar. Sin modelo no hay quien
+    detecte la lengua, así que va en las dos."""
+    modelo = modelo_de_chat()
+    modelo.ainvoke = AsyncMock()
+
+    respuesta = await CopilotService(llm=modelo, retriever=_BuscadorVacio()).answer(
+        question="Com exporte l'informe a Word?", module="redaccion"
+    )
+
+    modelo.ainvoke.assert_not_awaited()
+    assert "No tengo esa información" in respuesta.answer
+    assert "No tinc eixa informació" in respuesta.answer
