@@ -74,6 +74,7 @@
   "overrides": {
     "@scalar/json-magic": {
       "undici": "^7.29.0"
-    }
+    },
+    "minimatch": "^11.0.1"
   }
 }
