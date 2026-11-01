@@ -2,6 +2,7 @@ import { Fragment, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
 import { useForm, useWatch } from 'react-hook-form'
+import { mensajeDelFallo } from '@/utilidades/mensajeDelFallo'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
@@ -93,6 +94,11 @@ export function SitesPage() {
     },
   })
   const crawlMutation = useTriggerSiteCrawl()
+  // #357 — el servidor responde 202 y rastrea en segundo plano. Sin aviso, pulsar no cambiaba
+  // nada en pantalla, y lo natural era volver a pulsar: otro rastreo a la vez sobre el mismo sitio.
+  const [avisoDeRastreo, setAvisoDeRastreo] = useState<
+    { siteId: string; error: string | null } | null
+  >(null)
   // CUR.7 — cambiar el alcance semántico de un sitio ya creado.
   const patchMutation = usePatchSite()
 
@@ -202,7 +208,15 @@ export function SitesPage() {
   }
 
   const handleCrawl = (siteId: string) => {
-    crawlMutation.mutate({ siteId })
+    setAvisoDeRastreo(null)
+    crawlMutation.mutate(
+      { siteId },
+      {
+        onSuccess: () => setAvisoDeRastreo({ siteId, error: null }),
+        onError: (e: unknown) =>
+          setAvisoDeRastreo({ siteId, error: mensajeDelFallo(e, t('crawl_failed_unknown')) }),
+      },
+    )
   }
 
   return (
@@ -272,6 +286,7 @@ export function SitesPage() {
                       className="text-xs px-2 py-1 rounded border hover:bg-accent"
                       onClick={() => handleCrawl(site.id)}
                       aria-label={t('crawl_now')}
+                      disabled={crawlMutation.isPending && crawlMutation.variables?.siteId === site.id}
                     >
                       {t('crawl_now')}
                     </button>
@@ -298,6 +313,19 @@ export function SitesPage() {
                     </button>
                   </td>
                 </tr>
+                {avisoDeRastreo?.siteId === site.id && (
+                  <tr className="border-b">
+                    <td colSpan={6} className="py-2 px-2 text-xs">
+                      {avisoDeRastreo.error === null ? (
+                        <p role="status" className="text-green-800">{t('crawl_started')}</p>
+                      ) : (
+                        <p role="alert" className="text-destructive">
+                          {t('crawl_failed', { error: avisoDeRastreo.error })}
+                        </p>
+                      )}
+                    </td>
+                  </tr>
+                )}
                 {sitioDesplegado === site.id && (
                   <tr className="border-b bg-accent/10">
                     <td colSpan={6} className="py-3 px-2">

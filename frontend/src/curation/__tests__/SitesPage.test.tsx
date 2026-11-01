@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import i18n from '@/shared/i18n'
@@ -92,7 +92,7 @@ describe('SitesPage (curation)', () => {
     const crawlBtn = await screen.findAllByText(/rastrear ahora/i)
     fireEvent.click(crawlBtn[0])
 
-    expect(mutateFn).toHaveBeenCalledWith({ siteId: SITE.id })
+    expect(mutateFn.mock.calls[0][0]).toEqual({ siteId: SITE.id })
   })
 
   it('muestra formulario al pulsar "Nuevo sitio"', async () => {
@@ -140,5 +140,48 @@ describe('SitesPage (curation)', () => {
     onSuccess!()
 
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: getListSitesQueryKey() })
+  })
+})
+
+describe('#357 — «Rastrear ahora» dice que ha empezado', () => {
+  async function pulsar(mutateFn = vi.fn(), extra: object = {}) {
+    const { useTriggerSiteCrawl } = await import('@/shared/api/generated/hub-sites/hub-sites')
+    ;(useTriggerSiteCrawl as ReturnType<typeof vi.fn>).mockReturnValue({ mutate: mutateFn, isPending: false, ...extra })
+    mockSites.list = [SITE]
+    const { SitesPage } = await import('../SitesPage')
+    render(wrap(<SitesPage />))
+    fireEvent.click((await screen.findAllByRole('button', { name: /rastrear ahora/i }))[0])
+    return mutateFn.mock.calls[0]?.[1] as { onSuccess: () => void; onError: (e: Error) => void } | undefined
+  }
+
+  it('avisa de que el rastreo ha empezado y de dónde se verá', async () => {
+    const opciones = await pulsar()
+    act(() => opciones!.onSuccess())
+
+    const aviso = await screen.findByRole('status')
+    expect(aviso.textContent).toMatch(/ha empezado/i)
+    expect(aviso.textContent).toMatch(/último rastreo/i)
+  })
+
+  it('dice el error si no se ha podido lanzar', async () => {
+    const opciones = await pulsar()
+    act(() => opciones!.onError(new Error('El servidor no responde')))
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/el servidor no responde/i)
+  })
+
+  it('no deja pulsarlo otra vez mientras se envía', async () => {
+    const { useTriggerSiteCrawl } = await import('@/shared/api/generated/hub-sites/hub-sites')
+    ;(useTriggerSiteCrawl as ReturnType<typeof vi.fn>).mockReturnValue({
+      mutate: vi.fn(),
+      isPending: true,
+      variables: { siteId: SITE.id },
+    })
+    mockSites.list = [SITE]
+    const { SitesPage } = await import('../SitesPage')
+    render(wrap(<SitesPage />))
+
+    const boton = (await screen.findAllByRole('button', { name: /rastrear ahora/i }))[0]
+    expect(boton).toBeDisabled()
   })
 })
