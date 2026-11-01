@@ -9,6 +9,7 @@ Aquí la tenencia y los códigos de estado; lo que lee y escribe la base, en
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import urlparse
 
@@ -24,7 +25,7 @@ from server.app.core.auth.tenancy import (
     organizacion_unica_de,
 )
 from server.app.api.deps import get_session
-from server.app.modules.curation import sitios
+from server.app.modules.curation import rastreo_en_curso, sitios
 from server.app.modules.curation.selection_contracts import (
     CandidatePageView,
     CrawlConfig,
@@ -300,7 +301,16 @@ async def trigger_crawl(
     Deploy: edge. Responde 202 Accepted inmediatamente.
     """
     await assert_site_org_access(session, site_id, current_user)
+    await encolar_rastreo(session, site_id, quality_job, background_tasks)
+    return {"status": "queued", "site_id": str(site_id)}
 
+
+async def encolar_rastreo(
+    session: AsyncSession, site_id: uuid.UUID, quality_job: Any, background_tasks: BackgroundTasks
+) -> None:
+    """Reserva el sitio y encola la pasada. La usan «Rastrear ahora» y «Analizar ahora», que
+    lanzan lo mismo: si cada uno reservara a su manera, uno podría quitarle la marca al otro.
+    """
     # Revisión de la PR #359 — sin trabajo de calidad respondía 202 «queued» sin encolar nada, y
     # el panel avisa de que el rastreo ha empezado (#357): habría afirmado algo falso.
     if quality_job is None:
@@ -308,9 +318,19 @@ async def trigger_crawl(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="El rastreo no está disponible en esta instalación: el trabajo de calidad está apagado.",
         )
-    background_tasks.add_task(quality_job.run_for_site, site_id)
-
-    return {"status": "queued", "site_id": str(site_id)}
+    # #360 — uno a la vez por sitio. La marca la quita el trabajo al terminar, también si falla;
+    # con `reservado_en`, sólo la suya.
+    ahora = datetime.now(timezone.utc)
+    ocupado_desde = await rastreo_en_curso.reservar(session, site_id, None, ahora)
+    if ocupado_desde is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "Ya hay un rastreo de este sitio en marcha. Espera a que termine: la lista de "
+                "sitios dice desde cuándo."
+            ),
+        )
+    background_tasks.add_task(quality_job.run_for_site, site_id, reservado_en=ahora)
 
 
 # ──────────────────────── Páginas del sitio ────────────────────────

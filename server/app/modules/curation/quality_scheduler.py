@@ -126,6 +126,9 @@ def create_quality_scheduler(
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
     scheduler = AsyncIOScheduler()
+    # #360 — referencias fuertes a las tareas por sitio: el bucle sólo guarda débiles, y una tarea
+    # recogida a mitad dejaría el sitio reservado hasta el arranque siguiente o la caducidad.
+    en_marcha: set[asyncio.Task] = set()
 
     if not enabled:
         return scheduler
@@ -141,11 +144,20 @@ def create_quality_scheduler(
             return
 
         logger.info("[QualityScheduler] %d scopes due for quality check", len(due))
+        # #360 — una tarea por **sitio**, que recorre sus ámbitos en serie. Lanzar uno por ámbito
+        # ponía a rastrear a la vez todas las secciones vencidas del mismo portal; con la marca
+        # de «rastreo en curso», que es del sitio, todas menos una chocarían y esperarían a la
+        # pasada siguiente del planificador.
+        por_sitio: dict[uuid.UUID, list[AmbitoVencido]] = {}
         for ambito in due:
-            asyncio.create_task(
-                _run_site_safe(site_quality_job, ambito.site_id, ambito.section_id),
-                name=f"quality-{ambito.site_id}-{ambito.ambito}",
+            por_sitio.setdefault(ambito.site_id, []).append(ambito)
+        for site_id, ambitos in por_sitio.items():
+            tarea = asyncio.create_task(
+                _rastrear_el_sitio(session_factory, site_quality_job, ambitos),
+                name=f"quality-{site_id}",
             )
+            en_marcha.add(tarea)
+            tarea.add_done_callback(en_marcha.discard)
 
     scheduler.add_job(
         check_all_sites,
@@ -157,15 +169,49 @@ def create_quality_scheduler(
     return scheduler
 
 
+async def _rastrear_el_sitio(
+    session_factory: Any, site_quality_job: Any, ambitos: list[AmbitoVencido]
+) -> None:
+    """Los ámbitos vencidos de un sitio, uno detrás de otro, reservando el sitio para cada uno.
+
+    Si el sitio ya se está rastreando —a mano o por otra vía— se deja para la pasada siguiente:
+    siguen vencidos, porque su «Último rastreo» sólo cambia al terminar.
+    """
+    from server.app.modules.curation import rastreo_en_curso
+
+    for ambito in ambitos:
+        ahora = datetime.now(timezone.utc)
+        try:
+            async with session_factory() as session:
+                ocupado_desde = await rastreo_en_curso.reservar(
+                    session, ambito.site_id, ambito.section_id, ahora
+                )
+        except Exception:
+            logger.exception("[QualityScheduler] No se pudo reservar el sitio %s", ambito.site_id)
+            return
+        if ocupado_desde is not None:
+            logger.info(
+                "[QualityScheduler] site %s ya se está rastreando desde %s: se deja para la "
+                "pasada siguiente",
+                ambito.site_id,
+                ocupado_desde,
+            )
+            return
+        await _run_site_safe(site_quality_job, ambito.site_id, ambito.section_id, ahora)
+
+
 async def _run_site_safe(
     site_quality_job: Any,
     site_id: uuid.UUID,
     section_id: uuid.UUID | None = None,
+    reservado_en: datetime | None = None,
 ) -> None:
     """Ejecuta el job de calidad para un ámbito sin propagar excepciones."""
     ambito = "sitio" if section_id is None else str(section_id)
     try:
-        summary = await site_quality_job.run_for_site(site_id, section_id=section_id)
+        summary = await site_quality_job.run_for_site(
+            site_id, section_id=section_id, reservado_en=reservado_en
+        )
         logger.info(
             "[QualityScheduler] site %s (%s) done: new=%d superseded=%d auto_ingested=%d "
             "errors=%d",

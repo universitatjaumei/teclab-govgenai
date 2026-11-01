@@ -145,9 +145,7 @@ describe('SitesPage (curation)', () => {
   })
 })
 
-describe('#357 — «Rastrear ahora» dice que ha empezado y cuándo ha terminado', () => {
-  // El doble se restablece al acabar cada test: `mockReturnValue` persiste entre tests y el
-  // resultado dependía del orden (revisión de la PR #359).
+describe('#357 y #360 — «Rastrear ahora» dice qué pasa, con lo que dice el servidor', () => {
   afterEach(async () => {
     const { useTriggerSiteCrawl } = await import('@/shared/api/generated/hub-sites/hub-sites')
     ;(useTriggerSiteCrawl as ReturnType<typeof vi.fn>).mockImplementation(() => ({
@@ -156,7 +154,7 @@ describe('#357 — «Rastrear ahora» dice que ha empezado y cuándo ha terminad
     }))
   })
 
-  async function pulsar(resultado: () => Promise<unknown>, sitio: object = SITE) {
+  async function pintar(sitio: object, resultado: () => Promise<unknown> = () => Promise.resolve({})) {
     const { useTriggerSiteCrawl } = await import('@/shared/api/generated/hub-sites/hub-sites')
     const mutateAsync = vi.fn(resultado)
     ;(useTriggerSiteCrawl as ReturnType<typeof vi.fn>).mockReturnValue({ mutateAsync, isPending: false })
@@ -164,76 +162,79 @@ describe('#357 — «Rastrear ahora» dice que ha empezado y cuándo ha terminad
     const { SitesPage } = await import('../SitesPage')
     const vista = render(wrap(<SitesPage />))
     const boton = (await screen.findAllByRole('button', { name: /rastrear ahora/i }))[0]
-    await act(async () => {
-      fireEvent.click(boton)
-    })
-    return { boton, vista }
+    return { boton, mutateAsync, vista }
   }
 
-  it('avisa de que el rastreo ha empezado y de dónde se verá', async () => {
-    await pulsar(() => Promise.resolve({}))
+  it('con un rastreo en marcha según el servidor, dice desde cuándo y no deja lanzar otro', async () => {
+    const { boton } = await pintar({ ...SITE, rastreo_en_curso_desde: '2026-11-01T10:42:00Z' })
 
     const aviso = await screen.findByRole('status')
-    expect(aviso.textContent).toMatch(/ha empezado/i)
-    expect(aviso.textContent).toMatch(/último rastreo/i)
+    expect(aviso.textContent).toMatch(/rastreando desde/i)
     expect(aviso.textContent).toMatch(/diario de pasadas/i)
+    expect(boton).toBeDisabled()
+  })
+
+  it('sin marca en el servidor, no hay aviso y se puede lanzar', async () => {
+    const { boton } = await pintar({ ...SITE, rastreo_en_curso_desde: null })
+
+    expect(screen.queryByRole('status')).toBeNull()
+    expect(boton).not.toBeDisabled()
   })
 
   it('no deja volver a pulsarlo mientras se envía', async () => {
-    const { boton } = await pulsar(() => new Promise(() => {}))
+    const { boton } = await pintar(SITE, () => new Promise(() => {}))
+    await act(async () => {
+      fireEvent.click(boton)
+    })
 
     expect(boton).toBeDisabled()
   })
 
-  it('aceptado, vuelve a dejarlo pulsar: si sigue en marcha lo tiene que decir el servidor (#360)', async () => {
-    const { boton } = await pulsar(() => Promise.resolve({}))
+  it('aceptado y sin marca en la lista refrescada, dice que ha terminado', async () => {
+    const { boton } = await pintar(SITE)
+    await act(async () => {
+      fireEvent.click(boton)
+    })
 
-    await screen.findByRole('status')
+    expect((await screen.findByRole('status')).textContent).toMatch(/ha terminado/i)
+  })
+
+  it('si el sitio queda en error, dice que ha terminado con error', async () => {
+    const { boton } = await pintar({ ...SITE, status: 'error' })
+    await act(async () => {
+      fireEvent.click(boton)
+    })
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/con error/i)
+  })
+
+  it('si el servidor dice que hay uno en marcha, eso manda sobre el error del clic', async () => {
+    const { boton, vista } = await pintar(SITE, () =>
+      Promise.reject(new Error('Ya hay un rastreo de este sitio en marcha.')),
+    )
+    await act(async () => {
+      fireEvent.click(boton)
+    })
+    await screen.findByRole('alert')
+
+    mockSites.list = [{ ...SITE, rastreo_en_curso_desde: '2026-11-01T10:42:00Z' }]
+    const { SitesPage } = await import('../SitesPage')
+    vista.rerender(wrap(<SitesPage />))
+
+    await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/rastreando desde/i))
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('si no se ha podido lanzar —un 409, por ejemplo—, dice el motivo y deja reintentar', async () => {
+    const { boton } = await pintar(SITE, () =>
+      Promise.reject(new Error('Ya hay un rastreo de este sitio en marcha.')),
+    )
+    await act(async () => {
+      fireEvent.click(boton)
+    })
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/ya hay un rastreo/i)
     expect(boton).not.toBeDisabled()
-  })
-
-  it('dice el error si no se ha podido lanzar, y deja reintentar', async () => {
-    const { boton } = await pulsar(() => Promise.reject(new Error('El servidor no responde')))
-
-    expect((await screen.findByRole('alert')).textContent).toMatch(/el servidor no responde/i)
-    expect(boton).not.toBeDisabled()
-  })
-
-  it('cuando el sitio trae un «Último rastreo» posterior, dice que ha terminado', async () => {
-    const { vista } = await pulsar(() => Promise.resolve({}))
-    await screen.findByRole('status')
-
-    mockSites.list = [{ ...SITE, last_crawled_at: new Date(Date.now() + 60_000).toISOString() }]
-    const { SitesPage } = await import('../SitesPage')
-    vista.rerender(wrap(<SitesPage />))
-
-    // El estado vive en el componente: `rerender` con el mismo árbol lo conserva.
-    await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/ha terminado/i))
-  })
-
-  it('compara con lo que el servidor traía antes, no con el reloj del navegador', async () => {
-    // Con un «Último rastreo» anterior al clic —el reloj del navegador adelantado, o un
-    // rastreo que empezó antes de la respuesta— también ha terminado: ha cambiado.
-    const conFecha = { ...SITE, last_crawled_at: '2026-10-30T13:02:46Z' }
-    const { vista } = await pulsar(() => Promise.resolve({}), conFecha)
-    await screen.findByRole('status')
-
-    mockSites.list = [{ ...conFecha, last_crawled_at: '2026-10-30T13:02:47Z' }]
-    const { SitesPage } = await import('../SitesPage')
-    vista.rerender(wrap(<SitesPage />))
-
-    await waitFor(() => expect(screen.getByRole('status').textContent).toMatch(/ha terminado/i))
-  })
-
-  it('si el sitio pasa a error sin fecha nueva, dice que ha terminado con error', async () => {
-    const { vista } = await pulsar(() => Promise.resolve({}))
-    await screen.findByRole('status')
-
-    mockSites.list = [{ ...SITE, status: 'error' }]
-    const { SitesPage } = await import('../SitesPage')
-    vista.rerender(wrap(<SitesPage />))
-
-    await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/con error/i))
   })
 })
 

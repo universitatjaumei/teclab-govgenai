@@ -167,6 +167,7 @@ def _start_quality_scheduler(app: FastAPI):
                 embedding_service=await resolve_embedding_service(session, chatbot_id),
             )
 
+        diario = DiarioDePasadas(hub_session_factory)
         job = SiteQualityAnalysisJob(
             session_factory=hub_session_factory,
             site_crawler=SiteCrawlerDispatcher(hub_session_factory),
@@ -190,7 +191,7 @@ def _start_quality_scheduler(app: FastAPI):
             # DIN.6 — el diario. Con su propia transacción, como el repositorio de avisos: es
             # información sobre algo que ya pasó, y perderla por un rollback del job sería
             # perder justo el rastro del problema.
-            run_log=DiarioDePasadas(hub_session_factory),
+            run_log=diario,
         )
 
         scheduler = create_quality_scheduler(
@@ -201,6 +202,20 @@ def _start_quality_scheduler(app: FastAPI):
         )
         scheduler.start()
         app.state.quality_job = job
+
+        # #360 — lo espera el arranque antes de servir peticiones (ver `lifespan`).
+        async def _interrumpir_rastreos_cortados() -> int:
+            from datetime import datetime, timezone
+
+            from server.app.modules.curation.rastreo_en_curso import (
+                interrumpir_los_que_quedaron,
+            )
+
+            return await interrumpir_los_que_quedaron(
+                hub_session_factory, diario, datetime.now(timezone.utc)
+            )
+
+        app.state.interrumpir_rastreos_cortados = _interrumpir_rastreos_cortados
         _log.info(
             "Planificador de calidad de contenido arrancado (cada %sh)",
             settings.content_quality_interval_hours,
@@ -460,6 +475,18 @@ async def _arranque(app: FastAPI):
 
     # Content quality scheduler (9Q.5) — Deploy: edge
     quality_scheduler = _start_quality_scheduler(app)
+
+    # #360 — con un solo proceso, cualquier marca de «rastreo en curso» que siga puesta al arrancar
+    # es de un rastreo que el reinicio mató (un despliegue, típicamente). Se anota en el diario y se
+    # quita **antes** de servir: si fuera después, podría borrar la de un rastreo recién pedido.
+    interrumpir = getattr(app.state, "interrumpir_rastreos_cortados", None)
+    if interrumpir is not None:
+        try:
+            cortados = await interrumpir()
+            if cortados:
+                _log.warning("%d rastreos interrumpidos por el reinicio, anotados en el diario", cortados)
+        except Exception:  # noqa: BLE001 — no impedir el arranque por esto; queda la caducidad
+            _log.exception("No se pudieron dar por interrumpidos los rastreos cortados")
 
     yield
 

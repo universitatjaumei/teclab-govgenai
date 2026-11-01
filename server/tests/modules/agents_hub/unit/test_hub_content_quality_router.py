@@ -281,3 +281,38 @@ def test_post_analyze_returns_202():
         headers={"Authorization": f"Bearer {_make_token()}"},
     )
     assert resp.status_code == 202
+
+
+def test_analyze_says_409_when_the_site_is_already_being_crawled(monkeypatch):
+    """#360 — «Analizar ahora» lanza lo mismo que «Rastrear ahora» y reserva igual: con el sitio
+    ya rastreándose, 409 y no se encola nada. Antes encolaba sin mirar."""
+    from datetime import datetime, timezone
+
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from server.app.api.deps import get_session
+    from server.app.modules.curation import rastreo_en_curso
+    from server.app.routers.hub_content_quality_router import get_quality_job, router
+
+    async def _ocupado(session, site_id, section_id, now):
+        return datetime(2026, 11, 1, 10, 42, tzinfo=timezone.utc)
+
+    monkeypatch.setattr(rastreo_en_curso, "reservar", _ocupado)
+    session = AsyncMock()
+    session.get = AsyncMock(return_value=_duenio_de_la_org())
+    quality_job = MagicMock()
+    quality_job.run_for_site = AsyncMock()
+
+    app = FastAPI()
+    app.dependency_overrides[get_session] = lambda: session
+    app.dependency_overrides[get_quality_job] = lambda: quality_job
+    app.include_router(router, prefix="/api/v1")
+
+    resp = TestClient(app).post(
+        f"/api/v1/hub/sites/{uuid.uuid4()}/analyze",
+        headers={"Authorization": f"Bearer {_make_token()}"},
+    )
+
+    assert resp.status_code == 409
+    quality_job.run_for_site.assert_not_called()

@@ -307,6 +307,11 @@ para que una persona decida qué entra al corpus.
   aparte de las escasas y el servidor rechaza proponerla o ingerirla a mano desde Publicació,
   salvo que quien cura descarte el hallazgo. Tampoco entra sola al corpus: es un tipo bloqueante.
 - Salvaguardas contra el vaciado: una pasada parcial no puede dar de baja el resto del portal.
+- **Un rastreo a la vez por sitio, y el que corta un reinicio no es silencioso** (#360). El sitio
+  dice en el contrato si se está rastreando y desde cuándo; un segundo —a mano, por «Analizar» o
+  del planificador— recibe 409 o se deja para la pasada siguiente, y el planificador recorre en
+  serie las secciones de un mismo portal. Lo que un despliegue o una caída deja a medias se da por
+  interrumpido al arrancar y queda en el diario; una marca de más de 24 h no bloquea.
 - **El rastreo no sale de la red pública** (I15). Quien da de alta un sitio decide a dónde pide
   el servidor, y basta tener el módulo de curación (antes, ser administrador): hasta APER.1 eso alcanzaba la red
   interna del despliegue y el texto volvía en el informe de reconocimiento. Ahora la dirección se
@@ -659,7 +664,8 @@ cambió y retira lo que desapareció.
   su copia vieja en el corpus sin ningún aviso.
 - **Ninguna retirada masiva silenciosa**: por encima del umbral del ámbito (30 % por defecto) no
   se retira nada y queda el aviso con las cifras.
-- **Todo lo que hace queda escrito** en un diario por pasada, con el ámbito que cubrió.
+- **Todo lo que hace queda escrito** en un diario por pasada, con el ámbito que cubrió; también la
+  pasada que un reinicio cortó (#360).
 - Los parámetros de una sección **heredan del sitio**: nulo hereda, y lo puesto gana.
 
 **Superficie.** `modules/curation/secciones.py`, `quality_job.py`, `diario.py` ·

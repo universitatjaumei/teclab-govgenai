@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react'
+import { Fragment, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
 import { useForm, useWatch } from 'react-hook-form'
@@ -66,35 +66,27 @@ const siteSchema = z.object({
 /** Hasta dónde baja el reconocimiento previo (CUR.6). El mismo número que el contrato. */
 const PROFUNDIDAD_DEL_SONDEO = 3
 
-/** #357 — lo que dice el servidor del sitio al pedir el rastreo. El desenlace se lee comparando
- *  estos valores con los que trae después: **los dos son del servidor**. Comparar con la hora del
- *  navegador —como se hizo primero— dejaba el aviso colgado si el reloj iba adelantado o si el
- *  rastreo fallaba sin fijar fecha (revisión de la PR #359). */
-type Huella = { last_crawled_at: string | null; status: string }
-
-type Rastreo =
-  | { estado: 'enviando' | 'en_curso'; antes: Huella; hasta: number }
+/** #357 — lo que esta pantalla sabe de un «Rastrear ahora» mientras se envía o si falla. Si hay
+ *  un rastreo **en marcha** no lo sabe ella: lo dice el servidor en `rastreo_en_curso_desde`
+ *  (#360). Antes lo deducía comparando lo que el sitio traía antes y después, y la revisión de la
+ *  PR #359 lo señaló como lógica de estado en el cliente. */
+type Envio =
+  | { estado: 'enviando' }
+  // Aceptado y con la lista ya refrescada: lo que diga el servidor a partir de aquí es de este
+  // rastreo. Si la marca ya no está, es que ha terminado (revisión de la PR #361).
+  | { estado: 'pedido' }
   | { estado: 'error'; error: string }
 
-/** Cuánto se vigila un rastreo antes de dejar de pedir la lista. Una pasada de la Escola de
- *  Doctorat (unas 360 páginas) tarda 13 minutos; si no hay desenlace en 30, se deja de preguntar
- *  y el aviso sigue remitiendo al diario. */
-const VIGILANCIA_MS = 30 * 60_000
-
-/** El desenlace de un rastreo en curso, si ya lo hay. El estado lo pone el servidor; aquí sólo
- *  se compara lo que trajo antes con lo que trae ahora. */
-function desenlace(r: Rastreo, site: SiteView): 'terminado' | 'fallido' | null {
-  if (r.estado !== 'en_curso') return null
-  if (site.last_crawled_at !== r.antes.last_crawled_at) return 'terminado'
-  if (site.status === 'error' && r.antes.status !== 'error') return 'fallido'
-  return null
+/** La hora de un instante del contrato, en la lengua de la interfaz. */
+function hora(instante: string, lengua: string): string {
+  return new Date(instante).toLocaleTimeString(lengua, { hour: '2-digit', minute: '2-digit' })
 }
 
 type SiteFormInput = z.input<typeof siteSchema>
 type SiteFormValues = z.output<typeof siteSchema>
 
 export function SitesPage() {
-  const { t } = useTranslation('curation')
+  const { t, i18n } = useTranslation('curation')
   const { t: tc } = useTranslation('common')
   const qc = useQueryClient()
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -105,24 +97,17 @@ export function SitesPage() {
   const { elegida: organizacionElegida } = useOrganizacionElegida()
 
   // #357 — el servidor responde 202 y rastrea en segundo plano. Sin aviso, pulsar no cambiaba
-  // nada en pantalla, y lo natural era volver a pulsar: otro rastreo a la vez sobre el mismo sitio.
-  // El estado es **por sitio** y no el de la mutación, que es una para todas las filas: con ella,
-  // pulsar en otro sitio borraba el aviso del primero y le reactivaba el botón (revisión de #359).
-  const [rastreos, setRastreos] = useState<Record<string, Rastreo>>({})
+  // nada en pantalla, y lo natural era volver a pulsar. El envío se sigue **por sitio** y no con la
+  // mutación, que es una para todas las filas: con ella, pulsar en otro sitio borraba el aviso del
+  // primero (revisión de la PR #359).
+  const [envios, setEnvios] = useState<Record<string, Envio>>({})
 
-  // Mientras un rastreo no tenga desenlace —y como mucho `VIGILANCIA_MS`— se vuelve a pedir la
-  // lista: es lo que trae el «Último rastreo» nuevo. Con la caché de cinco minutos del panel, el
-  // aviso prometía una fecha que no llegaba sin recargar. Se decide sobre los datos de cada
-  // respuesta, así que un sitio borrado o un rastreo ya terminado no la mantienen viva.
+  // #360 — mientras algún sitio tenga un rastreo en marcha se vuelve a pedir la lista: es lo que
+  // trae el fin de la marca y el «Último rastreo» nuevo. Sin marca, no se pregunta.
   const { data: sites = [], isLoading } = useListSites(undefined, {
     query: {
       refetchInterval: (query) =>
-        (query.state.data ?? []).some((site) => {
-          const r = rastreos[site.id]
-          return r?.estado === 'en_curso' && desenlace(r, site) === null && Date.now() < r.hasta
-        })
-          ? 30_000
-          : false,
+        (query.state.data ?? []).some((site) => site.rastreo_en_curso_desde) ? 30_000 : false,
     },
   })
   const createMutation = useCreateSite({
@@ -258,26 +243,29 @@ export function SitesPage() {
     })
   }
 
-  const handleCrawl = (site: SiteView) => {
-    const antes: Huella = { last_crawled_at: site.last_crawled_at, status: site.status }
-    const hasta = Date.now() + VIGILANCIA_MS
-    const poner = (r: Rastreo) => setRastreos((todos) => ({ ...todos, [site.id]: r }))
-    poner({ estado: 'enviando', antes, hasta })
+  const handleCrawl = (siteId: string) => {
+    const poner = (e: Envio | null) =>
+      setEnvios((todos) => {
+        const siguiente = { ...todos }
+        if (e === null) delete siguiente[siteId]
+        else siguiente[siteId] = e
+        return siguiente
+      })
+    poner({ estado: 'enviando' })
+    const refrescar = () => qc.invalidateQueries({ queryKey: getListSitesQueryKey() })
     // `mutateAsync` y no los callbacks de `mutate`: con una mutación compartida, TanStack sólo
     // llama a los de la última llamada, y el primer sitio se quedaba sin aviso.
     crawlMutation
-      .mutateAsync({ siteId: site.id })
-      .then(() => poner({ estado: 'en_curso', antes, hasta }))
-      .catch((e: unknown) =>
-        poner({ estado: 'error', error: mensajeDelFallo(e, t('crawl_failed_unknown')) }),
-      )
-  }
-
-  /** Lo que se enseña de un rastreo pedido desde aquí: su estado o, si ya lo hay, su desenlace. */
-  const estadoDelRastreo = (site: SiteView) => {
-    const r = rastreos[site.id]
-    if (!r) return undefined
-    return desenlace(r, site) ?? r.estado
+      .mutateAsync({ siteId })
+      // La marca ya está puesta: se espera a la lista que la trae antes de soltar el botón, o
+      // durante ese rato se podría pulsar otra vez y recibir un 409.
+      .then(() => refrescar())
+      .then(() => poner({ estado: 'pedido' }))
+      .catch((e: unknown) => {
+        poner({ estado: 'error', error: mensajeDelFallo(e, t('crawl_failed_unknown')) })
+        // Un 409 es que otro rastreo ya va: la lista lo enseñará.
+        return refrescar()
+      })
   }
 
   return (
@@ -345,11 +333,11 @@ export function SitesPage() {
                   <td className="py-2 space-x-2">
                     <button
                       className="text-xs px-2 py-1 rounded border hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                      onClick={() => handleCrawl(site)}
+                      onClick={() => handleCrawl(site.id)}
                       aria-label={t('crawl_now')}
-                      // Sólo mientras se envía. Bloquearlo mientras dura exige saber si sigue en
-                      // marcha, y eso lo tiene que decir el servidor (#360).
-                      disabled={estadoDelRastreo(site) === 'enviando'}
+                      // Mientras se envía y mientras el servidor diga que hay uno en marcha (#360):
+                      // volver a pulsar sólo traería un 409.
+                      disabled={envios[site.id]?.estado === 'enviando' || !!site.rastreo_en_curso_desde}
                     >
                       {t('crawl_now')}
                     </button>
@@ -377,24 +365,34 @@ export function SitesPage() {
                   </td>
                 </tr>
                 {(() => {
-                  const estado = estadoDelRastreo(site)
-                  const r = rastreos[site.id]
-                  if (estado === undefined || estado === 'enviando') return null
+                  // Lo que diga el servidor manda: si hay un rastreo en marcha, eso es lo que se
+                  // enseña, aunque el último clic de aquí fallara (otro lo había lanzado antes).
+                  const envio = envios[site.id]
+                  let aviso: ReactNode = null
+                  if (site.rastreo_en_curso_desde) {
+                    aviso = (
+                      <p role="status" className="text-green-800">
+                        {t('crawl_running', { hora: hora(site.rastreo_en_curso_desde, i18n.language) })}
+                      </p>
+                    )
+                  } else if (envio?.estado === 'error') {
+                    aviso = (
+                      <p role="alert" className="text-destructive">
+                        {t('crawl_failed', { error: envio.error })}
+                      </p>
+                    )
+                  } else if (envio?.estado === 'pedido') {
+                    aviso =
+                      site.status === 'error' ? (
+                        <p role="alert" className="text-destructive">{t('crawl_ended_with_error')}</p>
+                      ) : (
+                        <p role="status" className="text-green-800">{t('crawl_finished')}</p>
+                      )
+                  }
+                  if (aviso === null) return null
                   return (
                     <tr className="border-b">
-                      <td colSpan={6} className="py-2 px-2 text-xs">
-                        {estado === 'error' && r?.estado === 'error' ? (
-                          <p role="alert" className="text-destructive">
-                            {t('crawl_failed', { error: r.error })}
-                          </p>
-                        ) : estado === 'fallido' ? (
-                          <p role="alert" className="text-destructive">{t('crawl_ended_with_error')}</p>
-                        ) : (
-                          <p role="status" className="text-green-800">
-                            {t(estado === 'terminado' ? 'crawl_finished' : 'crawl_started')}
-                          </p>
-                        )}
-                      </td>
+                      <td colSpan={6} className="py-2 px-2 text-xs">{aviso}</td>
                     </tr>
                   )
                 })()}

@@ -57,6 +57,19 @@ class HubWebSite(HubOperationalBase):
     )
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # #360 — desde cuándo hay un rastreo en marcha, y de qué sección si es de una. El rastreo
+    # corre dentro del proceso web y no dejaba constancia: dos podían coincidir, un despliegue lo
+    # mataba sin rastro y el panel tenía que adivinar el desenlace. La marca es del **sitio**
+    # aunque la pasada sea de una sección: dos pasadas del mismo portal a la vez son el doble de
+    # peticiones contra el mismo servidor, y se pisan al incorporar y retirar del corpus.
+    rastreo_en_curso_desde: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # Sin clave ajena: es una nota sobre la pasada en curso, y si alguien borra la sección a
+    # mitad, el arranque tiene que poder anotarla igualmente como interrumpida.
+    rastreo_en_curso_seccion_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
         nullable=False,

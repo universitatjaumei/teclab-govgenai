@@ -132,3 +132,37 @@ describe('WebQualityReportViewer (vía AuditPage)', () => {
     })
   })
 })
+
+describe('#360 — «Analizar ahora» dice qué ha pasado', () => {
+  async function con(estado: object) {
+    const { useAnalyzeSite } = await import('@/shared/api/generated/hub-content-quality/hub-content-quality')
+    ;(useAnalyzeSite as ReturnType<typeof vi.fn>).mockReturnValue({
+      mutate: vi.fn(),
+      isPending: false,
+      variables: { siteId: SITE.id },
+      ...estado,
+    })
+    mockSites.list = [SITE]
+    const { AuditPage } = await import('../AuditPage')
+    render(wrap(<AuditPage />))
+    fireEvent.change(screen.getByRole('combobox', { name: /seleccione un sitio/i }), {
+      target: { value: SITE.id },
+    })
+  }
+
+  it('avisa de que ha empezado', async () => {
+    await con({ isSuccess: true, isError: false })
+
+    expect((await screen.findByRole('status')).textContent).toMatch(/ha empezado/i)
+  })
+
+  it('si el sitio ya se está rastreando, dice por qué no', async () => {
+    await con({
+      isSuccess: false,
+      isError: true,
+      error: new Error('Ya hay un rastreo de este sitio en marcha.'),
+    })
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/ya hay un rastreo/i)
+  })
+})

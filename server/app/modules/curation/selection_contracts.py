@@ -139,11 +139,25 @@ class SiteView(BaseModel):
     last_crawled_at: datetime | None
     status: str
     created_at: datetime
+    #: #360 — desde cuándo se está rastreando; nulo si no hay rastreo en marcha. Lo decide el
+    #: servidor: el panel lo enseña y bloquea «Rastrear ahora» con esto, sin deducirlo.
+    rastreo_en_curso_desde: datetime | None = None
     #: RAS.5 — quien mira la lista tiene que poder ver con qué cortesía y con qué filtro se está
     #: rastreando cada apartado. Antes no salía, así que no había forma de revisarlo.
     crawl_config: CrawlConfig | None = None
 
     model_config = {"from_attributes": True}
+
+    @field_validator("rastreo_en_curso_desde")
+    @classmethod
+    def _sin_marcas_caducadas(cls, desde: datetime | None) -> datetime | None:
+        """Una marca caducada no se enseña (revisión de la PR #361): el servidor ya dejaría lanzar
+        otro rastreo, y el panel diría «rastreando» y bloquearía el botón para siempre."""
+        from datetime import timezone
+
+        from server.app.modules.curation.rastreo_en_curso import vigente
+
+        return desde if vigente(desde, datetime.now(timezone.utc)) else None
 
     @model_validator(mode="before")
     @classmethod
