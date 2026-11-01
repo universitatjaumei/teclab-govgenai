@@ -39,6 +39,10 @@ vi.mock('@/shared/api/generated/hub-sites/hub-sites', () => ({
   useCreateSite: () => ({ mutate: vi.fn(), isPending: false }),
   useDeleteSite: () => ({ mutate: vi.fn(), isPending: false }),
   useTriggerSiteCrawl: () => ({ mutate: vi.fn(), isPending: false }),
+
+  // #358 — la confirmación de borrado cuenta las páginas del sitio.
+
+  useListSitePages: vi.fn(() => ({ data: undefined })),
   useUpdateSite: () => ({ mutate: vi.fn(), isPending: false }),
   getListSitesQueryKey: () => ['sites'],
   useReconnoiterSite: () => mockReconocer,

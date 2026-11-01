@@ -10,6 +10,7 @@ import {
   useCreateSite,
   useDeleteSite,
   useTriggerSiteCrawl,
+  useListSitePages,
   useReconnoiterSite,
   usePatchSite,
   getListSitesQueryKey,
@@ -64,6 +65,12 @@ const siteSchema = z.object({
 /** Hasta dónde baja el reconocimiento previo (CUR.6). El mismo número que el contrato. */
 const PROFUNDIDAD_DEL_SONDEO = 3
 
+/** #357 — lo que se sabe de un rastreo pedido desde esta pantalla. `desde` es cuándo se pidió:
+ *  ha terminado cuando el «Último rastreo» del sitio es posterior. */
+type Rastreo =
+  | { estado: 'enviando' | 'en_curso'; desde: number }
+  | { estado: 'error'; desde: number; error: string }
+
 type SiteFormInput = z.input<typeof siteSchema>
 type SiteFormValues = z.output<typeof siteSchema>
 
@@ -78,7 +85,19 @@ export function SitesPage() {
   // REV.10 — la misma elección de organización que el resto del panel, no un selector nuevo.
   const { elegida: organizacionElegida } = useOrganizacionElegida()
 
-  const { data: sites = [], isLoading } = useListSites()
+  // #357 — el servidor responde 202 y rastrea en segundo plano. Sin aviso, pulsar no cambiaba
+  // nada en pantalla, y lo natural era volver a pulsar: otro rastreo a la vez sobre el mismo sitio.
+  // El estado es **por sitio** y no el de la mutación, que es una para todas las filas: con ella,
+  // pulsar en otro sitio borraba el aviso del primero y le reactivaba el botón (revisión de #359).
+  const [rastreos, setRastreos] = useState<Record<string, Rastreo>>({})
+  const hayRastreoEnCurso = Object.values(rastreos).some((r) => r.estado === 'en_curso')
+
+  // Mientras haya uno en curso se vuelve a pedir la lista: es lo que trae el «Último rastreo»
+  // nuevo, que el sitio fija al terminar. Con la caché de cinco minutos del panel, el aviso
+  // prometía una fecha que no llegaba sin recargar.
+  const { data: sites = [], isLoading } = useListSites(undefined, {
+    query: { refetchInterval: hayRastreoEnCurso ? 30_000 : false },
+  })
   const createMutation = useCreateSite({
     mutation: {
       onSuccess: () => {
@@ -88,17 +107,20 @@ export function SitesPage() {
       },
     },
   })
+  // #358 — borrar es en cascada y sin deshacer: se confirma antes, nombrando lo que se pierde.
+  const [aBorrar, setABorrar] = useState<SiteView | null>(null)
   const deleteMutation = useDeleteSite({
     mutation: {
-      onSuccess: () => qc.invalidateQueries({ queryKey: getListSitesQueryKey() }),
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: getListSitesQueryKey() })
+        setABorrar(null)
+      },
     },
   })
+  const { data: paginasABorrar } = useListSitePages(aBorrar?.id ?? '', undefined, {
+    query: { enabled: aBorrar !== null },
+  })
   const crawlMutation = useTriggerSiteCrawl()
-  // #357 — el servidor responde 202 y rastrea en segundo plano. Sin aviso, pulsar no cambiaba
-  // nada en pantalla, y lo natural era volver a pulsar: otro rastreo a la vez sobre el mismo sitio.
-  const [avisoDeRastreo, setAvisoDeRastreo] = useState<
-    { siteId: string; error: string | null } | null
-  >(null)
   // CUR.7 — cambiar el alcance semántico de un sitio ya creado.
   const patchMutation = usePatchSite()
 
@@ -208,15 +230,27 @@ export function SitesPage() {
   }
 
   const handleCrawl = (siteId: string) => {
-    setAvisoDeRastreo(null)
-    crawlMutation.mutate(
-      { siteId },
-      {
-        onSuccess: () => setAvisoDeRastreo({ siteId, error: null }),
-        onError: (e: unknown) =>
-          setAvisoDeRastreo({ siteId, error: mensajeDelFallo(e, t('crawl_failed_unknown')) }),
-      },
-    )
+    const desde = Date.now()
+    const poner = (r: Rastreo) => setRastreos((todos) => ({ ...todos, [siteId]: r }))
+    poner({ estado: 'enviando', desde })
+    // `mutateAsync` y no los callbacks de `mutate`: con una mutación compartida, TanStack sólo
+    // llama a los de la última llamada, y el primer sitio se quedaba sin aviso.
+    crawlMutation
+      .mutateAsync({ siteId })
+      .then(() => poner({ estado: 'en_curso', desde }))
+      .catch((e: unknown) =>
+        poner({ estado: 'error', desde, error: mensajeDelFallo(e, t('crawl_failed_unknown')) }),
+      )
+  }
+
+  /** El estado que se enseña: un rastreo en curso ha terminado si el sitio ya tiene un «Último
+   *  rastreo» posterior a cuando se pidió. Se deduce al pintar, sin efecto que lo sincronice. */
+  const estadoDelRastreo = (site: SiteView) => {
+    const r = rastreos[site.id]
+    if (r?.estado === 'en_curso' && site.last_crawled_at && Date.parse(site.last_crawled_at) > r.desde) {
+      return 'terminado' as const
+    }
+    return r?.estado
   }
 
   return (
@@ -283,10 +317,11 @@ export function SitesPage() {
                   </td>
                   <td className="py-2 space-x-2">
                     <button
-                      className="text-xs px-2 py-1 rounded border hover:bg-accent"
+                      className="text-xs px-2 py-1 rounded border hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                       onClick={() => handleCrawl(site.id)}
                       aria-label={t('crawl_now')}
-                      disabled={crawlMutation.isPending && crawlMutation.variables?.siteId === site.id}
+                      // Mientras se envía y mientras dura: volver a pulsar lanzaría otro a la vez.
+                      disabled={['enviando', 'en_curso'].includes(estadoDelRastreo(site) ?? '')}
                     >
                       {t('crawl_now')}
                     </button>
@@ -306,26 +341,33 @@ export function SitesPage() {
                     </button>
                     <button
                       className="text-xs px-2 py-1 rounded border text-destructive hover:bg-destructive/10"
-                      onClick={() => deleteMutation.mutate({ siteId: site.id })}
+                      onClick={() => setABorrar(site)}
                       aria-label={tc('delete')}
                     >
                       {tc('delete')}
                     </button>
                   </td>
                 </tr>
-                {avisoDeRastreo?.siteId === site.id && (
-                  <tr className="border-b">
-                    <td colSpan={6} className="py-2 px-2 text-xs">
-                      {avisoDeRastreo.error === null ? (
-                        <p role="status" className="text-green-800">{t('crawl_started')}</p>
-                      ) : (
-                        <p role="alert" className="text-destructive">
-                          {t('crawl_failed', { error: avisoDeRastreo.error })}
-                        </p>
-                      )}
-                    </td>
-                  </tr>
-                )}
+                {(() => {
+                  const estado = estadoDelRastreo(site)
+                  const r = rastreos[site.id]
+                  if (estado !== 'en_curso' && estado !== 'terminado' && estado !== 'error') return null
+                  return (
+                    <tr className="border-b">
+                      <td colSpan={6} className="py-2 px-2 text-xs">
+                        {estado === 'error' && r?.estado === 'error' ? (
+                          <p role="alert" className="text-destructive">
+                            {t('crawl_failed', { error: r.error })}
+                          </p>
+                        ) : (
+                          <p role="status" className="text-green-800">
+                            {t(estado === 'terminado' ? 'crawl_finished' : 'crawl_started')}
+                          </p>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })()}
                 {sitioDesplegado === site.id && (
                   <tr className="border-b bg-accent/10">
                     <td colSpan={6} className="py-3 px-2">
@@ -556,6 +598,39 @@ export function SitesPage() {
                 <button type="submit" disabled={createMutation.isPending} className="px-3 py-1.5 rounded bg-primary text-primary-foreground text-sm">{tc('save')}</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* #358 — la confirmación nombra el sitio y lo que se pierde, como el borrado de chatbots. */}
+      {aBorrar && (
+        <div role="dialog" aria-modal="true" aria-labelledby="borrar-sitio-titulo" className="fixed inset-0 flex items-center justify-center bg-black/40 z-50">
+          <div className="bg-card rounded-lg p-6 w-full max-w-md shadow-lg space-y-3">
+            <p id="borrar-sitio-titulo" className="font-medium">{t('site_delete_title', { name: aBorrar.name })}</p>
+            <p className="text-sm">
+              {paginasABorrar === undefined
+                ? t('site_delete_loses_unknown')
+                : t('site_delete_loses', { count: paginasABorrar.length })}
+            </p>
+            <p className="text-sm font-medium text-destructive">{t('site_delete_irreversible')}</p>
+            {deleteMutation.error && (
+              <p role="alert" className="text-sm text-destructive">
+                {mensajeDelFallo(deleteMutation.error, t('site_delete_failed'))}
+              </p>
+            )}
+            <div className="flex justify-end gap-2 pt-2">
+              <button type="button" onClick={() => { setABorrar(null); deleteMutation.reset() }} className="px-3 py-1.5 rounded border text-sm">
+                {tc('cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={() => deleteMutation.mutate({ siteId: aBorrar.id })}
+                disabled={deleteMutation.isPending}
+                className="px-3 py-1.5 rounded bg-destructive text-destructive-foreground text-sm disabled:opacity-50"
+              >
+                {tc('delete')}
+              </button>
+            </div>
           </div>
         </div>
       )}
