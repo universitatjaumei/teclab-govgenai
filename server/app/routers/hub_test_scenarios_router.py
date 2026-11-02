@@ -303,8 +303,10 @@ async def run_scenario(
     # escenario no la declara, y pedírsela al autor sería pedirle un dato que el sistema ya sabe
     # sacar del propio texto.
     aviso = (
+        # Revisión de la PR #365 — en la lengua en que contestó el modelo, como en el chat.
         _build_translation_warning(
-            estado.get("context_source_language"), estado.get("language")
+            estado.get("context_source_language"),
+            estado.get("lengua_de_la_respuesta") or estado.get("language"),
         )
         if estado.get("translation_warning")
         else None

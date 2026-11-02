@@ -137,13 +137,16 @@ class TestElEfectoAguasAbajo:
         )
 
         lang = FixedLanguagePolicy("es").detect(CONSULTA_EN_CATALAN)
-        prompt = GenericAnswerTemplateStrategy(base_system_prompt="Assistent").build_prompt_context(
+        prompt = GenericAnswerTemplateStrategy(
+            base_system_prompt="Assistent", language_mode="fixed:es"
+        ).build_prompt_context(
             items=[EvidenceItem(source_id="d", content="text", language="ca")],
             language=lang,
             query=CONSULTA_EN_CATALAN,
         )
 
-        assert "Responde en es." in prompt
+        # #363: la lengua se nombra; el código («Responde en es.») lo dejaba a interpretación.
+        assert "Responde en castellano." in prompt
 
     def test_should_not_instruct_any_language_with_the_neutral_policy(self):
         """`none` es «sin política»: ni detección, ni orden por lengua, ni instrucción."""
@@ -156,7 +159,11 @@ class TestElEfectoAguasAbajo:
 
         politica = NeutralLanguagePolicy()
         lang = politica.detect(CONSULTA_EN_CATALAN)
-        prompt = GenericAnswerTemplateStrategy(base_system_prompt="Assistent").build_prompt_context(
+        # #363: la plantilla lee el modo (para distinguir `fixed:` de `prefer`); sin lengua no
+        # instruye en ninguno de los dos.
+        prompt = GenericAnswerTemplateStrategy(
+            base_system_prompt="Assistent", language_mode="none"
+        ).build_prompt_context(
             items=[EvidenceItem(source_id="d", content="text", language="ca")],
             language=lang,
             query=CONSULTA_EN_CATALAN,

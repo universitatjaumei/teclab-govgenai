@@ -14,7 +14,15 @@
 #
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Sin `dirname`: el script tiene que llegar a comprobar los requisitos aunque falten las
+# utilidades del sistema. Con `dirname` ausente, `cd ""` era un no-op en bash 5.2 y el script
+# seguía por casualidad; bash 5.3 (Ubuntu 26.04, el `ubuntu-latest` de CI desde el 02-11-2026)
+# lo rechaza con «null directory».
+case "${BASH_SOURCE[0]}" in
+  */*) SCRIPT_DIR="${BASH_SOURCE[0]%/*}" ;;
+  *) SCRIPT_DIR="." ;;
+esac
+SCRIPT_DIR="$(cd "${SCRIPT_DIR}" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 COMPOSE_FILE="docker-compose.prod.yml"

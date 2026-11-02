@@ -7,9 +7,8 @@ Deploy: edge
 """
 from __future__ import annotations
 
-from server.app.modules.agents_hub.services.language_detector import (
-    detect_language as _detect_language,
-)
+from server.app.core.language_mode import LENGUAS_DE_RESPUESTA, lengua_fijada
+from server.app.modules.agents_hub.services.language_detector import lengua_de_la_pregunta
 from server.app.modules.agents_hub.agent.public_graphs.strategies.protocols import (
     PipelineRetrievalStrategy,
     PreferLanguagePolicy,
@@ -114,6 +113,15 @@ _INSTRUCCION_TOOLS = (
 )
 
 
+#: Cómo se nombra cada lengua en el prompt (#363). «Responde en val» lo entendía el modelo, pero
+#: el nombre no deja nada a su interpretación. Un código sin nombre aquí se escribe tal cual.
+_NOMBRE_DE_LA_LENGUA = {"es": "castellano", "val": "valenciano", "en": "inglés"}
+
+
+def _nombre(codigo: str) -> str:
+    return _NOMBRE_DE_LA_LENGUA.get(codigo, codigo)
+
+
 class GenericAnswerTemplateStrategy:
     """Plantilla genérica y **única fuente del system prompt** (RAG.2).
 
@@ -131,10 +139,36 @@ class GenericAnswerTemplateStrategy:
         base_system_prompt: str | None = None,
         retrieval_mode: str = "RAG",
         router_index: str | None = None,
+        language_mode: str | None = None,
     ) -> None:
         self._base = (base_system_prompt or "").strip()
         self._retrieval_mode = retrieval_mode
         self._router_index = (router_index or "").strip()
+        self._language_mode = language_mode
+
+    def _instruccion_de_lengua(self, language: str | None) -> str | None:
+        """#363 — en qué lengua contestar.
+
+        `fixed:<código>` obliga, y `none` no dice nada: los dos son decisión del organismo. En
+        `prefer` la lengua **la decide el modelo** leyendo la pregunta, que distingue castellano
+        de valenciano mucho mejor que `langdetect`; la lengua detectada —o la de la página, si la
+        detección dudó— sólo desempata cuando la pregunta no deja clara la suya.
+
+        Sin lengua no hay instrucción: es lo que da una política sin detección —`none`, o una
+        sobreescritura `estrategias: {"language": "neutral"|"strict"}` sobre `prefer`—, y la
+        plantilla no debe contradecirla. `DefaultLanguagePolicy` siempre da una.
+        """
+        if not language:
+            return None
+        fijada = lengua_fijada(self._language_mode)
+        if fijada is not None:
+            return f"Responde en {_nombre(fijada)}."
+        lenguas = [_nombre(c) for c in LENGUAS_DE_RESPUESTA]
+        return (
+            "Responde en la lengua en que está escrita la pregunta: "
+            f"{', '.join(lenguas[:-1])} o {lenguas[-1]}. "
+            f"Si no está clara, responde en {_nombre(language)}."
+        )
 
     def _bloque_de_fuentes(self, items: list[EvidenceItem]) -> str:
         lineas: list[str] = []
@@ -172,8 +206,9 @@ class GenericAnswerTemplateStrategy:
         partes: list[str] = []
         if self._base:
             partes.extend([self._base, ""])
-        if language:
-            partes.extend([f"Responde en {language}.", ""])
+        instruccion = self._instruccion_de_lengua(language)
+        if instruccion:
+            partes.extend([instruccion, ""])
         partes.append(reglas_de_cita(items).strip())
 
         if self._retrieval_mode == "MD_AGENT_SELECTOR":
@@ -194,7 +229,15 @@ class GenericAnswerTemplateStrategy:
 
 
 class DefaultLanguagePolicy(PreferLanguagePolicy):
-    """Política de idioma por defecto para PUBLIC_KB_RICH: prefer con langdetect."""
+    """Política de idioma por defecto para PUBLIC_KB_RICH: prefer con langdetect.
+
+    #363: sólo puede devolver una lengua de respuesta. Con la lengua de la página como reserva
+    —`detect_con_reserva`, que el grafo usa cuando la política la ofrece— la duda se resuelve
+    con ella; sin reserva, con la mejor candidata admitida.
+    """
 
     def detect(self, query: str) -> str | None:
-        return _detect_language(query)
+        return lengua_de_la_pregunta(query, reserva=None)
+
+    def detect_con_reserva(self, query: str, reserva: str | None) -> str | None:
+        return lengua_de_la_pregunta(query, reserva=reserva)

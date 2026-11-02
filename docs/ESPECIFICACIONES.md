@@ -152,6 +152,10 @@ declina cuando no tiene con qué responder.
   es una norma y no lo lleva.
 - El flujo termina siempre: o `done` con `interaction_id`, o `error`. Nunca silencio.
 - Cada turno queda registrado con su consumo, y es valorable por `interaction_id`.
+- **El modelo sabe qué día es y en qué curso académico** (septiembre a agosto, en la hora de
+  Madrid). Sin eso trataba como futuros plazos ya pasados (#364). La línea va al final del
+  contexto, detrás de los documentos, para no invalidar cada día el prefijo que se sirve desde
+  caché.
 
 **Superficie.** `POST /api/v1/hub/chat/{chatbot_id}` (SSE: `status`, `token`, `discard`, `done`,
 `error`) · `hub_feedback_router` · `HubChatbot`, `HubInteraction`, `HubDocumentChunk`.
@@ -190,10 +194,16 @@ prefiere.
 
 | Modo | Qué hace |
 |---|---|
-| `prefer` | Detecta la lengua de la pregunta, responde en ella y prefiere esa versión. **Es el defecto** |
+| `prefer` | Responde en la lengua de la pregunta —castellano, valenciano o inglés— y prefiere esa versión. **Es el defecto** |
 | `none` | Sin política: ni detección, ni orden por lengua, ni instrucción en el prompt |
 | `fixed:<código>` | Responde siempre en esa lengua, pregunten como pregunten |
 
+- **En `prefer`, la lengua de la respuesta la decide el modelo, no un detector** (#363). El
+  prompt le pide la de la pregunta entre castellano, valenciano e inglés y, si no está clara, la
+  de la página donde está el widget (`lang` de la petición). `langdetect` sólo elige qué versión
+  del corpus se prefiere: acotado a esas tres lenguas, con semilla fija y, por debajo de 0,8 de
+  confianza, la de la página. Antes decía «Responde en pt» a «¿Cuál es mi nota de DOCENTIA?» y
+  cargaba el corpus en las dos lenguas.
 - Un valor que no sea uno de los tres da **422 con los modos enumerados**. Antes era texto libre y
   un typo caía a `prefer` sin avisar a nadie.
 - El panel **no escribe la lista**: la pide a `GET /api/v1/hub/opciones/lengua`.
@@ -213,8 +223,11 @@ Y dos garantías más, que son las que deciden qué lee quien pregunta:
   nunca al revés. Citar en la lengua correcta algo que nadie ha confirmado que rija es un error de
   fondo; citar lo confirmado en otra lengua es una incomodidad, y encima se avisa. `fixed:` no
   entra en esto: filtra a una lengua por definición y ahí la vigencia no compite con nada.
-- **Si la norma citada está en otra lengua, se dice — en la lengua de la pregunta y en las dos
-  direcciones** (VIS.5). El aviso sale de la lengua de la **fuente**, no de la de la pregunta:
+- **Si la norma citada está en otra lengua que la respuesta, se dice — en la lengua de la
+  respuesta y en las dos direcciones** (VIS.5). Desde #363 la lengua de la respuesta la elige el
+  modelo, así que el aviso se decide **después de generar**, con la lengua detectada sobre la
+  propia respuesta (sin los títulos de los enlaces, que están en la de la fuente), y no con la
+  preferida para el corpus (revisión de la PR #365). El aviso sale de la lengua de la **fuente**, no de la de la pregunta:
   quien escribe en valencià ya sabe en qué lengua escribe, y lo que necesita saber es que el
   enlace le lleva a un documento en castellano. Preguntar en castellano y recibir una norma en
   valencià es el caso mayoritario del corpus real —232 de 334 documentos del asistente normativo

@@ -12,6 +12,8 @@ Deploy: edge
 from __future__ import annotations
 
 import uuid
+from collections.abc import Callable
+from datetime import date
 from typing import Any, cast, Literal, TYPE_CHECKING
 
 from typing_extensions import TypedDict
@@ -47,6 +49,14 @@ from server.app.modules.agents_hub.services.retrieval.vigencia import (
     aviso_para as aviso_de_vigencia,
 )
 from server.app.core.llm_text import texto_de
+from server.app.modules.agents_hub.agent.public_graphs.core.fecha import (
+    fecha_de_hoy,
+    linea_de_la_fecha,
+)
+from server.app.core.language_mode import lengua_fijada
+from server.app.modules.agents_hub.services.language_detector import (
+    lengua_de_la_respuesta as detectar_lengua_de_la_respuesta,
+)
 
 if TYPE_CHECKING:
     from server.app.modules.agents_hub.agent.public_graphs.strategies.agentic_loop import (
@@ -66,6 +76,13 @@ class CoreGraphState(TypedDict):
     query: str
     chatbot_id: str
     language: str | None
+    # #363 — la lengua de la página donde está el widget (`lang` de la petición), ya normalizada
+    # a una lengua de respuesta o `None`. Es la reserva cuando la detección duda.
+    lengua_de_la_pagina: str | None
+    # Revisión de la PR #365 — en qué lengua ha contestado el modelo, detectada sobre su texto.
+    # Es con la que se decide y se redacta el aviso de traducción; `language` es sólo la
+    # preferencia de versión del corpus. `None` sin política de lengua.
+    lengua_de_la_respuesta: str | None
     # RAG.10: turnos previos, ya formateados como 'rol: texto'. Los manda el cliente: la API
     # es sin estado y no hay entidad conversación.
     history: list                  # list[str]
@@ -125,6 +142,7 @@ class CoreGraph:
         llm: Any = None,
         agentic_loop: "AgenticLoop | None" = None,
         rewrite_llm: Any = None,
+        hoy: Callable[[], date] = fecha_de_hoy,
     ) -> None:
         self.retrieval_strategy = retrieval_strategy
         self.merge_strategy = merge_strategy
@@ -138,13 +156,22 @@ class CoreGraph:
         # es quien ve la cascada; el nodo solo lo usa. None = no hay reescritura posible,
         # que es lo mismo que tenerla apagada.
         self.rewrite_llm = rewrite_llm
+        # #364 — el reloj del prompt, inyectable para poder probar el cambio de curso.
+        self.hoy = hoy
 
     def compile(self):
         """Compila y devuelve el grafo LangGraph listo para invocar."""
         graph = StateGraph(CoreGraphState)
 
         async def detect_language_node(state: CoreGraphState) -> dict:
-            lang = self.language_policy.detect(state["query"])
+            # #363 — la reserva es opcional en el protocolo: las políticas de terceros (PLG)
+            # sólo implementan `detect`, y una que no la ofrece se comporta como siempre.
+            con_reserva = getattr(self.language_policy, "detect_con_reserva", None)
+            lang = (
+                con_reserva(state["query"], state.get("lengua_de_la_pagina"))
+                if con_reserva is not None
+                else self.language_policy.detect(state["query"])
+            )
             # RES.2: la bandera se normaliza en la entrada para que «no hubo reformulación» sea
             # `False` y no la ausencia de la clave. Quien lee el contrato no debería tener que
             # distinguir esas dos cosas.
@@ -289,6 +316,9 @@ class CoreGraph:
                 state.get("language"),
                 state["query"],
             )
+            # #364 — aquí y no en la plantilla, para que llegue a todas; al final, por la caché
+            # del prefijo (ver `core/fecha.py`).
+            context = f"{context}\n\n{linea_de_la_fecha(self.hoy())}"
             instantanea = (
                 self._instantanea_de_bypass(state, context, items)
                 if state.get("debug_bypass") or state.get("capture_context")
@@ -386,7 +416,30 @@ class CoreGraph:
                 aviso = aviso_de_vigencia(citables)
                 if aviso:
                     validated = f"{validated}\n\n{aviso}"
+
+            # Revisión de la PR #365 — el aviso de traducción, con la lengua en que el modelo
+            # ha contestado y no con la preferida para el corpus, que desde #363 son cosas
+            # distintas. Sólo si la política tiene lengua (`none` y `strict` no avisan) y si
+            # hay respuesta: el «no lo sé» no cita nada de lo que avisar.
+            lengua_de_la_respuesta: str | None = None
+            traduccion = False
+            preferida = state.get("language")
+            fuente = state.get("context_source_language")
+            if preferida and not incumplio_citas and not sin_fundamento:
+                if lengua_fijada(getattr(self.cfg, "language_mode", None)) or fuente is None:
+                    # `fixed:` contesta en su lengua por definición; y sin lengua de la fuente
+                    # no hay con qué comparar, así que no se gasta la detección.
+                    lengua_de_la_respuesta = preferida
+                else:
+                    lengua_de_la_respuesta = detectar_lengua_de_la_respuesta(
+                        answer, preferida, titulos=[i.title for i in citables if i.title]
+                    )
+                traduccion = self.language_policy.should_warn_translation(
+                    lengua_de_la_respuesta, fuente
+                )
             return {
+                "lengua_de_la_respuesta": lengua_de_la_respuesta,
+                "translation_warning": traduccion,
                 "answer": validated,
                 # #337 — el aviso, aparte: el chat emite los tokens según salen del modelo y
                 # tiene que añadirlo él al final, se enseñen o no las correcciones de las citas.
@@ -430,6 +483,9 @@ class CoreGraph:
                 "fallback_used": True,
                 "fallback_reason": "quality_gate",
                 "sources": [],
+                # Revisión de la PR #365 — sin norma citada no hay traducción de la que avisar.
+                "translation_warning": False,
+                "lengua_de_la_respuesta": None,
             }
 
         async def log_node(state: CoreGraphState) -> dict:  # noqa: ARG001 — LangGraph llama a cada nodo con el estado
@@ -536,6 +592,7 @@ class CoreGraph:
         history: list[str] | None = None,
         debug_bypass: bool = False,
         capture_context: bool = False,
+        lengua_de_la_pagina: str | None = None,
     ) -> dict:
         """Ejecuta el grafo y devuelve el estado final."""
         compiled = self.compile()
@@ -543,6 +600,8 @@ class CoreGraph:
             "query": query,
             "chatbot_id": chatbot_id,
             "language": None,
+            "lengua_de_la_pagina": lengua_de_la_pagina,
+            "lengua_de_la_respuesta": None,
             "history": list(history or []),
             "rewritten_query": None,
             "debug_bypass": debug_bypass,

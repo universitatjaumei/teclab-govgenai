@@ -48,6 +48,7 @@ def generic_template(cfg: Any, deps: Any, llm: Any = None):
         base_system_prompt=getattr(cfg, "system_prompt", None),
         retrieval_mode=getattr(cfg, "retrieval_mode", None) or "RAG",
         router_index=getattr(cfg, "router_index", None),
+        language_mode=getattr(cfg, "language_mode", None),
     )
 
 

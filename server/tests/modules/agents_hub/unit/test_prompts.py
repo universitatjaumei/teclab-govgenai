@@ -37,9 +37,11 @@ class TestSystemPrompt:
     def test_includes_language_directive(self):
         prompt = GenericAnswerTemplateStrategy(
             base_system_prompt="Eres un asistente."
-        ).build_prompt_context([], "ca", "consulta")
+        ).build_prompt_context([], "val", "consulta")
 
-        assert "Responde en ca." in prompt
+        # #363: en `prefer` decide el modelo con la lengua de la pregunta, y la detectada desempata.
+        assert "Responde en la lengua en que está escrita la pregunta" in prompt
+        assert "Si no está clara, responde en valenciano." in prompt
 
     def test_includes_the_base_prompt_of_the_chatbot(self):
         prompt = GenericAnswerTemplateStrategy(

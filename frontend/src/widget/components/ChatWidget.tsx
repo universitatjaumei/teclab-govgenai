@@ -170,7 +170,11 @@ export function ChatWidget({ chatbotId, apiUrl, lang, widgetKey, model, title }:
   const [input, setInput] = useState('')
   const finDelHilo = useRef<HTMLDivElement>(null)
   const cajaDeTexto = useRef<HTMLTextAreaElement>(null)
-  const { t } = useTranslation('chat')
+  const { t, i18n } = useTranslation('chat')
+  // #363 — la lengua que tiene la página AHORA: el selector del sitio la cambia con
+  // `govgenai:setLang` después de montar, y el servidor la usa de reserva cuando la pregunta no
+  // deja clara la suya.
+  const lenguaDeLaPagina = i18n.resolvedLanguage ?? lang
   const {
     messages,
     error,
@@ -181,7 +185,7 @@ export function ChatWidget({ chatbotId, apiUrl, lang, widgetKey, model, title }:
     interactionId,
     sendMessage,
     resetConversation,
-  } = useChat(chatbotId, apiUrl, lang, widgetKey)
+  } = useChat(chatbotId, apiUrl, lenguaDeLaPagina, widgetKey)
 
   const lastAssistantIdx = [...messages].map((m, i) => ({ m, i })).reverse().find(({ m }) => m.role === 'assistant')?.i ?? -1
   const showRating = !isStreaming && interactionId !== null && lastAssistantIdx !== -1
