@@ -53,6 +53,7 @@ from server.app.modules.agents_hub.agent.public_graphs.core.fecha import (
     fecha_de_hoy,
     linea_de_la_fecha,
 )
+from server.app.core.language_mode import lengua_fijada
 from server.app.modules.agents_hub.services.language_detector import (
     lengua_de_la_respuesta as detectar_lengua_de_la_respuesta,
 )
@@ -418,15 +419,23 @@ class CoreGraph:
 
             # Revisión de la PR #365 — el aviso de traducción, con la lengua en que el modelo
             # ha contestado y no con la preferida para el corpus, que desde #363 son cosas
-            # distintas. Sólo si la política tiene lengua: `none` y `strict` no avisan.
+            # distintas. Sólo si la política tiene lengua (`none` y `strict` no avisan) y si
+            # hay respuesta: el «no lo sé» no cita nada de lo que avisar.
             lengua_de_la_respuesta: str | None = None
-            traduccion = bool(state.get("translation_warning"))
-            if state.get("language") and not incumplio_citas and not sin_fundamento:
-                lengua_de_la_respuesta = detectar_lengua_de_la_respuesta(
-                    answer, state.get("language")
-                )
+            traduccion = False
+            preferida = state.get("language")
+            fuente = state.get("context_source_language")
+            if preferida and not incumplio_citas and not sin_fundamento:
+                if lengua_fijada(getattr(self.cfg, "language_mode", None)) or fuente is None:
+                    # `fixed:` contesta en su lengua por definición; y sin lengua de la fuente
+                    # no hay con qué comparar, así que no se gasta la detección.
+                    lengua_de_la_respuesta = preferida
+                else:
+                    lengua_de_la_respuesta = detectar_lengua_de_la_respuesta(
+                        answer, preferida, titulos=[i.title for i in citables if i.title]
+                    )
                 traduccion = self.language_policy.should_warn_translation(
-                    lengua_de_la_respuesta, state.get("context_source_language")
+                    lengua_de_la_respuesta, fuente
                 )
             return {
                 "lengua_de_la_respuesta": lengua_de_la_respuesta,
@@ -474,6 +483,9 @@ class CoreGraph:
                 "fallback_used": True,
                 "fallback_reason": "quality_gate",
                 "sources": [],
+                # Revisión de la PR #365 — sin norma citada no hay traducción de la que avisar.
+                "translation_warning": False,
+                "lengua_de_la_respuesta": None,
             }
 
         async def log_node(state: CoreGraphState) -> dict:  # noqa: ARG001 — LangGraph llama a cada nodo con el estado

@@ -496,9 +496,7 @@ async def emitir_turno(
                 # el corpus. Un nodo final que no lo trae deja el de `merge`.
                 if "translation_warning" in output:
                     language_fallback = bool(output.get("translation_warning"))
-                lengua_de_la_respuesta = (
-                    output.get("lengua_de_la_respuesta") or lengua_de_la_respuesta
-                )
+                lengua_de_la_respuesta = output.get("lengua_de_la_respuesta")
                 if output.get("fallback_used"):
                     fallback_answer = output.get("answer")
                 else:
@@ -637,6 +635,8 @@ async def emitir_turno(
                 best_score=best_score,
                 gate_passed=gate_passed,
                 language=detected_language,
+                # Revisión de la PR #365 — la lengua con que se decidió el aviso.
+                answer_language=lengua_de_la_respuesta,
                 source_language=lengua_de_la_fuente,
                 translation_warning=language_fallback,
                 # El turno que se está respondiendo, contando desde 1. Es lo que permite

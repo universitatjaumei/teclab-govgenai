@@ -20,6 +20,7 @@ siguiente. Está en `core/lengua_del_corpus.py`, donde las cuatro la comparten.
 """
 
 import re
+from collections.abc import Sequence
 
 from langdetect import DetectorFactory, LangDetectException, detect, detect_langs
 
@@ -89,13 +90,39 @@ def lengua_de_la_pregunta(texto: str, reserva: str | None) -> str:
 #: Un enlace markdown entero, título incluido, y una URL suelta.
 _ENLACE = re.compile(r"\[[^\]]*\]\([^)]*\)|https?://\S+")
 
+#: Por debajo de esto, una vez quitados enlaces y títulos, no se le pregunta a `langdetect`: con
+#: tan poco texto se equivoca con toda seguridad, como se midió con las preguntas en #363.
+LONGITUD_MINIMA_DE_LA_RESPUESTA = 100
 
-def lengua_de_la_respuesta(texto: str, reserva: str | None) -> str:
+
+def lengua_de_la_respuesta(
+    texto: str, preferida: str, titulos: Sequence[str] = ()
+) -> str:
     """En qué lengua ha contestado el modelo (revisión de la PR #365).
 
     Desde #363 la decide el modelo, así que el aviso de traducción no puede salir de la lengua
-    preferida para el corpus. Se detecta sobre la respuesta, que es larga y por eso fiable, **sin
-    los enlaces**: sus títulos son los de las fuentes, en la lengua de las fuentes, y empujarían
-    la detección justo hacia la que oculta el aviso.
+    preferida para el corpus. Se detecta sobre la respuesta **sin los enlaces ni los títulos de
+    las fuentes**, enlazados o no: están en la lengua de las fuentes y empujarían la detección
+    justo hacia la que oculta el aviso.
+
+    - Si queda muy poco texto, la `preferida`: es lo que se hacía antes, y mejor que una
+      detección segura y equivocada.
+    - Si no, la mejor candidata entre las lenguas de respuesta **aunque no pase del umbral**: la
+      reserva de las preguntas aquí sería la preferida, que es justo el valor que ocultaba el
+      aviso.
     """
-    return lengua_de_la_pregunta(_ENLACE.sub(" ", texto), reserva)
+    limpio = _ENLACE.sub(" ", texto)
+    for titulo in titulos:
+        if titulo:
+            limpio = limpio.replace(titulo, " ")
+    if len(limpio.strip()) < LONGITUD_MINIMA_DE_LA_RESPUESTA:
+        return preferida
+    try:
+        candidatas = detect_langs(limpio)
+    except LangDetectException:
+        return preferida
+    for candidata in candidatas:
+        codigo = codi_del_corpus(candidata.lang)
+        if codigo in LENGUAS_DE_RESPUESTA:
+            return str(codigo)
+    return preferida

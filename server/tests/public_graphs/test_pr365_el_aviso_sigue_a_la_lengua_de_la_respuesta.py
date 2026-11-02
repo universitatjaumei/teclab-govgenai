@@ -23,6 +23,10 @@ from server.app.modules.agents_hub.agent.public_graphs.strategies.retrieval_cont
 )
 
 NOTA = "¿Cuál es mi nota de DOCENTIA?"
+PREGUNTA_ES = (
+    "No estoy de acuerdo con el resultado de mi evaluación docente de este curso. ¿Qué plazo "
+    "tengo para reclamar y ante quién tengo que presentar la reclamación?"
+)
 URL = "https://normativa.uji.es/html/val_Reglament.html"
 TITULO_VAL = "Reglament d'avaluació de l'activitat docent del professorat de la Universitat Jaume I"
 
@@ -47,8 +51,33 @@ class TestLaLenguaDeLaRespuesta:
             lengua_de_la_respuesta,
         )
 
-        assert lengua_de_la_respuesta(RESPUESTA_ES, reserva="val") == "es"
-        assert lengua_de_la_respuesta(RESPUESTA_VAL, reserva="es") == "val"
+        assert lengua_de_la_respuesta(RESPUESTA_ES, preferida="val") == "es"
+        assert lengua_de_la_respuesta(RESPUESTA_VAL, preferida="es") == "val"
+
+    def test_should_ignore_the_titles_of_the_sources_also_without_a_link(self):
+        """Segunda revisión: el modelo puede nombrar la norma sin enlazarla."""
+        from server.app.modules.agents_hub.services.language_detector import (
+            lengua_de_la_respuesta,
+        )
+
+        texto = (
+            f"Según el {TITULO_VAL}, puedes presentar un recurso de reposición en el plazo de "
+            f"un mes. Según el {TITULO_VAL}, la resolución pone fin a la vía administrativa. "
+            f"Lo dice el {TITULO_VAL}."
+        )
+
+        assert lengua_de_la_respuesta(texto, preferida="val", titulos=[TITULO_VAL]) == "es"
+
+    def test_should_keep_the_preference_when_the_answer_is_too_short_to_tell(self):
+        """Segunda revisión: con muy poco texto `langdetect` se equivoca con toda seguridad, así
+        que no se le pregunta; se queda la preferencia, como antes de esta PR."""
+        from server.app.modules.agents_hub.services.language_detector import (
+            lengua_de_la_respuesta,
+        )
+
+        corta = f"Sí, quince días [{TITULO_VAL}, art. 3]({URL})."
+
+        assert lengua_de_la_respuesta(corta, preferida="val") == "val"
 
 
 class TestElGrafoDecideElAvisoConLaRespuesta:
@@ -88,6 +117,64 @@ class TestElGrafoDecideElAvisoConLaRespuesta:
 
         assert estado.get("lengua_de_la_respuesta") is None
         assert estado["translation_warning"] is False
+
+    @pytest.mark.asyncio
+    async def test_should_not_second_guess_a_fixed_language(self):
+        """Segunda revisión: con `fixed:val` la respuesta está en valenciano por definición; no
+        se vuelve a detectar, aunque cite largo una norma castellana."""
+        from server.app.modules.agents_hub.agent.public_graphs.strategies.protocols import (
+            FixedLanguagePolicy,
+        )
+
+        estado = await _ejecutar(FixedLanguagePolicy("val"), RESPUESTA_ES, language_mode="fixed:val")
+
+        assert estado["lengua_de_la_respuesta"] == "val"
+
+    @pytest.mark.asyncio
+    async def test_should_not_warn_when_the_citation_contract_replaced_the_answer(self):
+        """Segunda revisión: si el modelo no cita, sale el mensaje de «no lo sé»; no hay norma
+        citada de la que avisar, aunque `merge` (preferencia `es`, fuente `val`) dijera que sí."""
+        from server.app.modules.agents_hub.agent.public_graphs.profiles.public_kb_rich import (
+            DefaultLanguagePolicy,
+        )
+
+        sin_citas = "Puedes presentar un recurso de reposición en el plazo de un mes."
+        estado = await _ejecutar(
+            DefaultLanguagePolicy(), sin_citas, pagina="es", pregunta=PREGUNTA_ES
+        )
+
+        assert estado["fallback_used"] is True
+        assert estado["translation_warning"] is False
+
+    @pytest.mark.asyncio
+    async def test_should_not_warn_when_the_quality_gate_gave_up(self):
+        from server.app.modules.agents_hub.agent.public_graphs.profiles.public_kb_rich import (
+            DefaultLanguagePolicy,
+        )
+
+        estado = await _ejecutar(
+            DefaultLanguagePolicy(), RESPUESTA_ES, pagina="es", pregunta=PREGUNTA_ES,
+            umbral=0.99,
+        )
+
+        assert estado["fallback_used"] is True
+        assert estado["translation_warning"] is False
+
+
+class TestLaTrazaGuardaLaLenguaDeLaRespuesta:
+
+    def test_should_record_the_language_the_warning_was_decided_with(self):
+        """Segunda revisión: sin ella, una traza con `language='val'`, `source_language='val'` y
+        `translation_warning=True` parece contradictoria y no se puede explicar después."""
+        from server.app.modules.agents_hub.evaluation.traza import (
+            CLAVES_DE_TRAZA,
+            construye_traza,
+        )
+
+        traza = construye_traza({}, [], language="val", answer_language="es")
+
+        assert traza["answer_language"] == "es"
+        assert "answer_language" in CLAVES_DE_TRAZA
 
 
 class TestElChatRedactaElAvisoEnLaLenguaDeLaRespuesta:
@@ -141,7 +228,10 @@ class TestElChatRedactaElAvisoEnLaLenguaDeLaRespuesta:
         assert "está" in done["translation_warning"], done["translation_warning"]
 
 
-async def _ejecutar(politica, respuesta: str) -> dict:
+async def _ejecutar(
+    politica, respuesta: str, *, language_mode: str = "prefer", pagina: str = "val",
+    pregunta: str = NOTA, umbral: float = 0.0,
+) -> dict:
     from server.app.modules.agents_hub.agent.public_graphs.core.config_resolver import (
         PublicGraphConfig,
     )
@@ -176,8 +266,8 @@ async def _ejecutar(politica, respuesta: str) -> dict:
             return _R()
 
     cfg = PublicGraphConfig(
-        profile="PUBLIC_KB_RICH", retrieval_mode="RAG", language_mode="prefer",
-        quality_threshold=0.0, min_retrieval_results=1, min_retrieval_score=0.0,
+        profile="PUBLIC_KB_RICH", retrieval_mode="RAG", language_mode=language_mode,
+        quality_threshold=umbral, min_retrieval_results=1, min_retrieval_score=0.0,
         reranker_enabled=False, answer_template="generic",
     )
     grafo = CoreGraph(
@@ -185,4 +275,4 @@ async def _ejecutar(politica, respuesta: str) -> dict:
         template_strategy=GenericAnswerTemplateStrategy(base_system_prompt="x"),
         language_policy=politica, cfg=cfg, deps=object(), llm=_Llm(),
     )
-    return await grafo.run(NOTA, str(uuid.uuid4()), lengua_de_la_pagina="val")
+    return await grafo.run(pregunta, str(uuid.uuid4()), lengua_de_la_pagina=pagina)

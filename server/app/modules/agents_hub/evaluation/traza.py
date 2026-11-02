@@ -47,6 +47,9 @@ CLAVES_DE_TRAZA = (
     "gate_passed",
     # El camino que siguió la consulta.
     "language",
+    # Revisión de la PR #365 — desde #363 `language` es la preferencia de versión del corpus, y
+    # la lengua en que contestó el modelo, con la que se decide el aviso, es otra.
+    "answer_language",
     "source_language",
     "translation_warning",
     "turn_index",
@@ -93,6 +96,7 @@ def construye_traza(
     best_score: float | None = None,
     gate_passed: bool | None = None,
     language: str | None = None,
+    answer_language: str | None = None,
     source_language: str | None = None,
     translation_warning: bool = False,
     turn_index: int | None = None,
@@ -133,6 +137,7 @@ def construye_traza(
         "best_score": best_score,
         "gate_passed": gate_passed,
         "language": language,
+        "answer_language": answer_language,
         "source_language": source_language,
         "translation_warning": translation_warning,
         "turn_index": turn_index,
