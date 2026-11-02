@@ -40,6 +40,8 @@ from server.app.core.auth.models import UserRole
 from server.app.core.auth.pat.scopes import CHAT_DEBUG
 from server.app.api.deps import get_session
 from server.app.core.chatbot_availability import assert_chatbot_available
+from server.app.core.language_mode import LENGUAS_DE_RESPUESTA
+from server.app.core.lengua_del_corpus import codi_del_corpus
 from server.app.core.quotas import assert_within_quota
 from server.app.core.rate_limit import ip_de, limitar_chat
 from server.app.modules.agents_hub.database.config_models import HubChatbot, HubOrganizacion
@@ -81,6 +83,24 @@ class ChatRequest(BaseModel):
     # RAG.11: ejecuta el pipeline entero y devuelve el prompt final SIN invocar al modelo.
     # Requiere sesión admin o PAT con `chat:debug`; el widget público recibe 403.
     debug_bypass: bool = False
+    # #363 — la lengua de la página donde está el widget (`data-lang`, o la que elija el
+    # selector del sitio). El widget la mandaba desde siempre y aquí no se declaraba, así que
+    # Pydantic la tiraba. Es la reserva cuando la pregunta no deja clara su lengua.
+    lang: str | None = Field(default=None, max_length=20)
+
+    @property
+    def lengua_de_la_pagina(self) -> str | None:
+        """`lang` como lengua de respuesta, o `None`.
+
+        No se rechaza con un 422 lo que no lo sea: `data-lang` lo escribe quien embebe el
+        widget, y un `es-ES` o un `pt` en su página no puede dejar a sus visitantes sin chat.
+        Se queda la subetiqueta principal (`es-ES` → `es`) y, si no es una lengua de respuesta,
+        se ignora.
+        """
+        if not self.lang:
+            return None
+        codigo = codi_del_corpus(self.lang.split("-")[0].strip().lower())
+        return codigo if codigo in LENGUAS_DE_RESPUESTA else None
 
 
 def puede_depurar(request: Request, user: UserInfo | None) -> bool:
@@ -207,6 +227,7 @@ async def chat_stream(
             mensaje=request.message,
             historial=[(t.role, t.content) for t in request.history],
             debug_bypass=request.debug_bypass,
+            lengua_de_la_pagina=request.lengua_de_la_pagina,
         )
     except EmbeddingSpaceMismatch as desajuste:
         # RAG.9: parar antes que responder mal. Si el corpus está embebido con otro modelo, la

@@ -32,6 +32,12 @@ MODO_PREFERIR = "prefer"
 MODO_SIN_POLITICA = "none"
 PREFIJO_FIJO = "fixed:"
 
+#: #363 — las lenguas en que un asistente contesta cuando no hay una fijada. Son las de la
+#: interfaz (`frontend/src/shared/i18n/locales`: es, ca, en), escritas como las escribe el corpus,
+#: y por eso una tupla y no una tabla: añadir una lengua exige de todos modos traducir la interfaz.
+#: `fixed:<código>` sigue admitiendo cualquier código; esto sólo acota lo que se detecta.
+LENGUAS_DE_RESPUESTA: tuple[str, ...] = ("es", "val", "en")
+
 #: Los dos modos sin parámetro. `fixed:<código>` se valida por forma, no por pertenencia.
 MODOS_SIMPLES: tuple[str, ...] = (MODO_PREFERIR, MODO_SIN_POLITICA)
 

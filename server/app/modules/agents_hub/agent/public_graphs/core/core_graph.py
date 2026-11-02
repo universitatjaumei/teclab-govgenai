@@ -66,6 +66,9 @@ class CoreGraphState(TypedDict):
     query: str
     chatbot_id: str
     language: str | None
+    # #363 — la lengua de la página donde está el widget (`lang` de la petición), ya normalizada
+    # a una lengua de respuesta o `None`. Es la reserva cuando la detección duda.
+    lengua_de_la_pagina: str | None
     # RAG.10: turnos previos, ya formateados como 'rol: texto'. Los manda el cliente: la API
     # es sin estado y no hay entidad conversación.
     history: list                  # list[str]
@@ -144,7 +147,14 @@ class CoreGraph:
         graph = StateGraph(CoreGraphState)
 
         async def detect_language_node(state: CoreGraphState) -> dict:
-            lang = self.language_policy.detect(state["query"])
+            # #363 — la reserva es opcional en el protocolo: las políticas de terceros (PLG)
+            # sólo implementan `detect`, y una que no la ofrece se comporta como siempre.
+            con_reserva = getattr(self.language_policy, "detect_con_reserva", None)
+            lang = (
+                con_reserva(state["query"], state.get("lengua_de_la_pagina"))
+                if con_reserva is not None
+                else self.language_policy.detect(state["query"])
+            )
             # RES.2: la bandera se normaliza en la entrada para que «no hubo reformulación» sea
             # `False` y no la ausencia de la clave. Quien lee el contrato no debería tener que
             # distinguir esas dos cosas.
@@ -536,6 +546,7 @@ class CoreGraph:
         history: list[str] | None = None,
         debug_bypass: bool = False,
         capture_context: bool = False,
+        lengua_de_la_pagina: str | None = None,
     ) -> dict:
         """Ejecuta el grafo y devuelve el estado final."""
         compiled = self.compile()
@@ -543,6 +554,7 @@ class CoreGraph:
             "query": query,
             "chatbot_id": chatbot_id,
             "language": None,
+            "lengua_de_la_pagina": lengua_de_la_pagina,
             "history": list(history or []),
             "rewritten_query": None,
             "debug_bypass": debug_bypass,

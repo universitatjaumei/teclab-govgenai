@@ -278,6 +278,7 @@ async def preparar_turno(
     mensaje: str,
     historial: list[tuple[str, str]],
     debug_bypass: bool,
+    lengua_de_la_pagina: str | None = None,
 ) -> TurnoPreparado:
     """Resuelve embedding, subagente y grafo. Lanza antes de que salga ningún evento.
 
@@ -338,6 +339,7 @@ async def preparar_turno(
         "query": mensaje,
         "chatbot_id": str(selected_chatbot_id),
         "language": None,
+        "lengua_de_la_pagina": lengua_de_la_pagina,
         # RAG.10: los turnos previos, ya aplanados a 'rol: texto', que es lo que consume el
         # reescritor. El grafo no necesita objetos de mensaje para esto.
         "history": [f"{rol}: {texto}" for rol, texto in historial],

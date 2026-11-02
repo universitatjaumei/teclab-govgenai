@@ -409,6 +409,26 @@ describe('ChatWidget — el seguimiento lleva el contexto (HIB.C)', () => {
     return JSON.parse(String(fetchMock.mock.calls[indice][1].body))
   }
 
+  // #363 — la lengua de la página es la reserva del servidor cuando la pregunta no deja clara
+  // la suya. El widget mandaba la de `data-lang` aunque el selector del sitio la cambiara
+  // después (`govgenai:setLang`): la interfaz cambiaba y lo enviado no.
+  test('should_send_the_language_the_page_has_now_not_the_one_it_was_mounted_with', async () => {
+    renderOpen(<ChatWidget {...DEFAULT_PROPS} lang="es" />)
+    await act(async () => {
+      await i18n.changeLanguage('ca')
+    })
+
+    try {
+      await enviarYResponder('Quan estan obertes les enquestes?', 'R1.')
+
+      expect(cuerpoDeLaLlamada(0).lang).toBe('ca')
+    } finally {
+      await act(async () => {
+        await i18n.changeLanguage('es')
+      })
+    }
+  })
+
   test('should_not_send_history_on_the_first_question', async () => {
     renderOpen(<ChatWidget {...DEFAULT_PROPS} />)
 

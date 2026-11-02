@@ -19,9 +19,19 @@ lengua —también el front-matter de un `.md`, el manifiesto de un paquete de c
 siguiente. Está en `core/lengua_del_corpus.py`, donde las cuatro la comparten.
 """
 
-from langdetect import LangDetectException, detect
+from langdetect import DetectorFactory, LangDetectException, detect, detect_langs
 
+from server.app.core.language_mode import LENGUAS_DE_RESPUESTA
 from server.app.core.lengua_del_corpus import codi_del_corpus
+
+# `langdetect` es probabilístico y sin semilla fija da resultados distintos para el mismo texto
+# ambiguo (#363). Una pregunta no puede cambiar de lengua entre dos ejecuciones.
+DetectorFactory.seed = 0
+
+#: Por debajo de esta probabilidad la detección no decide y manda la lengua de la página (#363).
+#: Medido con 43 preguntas reales del DOCENTIA: las bien detectadas salen por encima de 0,85 y las
+#: dudosas —«Quan estan obertes les enquestes…?», es 0,29— muy por debajo.
+UMBRAL_DE_CONFIANZA = 0.8
 
 
 def detect_language(text: str, default: str = "es") -> str:
@@ -42,3 +52,33 @@ def detect_language(text: str, default: str = "es") -> str:
     except LangDetectException:
         detectado = default
     return codi_del_corpus(detectado)  # type: ignore[return-value]
+
+
+def lengua_de_la_pregunta(texto: str, reserva: str | None) -> str | None:
+    """La lengua de una pregunta de chat, **sólo entre las de respuesta** (#363).
+
+    `detect_language` sirve para documentos, que son largos; con una pregunta corta `langdetect`
+    dice `pt` o `fr` con toda tranquilidad. Aquí se miran sus candidatas, se quedan las que son
+    lenguas de respuesta y:
+
+    - si la mejor pasa del umbral, es esa;
+    - si no, la `reserva` —la lengua de la página donde está el widget—;
+    - si no hay reserva, la mejor candidata admitida aunque no pase, o `None` si no hay ninguna.
+
+    No decide la lengua de la respuesta, que la decide el modelo leyendo la pregunta: decide qué
+    versión del corpus se prefiere, y es la reserva que se le da al modelo cuando duda.
+    """
+    try:
+        candidatas = detect_langs(texto) if texto.strip() else []
+    except LangDetectException:
+        candidatas = []
+    admitidas = [
+        (codi_del_corpus(c.lang), c.prob)
+        for c in candidatas
+        if codi_del_corpus(c.lang) in LENGUAS_DE_RESPUESTA
+    ]
+    if admitidas and admitidas[0][1] >= UMBRAL_DE_CONFIANZA:
+        return admitidas[0][0]
+    if reserva is not None:
+        return reserva
+    return admitidas[0][0] if admitidas else None
