@@ -12,6 +12,8 @@ Deploy: edge
 from __future__ import annotations
 
 import uuid
+from collections.abc import Callable
+from datetime import date
 from typing import Any, cast, Literal, TYPE_CHECKING
 
 from typing_extensions import TypedDict
@@ -47,6 +49,10 @@ from server.app.modules.agents_hub.services.retrieval.vigencia import (
     aviso_para as aviso_de_vigencia,
 )
 from server.app.core.llm_text import texto_de
+from server.app.modules.agents_hub.agent.public_graphs.core.fecha import (
+    fecha_de_hoy,
+    linea_de_la_fecha,
+)
 
 if TYPE_CHECKING:
     from server.app.modules.agents_hub.agent.public_graphs.strategies.agentic_loop import (
@@ -128,6 +134,7 @@ class CoreGraph:
         llm: Any = None,
         agentic_loop: "AgenticLoop | None" = None,
         rewrite_llm: Any = None,
+        hoy: Callable[[], date] = fecha_de_hoy,
     ) -> None:
         self.retrieval_strategy = retrieval_strategy
         self.merge_strategy = merge_strategy
@@ -141,6 +148,8 @@ class CoreGraph:
         # es quien ve la cascada; el nodo solo lo usa. None = no hay reescritura posible,
         # que es lo mismo que tenerla apagada.
         self.rewrite_llm = rewrite_llm
+        # #364 — el reloj del prompt, inyectable para poder probar el cambio de curso.
+        self.hoy = hoy
 
     def compile(self):
         """Compila y devuelve el grafo LangGraph listo para invocar."""
@@ -299,6 +308,9 @@ class CoreGraph:
                 state.get("language"),
                 state["query"],
             )
+            # #364 — aquí y no en la plantilla, para que llegue a todas; al final, por la caché
+            # del prefijo (ver `core/fecha.py`).
+            context = f"{context}\n\n{linea_de_la_fecha(self.hoy())}"
             instantanea = (
                 self._instantanea_de_bypass(state, context, items)
                 if state.get("debug_bypass") or state.get("capture_context")

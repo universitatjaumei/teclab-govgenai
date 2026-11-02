@@ -186,4 +186,7 @@ class TestCoreGraph:
             result = await graph.run("¿qué es X?", str(uuid.uuid4()))
 
             assert result["fallback_used"] is False, f"Fallback no esperado en modo {mode}"
-            assert result["answer"] == f"contexto_{mode}", f"Respuesta incorrecta en modo {mode}"
+            # #364: el grafo añade la fecha de hoy al final del contexto de cualquier plantilla.
+            assert result["answer"].startswith(f"contexto_{mode}\n\nFECHA DE HOY:"), (
+                f"Respuesta incorrecta en modo {mode}"
+            )

@@ -7,11 +7,7 @@ Deploy: edge
 """
 from __future__ import annotations
 
-from collections.abc import Callable
-from datetime import date, datetime
-from zoneinfo import ZoneInfo
-
-from server.app.core.language_mode import LENGUAS_DE_RESPUESTA, MODO_SIN_POLITICA, lengua_fijada
+from server.app.core.language_mode import LENGUAS_DE_RESPUESTA, lengua_fijada
 from server.app.modules.agents_hub.services.language_detector import lengua_de_la_pregunta
 from server.app.modules.agents_hub.agent.public_graphs.strategies.protocols import (
     PipelineRetrievalStrategy,
@@ -121,35 +117,9 @@ _INSTRUCCION_TOOLS = (
 #: el nombre no deja nada a su interpretación. Un código sin nombre aquí se escribe tal cual.
 _NOMBRE_DE_LA_LENGUA = {"es": "castellano", "val": "valenciano", "en": "inglés"}
 
-_MESES = (
-    "enero", "febrero", "marzo", "abril", "mayo", "junio",
-    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
-)
-
-
-def fecha_de_hoy() -> date:
-    """La fecha en Madrid, que es la de la institución y no la del contenedor (en UTC)."""
-    return datetime.now(ZoneInfo("Europe/Madrid")).date()
-
 
 def _nombre(codigo: str) -> str:
     return _NOMBRE_DE_LA_LENGUA.get(codigo, codigo)
-
-
-def _curso_academico(hoy: date) -> str:
-    """De septiembre a agosto: el 2 de noviembre de 2026 es el curso 2026-27."""
-    inicio = hoy.year if hoy.month >= 9 else hoy.year - 1
-    return f"{inicio}-{(inicio + 1) % 100:02d}"
-
-
-def _linea_de_la_fecha(hoy: date) -> str:
-    """#364 — sin esto el modelo trata como futuros plazos ya pasados y no sabe qué curso es
-    «este». Va al final del contexto: ver `build_prompt_context`."""
-    return (
-        f"FECHA DE HOY: {hoy.day} de {_MESES[hoy.month - 1]} de {hoy.year} "
-        f"(curso académico {_curso_academico(hoy)}). Tenla en cuenta para saber si un plazo ya "
-        "ha pasado y a qué curso se refiere quien pregunta."
-    )
 
 
 class GenericAnswerTemplateStrategy:
@@ -170,13 +140,11 @@ class GenericAnswerTemplateStrategy:
         retrieval_mode: str = "RAG",
         router_index: str | None = None,
         language_mode: str | None = None,
-        hoy: Callable[[], date] = fecha_de_hoy,
     ) -> None:
         self._base = (base_system_prompt or "").strip()
         self._retrieval_mode = retrieval_mode
         self._router_index = (router_index or "").strip()
         self._language_mode = language_mode
-        self._hoy = hoy
 
     def _instruccion_de_lengua(self, language: str | None) -> str | None:
         """#363 — en qué lengua contestar.
@@ -185,20 +153,22 @@ class GenericAnswerTemplateStrategy:
         `prefer` la lengua **la decide el modelo** leyendo la pregunta, que distingue castellano
         de valenciano mucho mejor que `langdetect`; la lengua detectada —o la de la página, si la
         detección dudó— sólo desempata cuando la pregunta no deja clara la suya.
+
+        Sin lengua no hay instrucción: es lo que da una política sin detección —`none`, o una
+        sobreescritura `estrategias: {"language": "neutral"|"strict"}` sobre `prefer`—, y la
+        plantilla no debe contradecirla. `DefaultLanguagePolicy` siempre da una.
         """
+        if not language:
+            return None
         fijada = lengua_fijada(self._language_mode)
         if fijada is not None:
             return f"Responde en {_nombre(fijada)}."
-        if self._language_mode == MODO_SIN_POLITICA:
-            return None
         lenguas = [_nombre(c) for c in LENGUAS_DE_RESPUESTA]
-        instruccion = (
+        return (
             "Responde en la lengua en que está escrita la pregunta: "
-            f"{', '.join(lenguas[:-1])} o {lenguas[-1]}."
+            f"{', '.join(lenguas[:-1])} o {lenguas[-1]}. "
+            f"Si no está clara, responde en {_nombre(language)}."
         )
-        if language:
-            instruccion += f" Si no está clara, responde en {_nombre(language)}."
-        return instruccion
 
     def _bloque_de_fuentes(self, items: list[EvidenceItem]) -> str:
         lineas: list[str] = []
@@ -254,11 +224,6 @@ class GenericAnswerTemplateStrategy:
             partes.extend(["", "DOCUMENTOS DISPONIBLES:", "", self._bloque_de_fuentes(items)])
         else:
             partes.extend(["", "No hay evidencias disponibles para responder esta consulta."])
-
-        # #364 — al final y no arriba: la caché implícita de Gemini reutiliza el prefijo, que en
-        # el contexto largo son decenas de miles de tokens de corpus, y una línea que cambia cada
-        # día puesta delante lo invalidaría entero cada mañana.
-        partes.extend(["", _linea_de_la_fecha(self._hoy())])
 
         return "\n".join(partes).strip()
 

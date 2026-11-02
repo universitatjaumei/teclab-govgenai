@@ -54,7 +54,7 @@ def detect_language(text: str, default: str = "es") -> str:
     return codi_del_corpus(detectado)  # type: ignore[return-value]
 
 
-def lengua_de_la_pregunta(texto: str, reserva: str | None) -> str | None:
+def lengua_de_la_pregunta(texto: str, reserva: str | None) -> str:
     """La lengua de una pregunta de chat, **sólo entre las de respuesta** (#363).
 
     `detect_language` sirve para documentos, que son largos; con una pregunta corta `langdetect`
@@ -63,7 +63,10 @@ def lengua_de_la_pregunta(texto: str, reserva: str | None) -> str | None:
 
     - si la mejor pasa del umbral, es esa;
     - si no, la `reserva` —la lengua de la página donde está el widget—;
-    - si no hay reserva, la mejor candidata admitida aunque no pase, o `None` si no hay ninguna.
+    - si no hay reserva, la mejor candidata admitida aunque no pase;
+    - y si no hay ninguna, la primera lengua de respuesta (`es`), que era el `default` de
+      `detect_language`. Devolver `None` dejaría sin preferencia de versión, y el contexto largo
+      cargaría el corpus en las dos lenguas, que es justo el coste que #363 quitaba.
 
     No decide la lengua de la respuesta, que la decide el modelo leyendo la pregunta: decide qué
     versión del corpus se prefiere, y es la reserva que se le da al modelo cuando duda.
@@ -72,13 +75,10 @@ def lengua_de_la_pregunta(texto: str, reserva: str | None) -> str | None:
         candidatas = detect_langs(texto) if texto.strip() else []
     except LangDetectException:
         candidatas = []
-    admitidas = [
-        (codi_del_corpus(c.lang), c.prob)
-        for c in candidatas
-        if codi_del_corpus(c.lang) in LENGUAS_DE_RESPUESTA
-    ]
+    pares = [(codi_del_corpus(c.lang), c.prob) for c in candidatas]
+    admitidas = [(codigo, prob) for codigo, prob in pares if codigo in LENGUAS_DE_RESPUESTA]
     if admitidas and admitidas[0][1] >= UMBRAL_DE_CONFIANZA:
-        return admitidas[0][0]
+        return str(admitidas[0][0])
     if reserva is not None:
         return reserva
-    return admitidas[0][0] if admitidas else None
+    return str(admitidas[0][0]) if admitidas else LENGUAS_DE_RESPUESTA[0]

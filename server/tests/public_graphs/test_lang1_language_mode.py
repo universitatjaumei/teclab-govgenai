@@ -159,8 +159,8 @@ class TestElEfectoAguasAbajo:
 
         politica = NeutralLanguagePolicy()
         lang = politica.detect(CONSULTA_EN_CATALAN)
-        # #363: la plantilla lee el modo, porque en `prefer` sin lengua detectada también
-        # instruye («la de la pregunta»); en `none` no dice nada.
+        # #363: la plantilla lee el modo (para distinguir `fixed:` de `prefer`); sin lengua no
+        # instruye en ninguno de los dos.
         prompt = GenericAnswerTemplateStrategy(
             base_system_prompt="Assistent", language_mode="none"
         ).build_prompt_context(

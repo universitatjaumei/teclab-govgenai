@@ -49,8 +49,18 @@ class TestElDetectorSoloConoceLasLenguasDeRespuesta:
             lengua_de_la_pregunta,
         )
 
-        for texto in (NOTA, ENQUESTES, VALENCIA, CASTELLANO_CLARO, VALENCIANO_CLAR):
-            assert lengua_de_la_pregunta(texto, reserva=None) in {"es", "val", "en", None}
+        for texto in (NOTA, ENQUESTES, VALENCIA, CASTELLANO_CLARO, VALENCIANO_CLAR, "", "2024"):
+            assert lengua_de_la_pregunta(texto, reserva=None) in {"es", "val", "en"}
+
+    def test_should_fall_back_to_spanish_without_reserve_nor_candidate(self):
+        """Era el `default` de `detect_language`, y la revisión de la PR vio que sin él el contexto
+        largo se quedaba sin preferencia de versión y cargaba el corpus en las dos lenguas."""
+        from server.app.modules.agents_hub.services.language_detector import (
+            lengua_de_la_pregunta,
+        )
+
+        assert lengua_de_la_pregunta(NOTA, reserva=None) == "es"
+        assert lengua_de_la_pregunta("", reserva=None) == "es"
 
     def test_should_use_the_page_language_when_no_admitted_language_is_a_candidate(self):
         from server.app.modules.agents_hub.services.language_detector import (
@@ -160,11 +170,37 @@ class TestElPromptDejaLaLenguaAlModelo:
         assert "Si no está clara, responde en valenciano." in prompt
         assert "Responde en val." not in prompt
 
-    def test_should_still_ask_for_the_language_of_the_question_without_a_reserve(self):
+    def test_should_say_nothing_when_the_policy_gives_no_language(self):
+        """Una política sin detección (`neutral`, `strict`) puesta con `estrategias` sobre
+        `prefer`: la plantilla no puede contradecirla con una instrucción que nadie pidió."""
         prompt = self._prompt(None)
 
-        assert "castellano, valenciano o inglés" in prompt
-        assert "Si no está clara" not in prompt
+        assert "Responde en" not in prompt
+
+    def test_should_respect_a_neutral_override_of_the_language_axis(self):
+        """El caso de la revisión de la PR, por la factoría real: `prefer` con
+        `estrategias={"language": "neutral"}` (PLG.2) se queda sin línea de lengua."""
+        from types import SimpleNamespace
+
+        from server.app.modules.agents_hub.agent.public_graphs.core.graph_factory import (
+            _aplicar_sobreescrituras,
+            _make_public_kb_rich,
+        )
+
+        cfg = SimpleNamespace(
+            language_mode="prefer", retrieval_mode="RAG", system_prompt="x", router_index=None,
+            query_rewriting_enabled=False, public_graph_profile="PUBLIC_KB_RICH",
+            estrategias={"language": "neutral"},
+        )
+        grafo = _make_public_kb_rich(cfg, deps=SimpleNamespace(), llm=None)
+        # Lo mismo que hace `GraphFactory.build` después de montar el perfil.
+        _aplicar_sobreescrituras(grafo, cfg, SimpleNamespace(), None)
+
+        prompt = grafo.template_strategy.build_prompt_context(
+            [], grafo.language_policy.detect(ENQUESTES), ENQUESTES
+        )
+
+        assert "Responde en" not in prompt
 
     def test_should_keep_forcing_the_language_in_fixed_mode(self):
         prompt = self._prompt("es", language_mode="fixed:es")
@@ -203,7 +239,8 @@ class TestLaApiAceptaLaLenguaDeLaPagina:
     @pytest.mark.parametrize(
         ("enviada", "esperada"),
         [("es", "es"), ("ca", "val"), ("val", "val"), ("en", "en"), ("es-ES", "es"),
-         ("CA", "val"), ("pt", None), ("", None), (None, None)],
+         ("es_ES", "es"), ("CA", "val"), ("pt", None), ("", None), (None, None),
+         ("x" * 500, None)],
     )
     def test_should_normalise_the_page_language(self, enviada, esperada):
         """Un `data-lang` raro en una página que embebe el widget no puede tumbar el chat: lo que
