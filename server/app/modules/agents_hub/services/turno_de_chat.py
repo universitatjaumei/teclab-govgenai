@@ -340,6 +340,7 @@ async def preparar_turno(
         "chatbot_id": str(selected_chatbot_id),
         "language": None,
         "lengua_de_la_pagina": lengua_de_la_pagina,
+        "lengua_de_la_respuesta": None,
         # RAG.10: los turnos previos, ya aplanados a 'rol: texto', que es lo que consume el
         # reescritor. El grafo no necesita objetos de mensaje para esto.
         "history": [f"{rol}: {texto}" for rol, texto in historial],
@@ -419,6 +420,7 @@ async def emitir_turno(
     # VIS.5 — `None` hasta que el grafo diga en qué lengua está la evidencia. Sin ella no se
     # avisa: no se puede afirmar que difiera de la de la pregunta.
     lengua_de_la_fuente: str | None = None
+    lengua_de_la_respuesta: str | None = None
     # RES.2 — si la respuesta salió de la segunda pasada. Falso mientras nadie lo diga: el
     # nodo `reformular` sólo se ejecuta cuando la primera pasada no llegó al umbral.
     reformulada = False
@@ -489,6 +491,14 @@ async def emitir_turno(
                     _source_to_dict(s) for s in raw_sources if _es_citable(s)
                 ]
                 fallback_reason = output.get("fallback_reason")
+                # Revisión de la PR #365 — el aviso de traducción se decide al final, con la
+                # lengua en que el modelo ha contestado; el de `merge` era con la preferida para
+                # el corpus. Un nodo final que no lo trae deja el de `merge`.
+                if "translation_warning" in output:
+                    language_fallback = bool(output.get("translation_warning"))
+                lengua_de_la_respuesta = (
+                    output.get("lengua_de_la_respuesta") or lengua_de_la_respuesta
+                )
                 if output.get("fallback_used"):
                     fallback_answer = output.get("answer")
                 else:
@@ -653,7 +663,9 @@ async def emitir_turno(
         await session.commit()
 
         translation_warning = (
-            _build_translation_warning(lengua_de_la_fuente, detected_language)
+            _build_translation_warning(
+                lengua_de_la_fuente, lengua_de_la_respuesta or detected_language
+            )
             if language_fallback
             else None
         )

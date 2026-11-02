@@ -223,8 +223,11 @@ Y dos garantías más, que son las que deciden qué lee quien pregunta:
   nunca al revés. Citar en la lengua correcta algo que nadie ha confirmado que rija es un error de
   fondo; citar lo confirmado en otra lengua es una incomodidad, y encima se avisa. `fixed:` no
   entra en esto: filtra a una lengua por definición y ahí la vigencia no compite con nada.
-- **Si la norma citada está en otra lengua, se dice — en la lengua de la pregunta y en las dos
-  direcciones** (VIS.5). El aviso sale de la lengua de la **fuente**, no de la de la pregunta:
+- **Si la norma citada está en otra lengua que la respuesta, se dice — en la lengua de la
+  respuesta y en las dos direcciones** (VIS.5). Desde #363 la lengua de la respuesta la elige el
+  modelo, así que el aviso se decide **después de generar**, con la lengua detectada sobre la
+  propia respuesta (sin los títulos de los enlaces, que están en la de la fuente), y no con la
+  preferida para el corpus (revisión de la PR #365). El aviso sale de la lengua de la **fuente**, no de la de la pregunta:
   quien escribe en valencià ya sabe en qué lengua escribe, y lo que necesita saber es que el
   enlace le lleva a un documento en castellano. Preguntar en castellano y recibir una norma en
   valencià es el caso mayoritario del corpus real —232 de 334 documentos del asistente normativo

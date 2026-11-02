@@ -19,6 +19,8 @@ lengua —también el front-matter de un `.md`, el manifiesto de un paquete de c
 siguiente. Está en `core/lengua_del_corpus.py`, donde las cuatro la comparten.
 """
 
+import re
+
 from langdetect import DetectorFactory, LangDetectException, detect, detect_langs
 
 from server.app.core.language_mode import LENGUAS_DE_RESPUESTA
@@ -82,3 +84,18 @@ def lengua_de_la_pregunta(texto: str, reserva: str | None) -> str:
     if reserva is not None:
         return reserva
     return str(admitidas[0][0]) if admitidas else LENGUAS_DE_RESPUESTA[0]
+
+
+#: Un enlace markdown entero, título incluido, y una URL suelta.
+_ENLACE = re.compile(r"\[[^\]]*\]\([^)]*\)|https?://\S+")
+
+
+def lengua_de_la_respuesta(texto: str, reserva: str | None) -> str:
+    """En qué lengua ha contestado el modelo (revisión de la PR #365).
+
+    Desde #363 la decide el modelo, así que el aviso de traducción no puede salir de la lengua
+    preferida para el corpus. Se detecta sobre la respuesta, que es larga y por eso fiable, **sin
+    los enlaces**: sus títulos son los de las fuentes, en la lengua de las fuentes, y empujarían
+    la detección justo hacia la que oculta el aviso.
+    """
+    return lengua_de_la_pregunta(_ENLACE.sub(" ", texto), reserva)

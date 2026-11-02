@@ -53,6 +53,9 @@ from server.app.modules.agents_hub.agent.public_graphs.core.fecha import (
     fecha_de_hoy,
     linea_de_la_fecha,
 )
+from server.app.modules.agents_hub.services.language_detector import (
+    lengua_de_la_respuesta as detectar_lengua_de_la_respuesta,
+)
 
 if TYPE_CHECKING:
     from server.app.modules.agents_hub.agent.public_graphs.strategies.agentic_loop import (
@@ -75,6 +78,10 @@ class CoreGraphState(TypedDict):
     # #363 — la lengua de la página donde está el widget (`lang` de la petición), ya normalizada
     # a una lengua de respuesta o `None`. Es la reserva cuando la detección duda.
     lengua_de_la_pagina: str | None
+    # Revisión de la PR #365 — en qué lengua ha contestado el modelo, detectada sobre su texto.
+    # Es con la que se decide y se redacta el aviso de traducción; `language` es sólo la
+    # preferencia de versión del corpus. `None` sin política de lengua.
+    lengua_de_la_respuesta: str | None
     # RAG.10: turnos previos, ya formateados como 'rol: texto'. Los manda el cliente: la API
     # es sin estado y no hay entidad conversación.
     history: list                  # list[str]
@@ -408,7 +415,22 @@ class CoreGraph:
                 aviso = aviso_de_vigencia(citables)
                 if aviso:
                     validated = f"{validated}\n\n{aviso}"
+
+            # Revisión de la PR #365 — el aviso de traducción, con la lengua en que el modelo
+            # ha contestado y no con la preferida para el corpus, que desde #363 son cosas
+            # distintas. Sólo si la política tiene lengua: `none` y `strict` no avisan.
+            lengua_de_la_respuesta: str | None = None
+            traduccion = bool(state.get("translation_warning"))
+            if state.get("language") and not incumplio_citas and not sin_fundamento:
+                lengua_de_la_respuesta = detectar_lengua_de_la_respuesta(
+                    answer, state.get("language")
+                )
+                traduccion = self.language_policy.should_warn_translation(
+                    lengua_de_la_respuesta, state.get("context_source_language")
+                )
             return {
+                "lengua_de_la_respuesta": lengua_de_la_respuesta,
+                "translation_warning": traduccion,
                 "answer": validated,
                 # #337 — el aviso, aparte: el chat emite los tokens según salen del modelo y
                 # tiene que añadirlo él al final, se enseñen o no las correcciones de las citas.
@@ -567,6 +589,7 @@ class CoreGraph:
             "chatbot_id": chatbot_id,
             "language": None,
             "lengua_de_la_pagina": lengua_de_la_pagina,
+            "lengua_de_la_respuesta": None,
             "history": list(history or []),
             "rewritten_query": None,
             "debug_bypass": debug_bypass,
