@@ -621,13 +621,13 @@ async def generar_borrador_en_segundo_plano(workspace_id: uuid.UUID) -> None:
     try:
         async for bg_session in get_session():
             try:
-                # MT.3 — `None` es «nivel plataforma», y aquí es lo único honesto **por ahora**:
-                # esto corre en una tarea de fondo, cuando la sesión de la petición ya se cerró,
-                # y el workspace no tiene organización hasta MT.4. Va escrito y no omitido
-                # porque el parámetro es obligatorio: así este sitio declara que no lo sabe, en
-                # vez de resolver plataforma sin que nadie se entere.
+                # El modelo y los prompts de la organización del informe. Hasta MT.4 el
+                # workspace no la tenía y aquí iba `None`; la columna existe desde entonces y
+                # este sitio siguió resolviendo plataforma. Nulo sigue significando plataforma.
+                workspace = await bg_session.get(HubWorkspace, workspace_id)
                 redactor = await _redactor_de_bloques(
-                    bg_session, organizacion_id=None
+                    bg_session,
+                    organizacion_id=workspace.organizacion_id if workspace else None,
                 )
             except Exception as fallo:  # noqa: BLE001
                 await marcar_error(workspace_id, bg_session, f"modelo no disponible: {fallo}")
@@ -661,7 +661,9 @@ async def _redactor_de_bloques(session: AsyncSession, *, organizacion_id: Any = 
     )
 
     proveedor = LocalConfigProvider(session)
-    modelo = await get_model_for_tier(1, proveedor, organizacion_id=organizacion_id)
+    # Las instrucciones que no son de ninguna actividad —la genérica, un identificador fuera
+    # del catálogo— van al nivel 1, que es el que la redacción ha usado siempre.
+    por_nivel = {1: await get_model_for_tier(1, proveedor, organizacion_id=organizacion_id)}
 
     # La clave del `dict` es el **identificador de plantilla** que viaja en el `spec` y en el
     # manifiesto, no la clave de la actividad: son dos vocabularios y el nodo habla el primero.
@@ -670,14 +672,24 @@ async def _redactor_de_bloques(session: AsyncSession, *, organizacion_id: Any = 
         PROMPT_RESUMEN_DE_RESULTADOS: ActividadLLM.RESUMEN_DE_RESULTADOS,
     }
     instrucciones = {}
+    modelos = {}
     for plantilla_id, actividad in por_plantilla.items():
         resuelta = await resolver_actividad(
             actividad, proveedor, organizacion_id=organizacion_id
         )
         instrucciones[plantilla_id] = resuelta.template_text
+        # El nivel resuelto **se usa**: antes se pedía siempre el 1 y el que subiera la
+        # biblioteca de prompts se descartaba sin aviso.
+        if resuelta.tier not in por_nivel:
+            por_nivel[resuelta.tier] = await get_model_for_tier(
+                resuelta.tier, proveedor, organizacion_id=organizacion_id
+            )
+        modelo_de_actividad = por_nivel[resuelta.tier]
+        modelos[plantilla_id] = (modelo_de_actividad, nombre_del_modelo(modelo_de_actividad))
 
+    modelo = por_nivel[1]
     return RedactorDeBloques(
-        modelo, nombre_del_modelo(modelo), instrucciones=instrucciones
+        modelo, nombre_del_modelo(modelo), instrucciones=instrucciones, modelos=modelos
     )
 
 

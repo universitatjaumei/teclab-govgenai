@@ -26,6 +26,19 @@ class LLMService(Protocol):
     async def generate(self, prompt: str, context: str) -> str: ...
 
 
+def _modelo_que_redacta(llm: Any, prompt_id: str) -> str:
+    """El nombre del modelo que redactó **este** bloque, para `model_used` y el manifiesto.
+
+    Un servicio con un modelo por instrucción (`RedactorDeBloques`) lo dice por instrucción; el
+    resto tiene uno solo, `model_name`. Se busca en la clase y no en la instancia porque un doble
+    de test hecho con `MagicMock` responde a cualquier atributo, y guardaría un mock como nombre.
+    """
+    por_instruccion = getattr(type(llm), "nombre_del_modelo_para", None)
+    if callable(por_instruccion):
+        return llm.nombre_del_modelo_para(prompt_id)
+    return llm.model_name
+
+
 def _block_text(content: dict) -> str:
     """Extrae el texto más rico disponible del contenido de un bloque.
 
@@ -206,7 +219,9 @@ class AIAssistDraftNode:
                 "retry_attempts": resultado.retry_attempts,
                 "content": {
                     "text": resultado.output,
-                    "model_used": self._llm.model_name,
+                    "model_used": _modelo_que_redacta(
+                        self._llm, block_contract.ai_prompt_template_id
+                    ),
                     "prompt_version": block_contract.ai_prompt_template_id,
                     # De dónde salió lo que el modelo leyó. Va en el estado porque el estado es
                     # el registro (P6), y de aquí lo recoge el manifiesto.

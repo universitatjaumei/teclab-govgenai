@@ -119,7 +119,9 @@ async def resolver_modelo_de_etl(
     from server.app.routers.redaccion._actor import nombre_del_modelo
 
     proveedor = LocalConfigProvider(session)
-    resuelta = await resolver_actividad(ActividadLLM.TRANSFORMACION_ETL, proveedor)
+    resuelta = await resolver_actividad(
+        ActividadLLM.TRANSFORMACION_ETL, proveedor, organizacion_id=organizacion_id
+    )
     try:
         modelo = await get_model_for_tier(
             resuelta.tier, proveedor, organizacion_id=organizacion_id
@@ -280,11 +282,9 @@ async def ejecutar_borrador(
             select(HubWorkspaceBlock).where(HubWorkspaceBlock.workspace_id == workspace_id)
         )).scalars().all()
 
-        # MT.3 — sin organización todavía: `hub_workspaces` no la tiene hasta MT.4, y esto
-        # corre dentro de la ejecución del borrador, sin actor a mano. `None` = plataforma,
-        # que es el comportamiento de siempre.
+        # La organización del informe: nulo sigue significando plataforma.
         etl_llm, etl_model_name, etl_prompt = await resolver_modelo_de_etl(
-            session, organizacion_id=None
+            session, organizacion_id=workspace.organizacion_id
         )
         grafo = construir_grafo(
             session,
