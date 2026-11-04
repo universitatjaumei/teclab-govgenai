@@ -265,3 +265,32 @@ async def test_ejecutar_borrador_resuelve_el_etl_con_la_organizacion_del_informe
     await drafting_runner.ejecutar_borrador(uuid.uuid4(), sesion, llm_service=object())
 
     assert pedidas == [organizacion]
+
+
+@pytest.mark.asyncio
+async def test_un_nivel_sin_modelo_hace_fallar_solo_su_bloque(niveles, monkeypatch) -> None:
+    """Lo vio Copilot en la PR #367: si la valoración apunta a un nivel sin modelo, construir el
+    redactor fallaba y con él el informe entero —también uno genérico que no la usa—.
+
+    Ahora falla el bloque que lo usa, con el motivo, y el resto se redacta. Callarlo y redactar
+    con otro modelo sería volver a #366.
+    """
+    from server.app.modules.agents_hub.services import model_factory
+    from server.app.routers.redaccion.workspaces_router import _redactor_de_bloques
+
+    niveles.proveedor = _Proveedor({"valoracion_de_tendencia": 3})
+    con_modelo = model_factory.get_model_for_tier
+
+    async def _sin_nivel_3(tier, proveedor, *, organizacion_id):
+        if tier == 3:
+            raise ValueError("No hay configuración LLM por defecto para tier 3")
+        return await con_modelo(tier, proveedor, organizacion_id=organizacion_id)
+
+    monkeypatch.setattr(model_factory, "get_model_for_tier", _sin_nivel_3)
+
+    redactor = await _redactor_de_bloques(object(), organizacion_id=None)
+
+    assert await redactor.generate(PROMPT_RESUMEN_DE_RESULTADOS, "t") == "nivel 1"
+    assert await redactor.generate("generic_report_v1", "t") == "nivel 1"
+    with pytest.raises(ValueError, match="tier 3"):
+        await redactor.generate(PROMPT_VALORACION_DE_TENDENCIA, "t")

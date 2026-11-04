@@ -639,6 +639,21 @@ async def generar_borrador_en_segundo_plano(workspace_id: uuid.UUID) -> None:
         )
 
 
+class _NivelSinModelo:
+    """Ocupa el sitio del modelo de un nivel que no tiene ninguno configurado.
+
+    Al invocarlo lanza el fallo original, y el nodo de redacción lo registra en ese bloque como
+    `ai_failed` con su motivo.
+    """
+
+    def __init__(self, tier: int, fallo: Exception) -> None:
+        self.model_name = f"sin modelo de nivel {tier}"
+        self._fallo = fallo
+
+    async def ainvoke(self, *_args: Any, **_kwargs: Any) -> Any:
+        raise self._fallo
+
+
 async def _redactor_de_bloques(session: AsyncSession, *, organizacion_id: Any):
     """Modelo de la cascada, adaptado al protocolo que espera el nodo de redacción.
 
@@ -681,9 +696,15 @@ async def _redactor_de_bloques(session: AsyncSession, *, organizacion_id: Any):
         # El nivel resuelto **se usa**: antes se pedía siempre el 1 y el que subiera la
         # biblioteca de prompts se descartaba sin aviso.
         if resuelta.tier not in por_nivel:
-            por_nivel[resuelta.tier] = await get_model_for_tier(
-                resuelta.tier, proveedor, organizacion_id=organizacion_id
-            )
+            try:
+                por_nivel[resuelta.tier] = await get_model_for_tier(
+                    resuelta.tier, proveedor, organizacion_id=organizacion_id
+                )
+            except Exception as fallo:  # noqa: BLE001
+                # Un nivel sin modelo hace fallar **el bloque que lo usa**, con el motivo, y
+                # no el informe entero: uno genérico que no use esta actividad no tiene por qué
+                # caer. Tampoco se redacta con otro modelo en silencio, que sería volver a #366.
+                por_nivel[resuelta.tier] = _NivelSinModelo(resuelta.tier, fallo)
         modelo_de_actividad = por_nivel[resuelta.tier]
         modelos[plantilla_id] = (modelo_de_actividad, nombre_del_modelo(modelo_de_actividad))
 
