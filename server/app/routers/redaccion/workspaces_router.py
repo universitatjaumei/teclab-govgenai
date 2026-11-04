@@ -621,13 +621,13 @@ async def generar_borrador_en_segundo_plano(workspace_id: uuid.UUID) -> None:
     try:
         async for bg_session in get_session():
             try:
-                # MT.3 — `None` es «nivel plataforma», y aquí es lo único honesto **por ahora**:
-                # esto corre en una tarea de fondo, cuando la sesión de la petición ya se cerró,
-                # y el workspace no tiene organización hasta MT.4. Va escrito y no omitido
-                # porque el parámetro es obligatorio: así este sitio declara que no lo sabe, en
-                # vez de resolver plataforma sin que nadie se entere.
+                # El modelo y los prompts de la organización del informe. Hasta MT.4 el
+                # workspace no la tenía y aquí iba `None`; la columna existe desde entonces y
+                # este sitio siguió resolviendo plataforma. Nulo sigue significando plataforma.
+                workspace = await bg_session.get(HubWorkspace, workspace_id)
                 redactor = await _redactor_de_bloques(
-                    bg_session, organizacion_id=None
+                    bg_session,
+                    organizacion_id=workspace.organizacion_id if workspace else None,
                 )
             except Exception as fallo:  # noqa: BLE001
                 await marcar_error(workspace_id, bg_session, f"modelo no disponible: {fallo}")
@@ -639,7 +639,22 @@ async def generar_borrador_en_segundo_plano(workspace_id: uuid.UUID) -> None:
         )
 
 
-async def _redactor_de_bloques(session: AsyncSession, *, organizacion_id: Any = None):
+class _NivelSinModelo:
+    """Ocupa el sitio del modelo de un nivel que no tiene ninguno configurado.
+
+    Al invocarlo lanza el fallo original, y el nodo de redacción lo registra en ese bloque como
+    `ai_failed` con su motivo.
+    """
+
+    def __init__(self, tier: int, fallo: Exception) -> None:
+        self.model_name = f"sin modelo de nivel {tier}"
+        self._fallo = fallo
+
+    async def ainvoke(self, *_args: Any, **_kwargs: Any) -> Any:
+        raise self._fallo
+
+
+async def _redactor_de_bloques(session: AsyncSession, *, organizacion_id: Any):
     """Modelo de la cascada, adaptado al protocolo que espera el nodo de redacción.
 
     **AIS.2 — aquí se resuelven también las instrucciones.** Es el único sitio del camino de
@@ -661,7 +676,9 @@ async def _redactor_de_bloques(session: AsyncSession, *, organizacion_id: Any = 
     )
 
     proveedor = LocalConfigProvider(session)
-    modelo = await get_model_for_tier(1, proveedor, organizacion_id=organizacion_id)
+    # Las instrucciones que no son de ninguna actividad —la genérica, un identificador fuera
+    # del catálogo— van al nivel 1, que es el que la redacción ha usado siempre.
+    por_nivel = {1: await get_model_for_tier(1, proveedor, organizacion_id=organizacion_id)}
 
     # La clave del `dict` es el **identificador de plantilla** que viaja en el `spec` y en el
     # manifiesto, no la clave de la actividad: son dos vocabularios y el nodo habla el primero.
@@ -670,14 +687,30 @@ async def _redactor_de_bloques(session: AsyncSession, *, organizacion_id: Any = 
         PROMPT_RESUMEN_DE_RESULTADOS: ActividadLLM.RESUMEN_DE_RESULTADOS,
     }
     instrucciones = {}
+    modelos = {}
     for plantilla_id, actividad in por_plantilla.items():
         resuelta = await resolver_actividad(
             actividad, proveedor, organizacion_id=organizacion_id
         )
         instrucciones[plantilla_id] = resuelta.template_text
+        # El nivel resuelto **se usa**: antes se pedía siempre el 1 y el que subiera la
+        # biblioteca de prompts se descartaba sin aviso.
+        if resuelta.tier not in por_nivel:
+            try:
+                por_nivel[resuelta.tier] = await get_model_for_tier(
+                    resuelta.tier, proveedor, organizacion_id=organizacion_id
+                )
+            except Exception as fallo:  # noqa: BLE001
+                # Un nivel sin modelo hace fallar **el bloque que lo usa**, con el motivo, y
+                # no el informe entero: uno genérico que no use esta actividad no tiene por qué
+                # caer. Tampoco se redacta con otro modelo en silencio, que sería volver a #366.
+                por_nivel[resuelta.tier] = _NivelSinModelo(resuelta.tier, fallo)
+        modelo_de_actividad = por_nivel[resuelta.tier]
+        modelos[plantilla_id] = (modelo_de_actividad, nombre_del_modelo(modelo_de_actividad))
 
+    modelo = por_nivel[1]
     return RedactorDeBloques(
-        modelo, nombre_del_modelo(modelo), instrucciones=instrucciones
+        modelo, nombre_del_modelo(modelo), instrucciones=instrucciones, modelos=modelos
     )
 
 
