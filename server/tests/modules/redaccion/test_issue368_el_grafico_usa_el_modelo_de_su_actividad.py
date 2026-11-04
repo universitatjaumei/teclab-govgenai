@@ -126,3 +126,55 @@ async def test_subir_el_nivel_de_los_graficos_llega_al_modelo(monkeypatch) -> No
 
     assert pedidos == [(3, organizacion)]
     assert nombre == "modelo-nivel-3"
+
+
+# ----------------------------------------------------------------------
+# Lo que vio la revisión de la PR #369
+# ----------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_el_grafico_de_ia_registra_el_modelo_que_lo_dibujo(monkeypatch) -> None:
+    """Llevar el nombre hasta el nodo no servía de nada: `ChartHandler` descartaba
+    `model_used`, y el bloque no decía con qué modelo se dibujó."""
+    from server.app.modules.redaccion.blocks import handlers
+    from server.app.modules.redaccion.graph.nodes.chart_render import ChartRenderNode
+    from server.tests.dobles import modelo_de_chat
+    from server.tests.modules.redaccion.charts.test_el_grafico_llega_al_informe import (
+        _AlmacenEnMemoria,
+        _estado,
+        _spec_con_grafico,
+    )
+
+    llm = modelo_de_chat()
+    llm.ainvoke = AsyncMock(return_value=MagicMock(content="```python\nplt.bar([1], [2])\n```"))
+    monkeypatch.setattr(handlers, "render_chart_from_script", AsyncMock(return_value=b"png"))
+
+    salida = await ChartRenderNode(
+        storage_service=_AlmacenEnMemoria(), llm_service=llm, model_name="modelo-nivel-3"
+    )(_estado(_spec_con_grafico(mode="ai")))
+
+    bloque = salida["blocks"]["b-grafico"]
+    assert bloque.status == "extracted"
+    assert bloque.content["chart"]["model_used"] == "modelo-nivel-3"
+
+
+@pytest.mark.asyncio
+async def test_sin_modelo_el_grafico_de_ia_falla_diciendo_por_que() -> None:
+    """Fallaba con «'NoneType' object has no attribute 'ainvoke'», que no dice que lo que
+    falta es un modelo configurado para el nivel de los gráficos."""
+    from server.app.modules.redaccion.graph.nodes.chart_render import ChartRenderNode
+    from server.tests.modules.redaccion.charts.test_el_grafico_llega_al_informe import (
+        _AlmacenEnMemoria,
+        _estado,
+        _spec_con_grafico,
+    )
+
+    salida = await ChartRenderNode(storage_service=_AlmacenEnMemoria(), llm_service=None)(
+        _estado(_spec_con_grafico(mode="ai"))
+    )
+
+    bloque = salida["blocks"]["b-grafico"]
+    assert bloque.status == "failed"
+    assert "configuracion_de_grafico" in (bloque.last_error_message or "")
+    assert "NoneType" not in (bloque.last_error_message or "")

@@ -90,6 +90,12 @@ class ChartHandler:
             }
 
         # AI mode
+        if self._llm is None:
+            # #368 — sin esto fallaba con «'NoneType' object has no attribute 'ainvoke'».
+            raise ChartRenderError(
+                "No hay modelo configurado para el nivel de la actividad "
+                "configuracion_de_grafico: el modo IA no puede dibujar el gráfico."
+            )
         from server.app.modules.redaccion.services.charts.chart_factory import ChartFactory
         factory = ChartFactory(self._llm, self._model_name)
         schema = {"columns": list(df.columns), "dtypes": {c: str(t) for c, t in df.dtypes.items()}}
@@ -112,6 +118,7 @@ class ChartHandler:
             "source_block_id": block.data_block_ref,
             "chart_type": cfg.chart_type,
             "mode": "ai",
+            "model_used": chart_script.model_used,
             "image_bytes": image_bytes,
         }
 
