@@ -94,12 +94,17 @@ class ChartRenderNode:
         if not imagen:
             raise ValueError("El servicio de gráficos no devolvió imagen.")
         formato = (contrato.config.output_format if contrato.config else "png") or "png"
-        return imagen, {
+        contenido = {
             "chart_type": resultado.get("chart_type"),
             "mode": resultado.get("mode"),
             "source_block_id": resultado.get("source_block_id"),
             "format": formato,
         }
+        # #368 — con qué modelo se dibujó, como los bloques de texto: sólo en modo IA, porque
+        # el determinista no usa ninguno.
+        if resultado.get("model_used"):
+            contenido["model_used"] = resultado["model_used"]
+        return imagen, contenido
 
     async def _guardar(self, clave: str, imagen: bytes) -> None:
         almacen = self._storage

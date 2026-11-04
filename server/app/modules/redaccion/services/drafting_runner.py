@@ -54,6 +54,8 @@ def construir_grafo(
     etl_llm: Any = None,
     etl_model_name: str = "",
     etl_system_prompt: str | None = None,
+    chart_llm: Any = None,
+    chart_model_name: str = "",
 ):
     """El `DraftingCoreGraph` con sus dependencias resueltas contra esta sesión.
 
@@ -70,6 +72,9 @@ def construir_grafo(
     `llm_service=None` y un bloque de transformación en modo IA fallaba con «ai mode requires
     an injected llm». Es un modelo distinto del de redacción porque la tarea es distinta:
     transformar datos es **programar**, así que va con el nivel 2.
+
+    `chart_llm` es el de `configuracion_de_grafico` (#368). El nodo de gráficos recibía el del
+    ETL, así que el nivel que la biblioteca diera a los gráficos no llegaba a ninguna parte.
     """
     from server.app.core.storage import get_storage_service
     from server.app.modules.redaccion.funciones_resolver import ResolvedorDeFuncion
@@ -89,6 +94,8 @@ def construir_grafo(
         etl_llm=etl_llm,
         etl_model_name=etl_model_name,
         etl_system_prompt=etl_system_prompt,
+        chart_llm=chart_llm,
+        chart_model_name=chart_model_name,
         # FUN.3 — sin esto, un bloque que referencia una función del catálogo fallaría en alto
         # diciendo que el grafo se construyó sin resolutor. Es mejor que ejecutar nada en
         # silencio, pero es un fallo: el sitio donde se pasa es éste, y hay un test que lo fija.
@@ -100,37 +107,34 @@ def construir_grafo(
     )
 
 
-async def resolver_modelo_de_etl(
-    session: Any, *, organizacion_id: Any
+async def resolver_modelo_de_actividad(
+    session: Any, actividad: Any, *, organizacion_id: Any
 ) -> tuple[Any, str, str]:
-    """El modelo de la actividad de transformación, con su nivel y su nombre.
+    """El modelo de una actividad de los nodos de datos, con su nivel, su nombre y su prompt.
 
-    El nivel sale del catálogo de actividades (nivel 2, porque transformar es programar) y la
-    biblioteca de prompts puede sobreescribirlo. Si no hay modelo configurado se devuelve
-    `None`: **el modo determinista tiene que seguir funcionando sin modelo**, y un informe que
-    sólo aplica operaciones declarativas no tiene por qué depender de que haya un LLM.
+    Sirve a la transformación y a los gráficos (#368): cada una tiene su nivel en el catálogo
+    de actividades y la biblioteca de prompts puede sobreescribirlo. Si no hay modelo
+    configurado se devuelve `None`: **el modo determinista tiene que seguir funcionando sin
+    modelo**, y un informe que sólo aplica operaciones declarativas o dibuja gráficos
+    deterministas no tiene por qué depender de que haya un LLM.
     """
     from server.app.modules.agents_hub.services.config_provider import LocalConfigProvider
     from server.app.modules.agents_hub.services.model_factory import get_model_for_tier
-    from server.app.modules.redaccion.services.actividades_llm import (
-        ActividadLLM,
-        resolver_actividad,
-    )
+    from server.app.modules.redaccion.services.actividades_llm import resolver_actividad
     from server.app.routers.redaccion._actor import nombre_del_modelo
 
     proveedor = LocalConfigProvider(session)
-    resuelta = await resolver_actividad(
-        ActividadLLM.TRANSFORMACION_ETL, proveedor, organizacion_id=organizacion_id
-    )
+    resuelta = await resolver_actividad(actividad, proveedor, organizacion_id=organizacion_id)
     try:
         modelo = await get_model_for_tier(
             resuelta.tier, proveedor, organizacion_id=organizacion_id
         )
     except Exception as fallo:  # noqa: BLE001
         _log.warning(
-            "Sin modelo para el nivel %s: los bloques de transformación en modo IA fallarán "
-            "con su motivo, el modo determinista sigue funcionando (%s)",
+            "Sin modelo para el nivel %s de %s: sus bloques en modo IA fallarán con su "
+            "motivo, el modo determinista sigue funcionando (%s)",
             resuelta.tier,
+            actividad,
             fallo,
         )
         return None, "", resuelta.template_text
@@ -282,9 +286,18 @@ async def ejecutar_borrador(
             select(HubWorkspaceBlock).where(HubWorkspaceBlock.workspace_id == workspace_id)
         )).scalars().all()
 
+        from server.app.modules.redaccion.services.actividades_llm import ActividadLLM
+
         # La organización del informe: nulo sigue significando plataforma.
-        etl_llm, etl_model_name, etl_prompt = await resolver_modelo_de_etl(
-            session, organizacion_id=workspace.organizacion_id
+        etl_llm, etl_model_name, etl_prompt = await resolver_modelo_de_actividad(
+            session, ActividadLLM.TRANSFORMACION_ETL, organizacion_id=workspace.organizacion_id
+        )
+        # #368 — el prompt de la actividad no se pasa: dentro del informe el nodo pide un script,
+        # que lleva su prompt propio; el de `configuracion_de_grafico` es del camino declarativo.
+        chart_llm, chart_model_name, _ = await resolver_modelo_de_actividad(
+            session,
+            ActividadLLM.CONFIGURACION_DE_GRAFICO,
+            organizacion_id=workspace.organizacion_id,
         )
         grafo = construir_grafo(
             session,
@@ -293,6 +306,8 @@ async def ejecutar_borrador(
             etl_llm=etl_llm,
             etl_model_name=etl_model_name,
             etl_system_prompt=etl_prompt,
+            chart_llm=chart_llm,
+            chart_model_name=chart_model_name,
         )
         modo = await modo_de_ejecucion(workspace, session)
         final = await grafo.ainvoke(

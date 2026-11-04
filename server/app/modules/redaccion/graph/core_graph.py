@@ -44,6 +44,8 @@ def build_core_graph(
     etl_llm: Any = None,
     etl_model_name: str = "",
     etl_system_prompt: str | None = None,
+    chart_llm: Any = None,
+    chart_model_name: str = "",
     pii_detector: Any = None,
     faker_generator: Any = None,
     resolvedor_de_funciones: Any = None,
@@ -87,10 +89,12 @@ def build_core_graph(
     )
     # PRO.5 — el nodo que dibuja los bloques CHART. No existía: `ChartHandler` estaba escrito
     # y probado, y sólo lo importaban los tests, así que un bloque CHART no dibujaba nada.
+    # #368 — con el modelo de `configuracion_de_grafico`, no el del ETL: recibía `etl_llm`, y el
+    # nivel que la biblioteca diera a los gráficos no llegaba al modelo.
     chart_node = ChartRenderNode(
         storage_service=storage_service,
-        llm_service=etl_llm,
-        model_name=etl_model_name,
+        llm_service=chart_llm,
+        model_name=chart_model_name,
     )
     # SEG.5 — el hermano del nodo de gráficos para los bloques TABLE, que tampoco los pintaba
     # nadie: estaban en el contrato y salían vacíos en el informe.
