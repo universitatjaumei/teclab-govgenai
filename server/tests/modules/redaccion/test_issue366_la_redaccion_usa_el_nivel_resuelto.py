@@ -212,12 +212,17 @@ async def test_la_generacion_en_segundo_plano_usa_la_organizacion_del_informe(mo
 
 @pytest.mark.asyncio
 async def test_el_etl_se_resuelve_con_la_organizacion(niveles) -> None:
-    from server.app.modules.redaccion.services.drafting_runner import resolver_modelo_de_etl
+    from server.app.modules.redaccion.services.actividades_llm import ActividadLLM
+    from server.app.modules.redaccion.services.drafting_runner import (
+        resolver_modelo_de_actividad,
+    )
 
     organizacion = uuid.uuid4()
     niveles.proveedor = _Proveedor({})
 
-    await resolver_modelo_de_etl(object(), organizacion_id=organizacion)
+    await resolver_modelo_de_actividad(
+        object(), ActividadLLM.TRANSFORMACION_ETL, organizacion_id=organizacion
+    )
 
     assert niveles.proveedor.organizaciones_pedidas == [organizacion]
     assert niveles.pedidos == [(2, organizacion)]
@@ -244,7 +249,7 @@ async def test_ejecutar_borrador_resuelve_el_etl_con_la_organizacion_del_informe
 
     pedidas: list = []
 
-    async def _resolver(_session, *, organizacion_id):
+    async def _resolver(_session, _actividad, *, organizacion_id):
         pedidas.append(organizacion_id)
         raise RuntimeError("basta con saber con qué organización se pidió")
 
@@ -259,7 +264,7 @@ async def test_ejecutar_borrador_resuelve_el_etl_con_la_organizacion_del_informe
     monkeypatch.setattr(
         drafting_runner, "ReportTemplateSpec", SimpleNamespace(model_validate=lambda _d: None)
     )
-    monkeypatch.setattr(drafting_runner, "resolver_modelo_de_etl", _resolver)
+    monkeypatch.setattr(drafting_runner, "resolver_modelo_de_actividad", _resolver)
     monkeypatch.setattr(drafting_runner, "marcar_error", AsyncMock())
 
     await drafting_runner.ejecutar_borrador(uuid.uuid4(), sesion, llm_service=object())
