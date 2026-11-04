@@ -165,9 +165,14 @@ class RedactorDeBloques:
         self._instrucciones = instrucciones or {}
         self._modelos = modelos or {}
 
+    def _modelo_para(self, prompt_id: str) -> tuple[Any, str]:
+        """El modelo que redacta esa instrucción y su nombre, sacados de un único sitio: así
+        `generate` no puede redactar con uno mientras `model_used` registra otro."""
+        return self._modelos.get(prompt_id, (self._modelo, self.model_name))
+
     def nombre_del_modelo_para(self, prompt_id: str) -> str:
         """El modelo que redacta esa instrucción: es lo que el nodo guarda como `model_used`."""
-        return self._modelos.get(prompt_id, (None, self.model_name))[1]
+        return self._modelo_para(prompt_id)[1]
 
     def instruccion(self, prompt_id: str) -> str:
         """La instrucción que se va a usar: la resuelta si la hay, y si no la del catálogo.
@@ -182,7 +187,7 @@ class RedactorDeBloques:
         return instruccion_para(prompt_id)
 
     async def generate(self, prompt: str, context: str) -> str:
-        modelo = self._modelos.get(prompt, (self._modelo, ""))[0]
+        modelo, _ = self._modelo_para(prompt)
         respuesta = await modelo.ainvoke([
             {"role": "system", "content": self._sistema},
             {

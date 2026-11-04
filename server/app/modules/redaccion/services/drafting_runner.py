@@ -101,7 +101,7 @@ def construir_grafo(
 
 
 async def resolver_modelo_de_etl(
-    session: Any, *, organizacion_id: Any = None
+    session: Any, *, organizacion_id: Any
 ) -> tuple[Any, str, str]:
     """El modelo de la actividad de transformación, con su nivel y su nombre.
 

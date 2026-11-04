@@ -639,7 +639,7 @@ async def generar_borrador_en_segundo_plano(workspace_id: uuid.UUID) -> None:
         )
 
 
-async def _redactor_de_bloques(session: AsyncSession, *, organizacion_id: Any = None):
+async def _redactor_de_bloques(session: AsyncSession, *, organizacion_id: Any):
     """Modelo de la cascada, adaptado al protocolo que espera el nodo de redacción.
 
     **AIS.2 — aquí se resuelven también las instrucciones.** Es el único sitio del camino de

@@ -221,3 +221,47 @@ async def test_el_etl_se_resuelve_con_la_organizacion(niveles) -> None:
 
     assert niveles.proveedor.organizaciones_pedidas == [organizacion]
     assert niveles.pedidos == [(2, organizacion)]
+
+
+@pytest.mark.asyncio
+async def test_ejecutar_borrador_resuelve_el_etl_con_la_organizacion_del_informe(
+    monkeypatch,
+) -> None:
+    """El cableado, no el resolutor: era la llamada de `ejecutar_borrador` la que pasaba `None`.
+
+    Lo vio la revisión de la PR #367: el test anterior llama al resolutor con la organización
+    escrita a mano, así que volver a `None` en `ejecutar_borrador` no lo ponía rojo.
+    """
+    from unittest.mock import MagicMock
+
+    from server.app.modules.redaccion.services import drafting_runner
+
+    organizacion = uuid.uuid4()
+    workspace = SimpleNamespace(organizacion_id=organizacion, template_version_id=uuid.uuid4())
+
+    def _repo(devuelve):
+        return lambda _session: SimpleNamespace(get=AsyncMock(return_value=devuelve))
+
+    pedidas: list = []
+
+    async def _resolver(_session, *, organizacion_id):
+        pedidas.append(organizacion_id)
+        raise RuntimeError("basta con saber con qué organización se pidió")
+
+    resultado = MagicMock()
+    resultado.scalars.return_value.all.return_value = []
+    sesion = SimpleNamespace(execute=AsyncMock(return_value=resultado))
+
+    monkeypatch.setattr(drafting_runner, "WorkspaceRepo", _repo(workspace))
+    monkeypatch.setattr(
+        drafting_runner, "ReportTemplateVersionRepo", _repo(SimpleNamespace(spec_json={}))
+    )
+    monkeypatch.setattr(
+        drafting_runner, "ReportTemplateSpec", SimpleNamespace(model_validate=lambda _d: None)
+    )
+    monkeypatch.setattr(drafting_runner, "resolver_modelo_de_etl", _resolver)
+    monkeypatch.setattr(drafting_runner, "marcar_error", AsyncMock())
+
+    await drafting_runner.ejecutar_borrador(uuid.uuid4(), sesion, llm_service=object())
+
+    assert pedidas == [organizacion]
