@@ -115,6 +115,9 @@ class HubProviderOut(BaseModel):
     name: str
     provider_type: str
     base_url: str | None
+    # #372 — la región de Vertex (#370). Nula = la de `GOOGLE_CLOUD_LOCATION`. Va en el contrato
+    # porque es lo que dice dónde se tratan los datos, y eso se tiene que poder leer en el panel.
+    location: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -125,6 +128,7 @@ class HubProviderCreate(BaseModel):
     provider_type: str
     base_url: str | None = None
     api_key: str | None = None
+    location: str | None = None
 
 
 class HubProviderUpdate(BaseModel):
@@ -132,6 +136,7 @@ class HubProviderUpdate(BaseModel):
     provider_type: str | None = None
     base_url: str | None = None
     api_key: str | None = None
+    location: str | None = None
 
 
 @router.get("/providers", response_model=list[HubProviderOut])
@@ -292,6 +297,9 @@ class LLMConfigCreate(BaseModel):
 
 
 class LLMConfigUpdate(BaseModel):
+    # #372 — el formulario lo mandaba y el contrato no lo declaraba, así que se descartaba sin
+    # avisar: pasar un modelo de AI Studio a Vertex parecía guardarse y no se guardaba.
+    provider: str | None = None
     label: str | None = None
     tier: int | None = None
     purpose: Literal["chat", "embedding", "rerank"] | None = None
@@ -443,6 +451,9 @@ async def update_llm_config(
     if not config:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Config not found")
     _assert_puede_tocar(user, config)
+    # La clave ajena lo rechazaría igual, pero como un 500 al confirmar.
+    if body.provider is not None and await session.get(HubProvider, body.provider) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provider not found")
 
     target_tier = body.tier if body.tier is not None else config.tier
     # #343 — también la que ya era por defecto y cambia de nivel o de propósito sin tocar la

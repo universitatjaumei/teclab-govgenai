@@ -42,3 +42,16 @@ describe('payloadDeProveedor', () => {
     })
   })
 })
+
+describe('#372 — la región vacía es «la del entorno»', () => {
+  const base = { id: 'vertex', name: 'Vertex', provider_type: 'google_vertexai', base_url: '' }
+
+  it('should_send_null_when_the_region_is_left_empty', () => {
+    // Una cadena vacía se guardaría tal cual y la tabla diría que hay una región puesta.
+    expect(payloadDeProveedor({ ...base, location: '  ' }).location).toBeNull()
+  })
+
+  it('should_keep_a_region_that_was_written', () => {
+    expect(payloadDeProveedor({ ...base, location: 'global' }).location).toBe('global')
+  })
+})

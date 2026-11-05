@@ -9,8 +9,13 @@
  * Función pura y exportada a propósito: es una decisión con consecuencias y así se puede fijar
  * con un test.
  */
-export function payloadDeProveedor<T extends { api_key?: string | null }>(values: T) {
-  if (values.api_key) return values
-  const { api_key: _omitida, ...resto } = values
+export function payloadDeProveedor<T extends { api_key?: string | null; location?: string | null }>(
+  values: T,
+) {
+  // #372 — la región vacía es **nula**, que significa «la del entorno»; una cadena vacía se
+  // guardaría tal cual y la tabla diría que hay una región puesta.
+  const conRegion = { ...values, location: values.location?.trim() || null }
+  if (conRegion.api_key) return conRegion
+  const { api_key: _omitida, ...resto } = conRegion
   return resto
 }

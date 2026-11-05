@@ -63,6 +63,9 @@ function getDefaultApiKeySecret(
 
   const provider = providers.find((p) => p.id === providerId)
   if (!provider) return ''
+  // #372 — Vertex entra con las credenciales del entorno (ADC) y no usa clave. Va antes que la
+  // búsqueda por nombre, que lo confundía con AI Studio porque el nombre dice «Google».
+  if (provider.provider_type === 'google_vertexai') return ''
 
   const pid = (provider.id || '').toLowerCase()
   const pname = (provider.name || '').toLowerCase()
@@ -345,7 +348,10 @@ export function LLMConfigsPage() {
                       className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
                       onChange={(e) => {
                         register('provider').onChange(e)
-                        if (!editing) {
+                        // #372 — al editar no se pisa la variable elegida, salvo al pasar a Vertex,
+                        // que no usa clave: dejarla haría creer que sigue colgando de AI Studio.
+                        const aVertex = providers.find(p => p.id === e.target.value)?.provider_type === 'google_vertexai'
+                        if (!editing || aVertex) {
                           setValue('api_key_secret_name', getDefaultApiKeySecret(e.target.value, providers))
                         }
                       }}
@@ -461,6 +467,7 @@ const providerSchema = z.object({
   provider_type: z.string().min(1),
   base_url: z.string().optional().nullable(),
   api_key: z.string().optional().nullable(),
+  location: z.string().optional().nullable(),
 })
 type ProviderFormValues = z.infer<typeof providerSchema>
 
@@ -495,12 +502,12 @@ function ProvidersSection({ providers, isLoading }: { providers: HubProviderOut[
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<ProviderFormValues>({
     resolver: zodResolver(providerSchema),
-    defaultValues: { id: '', name: '', provider_type: 'openai_compatible', base_url: '', api_key: '' },
+    defaultValues: { id: '', name: '', provider_type: 'openai_compatible', base_url: '', api_key: '', location: '' },
   })
 
   function openCreate() {
     setEditing(null)
-    reset({ id: '', name: '', provider_type: 'openai_compatible', base_url: '', api_key: '' })
+    reset({ id: '', name: '', provider_type: 'openai_compatible', base_url: '', api_key: '', location: '' })
     setDialogOpen(true)
   }
 
@@ -508,7 +515,7 @@ function ProvidersSection({ providers, isLoading }: { providers: HubProviderOut[
     setEditing(p)
     // SEC.9.2: la clave ya no viaja en el contrato, así que el campo arranca vacío. Un secreto
     // no vuelve por donde entró: para cambiarlo se escribe uno nuevo.
-    reset({ id: p.id, name: p.name, provider_type: p.provider_type, base_url: p.base_url || '', api_key: '' })
+    reset({ id: p.id, name: p.name, provider_type: p.provider_type, base_url: p.base_url || '', api_key: '', location: p.location || '' })
     setDialogOpen(true)
   }
 
@@ -542,6 +549,7 @@ function ProvidersSection({ providers, isLoading }: { providers: HubProviderOut[
                 <th className="text-left px-4 py-3 font-medium">{t('hub.provider_table_name')}</th>
                 <th className="text-left px-4 py-3 font-medium">{t('hub.provider_table_type')}</th>
                 <th className="text-left px-4 py-3 font-medium">{t('hub.provider_table_base_url')}</th>
+                <th className="text-left px-4 py-3 font-medium">{t('hub.provider_table_location')}</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -556,6 +564,7 @@ function ProvidersSection({ providers, isLoading }: { providers: HubProviderOut[
                     </span>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground text-xs">{p.base_url || '—'}</td>
+                  <td className="px-4 py-3 text-muted-foreground text-xs font-mono" data-testid={`provider-location-${p.id}`}>{p.location || '—'}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2 justify-end">
                       <button
@@ -620,12 +629,19 @@ function ProvidersSection({ providers, isLoading }: { providers: HubProviderOut[
                   <select id="provider-type" {...register('provider_type')} className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background">
                     <option value="openai_compatible">{t('hub.provider_type_openai')}</option>
                     <option value="google_genai">{t('hub.provider_type_google')}</option>
+                    <option value="google_vertexai">{t('hub.provider_type_vertex')}</option>
+                    <option value="discovery_engine">{t('hub.provider_type_ranking')}</option>
                     <option value="ollama">{t('hub.provider_type_ollama')}</option>
                   </select>
                 </div>
                 <div>
                   <label htmlFor="provider-base-url" className="text-sm font-medium">{t('hub.provider_base_url')}</label>
                   <input id="provider-base-url" {...register('base_url')} className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background" placeholder="http://localhost:1234/v1" />
+                </div>
+                <div>
+                  <label htmlFor="provider-location" className="text-sm font-medium">{t('hub.provider_location')}</label>
+                  <input id="provider-location" {...register('location')} className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background font-mono" placeholder="europe-southwest1" />
+                  <p className="text-xs text-muted-foreground mt-1">{t('hub.provider_location_hint')}</p>
                 </div>
                 <div>
                   <label htmlFor="provider-api-key" className="text-sm font-medium">{t('hub.provider_api_key')}</label>
