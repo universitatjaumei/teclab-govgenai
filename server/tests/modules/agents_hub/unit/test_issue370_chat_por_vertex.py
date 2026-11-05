@@ -76,10 +76,12 @@ class TestRamaVertex:
         assert cls.call_args.kwargs["location"] == REGION_VERTEX_POR_DEFECTO
 
     def test_sin_proyecto_falla_diciendo_cual_falta(self, monkeypatch):
+        """`ValueError` y no otra: es la que los routers tratan como «el motivo es nuestro» y
+        devuelven con su texto; cualquier otra sale como un 502 genérico que lo esconde."""
         from server.app.modules.agents_hub.services.model_factory import _build_model
 
         monkeypatch.delenv("GOOGLE_CLOUD_PROJECT", raising=False)
-        with pytest.raises(RuntimeError, match="GOOGLE_CLOUD_PROJECT"):
+        with pytest.raises(ValueError, match="GOOGLE_CLOUD_PROJECT"):
             _build_model(_config_vertex("global"))
 
     def test_la_clave_de_ai_studio_del_entorno_no_se_cuela(self, monkeypatch):

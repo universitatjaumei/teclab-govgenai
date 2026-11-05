@@ -90,6 +90,39 @@ class TestResolucion:
         assert servicio.dimensions == 1024
 
     @pytest.mark.asyncio
+    async def test_vertex_usa_la_region_de_su_proveedor(self, db_session):
+        """#370 — la región es del proveedor, y una misma fila no puede querer decir una región
+        para el chat y otra para los embeddings: es el dato que sostiene dónde se tratan."""
+        from server.app.modules.agents_hub.database.config_models import (
+            HubLLMConfig,
+            HubProvider,
+        )
+        from server.app.modules.agents_hub.services.embedding_resolver import (
+            resolve_embedding_service,
+        )
+
+        _, chatbot = await _organizacion_y_chatbot(db_session)
+        await db_session.merge(
+            HubProvider(
+                id="vertex-oeste", name="Vertex", provider_type="google_vertexai",
+                location="europe-west4",
+            )
+        )
+        db_session.add(
+            HubLLMConfig(
+                provider="vertex-oeste", model_name="gemini-embedding-001",
+                purpose="embedding", output_dimensionality=1024, is_default=True,
+            )
+        )
+        await db_session.commit()
+
+        servicio = await resolve_embedding_service(
+            db_session, chatbot.id, client_factory=lambda **_: object()
+        )
+
+        assert servicio._location == "europe-west4"
+
+    @pytest.mark.asyncio
     async def test_should_fail_explicitly_for_an_unsupported_provider_type(self, db_session):
         """Sin fallback silencioso (CLAUDE.md): degradar a local sin avisar dejaría el
         corpus a medias entre dos espacios vectoriales sin que nadie se entere."""

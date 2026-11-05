@@ -118,7 +118,8 @@ def _kwargs_vertex(config: HubLLMConfig, provider, tope_salida: int) -> dict:
     """
     proyecto = os.getenv("GOOGLE_CLOUD_PROJECT")
     if not proyecto:
-        raise RuntimeError(
+        # `ValueError`: es la que los routers devuelven con su texto («el motivo es nuestro»).
+        raise ValueError(
             "El proveedor de Vertex necesita GOOGLE_CLOUD_PROJECT, y no está definida. "
             "No hace falta clave de API: Vertex usa las credenciales del entorno (ADC)."
         )
