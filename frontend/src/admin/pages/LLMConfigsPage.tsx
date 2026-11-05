@@ -108,12 +108,22 @@ export function LLMConfigsPage() {
   const { data: providers = [], isLoading: isLoadingProviders } =
     useListProvidersApiV1HubLlmConfigsProvidersGet()
 
+  // Revisión de la PR #373 — el motivo del rechazo se enseña: un 422 de «ese proveedor no sirve
+  // para chat» dejaba el diálogo abierto sin decir nada, y parecía que Guardar no hacía nada.
+  const [configError, setConfigError] = useState('')
+
   const createMutation = useCreateLlmConfigApiV1HubLlmConfigsPost({
-    mutation: { onSuccess: () => { invalidateConfigs(); closeDialog() } },
+    mutation: {
+      onSuccess: () => { invalidateConfigs(); closeDialog() },
+      onError: (err: Error) => setConfigError(err.message),
+    },
   })
 
   const updateMutation = useUpdateLlmConfigApiV1HubLlmConfigsConfigIdPatch({
-    mutation: { onSuccess: () => { invalidateConfigs(); closeDialog() } },
+    mutation: {
+      onSuccess: () => { invalidateConfigs(); closeDialog() },
+      onError: (err: Error) => setConfigError(err.message),
+    },
   })
 
   const deleteMutation = useDeleteLlmConfigApiV1HubLlmConfigsConfigIdDelete({
@@ -125,7 +135,7 @@ export function LLMConfigsPage() {
 
   const isPending = createMutation.isPending || updateMutation.isPending
 
-  const { register, handleSubmit, reset, control, setValue, formState: { errors } } = useForm<FormValues>({
+  const { register, handleSubmit, reset, control, setValue, getValues, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       provider: '',
@@ -183,9 +193,10 @@ export function LLMConfigsPage() {
     setDialogOpen(true)
   }
 
-  function closeDialog() { setDialogOpen(false); setEditing(null) }
+  function closeDialog() { setDialogOpen(false); setEditing(null); setConfigError('') }
 
   function onSubmit(values: FormValues) {
+    setConfigError('')
     if (editing) updateMutation.mutate({ configId: editing.id, data: values })
     else createMutation.mutate({ data: values })
   }
@@ -352,7 +363,9 @@ export function LLMConfigsPage() {
                         // #372 — al editar no se pisa la variable elegida, salvo al pasar a Vertex,
                         // que no usa clave: dejarla haría creer que sigue colgando de AI Studio.
                         const aVertex = providers.find(p => p.id === e.target.value)?.provider_type === 'google_vertexai'
-                        if (!editing || aVertex) {
+                        // Y si no tiene ninguna —venía de Vertex— se le vuelve a sugerir la del
+                        // proveedor nuevo: sin ella, uno compatible con OpenAI falla en cada llamada.
+                        if (!editing || aVertex || !getValues('api_key_secret_name')) {
                           setValue('api_key_secret_name', getDefaultApiKeySecret(e.target.value, providers))
                         }
                       }}
@@ -446,6 +459,9 @@ export function LLMConfigsPage() {
                     <input type="checkbox" id="is_default" {...register('is_default')} className="rounded" />
                     <label htmlFor="is_default" className="text-sm">{t('hub.llm_config_is_default')}</label>
                   </div>
+                  {configError && (
+                    <p role="alert" data-testid="config-error" className="text-sm text-destructive">{configError}</p>
+                  )}
                 </div>
                 <div className="px-6 py-4 border-t flex gap-2 justify-end shrink-0">
                   <button type="button" onClick={closeDialog} className="px-3 py-2 border rounded-md text-sm">{tc('cancel')}</button>
@@ -650,6 +666,9 @@ function ProvidersSection({ providers, isLoading }: { providers: HubProviderOut[
                       <option key={tipo} value={tipo}>{t(ETIQUETA_DE_TIPO[tipo])}</option>
                     ))}
                   </select>
+                  {errors.provider_type && (
+                    <p data-testid="provider-type-error" className="text-destructive text-xs mt-1">{t('hub.provider_type_unknown')}</p>
+                  )}
                 </div>
                 <div>
                   <label htmlFor="provider-base-url" className="text-sm font-medium">{t('hub.provider_base_url')}</label>

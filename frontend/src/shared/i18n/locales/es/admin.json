@@ -241,6 +241,7 @@
     "provider_type_vertex": "Google Vertex AI (credenciales del entorno)",
     "provider_type_ranking": "Vertex AI Ranking (reordenación)",
     "provider_type_local": "Local (en el propio servidor)",
+    "provider_type_unknown": "Este tipo ya no existe en el servidor: elige uno de la lista.",
     "provider_location": "Región",
     "provider_location_hint": "Vacía = la del entorno (GOOGLE_CLOUD_LOCATION) y, si no está definida, europe-southwest1. «global» puede tratar los datos fuera de la UE.",
     "provider_table_location": "Región",

@@ -147,6 +147,32 @@ async def _comprobar_que_sirve(session, provider_id: str, purpose: str) -> None:
         )
 
 
+def _region_solo_en_vertex(proveedor: HubProvider) -> None:
+    """Solo Vertex aplica la región; el reranker usa una fija. Guardarla en otro tipo haría que
+    la tabla del panel dijera dónde se tratan unos datos que se tratan en otro sitio."""
+    if proveedor.provider_type != "google_vertexai":
+        proveedor.location = None
+
+
+async def _comprobar_sus_modelos(session, provider_id: str, tipo_nuevo: str) -> None:
+    """Cambiar el tipo de un proveedor en uso rompe sus modelos igual que mover uno de ellos a
+    un proveedor que no le sirve: se comprueba lo mismo, desde el otro lado."""
+    propositos = (
+        await session.execute(
+            select(HubLLMConfig.purpose).where(HubLLMConfig.provider == provider_id).distinct()
+        )
+    ).scalars().all()
+    que_no_sirve = sorted(p for p in propositos if tipo_nuevo not in _TIPOS_POR_PROPOSITO.get(p, ()))
+    if que_no_sirve:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"El proveedor «{provider_id}» tiene modelos de {', '.join(que_no_sirve)}, y un "
+                f"proveedor {tipo_nuevo} no los sabe servir."
+            ),
+        )
+
+
 class HubProviderOut(BaseModel):
     """Proveedor **sin su clave** (SEC.9.2).
 
@@ -209,6 +235,7 @@ async def create_provider(
             status_code=status.HTTP_409_CONFLICT, detail="Ya existe un proveedor con este ID"
         )
     provider = HubProvider(**body.model_dump())
+    _region_solo_en_vertex(provider)
     session.add(provider)
     await session.commit()
     await session.refresh(provider)
@@ -227,10 +254,13 @@ async def update_provider(
     provider = await session.get(HubProvider, provider_id)
     if not provider:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provider not found")
-    
+    if body.provider_type is not None and body.provider_type != provider.provider_type:
+        await _comprobar_sus_modelos(session, provider_id, body.provider_type)
+
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(provider, field, value)
-        
+    _region_solo_en_vertex(provider)
+
     await session.commit()
     await session.refresh(provider)
     return provider
@@ -497,7 +527,11 @@ async def update_llm_config(
     if not config:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Config not found")
     _assert_puede_tocar(user, config)
-    if body.provider is not None or body.purpose is not None:
+    # Solo si cambian: el panel manda siempre `provider`, y comprobarlo sin cambio impediría
+    # renombrar una fila heredada que no cumple la regla, que es como se arregla.
+    if (body.provider is not None and body.provider != config.provider) or (
+        body.purpose is not None and body.purpose != config.purpose
+    ):
         await _comprobar_que_sirve(
             session,
             body.provider if body.provider is not None else config.provider,

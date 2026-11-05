@@ -186,3 +186,77 @@ class TestLoQueEncontroLaRevisionDeLaPR373:
                 "provider": "vertex-ranking", "model_name": "semantic-ranker", "purpose": "embedding",
             })
         assert r.status_code == 422, r.text
+
+
+class TestLaSegundaRevisionDeLaPR373:
+
+    @pytest.mark.asyncio
+    async def test_cambiar_el_tipo_de_un_proveedor_en_uso_comprueba_sus_modelos(self, db_session) -> None:
+        """La misma rotura por el otro lado: no se mueve el modelo, se cambia el proveedor."""
+        from server.app.modules.agents_hub.database.config_models import HubLLMConfig
+
+        await _proveedores(db_session)
+        db_session.add(HubLLMConfig(provider="google", model_name="gemini-2.5-pro", purpose="chat"))
+        await db_session.commit()
+
+        async with _cliente(db_session) as c:
+            r = await c.patch("/api/v1/hub/llm-configs/providers/google", json={"provider_type": "discovery_engine"})
+            assert r.status_code == 422, r.text
+            r = await c.patch("/api/v1/hub/llm-configs/providers/google", json={"provider_type": "google_vertexai"})
+        assert r.status_code == 200, r.text
+
+    @pytest.mark.asyncio
+    async def test_editar_otro_campo_de_un_modelo_antiguo_no_lo_bloquea(self, db_session) -> None:
+        """El panel manda siempre `provider`: si se comprobara aunque no cambie, una fila
+        heredada que no cumple la regla no se podría ni renombrar para arreglarla."""
+        from server.app.modules.agents_hub.database.config_models import HubLLMConfig, HubProvider
+
+        await _proveedores(db_session)
+        await db_session.merge(HubProvider(id="ranking", name="R", provider_type="discovery_engine"))
+        config = HubLLMConfig(provider="ranking", model_name="m", purpose="chat")
+        db_session.add(config)
+        await db_session.commit()
+        config_id = config.id
+
+        async with _cliente(db_session) as c:
+            r = await c.patch(f"/api/v1/hub/llm-configs/{config_id}", json={"provider": "ranking", "label": "Otro"})
+        assert r.status_code == 200, r.text
+
+    @pytest.mark.asyncio
+    async def test_la_region_solo_se_guarda_en_vertex(self, db_session) -> None:
+        """Lo hacía el panel; ahora el servidor, que es donde vale para todos los clientes."""
+        await _proveedores(db_session)
+        await db_session.commit()
+
+        async with _cliente(db_session) as c:
+            r = await c.post("/api/v1/hub/llm-configs/providers", json={
+                "id": f"rk-{uuid.uuid4().hex[:6]}", "name": "R", "provider_type": "discovery_engine",
+                "location": "global",
+            })
+            assert r.json()["location"] is None
+
+            await c.patch("/api/v1/hub/llm-configs/providers/vertex", json={"location": "global"})
+            r = await c.patch("/api/v1/hub/llm-configs/providers/vertex", json={"provider_type": "google_genai"})
+        assert r.json()["location"] is None
+
+
+def test_la_tabla_de_propositos_es_la_de_los_resolvedores() -> None:
+    """El router no puede importar `embedding_resolver` ni `reranker` (son edge y él es cloud),
+    así que la tabla se escribe aquí; este test es lo que impide que diverja de lo que cada uno
+    sabe construir."""
+    import re
+    from pathlib import Path
+
+    from server.app.routers.hub_llm_configs_router import _TIPOS_POR_PROPOSITO
+
+    base = Path(__file__).resolve().parents[2] / "app" / "modules" / "agents_hub" / "services"
+    constantes = {"PROVIDER_TYPE_VERTEX_RANKING": "discovery_engine"}
+
+    def tipos(fichero: str) -> set[str]:
+        texto = (base / fichero).read_text(encoding="utf-8")
+        hallados = re.findall(r'(?:tipo|ptype) == (?:"([a-z_]+)"|([A-Z_]+))', texto)
+        return {literal or constantes[nombre] for literal, nombre in hallados}
+
+    assert _TIPOS_POR_PROPOSITO["chat"] == tipos("model_factory.py")
+    assert _TIPOS_POR_PROPOSITO["embedding"] == tipos("embedding_resolver.py")
+    assert _TIPOS_POR_PROPOSITO["rerank"] == tipos("reranker.py")

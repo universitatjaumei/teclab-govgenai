@@ -290,3 +290,49 @@ describe('Revisión de la PR #373 — el servidor dice qué tipos hay', () => {
     expect(document.getElementById('provider-location')).not.toBeNull()
   })
 })
+
+describe('Segunda revisión de la PR #373', () => {
+  function conProveedores(providers: object[]) {
+    vi.mocked(useListProvidersApiV1HubLlmConfigsProvidersGet).mockReturnValue({ data: providers, isLoading: false } as any)
+  }
+
+  it('should_show_why_the_server_rejected_a_model', async () => {
+    // El 422 de «ese proveedor no sirve para chat» llegaba y el diálogo se quedaba abierto
+    // sin decir nada: parecía que Guardar no hacía nada.
+    const MOTIVO = 'El proveedor «vertex-ranking» (discovery_engine) no sirve para modelos de chat.'
+    vi.mocked(useUpdateLlmConfigApiV1HubLlmConfigsConfigIdPatch).mockImplementation(
+      ((options?: any) => ({ mutate: () => options?.mutation?.onError?.(new Error(MOTIVO)), isPending: false })) as any,
+    )
+    conProveedores([{ id: 'google', name: 'Google', provider_type: 'google_genai', base_url: null, location: null }])
+    renderPage([DEMO_CONFIG])
+    await waitFor(() => screen.getByText('Gemini Flash'))
+    await act(async () => { fireEvent.click(screen.getByText('Gemini Flash')) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /guardar/i })) })
+
+    await waitFor(() => expect(screen.getByTestId('config-error').textContent).toContain('no sirve para modelos de chat'))
+  })
+
+  it('should_say_so_when_a_provider_has_a_type_the_server_no_longer_knows', async () => {
+    conProveedores([{ id: 'viejo', name: 'Proveedor viejo', provider_type: 'anthropic', base_url: null, location: null }])
+    renderPage([])
+    await waitFor(() => screen.getByText('Proveedor viejo'))
+    await act(async () => { fireEvent.click(screen.getByText('Proveedor viejo')) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /guardar/i })) })
+
+    await waitFor(() => expect(screen.getByTestId('provider-type-error')).toBeDefined())
+  })
+
+  it('should_suggest_a_key_again_when_a_model_leaves_vertex_without_one', async () => {
+    conProveedores([
+      { id: 'google', name: 'Google', provider_type: 'google_genai', base_url: null, location: null },
+      { id: 'vertex', name: 'Google Vertex AI', provider_type: 'google_vertexai', base_url: null, location: null },
+    ])
+    renderPage([{ ...DEMO_CONFIG, provider: 'vertex', api_key_secret_name: '' }])
+    await waitFor(() => screen.getByText('Gemini Flash'))
+    await act(async () => { fireEvent.click(screen.getByText('Gemini Flash')) })
+    await act(async () => {
+      fireEvent.change(document.getElementById('llm-provider')!, { target: { value: 'google' } })
+    })
+    expect(document.getElementById('llm-api-key')).toHaveValue('GOOGLE_API_KEY')
+  })
+})
