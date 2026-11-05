@@ -172,3 +172,167 @@ describe('Revisión de la PR #356 — los decimales del modelo no bloquean el gu
     expect(topP.checkValidity()).toBe(true)
   })
 })
+
+describe('#372 — el panel sabe editar un proveedor Vertex y su región', () => {
+  const VERTEX_GLOBAL = {
+    id: 'vertex-global',
+    name: 'Google Vertex AI (global, fuera de la UE)',
+    provider_type: 'google_vertexai',
+    base_url: null,
+    location: 'global',
+  }
+
+  function conProveedores(providers: object[]) {
+    vi.mocked(useListProvidersApiV1HubLlmConfigsProvidersGet).mockReturnValue({ data: providers, isLoading: false } as any)
+  }
+
+  it('should_keep_the_vertex_type_and_region_when_saving_a_provider', async () => {
+    // Antes el `<select>` no tenía `google_vertexai`: al editar se perdía el tipo, y guardar
+    // podía convertir el proveedor en `openai_compatible` y romper todos sus modelos.
+    const updateMutate = vi.fn()
+    vi.mocked(useUpdateProviderApiV1HubLlmConfigsProvidersProviderIdPatch).mockReturnValue(mutationDouble(updateMutate))
+    conProveedores([VERTEX_GLOBAL])
+    renderPage([])
+
+    await waitFor(() => screen.getByText(VERTEX_GLOBAL.name))
+    await act(async () => { fireEvent.click(screen.getByText(VERTEX_GLOBAL.name)) })
+
+    expect(document.getElementById('provider-type')).toHaveValue('google_vertexai')
+    expect(document.getElementById('provider-location')).toHaveValue('global')
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /guardar/i })) })
+    await waitFor(() => expect(updateMutate).toHaveBeenCalled())
+    const { data } = updateMutate.mock.calls[0][0]
+    expect(data.provider_type).toBe('google_vertexai')
+    expect(data.location).toBe('global')
+  })
+
+  it('should_offer_every_provider_type_the_server_uses', async () => {
+    // El mismo defecto con el reranker: `discovery_engine` tampoco tenía opción, y guardarlo
+    // desde el panel le cambiaba el tipo.
+    conProveedores([{ ...VERTEX_GLOBAL, id: 'vertex-ranking', name: 'Vertex AI Ranking', provider_type: 'discovery_engine', location: null }])
+    renderPage([])
+    await waitFor(() => screen.getByText('Vertex AI Ranking'))
+    await act(async () => { fireEvent.click(screen.getByText('Vertex AI Ranking')) })
+    expect(document.getElementById('provider-type')).toHaveValue('discovery_engine')
+  })
+
+  it('should_show_the_region_of_each_provider', async () => {
+    conProveedores([VERTEX_GLOBAL])
+    renderPage([])
+    await waitFor(() => expect(screen.getByTestId('provider-location-vertex-global').textContent).toBe('global'))
+  })
+
+  it('should_clear_the_key_variable_when_an_existing_model_moves_to_vertex', async () => {
+    // Al editar no se pisa la variable elegida, salvo al pasar a Vertex: allí no se usa, y
+    // dejar GOOGLE_API_KEY haría creer que el modelo sigue colgando de la clave de AI Studio.
+    const updateMutate = vi.fn()
+    vi.mocked(useUpdateLlmConfigApiV1HubLlmConfigsConfigIdPatch).mockReturnValue(mutationDouble(updateMutate))
+    conProveedores([{ id: 'google', name: 'Google', provider_type: 'google_genai', base_url: null, location: null }, VERTEX_GLOBAL])
+    renderPage([DEMO_CONFIG])
+    await waitFor(() => screen.getByText('Gemini Flash'))
+    await act(async () => { fireEvent.click(screen.getByText('Gemini Flash')) })
+    expect(document.getElementById('llm-api-key')).toHaveValue('GOOGLE_API_KEY')
+
+    await act(async () => {
+      fireEvent.change(document.getElementById('llm-provider')!, { target: { value: 'vertex-global' } })
+    })
+    expect(document.getElementById('llm-api-key')).toHaveValue('')
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /guardar/i })) })
+    await waitFor(() => expect(updateMutate).toHaveBeenCalled())
+    expect(updateMutate.mock.calls[0][0].data.provider).toBe('vertex-global')
+  })
+
+  it('should_not_suggest_an_ai_studio_key_for_a_vertex_model', async () => {
+    // El nombre contiene «Google», y la sugerencia buscaba por nombre: un modelo de Vertex
+    // recibía GOOGLE_API_KEY, que no usa.
+    conProveedores([VERTEX_GLOBAL])
+    renderPage([{ ...DEMO_CONFIG, provider: 'vertex-global', api_key_secret_name: null }])
+    await waitFor(() => screen.getByText('Gemini Flash'))
+    await act(async () => { fireEvent.click(screen.getByText('Gemini Flash')) })
+
+    expect(document.getElementById('llm-api-key')).toHaveValue('')
+  })
+})
+
+describe('Revisión de la PR #373 — el servidor dice qué tipos hay', () => {
+  function conProveedores(providers: object[]) {
+    vi.mocked(useListProvidersApiV1HubLlmConfigsProvidersGet).mockReturnValue({ data: providers, isLoading: false } as any)
+  }
+
+  it('should_offer_exactly_the_provider_types_of_the_contract', async () => {
+    // La lista escrita a mano perdía tipos —`local` seguía faltando— y cada uno que faltaba
+    // se reescribía al guardar. Ahora sale del enum que genera Orval.
+    const { HubProviderCreateProviderType } = await import('@/shared/api/generated/model')
+    conProveedores([{ id: 'bge', name: 'BGE local', provider_type: 'local', base_url: null, location: null }])
+    renderPage([])
+    await waitFor(() => screen.getByText('BGE local'))
+    await act(async () => { fireEvent.click(screen.getByText('BGE local')) })
+
+    const select = document.getElementById('provider-type') as HTMLSelectElement
+    expect([...select.options].map(o => o.value).sort()).toEqual(Object.values(HubProviderCreateProviderType).sort())
+    expect(select).toHaveValue('local')
+  })
+
+  it('should_show_the_region_only_for_vertex', async () => {
+    // El reranker usa una región fija: dejar editarla allí haría que el panel mintiera sobre
+    // dónde se tratan los datos.
+    conProveedores([{ id: 'vertex-ranking', name: 'Vertex AI Ranking', provider_type: 'discovery_engine', base_url: null, location: null }])
+    renderPage([])
+    await waitFor(() => screen.getByText('Vertex AI Ranking'))
+    await act(async () => { fireEvent.click(screen.getByText('Vertex AI Ranking')) })
+    expect(document.getElementById('provider-location')).toBeNull()
+
+    await act(async () => {
+      fireEvent.change(document.getElementById('provider-type')!, { target: { value: 'google_vertexai' } })
+    })
+    expect(document.getElementById('provider-location')).not.toBeNull()
+  })
+})
+
+describe('Segunda revisión de la PR #373', () => {
+  function conProveedores(providers: object[]) {
+    vi.mocked(useListProvidersApiV1HubLlmConfigsProvidersGet).mockReturnValue({ data: providers, isLoading: false } as any)
+  }
+
+  it('should_show_why_the_server_rejected_a_model', async () => {
+    // El 422 de «ese proveedor no sirve para chat» llegaba y el diálogo se quedaba abierto
+    // sin decir nada: parecía que Guardar no hacía nada.
+    const MOTIVO = 'El proveedor «vertex-ranking» (discovery_engine) no sirve para modelos de chat.'
+    vi.mocked(useUpdateLlmConfigApiV1HubLlmConfigsConfigIdPatch).mockImplementation(
+      ((options?: any) => ({ mutate: () => options?.mutation?.onError?.(new Error(MOTIVO)), isPending: false })) as any,
+    )
+    conProveedores([{ id: 'google', name: 'Google', provider_type: 'google_genai', base_url: null, location: null }])
+    renderPage([DEMO_CONFIG])
+    await waitFor(() => screen.getByText('Gemini Flash'))
+    await act(async () => { fireEvent.click(screen.getByText('Gemini Flash')) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /guardar/i })) })
+
+    await waitFor(() => expect(screen.getByTestId('config-error').textContent).toContain('no sirve para modelos de chat'))
+  })
+
+  it('should_say_so_when_a_provider_has_a_type_the_server_no_longer_knows', async () => {
+    conProveedores([{ id: 'viejo', name: 'Proveedor viejo', provider_type: 'anthropic', base_url: null, location: null }])
+    renderPage([])
+    await waitFor(() => screen.getByText('Proveedor viejo'))
+    await act(async () => { fireEvent.click(screen.getByText('Proveedor viejo')) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /guardar/i })) })
+
+    await waitFor(() => expect(screen.getByTestId('provider-type-error')).toBeDefined())
+  })
+
+  it('should_suggest_a_key_again_when_a_model_leaves_vertex_without_one', async () => {
+    conProveedores([
+      { id: 'google', name: 'Google', provider_type: 'google_genai', base_url: null, location: null },
+      { id: 'vertex', name: 'Google Vertex AI', provider_type: 'google_vertexai', base_url: null, location: null },
+    ])
+    renderPage([{ ...DEMO_CONFIG, provider: 'vertex', api_key_secret_name: '' }])
+    await waitFor(() => screen.getByText('Gemini Flash'))
+    await act(async () => { fireEvent.click(screen.getByText('Gemini Flash')) })
+    await act(async () => {
+      fireEvent.change(document.getElementById('llm-provider')!, { target: { value: 'google' } })
+    })
+    expect(document.getElementById('llm-api-key')).toHaveValue('GOOGLE_API_KEY')
+  })
+})

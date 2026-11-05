@@ -187,7 +187,10 @@ class TestUnaSolaConfiguracionPorDefecto:
 
     def test_should_promote_on_create_demoting_the_previous_one(self, client):
         anterior = _config(CONFIG_VIEJA, is_default=True)
-        session = _sesion(por_modelo={}, filas=[anterior])
+        from server.app.modules.agents_hub.database.config_models import HubProvider
+
+        # #372 — el proveedor tiene que existir y servir para chat.
+        session = _sesion(por_modelo={HubProvider: SimpleNamespace(provider_type="google_genai")}, filas=[anterior])
         app.dependency_overrides[get_session] = _override(session)
         try:
             resp = client.post(

@@ -19,6 +19,7 @@ import {
   getListProvidersApiV1HubLlmConfigsProvidersGetQueryKey,
 } from '@/shared/api/generated/hub-llm-configs/hub-llm-configs'
 import type { LLMConfigRead, HubProviderOut } from '@/shared/api/generated/model'
+import { HubProviderCreateProviderType } from '@/shared/api/generated/model'
 import { payloadDeProveedor } from './payloadDeProveedor'
 
 const TIERS = [1, 2, 3] as const
@@ -63,6 +64,9 @@ function getDefaultApiKeySecret(
 
   const provider = providers.find((p) => p.id === providerId)
   if (!provider) return ''
+  // #372 — Vertex entra con las credenciales del entorno (ADC) y no usa clave. Va antes que la
+  // búsqueda por nombre, que lo confundía con AI Studio porque el nombre dice «Google».
+  if (provider.provider_type === 'google_vertexai') return ''
 
   const pid = (provider.id || '').toLowerCase()
   const pname = (provider.name || '').toLowerCase()
@@ -104,12 +108,22 @@ export function LLMConfigsPage() {
   const { data: providers = [], isLoading: isLoadingProviders } =
     useListProvidersApiV1HubLlmConfigsProvidersGet()
 
+  // Revisión de la PR #373 — el motivo del rechazo se enseña: un 422 de «ese proveedor no sirve
+  // para chat» dejaba el diálogo abierto sin decir nada, y parecía que Guardar no hacía nada.
+  const [configError, setConfigError] = useState('')
+
   const createMutation = useCreateLlmConfigApiV1HubLlmConfigsPost({
-    mutation: { onSuccess: () => { invalidateConfigs(); closeDialog() } },
+    mutation: {
+      onSuccess: () => { invalidateConfigs(); closeDialog() },
+      onError: (err: Error) => setConfigError(err.message),
+    },
   })
 
   const updateMutation = useUpdateLlmConfigApiV1HubLlmConfigsConfigIdPatch({
-    mutation: { onSuccess: () => { invalidateConfigs(); closeDialog() } },
+    mutation: {
+      onSuccess: () => { invalidateConfigs(); closeDialog() },
+      onError: (err: Error) => setConfigError(err.message),
+    },
   })
 
   const deleteMutation = useDeleteLlmConfigApiV1HubLlmConfigsConfigIdDelete({
@@ -121,7 +135,7 @@ export function LLMConfigsPage() {
 
   const isPending = createMutation.isPending || updateMutation.isPending
 
-  const { register, handleSubmit, reset, control, setValue, formState: { errors } } = useForm<FormValues>({
+  const { register, handleSubmit, reset, control, setValue, getValues, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       provider: '',
@@ -179,9 +193,10 @@ export function LLMConfigsPage() {
     setDialogOpen(true)
   }
 
-  function closeDialog() { setDialogOpen(false); setEditing(null) }
+  function closeDialog() { setDialogOpen(false); setEditing(null); setConfigError('') }
 
   function onSubmit(values: FormValues) {
+    setConfigError('')
     if (editing) updateMutation.mutate({ configId: editing.id, data: values })
     else createMutation.mutate({ data: values })
   }
@@ -345,7 +360,12 @@ export function LLMConfigsPage() {
                       className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
                       onChange={(e) => {
                         register('provider').onChange(e)
-                        if (!editing) {
+                        // #372 — al editar no se pisa la variable elegida, salvo al pasar a Vertex,
+                        // que no usa clave: dejarla haría creer que sigue colgando de AI Studio.
+                        const aVertex = providers.find(p => p.id === e.target.value)?.provider_type === 'google_vertexai'
+                        // Y si no tiene ninguna —venía de Vertex— se le vuelve a sugerir la del
+                        // proveedor nuevo: sin ella, uno compatible con OpenAI falla en cada llamada.
+                        if (!editing || aVertex || !getValues('api_key_secret_name')) {
                           setValue('api_key_secret_name', getDefaultApiKeySecret(e.target.value, providers))
                         }
                       }}
@@ -439,6 +459,9 @@ export function LLMConfigsPage() {
                     <input type="checkbox" id="is_default" {...register('is_default')} className="rounded" />
                     <label htmlFor="is_default" className="text-sm">{t('hub.llm_config_is_default')}</label>
                   </div>
+                  {configError && (
+                    <p role="alert" data-testid="config-error" className="text-sm text-destructive">{configError}</p>
+                  )}
                 </div>
                 <div className="px-6 py-4 border-t flex gap-2 justify-end shrink-0">
                   <button type="button" onClick={closeDialog} className="px-3 py-2 border rounded-md text-sm">{tc('cancel')}</button>
@@ -455,12 +478,27 @@ export function LLMConfigsPage() {
   )
 }
 
+/**
+ * Revisión de la PR #373 — los tipos salen del contrato, no de una lista escrita aquí. Cuando lo
+ * era, cada tipo que le faltaba —Vertex, el reranker, `local`— se reescribía al guardar. El
+ * `Record` sobre el tipo generado hace que un tipo nuevo en el servidor no compile sin su texto.
+ */
+const ETIQUETA_DE_TIPO: Record<HubProviderCreateProviderType, string> = {
+  openai_compatible: 'hub.provider_type_openai',
+  google_genai: 'hub.provider_type_google',
+  google_vertexai: 'hub.provider_type_vertex',
+  discovery_engine: 'hub.provider_type_ranking',
+  ollama: 'hub.provider_type_ollama',
+  local: 'hub.provider_type_local',
+}
+
 const providerSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
-  provider_type: z.string().min(1),
+  provider_type: z.enum(HubProviderCreateProviderType),
   base_url: z.string().optional().nullable(),
   api_key: z.string().optional().nullable(),
+  location: z.string().optional().nullable(),
 })
 type ProviderFormValues = z.infer<typeof providerSchema>
 
@@ -493,14 +531,16 @@ function ProvidersSection({ providers, isLoading }: { providers: HubProviderOut[
 
   const isPending = createMutation.isPending || updateMutation.isPending
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<ProviderFormValues>({
+  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<ProviderFormValues>({
     resolver: zodResolver(providerSchema),
-    defaultValues: { id: '', name: '', provider_type: 'openai_compatible', base_url: '', api_key: '' },
+    defaultValues: { id: '', name: '', provider_type: 'openai_compatible', base_url: '', api_key: '', location: '' },
   })
+  // La región solo la aplica Vertex: en otro tipo el campo no se ofrece (revisión de la PR #373).
+  const esVertex = useWatch({ control, name: 'provider_type' }) === 'google_vertexai'
 
   function openCreate() {
     setEditing(null)
-    reset({ id: '', name: '', provider_type: 'openai_compatible', base_url: '', api_key: '' })
+    reset({ id: '', name: '', provider_type: 'openai_compatible', base_url: '', api_key: '', location: '' })
     setDialogOpen(true)
   }
 
@@ -508,7 +548,9 @@ function ProvidersSection({ providers, isLoading }: { providers: HubProviderOut[
     setEditing(p)
     // SEC.9.2: la clave ya no viaja en el contrato, así que el campo arranca vacío. Un secreto
     // no vuelve por donde entró: para cambiarlo se escribe uno nuevo.
-    reset({ id: p.id, name: p.name, provider_type: p.provider_type, base_url: p.base_url || '', api_key: '' })
+    // `HubProviderOut.provider_type` es `str` a propósito: una fila antigua con un tipo que ya no
+    // existe tiene que poder leerse. Al guardar, el esquema la rechaza en vez de reescribirla.
+    reset({ id: p.id, name: p.name, provider_type: p.provider_type as HubProviderCreateProviderType, base_url: p.base_url || '', api_key: '', location: p.location || '' })
     setDialogOpen(true)
   }
 
@@ -542,6 +584,7 @@ function ProvidersSection({ providers, isLoading }: { providers: HubProviderOut[
                 <th className="text-left px-4 py-3 font-medium">{t('hub.provider_table_name')}</th>
                 <th className="text-left px-4 py-3 font-medium">{t('hub.provider_table_type')}</th>
                 <th className="text-left px-4 py-3 font-medium">{t('hub.provider_table_base_url')}</th>
+                <th className="text-left px-4 py-3 font-medium">{t('hub.provider_table_location')}</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -556,6 +599,7 @@ function ProvidersSection({ providers, isLoading }: { providers: HubProviderOut[
                     </span>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground text-xs">{p.base_url || '—'}</td>
+                  <td className="px-4 py-3 text-muted-foreground text-xs font-mono" data-testid={`provider-location-${p.id}`}>{p.location || '—'}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2 justify-end">
                       <button
@@ -618,15 +662,25 @@ function ProvidersSection({ providers, isLoading }: { providers: HubProviderOut[
                 <div>
                   <label htmlFor="provider-type" className="text-sm font-medium">{t('hub.provider_type')}</label>
                   <select id="provider-type" {...register('provider_type')} className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background">
-                    <option value="openai_compatible">{t('hub.provider_type_openai')}</option>
-                    <option value="google_genai">{t('hub.provider_type_google')}</option>
-                    <option value="ollama">{t('hub.provider_type_ollama')}</option>
+                    {Object.values(HubProviderCreateProviderType).map(tipo => (
+                      <option key={tipo} value={tipo}>{t(ETIQUETA_DE_TIPO[tipo])}</option>
+                    ))}
                   </select>
+                  {errors.provider_type && (
+                    <p data-testid="provider-type-error" className="text-destructive text-xs mt-1">{t('hub.provider_type_unknown')}</p>
+                  )}
                 </div>
                 <div>
                   <label htmlFor="provider-base-url" className="text-sm font-medium">{t('hub.provider_base_url')}</label>
                   <input id="provider-base-url" {...register('base_url')} className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background" placeholder="http://localhost:1234/v1" />
                 </div>
+                {esVertex && (
+                  <div>
+                    <label htmlFor="provider-location" className="text-sm font-medium">{t('hub.provider_location')}</label>
+                    <input id="provider-location" {...register('location')} className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background font-mono" placeholder="europe-southwest1" />
+                    <p className="text-xs text-muted-foreground mt-1">{t('hub.provider_location_hint')}</p>
+                  </div>
+                )}
                 <div>
                   <label htmlFor="provider-api-key" className="text-sm font-medium">{t('hub.provider_api_key')}</label>
                   <input id="provider-api-key" type="password" {...register('api_key')} className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background" placeholder="••••••••••••" />

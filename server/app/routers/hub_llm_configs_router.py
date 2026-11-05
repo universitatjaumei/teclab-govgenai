@@ -14,11 +14,11 @@ la misma que PLAT.5 hizo en organizaciones: **leer la lista** la necesita el sel
 import logging
 import time
 import uuid
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from langchain_core.messages import HumanMessage
-from pydantic import BaseModel
+from pydantic import BaseModel, BeforeValidator, Field
 from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
@@ -102,6 +102,77 @@ def _assert_puede_tocar(user: UserInfo, config: HubLLMConfig) -> None:
     assert_org_access(user, config.organizacion_id)
 
 
+#: Los tipos de proveedor que el servidor sabe usar. **Es la única lista**: el desplegable del panel
+#: sale de ella por el contrato. Cuando era una lista escrita a mano en React, cada tipo que le
+#: faltaba —Vertex, el reranker, `local`— se reescribía al guardar el proveedor (#372).
+TipoDeProveedor = Literal[
+    "openai_compatible", "google_genai", "google_vertexai", "discovery_engine", "ollama", "local"
+]
+
+#: Qué tipo sirve a cada propósito: lo que `model_factory`, `embedding_resolver` y `reranker`
+#: saben construir. Un modelo de chat en el reranker se guardaba y fallaba en cada llamada.
+_TIPOS_POR_PROPOSITO: dict[str, frozenset[str]] = {
+    "chat": frozenset({"google_genai", "google_vertexai", "openai_compatible", "ollama"}),
+    "embedding": frozenset({"google_genai", "google_vertexai", "local"}),
+    "rerank": frozenset({"discovery_engine", "local"}),
+}
+
+
+def _region_limpia(valor: object) -> object:
+    """Sin espacios, y vacía es nula («la del entorno»): el SDK recibiría « global » tal cual."""
+    if isinstance(valor, str):
+        return valor.strip() or None
+    return valor
+
+
+#: La región de Vertex (#370), limpia y del tamaño de su columna.
+Region = Annotated[
+    Annotated[str, Field(max_length=50)] | None, BeforeValidator(_region_limpia)
+]
+
+
+async def _comprobar_que_sirve(session, provider_id: str, purpose: str) -> None:
+    """404 si el proveedor no existe —la clave ajena daría un 500 al confirmar— y 422 si su tipo
+    no sabe servir ese propósito."""
+    proveedor = await session.get(HubProvider, provider_id)
+    if proveedor is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provider not found")
+    if proveedor.provider_type not in _TIPOS_POR_PROPOSITO.get(purpose, frozenset()):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"El proveedor «{provider_id}» ({proveedor.provider_type}) no sirve para "
+                f"modelos de {purpose}."
+            ),
+        )
+
+
+def _region_solo_en_vertex(proveedor: HubProvider) -> None:
+    """Solo Vertex aplica la región; el reranker usa una fija. Guardarla en otro tipo haría que
+    la tabla del panel dijera dónde se tratan unos datos que se tratan en otro sitio."""
+    if proveedor.provider_type != "google_vertexai":
+        proveedor.location = None
+
+
+async def _comprobar_sus_modelos(session, provider_id: str, tipo_nuevo: str) -> None:
+    """Cambiar el tipo de un proveedor en uso rompe sus modelos igual que mover uno de ellos a
+    un proveedor que no le sirve: se comprueba lo mismo, desde el otro lado."""
+    propositos = (
+        await session.execute(
+            select(HubLLMConfig.purpose).where(HubLLMConfig.provider == provider_id).distinct()
+        )
+    ).scalars().all()
+    que_no_sirve = sorted(p for p in propositos if tipo_nuevo not in _TIPOS_POR_PROPOSITO.get(p, ()))
+    if que_no_sirve:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"El proveedor «{provider_id}» tiene modelos de {', '.join(que_no_sirve)}, y un "
+                f"proveedor {tipo_nuevo} no los sabe servir."
+            ),
+        )
+
+
 class HubProviderOut(BaseModel):
     """Proveedor **sin su clave** (SEC.9.2).
 
@@ -115,6 +186,9 @@ class HubProviderOut(BaseModel):
     name: str
     provider_type: str
     base_url: str | None
+    # #372 — la región de Vertex (#370). Nula = la de `GOOGLE_CLOUD_LOCATION`. Va en el contrato
+    # porque es lo que dice dónde se tratan los datos, y eso se tiene que poder leer en el panel.
+    location: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -122,16 +196,18 @@ class HubProviderOut(BaseModel):
 class HubProviderCreate(BaseModel):
     id: str
     name: str
-    provider_type: str
+    provider_type: TipoDeProveedor
     base_url: str | None = None
     api_key: str | None = None
+    location: Region = None
 
 
 class HubProviderUpdate(BaseModel):
     name: str | None = None
-    provider_type: str | None = None
+    provider_type: TipoDeProveedor | None = None
     base_url: str | None = None
     api_key: str | None = None
+    location: Region = None
 
 
 @router.get("/providers", response_model=list[HubProviderOut])
@@ -159,6 +235,7 @@ async def create_provider(
             status_code=status.HTTP_409_CONFLICT, detail="Ya existe un proveedor con este ID"
         )
     provider = HubProvider(**body.model_dump())
+    _region_solo_en_vertex(provider)
     session.add(provider)
     await session.commit()
     await session.refresh(provider)
@@ -177,10 +254,13 @@ async def update_provider(
     provider = await session.get(HubProvider, provider_id)
     if not provider:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Provider not found")
-    
+    if body.provider_type is not None and body.provider_type != provider.provider_type:
+        await _comprobar_sus_modelos(session, provider_id, body.provider_type)
+
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(provider, field, value)
-        
+    _region_solo_en_vertex(provider)
+
     await session.commit()
     await session.refresh(provider)
     return provider
@@ -292,6 +372,9 @@ class LLMConfigCreate(BaseModel):
 
 
 class LLMConfigUpdate(BaseModel):
+    # #372 — el formulario lo mandaba y el contrato no lo declaraba, así que se descartaba sin
+    # avisar: pasar un modelo de AI Studio a Vertex parecía guardarse y no se guardaba.
+    provider: str | None = None
     label: str | None = None
     tier: int | None = None
     purpose: Literal["chat", "embedding", "rerank"] | None = None
@@ -409,6 +492,7 @@ async def create_llm_config(
     # la marca de «por defecto» de una organización en la que no puede escribir, y el 403 llegaría
     # después de haber tocado sus filas.
     organizacion_id = _ambito_de_escritura(user, body.organizacion_id)
+    await _comprobar_que_sirve(session, body.provider, body.purpose)
 
     if body.is_default:
         await _relevar_default(
@@ -443,6 +527,16 @@ async def update_llm_config(
     if not config:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Config not found")
     _assert_puede_tocar(user, config)
+    # Solo si cambian: el panel manda siempre `provider`, y comprobarlo sin cambio impediría
+    # renombrar una fila heredada que no cumple la regla, que es como se arregla.
+    if (body.provider is not None and body.provider != config.provider) or (
+        body.purpose is not None and body.purpose != config.purpose
+    ):
+        await _comprobar_que_sirve(
+            session,
+            body.provider if body.provider is not None else config.provider,
+            body.purpose if body.purpose is not None else config.purpose,
+        )
 
     target_tier = body.tier if body.tier is not None else config.tier
     # #343 — también la que ya era por defecto y cambia de nivel o de propósito sin tocar la
