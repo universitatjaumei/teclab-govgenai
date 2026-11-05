@@ -55,3 +55,10 @@ describe('#372 — la región vacía es «la del entorno»', () => {
     expect(payloadDeProveedor({ ...base, location: 'global' }).location).toBe('global')
   })
 })
+
+describe('Revisión de la PR #373 — la región solo es de Vertex', () => {
+  it('should_send_null_for_a_provider_that_is_not_vertex', () => {
+    const p = payloadDeProveedor({ id: 'r', name: 'R', provider_type: 'discovery_engine', base_url: '', location: 'global' })
+    expect(p.location).toBeNull()
+  })
+})

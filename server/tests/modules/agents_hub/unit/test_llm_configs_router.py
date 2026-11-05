@@ -104,6 +104,8 @@ class TestLLMConfigsRouter:
         session.commit = AsyncMock()
         session.refresh = AsyncMock(side_effect=lambda obj: setattr(obj, "id", uuid.uuid4()))
 
+        # #372 — crear comprueba que el proveedor existe y sirve para chat.
+        session.get = AsyncMock(return_value=MagicMock(provider_type="openai_compatible"))
         client = TestClient(_build_app(session))
         resp = client.post(
             "/api/v1/hub/llm-configs",
@@ -137,6 +139,8 @@ class TestLLMConfigsRouter:
             side_effect=lambda obj: setattr(obj, "id", uuid.uuid4())
         )
 
+        # #372 — crear comprueba que el proveedor existe y sirve para chat.
+        session.get = AsyncMock(return_value=MagicMock(provider_type="openai_compatible"))
         client = TestClient(_build_app(session))
         resp = client.post(
             "/api/v1/hub/llm-configs",

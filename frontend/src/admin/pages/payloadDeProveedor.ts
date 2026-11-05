@@ -9,12 +9,14 @@
  * Función pura y exportada a propósito: es una decisión con consecuencias y así se puede fijar
  * con un test.
  */
-export function payloadDeProveedor<T extends { api_key?: string | null; location?: string | null }>(
-  values: T,
-) {
+export function payloadDeProveedor<
+  T extends { api_key?: string | null; location?: string | null; provider_type?: string },
+>(values: T) {
   // #372 — la región vacía es **nula**, que significa «la del entorno»; una cadena vacía se
-  // guardaría tal cual y la tabla diría que hay una región puesta.
-  const conRegion = { ...values, location: values.location?.trim() || null }
+  // guardaría tal cual y la tabla diría que hay una región puesta. Y solo la usa Vertex: en
+  // otro tipo se manda nula, para que la tabla no muestre una región que nadie aplica.
+  const region = values.provider_type === 'google_vertexai' ? values.location?.trim() : null
+  const conRegion = { ...values, location: region || null }
   if (conRegion.api_key) return conRegion
   const { api_key: _omitida, ...resto } = conRegion
   return resto

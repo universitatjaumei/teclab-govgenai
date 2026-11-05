@@ -181,7 +181,8 @@ class TestEscribirEnOtraOrganizacion:
     def test_should_reserve_platform_level_creation_for_the_superadmin(self):
         """Un administrador que no dice la organización **no** crea configuración de
         plataforma: se le asigna la suya. Nulo lo reserva el superadministrador."""
-        session = _sesion()
+        # #372 — el proveedor tiene que existir y servir para chat.
+        session = _sesion(entidad=SimpleNamespace(provider_type="google_genai"))
         resp = _cliente(_admin(ORG_A), session).post(
             "/api/v1/hub/llm-configs",
             json={"provider": "google", "model_name": "gemini-2.5-flash"},
@@ -204,7 +205,7 @@ class TestEscribirEnOtraOrganizacion:
         session.commit.assert_not_awaited()
 
     def test_should_let_the_superadmin_create_a_platform_config(self):
-        session = _sesion()
+        session = _sesion(entidad=SimpleNamespace(provider_type="google_genai"))
         resp = _cliente(_superadmin(), session).post(
             "/api/v1/hub/llm-configs",
             json={"provider": "google", "model_name": "gemini-2.5-flash"},

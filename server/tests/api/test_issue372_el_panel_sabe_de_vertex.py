@@ -121,3 +121,68 @@ class TestElProveedorDelModelo:
             )
 
         assert r.status_code == 404, r.text
+
+
+class TestLoQueEncontroLaRevisionDeLaPR373:
+    """El servidor dice qué tipos de proveedor hay, qué sirve a cada propósito y qué es una
+    región; el panel solo lo pinta. Sin esto, el desplegable era la única lista de tipos, y
+    cada tipo que le faltaba —Vertex, el reranker, `local`— se reescribía al guardar."""
+
+    @pytest.mark.asyncio
+    async def test_un_tipo_de_proveedor_desconocido_es_un_422(self, db_session) -> None:
+        async with _cliente(db_session) as c:
+            r = await c.post("/api/v1/hub/llm-configs/providers", json={
+                "id": f"raro-{uuid.uuid4().hex[:6]}", "name": "Raro", "provider_type": "protocolo_raro",
+            })
+        assert r.status_code == 422, r.text
+
+    @pytest.mark.asyncio
+    async def test_la_region_se_limpia_en_el_servidor(self, db_session) -> None:
+        """Un cliente de la API que no pase por el panel no puede dejar «  global » ni ''."""
+        await _proveedores(db_session)
+        await db_session.commit()
+
+        async with _cliente(db_session) as c:
+            r = await c.patch("/api/v1/hub/llm-configs/providers/vertex", json={"location": "  global "})
+            assert r.json()["location"] == "global"
+            r = await c.patch("/api/v1/hub/llm-configs/providers/vertex", json={"location": "  "})
+            assert r.json()["location"] is None
+            r = await c.patch("/api/v1/hub/llm-configs/providers/vertex", json={"location": "x" * 51})
+        assert r.status_code == 422, r.text
+
+    @pytest.mark.asyncio
+    async def test_mover_un_modelo_de_chat_al_reranker_es_un_422(self, db_session) -> None:
+        """Antes el campo se descartaba y esto era inalcanzable; con #372 se guardaba y todas las
+        llamadas de ese nivel fallaban con «Provider type desconocido»."""
+        from server.app.modules.agents_hub.database.config_models import HubLLMConfig, HubProvider
+
+        await _proveedores(db_session)
+        await db_session.merge(
+            HubProvider(id="vertex-ranking", name="Ranking", provider_type="discovery_engine")
+        )
+        config = HubLLMConfig(provider="google", model_name="gemini-2.5-pro", tier=2, purpose="chat")
+        db_session.add(config)
+        await db_session.commit()
+        config_id = config.id
+
+        async with _cliente(db_session) as c:
+            r = await c.patch(f"/api/v1/hub/llm-configs/{config_id}", json={"provider": "vertex-ranking"})
+
+        assert r.status_code == 422, r.text
+        assert "chat" in r.text
+
+    @pytest.mark.asyncio
+    async def test_crear_un_modelo_con_un_proveedor_que_no_sirve_a_su_proposito_es_un_422(self, db_session) -> None:
+        from server.app.modules.agents_hub.database.config_models import HubProvider
+
+        await _proveedores(db_session)
+        await db_session.merge(
+            HubProvider(id="vertex-ranking", name="Ranking", provider_type="discovery_engine")
+        )
+        await db_session.commit()
+
+        async with _cliente(db_session) as c:
+            r = await c.post("/api/v1/hub/llm-configs", json={
+                "provider": "vertex-ranking", "model_name": "semantic-ranker", "purpose": "embedding",
+            })
+        assert r.status_code == 422, r.text

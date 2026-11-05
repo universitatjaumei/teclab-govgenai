@@ -255,3 +255,38 @@ describe('#372 — el panel sabe editar un proveedor Vertex y su región', () =>
     expect(document.getElementById('llm-api-key')).toHaveValue('')
   })
 })
+
+describe('Revisión de la PR #373 — el servidor dice qué tipos hay', () => {
+  function conProveedores(providers: object[]) {
+    vi.mocked(useListProvidersApiV1HubLlmConfigsProvidersGet).mockReturnValue({ data: providers, isLoading: false } as any)
+  }
+
+  it('should_offer_exactly_the_provider_types_of_the_contract', async () => {
+    // La lista escrita a mano perdía tipos —`local` seguía faltando— y cada uno que faltaba
+    // se reescribía al guardar. Ahora sale del enum que genera Orval.
+    const { HubProviderCreateProviderType } = await import('@/shared/api/generated/model')
+    conProveedores([{ id: 'bge', name: 'BGE local', provider_type: 'local', base_url: null, location: null }])
+    renderPage([])
+    await waitFor(() => screen.getByText('BGE local'))
+    await act(async () => { fireEvent.click(screen.getByText('BGE local')) })
+
+    const select = document.getElementById('provider-type') as HTMLSelectElement
+    expect([...select.options].map(o => o.value).sort()).toEqual(Object.values(HubProviderCreateProviderType).sort())
+    expect(select).toHaveValue('local')
+  })
+
+  it('should_show_the_region_only_for_vertex', async () => {
+    // El reranker usa una región fija: dejar editarla allí haría que el panel mintiera sobre
+    // dónde se tratan los datos.
+    conProveedores([{ id: 'vertex-ranking', name: 'Vertex AI Ranking', provider_type: 'discovery_engine', base_url: null, location: null }])
+    renderPage([])
+    await waitFor(() => screen.getByText('Vertex AI Ranking'))
+    await act(async () => { fireEvent.click(screen.getByText('Vertex AI Ranking')) })
+    expect(document.getElementById('provider-location')).toBeNull()
+
+    await act(async () => {
+      fireEvent.change(document.getElementById('provider-type')!, { target: { value: 'google_vertexai' } })
+    })
+    expect(document.getElementById('provider-location')).not.toBeNull()
+  })
+})
