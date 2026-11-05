@@ -9,6 +9,7 @@ from langchain_openai import ChatOpenAI
 from server.app.modules.agents_hub.database.config_models import HubLLMConfig
 
 from server.app.modules.agents_hub.services.config_provider import ConfigProvider
+from server.app.modules.agents_hub.services.embedding_service import REGION_VERTEX_POR_DEFECTO
 
 DEFAULT_API_KEY_ENV_BY_PROVIDER_ID: dict[str, str] = {
     "google": "GOOGLE_API_KEY",
@@ -108,6 +109,35 @@ def _apply_prompt_caching(model, chatbot) -> None:
     model._prompt_caching_enabled = enabled
     model._prompt_cache_ttl = ttl
 
+def _kwargs_vertex(config: HubLLMConfig, provider, tope_salida: int) -> dict:
+    """Gemini por Vertex con ADC: factura al proyecto de GCP, no al prepago de AI Studio (#370).
+
+    **El proyecto y la región van explícitos, y no es redundancia.** Con los dos explícitos el
+    SDK descarta la `GOOGLE_API_KEY` del entorno; sin ellos puede usarla como clave de Vertex
+    «express», y la llamada volvería a la clave sin saldo con el mismo 402.
+    """
+    proyecto = os.getenv("GOOGLE_CLOUD_PROJECT")
+    if not proyecto:
+        # `ValueError`: es la que los routers devuelven con su texto («el motivo es nuestro»).
+        raise ValueError(
+            "El proveedor de Vertex necesita GOOGLE_CLOUD_PROJECT, y no está definida. "
+            "No hace falta clave de API: Vertex usa las credenciales del entorno (ADC)."
+        )
+    return dict(
+        model=config.model_name,
+        temperature=config.temperature,
+        top_p=getattr(config, "top_p", 1.0),
+        max_output_tokens=tope_salida,
+        vertexai=True,
+        project=proyecto,
+        location=(
+            getattr(provider, "location", None)
+            or os.getenv("GOOGLE_CLOUD_LOCATION")
+            or REGION_VERTEX_POR_DEFECTO
+        ),
+    )
+
+
 def _build_model(config: HubLLMConfig, chatbot=None, max_tokens_override: int | None = None):
     """Construye la instancia LLM a partir del config y su proveedor."""
     tope_salida = max_tokens_override if max_tokens_override is not None else config.max_tokens
@@ -151,7 +181,12 @@ def _build_model(config: HubLLMConfig, chatbot=None, max_tokens_override: int | 
         model = ChatGoogleGenerativeAI(**kwargs)
         _apply_prompt_caching(model, chatbot)
         return model
-        
+
+    elif ptype == "google_vertexai":
+        model = ChatGoogleGenerativeAI(**_kwargs_vertex(config, provider, tope_salida))
+        _apply_prompt_caching(model, chatbot)
+        return model
+
     elif ptype == "openai_compatible":
         kwargs = dict(
             model=config.model_name,

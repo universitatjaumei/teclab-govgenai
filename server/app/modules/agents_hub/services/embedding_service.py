@@ -39,8 +39,9 @@ LOTE_MAXIMO_API = 250
 
 # Región por defecto de Vertex. Madrid: el texto normativo no sale de España, que es lo que
 # sostiene la frontera edge-cloud ante protección de datos. Verificada sirviendo
-# `gemini-embedding-001` a 1024 dimensiones. No ata a las demás: el modelo de chat y el
-# Ranking API de RAG.6b eligen la suya.
+# `gemini-embedding-001` a 1024 dimensiones. Es el último recurso: antes van la región del
+# proveedor (`hub_providers.location`, #370) y `GOOGLE_CLOUD_LOCATION`, y así la resuelven
+# también los modelos de chat por Vertex. El Ranking API de RAG.6b elige la suya.
 REGION_VERTEX_POR_DEFECTO = "europe-southwest1"
 
 # D.4.0: la pila de modelos locales (`torch`, `transformers`, `sentence-transformers`) es un

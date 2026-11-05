@@ -46,6 +46,10 @@ class HubProvider(HubConfigBase):
     provider_type: Mapped[str] = mapped_column(String(50), nullable=False)  # openai_compatible, google_genai, etc
     base_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
     api_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # #370 — región de Vertex (`google_vertexai`). Nula = `GOOGLE_CLOUD_LOCATION`. Es del
+    # proveedor y no del entorno porque no todos los modelos están en todas las regiones:
+    # medido el 05-11, `gemini-4-argon` solo responde en `global` y los 2.5, solo en las de la UE.
+    location: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     llm_configs: Mapped[list["HubLLMConfig"]] = relationship(back_populates="provider_rel")
 

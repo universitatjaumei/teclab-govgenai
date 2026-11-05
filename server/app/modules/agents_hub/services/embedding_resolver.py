@@ -89,6 +89,8 @@ async def resolve_embedding_service(
             model_name=config.model_name,
             output_dimensionality=config.output_dimensionality or DIMENSION_PLATAFORMA,
             client=client_factory() if client_factory else None,
+            # #370 — la misma región que el chat de este proveedor; nula = la del entorno.
+            location=getattr(proveedor, "location", None),
         )
 
     if tipo == "google_genai":
