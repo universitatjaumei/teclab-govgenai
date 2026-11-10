@@ -194,6 +194,20 @@ describe('ChatbotsPage', () => {
     expect(screen.getByRole('dialog')).toBeDefined()
   })
 
+  it('should_keep_save_in_the_fixed_footer_of_the_tallest_form', async () => {
+    // Revisión de la PR #375: el formulario de chatbot, el más alto del panel, dejaba
+    // «Guardar» al final del cuerpo que se desplaza.
+    renderPage([])
+    await waitFor(() => screen.getByRole('button', { name: /nuevo chatbot/i }))
+    await act(async () => {
+      screen.getByRole('button', { name: /nuevo chatbot/i }).click()
+    })
+    const dialogo = screen.getByRole('dialog')
+    const guardar = within(dialogo).getByRole('button', { name: /guardar/i })
+    expect(dialogo.querySelector('[data-modal-footer]')).toContainElement(guardar)
+    expect(guardar.closest('form')).not.toBeNull()
+  })
+
   it('should_show_delete_button_per_chatbot', async () => {
     renderPage([DEMO_CHATBOT])
     await waitFor(() => screen.getByText('Bot Demo'))

@@ -19,6 +19,7 @@ import { PageContentDialog } from './PageContentDialog'
 import { useChatbotsDeLaOrganizacion } from '@/shared/organizacion/useChatbotsDeLaOrganizacion'
 import { useSeleccionValida } from '@/shared/organizacion/useSeleccionValida'
 import { enlaceExterno } from '@/shared/enlaces/enlaceExterno'
+import { Modal } from '@/shared/components/Modal'
 
 const selSchema = z.object({
   rule_type: z.enum(['path_prefix', 'sitemap_section', 'manual']).default('path_prefix'),
@@ -383,33 +384,36 @@ export function PublicationPage() {
 
       {/* Selection dialog */}
       {selDialogOpen && (
-        <div role="dialog" aria-modal="true" aria-label={t('new_selection')} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-background rounded-lg shadow-lg p-6 w-full max-w-sm space-y-4">
-            <h2 className="text-base font-semibold">{t('new_selection')}</h2>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-3" noValidate>
-              <div>
-                <label className="text-sm font-medium">{t('sel_rule_type')}</label>
-                <select {...register('rule_type')} className="w-full border rounded px-2 py-1.5 text-sm mt-1">
-                  <option value="path_prefix">{t('sel_rule_path_prefix')}</option>
-                  <option value="sitemap_section">{t('sel_rule_sitemap_section')}</option>
-                  <option value="manual">{t('sel_rule_manual')}</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium">{t('sel_rule_value')}</label>
-                <input {...register('rule_value')} className="w-full border rounded px-2 py-1.5 text-sm mt-1" />
-              </div>
-              <div className="flex items-center gap-2">
-                <input type="checkbox" {...register('auto_ingest_new')} id="auto_ingest" />
-                <label htmlFor="auto_ingest" className="text-sm">{t('sel_auto_ingest')}</label>
-              </div>
-              <div className="flex justify-end gap-2 pt-1">
-                <button type="button" onClick={() => { setSelDialogOpen(false); reset() }} className="px-3 py-1.5 rounded border text-sm">{tc('cancel')}</button>
-                <button type="submit" disabled={createSelMutation.isPending} className="px-3 py-1.5 rounded bg-primary text-primary-foreground text-sm">{tc('save')}</button>
-              </div>
-            </form>
+        <Modal
+          ariaLabel={t('new_selection')}
+          className="max-w-sm"
+          header={<h2 className="text-base font-semibold">{t('new_selection')}</h2>}
+          form={{ onSubmit: handleSubmit(onSubmit), noValidate: true }}
+          bodyClassName="space-y-3"
+          footer={
+            <>
+              <button type="button" onClick={() => { setSelDialogOpen(false); reset() }} className="px-3 py-1.5 rounded border text-sm">{tc('cancel')}</button>
+              <button type="submit" disabled={createSelMutation.isPending} className="px-3 py-1.5 rounded bg-primary text-primary-foreground text-sm">{tc('save')}</button>
+            </>
+          }
+        >
+          <div>
+            <label className="text-sm font-medium">{t('sel_rule_type')}</label>
+            <select {...register('rule_type')} className="w-full border rounded px-2 py-1.5 text-sm mt-1">
+              <option value="path_prefix">{t('sel_rule_path_prefix')}</option>
+              <option value="sitemap_section">{t('sel_rule_sitemap_section')}</option>
+              <option value="manual">{t('sel_rule_manual')}</option>
+            </select>
           </div>
-        </div>
+          <div>
+            <label className="text-sm font-medium">{t('sel_rule_value')}</label>
+            <input {...register('rule_value')} className="w-full border rounded px-2 py-1.5 text-sm mt-1" />
+          </div>
+          <div className="flex items-center gap-2">
+            <input type="checkbox" {...register('auto_ingest_new')} id="auto_ingest" />
+            <label htmlFor="auto_ingest" className="text-sm">{t('sel_auto_ingest')}</label>
+          </div>
+        </Modal>
       )}
       {paginaAbierta && (
         <PageContentDialog pageId={paginaAbierta} onClose={() => setPaginaAbierta(null)} />

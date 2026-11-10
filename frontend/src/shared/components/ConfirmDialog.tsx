@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { Modal } from './Modal'
 
 /** Confirmación modal de una acción destructiva.
  *
@@ -21,11 +22,11 @@ export function ConfirmDialog({
   const { t: tc } = useTranslation('common')
 
   return (
-    <div role="dialog" aria-modal="true" className="fixed inset-0 flex items-center justify-center bg-black/40 z-50 p-4">
-      <div className="bg-card rounded-lg p-6 w-full max-w-md shadow-lg space-y-4">
-        <h3 className={`text-lg font-semibold ${destructive ? 'text-destructive' : ''}`}>{title}</h3>
-        <div className="text-sm text-muted-foreground space-y-2">{description}</div>
-        <div className="flex gap-2 justify-end pt-4">
+    <Modal
+      className="bg-card"
+      header={<h3 className={`text-lg font-semibold ${destructive ? 'text-destructive' : ''}`}>{title}</h3>}
+      footer={
+        <>
           <button type="button" onClick={onCancel} disabled={isPending} className="px-4 py-2 border rounded-md text-sm font-medium disabled:opacity-50">{tc('cancel')}</button>
           <button
             type="button"
@@ -36,8 +37,10 @@ export function ConfirmDialog({
             {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
             {confirmLabel}
           </button>
-        </div>
-      </div>
-    </div>
+        </>
+      }
+    >
+      <div className="text-sm text-muted-foreground space-y-2">{description}</div>
+    </Modal>
   )
 }

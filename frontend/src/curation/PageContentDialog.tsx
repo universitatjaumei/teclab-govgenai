@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { useGetPageContent } from '@/shared/api/generated/hub-sites/hub-sites'
 import { enlaceExterno } from '@/shared/enlaces/enlaceExterno'
+import { Modal } from '@/shared/components/Modal'
 
 interface Props {
   pageId: string
@@ -25,14 +26,13 @@ export function PageContentDialog({ pageId, onClose }: Props) {
   const pagina = data
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={t('page_content_title')}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-    >
-      <div className="bg-background rounded-lg shadow-lg w-full max-w-3xl max-h-[85vh] flex flex-col">
-        <div className="p-4 border-b space-y-1">
+    <Modal
+      ariaLabel={t('page_content_title')}
+      className="max-w-3xl"
+      headerClassName="p-4 border-b space-y-1"
+      bodyClassName="p-4 space-y-3"
+      header={
+        <>
           <div className="flex items-start justify-between gap-4">
             <h2 className="text-lg font-semibold">{t('page_content_title')}</h2>
             <button
@@ -69,32 +69,30 @@ export function PageContentDialog({ pageId, onClose }: Props) {
               </a>
             </>
           )}
-        </div>
+        </>
+      }
+    >
+      {/* Que quede claro qué se está leyendo: si no, se confunde con la página del portal. */}
+      <p data-testid="aviso-texto-guardado" className="text-xs text-muted-foreground italic">
+        {t('page_content_note')}
+      </p>
 
-        <div className="p-4 overflow-y-auto space-y-3">
-          {/* Que quede claro qué se está leyendo: si no, se confunde con la página del portal. */}
-          <p data-testid="aviso-texto-guardado" className="text-xs text-muted-foreground italic">
-            {t('page_content_note')}
-          </p>
+      {pagina && (pagina.render_signals?.length ?? 0) > 0 && (
+        <p className="text-xs bg-yellow-50 text-yellow-900 rounded p-2">
+          {t('page_content_needs_js')}
+        </p>
+      )}
 
-          {pagina && (pagina.render_signals?.length ?? 0) > 0 && (
-            <p className="text-xs bg-yellow-50 text-yellow-900 rounded p-2">
-              {t('page_content_needs_js')}
-            </p>
-          )}
-
-          {pagina && !pagina.content.trim() ? (
-            <p className="text-sm text-muted-foreground">{t('page_content_empty')}</p>
-          ) : (
-            <pre
-              data-testid="contenido-de-la-pagina"
-              className="text-sm whitespace-pre-wrap font-sans bg-muted/40 rounded p-3"
-            >
-              {pagina?.content}
-            </pre>
-          )}
-        </div>
-      </div>
-    </div>
+      {pagina && !pagina.content.trim() ? (
+        <p className="text-sm text-muted-foreground">{t('page_content_empty')}</p>
+      ) : (
+        <pre
+          data-testid="contenido-de-la-pagina"
+          className="text-sm whitespace-pre-wrap font-sans bg-muted/40 rounded p-3"
+        >
+          {pagina?.content}
+        </pre>
+      )}
+    </Modal>
   )
 }

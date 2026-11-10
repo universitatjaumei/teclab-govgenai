@@ -19,6 +19,7 @@ import {
   getListProvidersApiV1HubLlmConfigsProvidersGetQueryKey,
 } from '@/shared/api/generated/hub-llm-configs/hub-llm-configs'
 import type { LLMConfigRead, HubProviderOut } from '@/shared/api/generated/model'
+import { Modal } from '@/shared/components/Modal'
 import { HubProviderCreateProviderType } from '@/shared/api/generated/model'
 import { payloadDeProveedor } from './payloadDeProveedor'
 
@@ -317,14 +318,11 @@ export function LLMConfigsPage() {
 
         {/* Delete confirmation */}
         {deleteTarget && (
-          <div role="dialog" aria-modal="true" className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-background border rounded-lg p-6 w-96 space-y-4 shadow-xl">
-              <h2 className="font-semibold">{t('hub.llm_config_delete_confirm')}</h2>
-              <p className="text-sm text-muted-foreground">{deleteTarget.label} ({deleteTarget.model_name})</p>
-              {deleteError && (
-                <p className="text-sm text-destructive" data-testid="delete-error">{deleteError}</p>
-              )}
-              <div className="flex gap-2 justify-end">
+          <Modal
+            className="border max-w-96 shadow-xl"
+            header={<h2 className="font-semibold">{t('hub.llm_config_delete_confirm')}</h2>}
+            footer={
+              <>
                 <button onClick={() => { setDeleteTarget(null); setDeleteError('') }} className="px-3 py-2 border rounded-md text-sm">{tc('cancel')}</button>
                 <button
                   onClick={() => deleteMutation.mutate({ configId: deleteTarget.id })}
@@ -333,20 +331,34 @@ export function LLMConfigsPage() {
                 >
                   {tc('delete')}
                 </button>
-              </div>
-            </div>
-          </div>
+              </>
+            }
+          >
+            <p className="text-sm text-muted-foreground">{deleteTarget.label} ({deleteTarget.model_name})</p>
+            {deleteError && (
+              <p className="text-sm text-destructive" data-testid="delete-error">{deleteError}</p>
+            )}
+          </Modal>
         )}
 
         {/* Create / edit dialog */}
         {dialogOpen && (
-          <div role="dialog" aria-modal="true" className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-background border rounded-lg w-full max-w-lg shadow-xl flex flex-col max-h-[90vh]">
-              <div className="px-6 py-4 border-b shrink-0">
-                <h2 className="font-semibold">{editing ? t('hub.llm_config_edit') : t('hub.new_llm_config')}</h2>
-              </div>
-              <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col flex-1 overflow-hidden">
-                <div className="px-6 py-4 space-y-4 overflow-y-auto flex-1">
+          <Modal
+            className="border max-w-lg shadow-xl"
+            headerClassName="px-6 py-4 border-b"
+            bodyClassName="px-6 py-4"
+            footerClassName="px-6 py-4 border-t"
+            header={<h2 className="font-semibold">{editing ? t('hub.llm_config_edit') : t('hub.new_llm_config')}</h2>}
+            form={{ onSubmit: handleSubmit(onSubmit) }}
+            footer={
+              <>
+                <button type="button" onClick={closeDialog} className="px-3 py-2 border rounded-md text-sm">{tc('cancel')}</button>
+                <button type="submit" disabled={isPending} className="px-3 py-2 bg-primary text-primary-foreground rounded-md text-sm disabled:opacity-50">
+                  {tc('save')}
+                </button>
+              </>
+            }
+          >
                   <div>
                     <label htmlFor="llm-label" className="text-sm font-medium">{t('hub.llm_config_label')}</label>
                     <input id="llm-label" {...register('label')} className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background" />
@@ -462,16 +474,7 @@ export function LLMConfigsPage() {
                   {configError && (
                     <p role="alert" data-testid="config-error" className="text-sm text-destructive">{configError}</p>
                   )}
-                </div>
-                <div className="px-6 py-4 border-t flex gap-2 justify-end shrink-0">
-                  <button type="button" onClick={closeDialog} className="px-3 py-2 border rounded-md text-sm">{tc('cancel')}</button>
-                  <button type="submit" disabled={isPending} className="px-3 py-2 bg-primary text-primary-foreground rounded-md text-sm disabled:opacity-50">
-                    {tc('save')}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
+          </Modal>
         )}
       </div>
     </div>
@@ -619,14 +622,11 @@ function ProvidersSection({ providers, isLoading }: { providers: HubProviderOut[
 
       {/* Delete confirmation for Provider */}
       {deleteTarget && (
-        <div role="dialog" className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-background border rounded-lg p-6 w-96 space-y-4 shadow-xl">
-            <h2 className="font-semibold">{t('hub.provider_delete')}</h2>
-            <p className="text-sm text-muted-foreground">{deleteTarget.name} ({deleteTarget.id})</p>
-            {deleteError && (
-              <p className="text-sm text-destructive">{deleteError}</p>
-            )}
-            <div className="flex gap-2 justify-end">
+        <Modal
+          className="border max-w-96 shadow-xl"
+          header={<h2 className="font-semibold">{t('hub.provider_delete')}</h2>}
+          footer={
+            <>
               <button onClick={() => { setDeleteTarget(null); setDeleteError('') }} className="px-3 py-2 border rounded-md text-sm">{tc('cancel')}</button>
               <button
                 onClick={() => deleteMutation.mutate({ providerId: deleteTarget.id })}
@@ -635,20 +635,34 @@ function ProvidersSection({ providers, isLoading }: { providers: HubProviderOut[
               >
                 {tc('delete')}
               </button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+        >
+          <p className="text-sm text-muted-foreground">{deleteTarget.name} ({deleteTarget.id})</p>
+          {deleteError && (
+            <p className="text-sm text-destructive">{deleteError}</p>
+          )}
+        </Modal>
       )}
 
       {/* Create / edit dialog for Provider */}
       {dialogOpen && (
-        <div role="dialog" className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-background border rounded-lg w-full max-w-md shadow-xl flex flex-col">
-            <div className="px-6 py-4 border-b shrink-0">
-              <h2 className="font-semibold">{editing ? t('hub.provider_edit') : t('hub.provider_new')}</h2>
-            </div>
-            <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col flex-1">
-              <div className="px-6 py-4 space-y-4">
+        <Modal
+          className="border shadow-xl"
+          headerClassName="px-6 py-4 border-b"
+          bodyClassName="px-6 py-4"
+          footerClassName="px-6 py-4 border-t bg-muted/10"
+          header={<h2 className="font-semibold">{editing ? t('hub.provider_edit') : t('hub.provider_new')}</h2>}
+          form={{ onSubmit: handleSubmit(onSubmit) }}
+          footer={
+            <>
+              <button type="button" onClick={closeDialog} className="px-3 py-2 border rounded-md text-sm">{tc('cancel')}</button>
+              <button type="submit" disabled={isPending} className="px-3 py-2 bg-primary text-primary-foreground rounded-md text-sm disabled:opacity-50">
+                {tc('save')}
+              </button>
+            </>
+          }
+        >
                 <div>
                   <label htmlFor="provider-id" className="text-sm font-medium">{t('hub.provider_id')}</label>
                   <input id="provider-id" {...register('id')} disabled={!!editing} className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background font-mono disabled:opacity-50" placeholder={t('hub.provider_id_placeholder')} />
@@ -686,16 +700,7 @@ function ProvidersSection({ providers, isLoading }: { providers: HubProviderOut[
                   <input id="provider-api-key" type="password" {...register('api_key')} className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background" placeholder="••••••••••••" />
                   <p className="text-xs text-muted-foreground mt-1">{t('hub.provider_api_key_hint')}</p>
                 </div>
-              </div>
-              <div className="px-6 py-4 border-t flex gap-2 justify-end shrink-0 bg-muted/10">
-                <button type="button" onClick={closeDialog} className="px-3 py-2 border rounded-md text-sm">{tc('cancel')}</button>
-                <button type="submit" disabled={isPending} className="px-3 py-2 bg-primary text-primary-foreground rounded-md text-sm disabled:opacity-50">
-                  {tc('save')}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   )

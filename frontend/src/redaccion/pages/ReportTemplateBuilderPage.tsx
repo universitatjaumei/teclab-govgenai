@@ -10,6 +10,7 @@ import {
   getListTemplatesQueryKey,
 } from '@/shared/api/generated/hub-redaccion/hub-redaccion'
 import type { TemplateOut } from '@/shared/api/generated/model'
+import { Modal } from '@/shared/components/Modal'
 import { useCapacidad } from '@/shared/auth/useCapacidad'
 import { UsuarioActualCapacidadesItem } from '@/shared/api/generated/model'
 
@@ -190,40 +191,43 @@ export function ReportTemplateBuilderPage() {
           cuadro al final del documento queda fuera de pantalla y pulsar «Retirar» parece no
           hacer nada. Visto en el navegador al capturar la guía. */}
       {aRetirar && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={t('templates.archive_title')}
-          className="border rounded-lg p-4 bg-card space-y-3 max-w-lg w-full shadow-lg"
+        <Modal
+          ariaLabel={t('templates.archive_title', { name: aRetirar.name })}
+          className="border bg-card max-w-lg"
+          headerClassName="px-4 pt-4 pb-3"
+          bodyClassName="px-4"
+          footerClassName="justify-start px-4 pt-3 pb-4"
+          header={
+            <h2 className="text-sm font-medium">
+              {t('templates.archive_title', { name: aRetirar.name })}
+            </h2>
+          }
+          footer={
+            <>
+              <button
+                type="button"
+                data-testid="confirmar-archivar"
+                disabled={archivandoEnCurso}
+                onClick={confirmarRetirada}
+                className="px-4 py-2 text-sm bg-destructive text-destructive-foreground rounded disabled:opacity-50"
+              >
+                {t('templates.archive_confirm')}
+              </button>
+              <button
+                type="button"
+                data-testid="cancelar-archivar"
+                onClick={() => setARetirar(null)}
+                className="px-4 py-2 text-sm border rounded"
+              >
+                {tc('cancel')}
+              </button>
+            </>
+          }
         >
-          <h2 className="text-sm font-medium">
-            {t('templates.archive_title', { name: aRetirar.name })}
-          </h2>
           <p data-testid="aviso-archivar" className="text-sm text-muted-foreground">
             {t('templates.archive_warning')}
           </p>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              data-testid="confirmar-archivar"
-              disabled={archivandoEnCurso}
-              onClick={confirmarRetirada}
-              className="px-4 py-2 text-sm bg-destructive text-destructive-foreground rounded disabled:opacity-50"
-            >
-              {t('templates.archive_confirm')}
-            </button>
-            <button
-              type="button"
-              data-testid="cancelar-archivar"
-              onClick={() => setARetirar(null)}
-              className="px-4 py-2 text-sm border rounded"
-            >
-              {tc('cancel')}
-            </button>
-          </div>
-        </div>
-        </div>
+        </Modal>
       )}
     </div>
   )

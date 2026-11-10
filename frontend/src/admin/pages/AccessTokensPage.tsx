@@ -12,6 +12,7 @@ import {
   getListPatsQueryKey,
 } from '@/shared/api/generated/auth-pat/auth-pat'
 import type { PatView, PatCreatedResponse } from '@/shared/api/generated/model'
+import { Modal } from '@/shared/components/Modal'
 
 // Los alcances y las organizaciones que se ofrecen los dice el servidor (#230): la lista escrita
 // aquí a mano se quedó en cinco mientras el servidor llegaba a quince. Lo único que vive en la
@@ -167,63 +168,62 @@ export function AccessTokensPage() {
       )}
 
       {dialogOpen && (
-        <div role="dialog" aria-modal="true" aria-label={t('pat_modal_title')} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-background rounded-lg shadow-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto space-y-4">
-            <h2 className="text-lg font-semibold">{t('pat_modal_title')}</h2>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-3" noValidate>
-              <div>
-                <label htmlFor="pat-name" className="text-sm font-medium">{t('pat_field_name')}</label>
-                <input id="pat-name" {...register('name')} placeholder={t('pat_field_name_ph')}
-                  className="w-full border rounded px-2 py-1.5 text-sm mt-1" />
-                {errors.name && <p className="text-xs text-destructive mt-0.5">{tc('required')}</p>}
-              </div>
-              <fieldset>
-                <legend className="text-sm font-medium">{t('pat_field_scopes')}</legend>
-                <div className="space-y-1 mt-1">
-                  {offeredScopes.map((scope) => (
-                    <label key={scope} className="flex items-center gap-2 text-sm">
-                      <input type="checkbox" value={scope} {...register('scopes')} />
-                      {t(scopeLabelKey(scope), { defaultValue: scope })}
-                    </label>
-                  ))}
-                </div>
-                {errors.scopes && <p className="text-xs text-destructive mt-0.5">{tc('required')}</p>}
-              </fieldset>
-              <div>
-                <label htmlFor="pat-organizacion" className="text-sm font-medium">{t('pat_field_organizacion')}</label>
-                <select id="pat-organizacion" {...register('organizacion_id')}
-                  className="w-full border rounded px-2 py-1.5 text-sm mt-1">
-                  <option value="">{t('pat_sin_organizacion')}</option>
-                  {organizaciones.map((o) => (
-                    <option key={o.id} value={o.id}>{o.nombre}</option>
-                  ))}
-                </select>
-                <p className="text-xs text-muted-foreground mt-0.5">{t('pat_field_organizacion_ayuda')}</p>
-              </div>
-              <div>
-                <label htmlFor="pat-expiry" className="text-sm font-medium">{t('pat_field_expiry')}</label>
-                <input id="pat-expiry" {...register('expires_at')} type="date"
-                  className="w-full border rounded px-2 py-1.5 text-sm mt-1" />
-                <p className="text-xs text-muted-foreground mt-0.5">{t('pat_field_expiry_ayuda')}</p>
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => { setDialogOpen(false); reset() }} className="px-3 py-1.5 rounded border text-sm">{tc('cancel')}</button>
-                <button type="submit" disabled={createMutation.isPending} className="px-3 py-1.5 rounded bg-primary text-primary-foreground text-sm">{t('pat_create')}</button>
-              </div>
-            </form>
+        <Modal
+          ariaLabel={t('pat_modal_title')}
+          header={<h2 className="text-lg font-semibold">{t('pat_modal_title')}</h2>}
+          form={{ onSubmit: handleSubmit(onSubmit), noValidate: true }}
+          bodyClassName="space-y-3"
+          footer={
+            <>
+              <button type="button" onClick={() => { setDialogOpen(false); reset() }} className="px-3 py-1.5 rounded border text-sm">{tc('cancel')}</button>
+              <button type="submit" disabled={createMutation.isPending} className="px-3 py-1.5 rounded bg-primary text-primary-foreground text-sm">{t('pat_create')}</button>
+            </>
+          }
+        >
+          <div>
+            <label htmlFor="pat-name" className="text-sm font-medium">{t('pat_field_name')}</label>
+            <input id="pat-name" {...register('name')} placeholder={t('pat_field_name_ph')}
+              className="w-full border rounded px-2 py-1.5 text-sm mt-1" />
+            {errors.name && <p className="text-xs text-destructive mt-0.5">{tc('required')}</p>}
           </div>
-        </div>
+          <fieldset>
+            <legend className="text-sm font-medium">{t('pat_field_scopes')}</legend>
+            <div className="space-y-1 mt-1">
+              {offeredScopes.map((scope) => (
+                <label key={scope} className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" value={scope} {...register('scopes')} />
+                  {t(scopeLabelKey(scope), { defaultValue: scope })}
+                </label>
+              ))}
+            </div>
+            {errors.scopes && <p className="text-xs text-destructive mt-0.5">{tc('required')}</p>}
+          </fieldset>
+          <div>
+            <label htmlFor="pat-organizacion" className="text-sm font-medium">{t('pat_field_organizacion')}</label>
+            <select id="pat-organizacion" {...register('organizacion_id')}
+              className="w-full border rounded px-2 py-1.5 text-sm mt-1">
+              <option value="">{t('pat_sin_organizacion')}</option>
+              {organizaciones.map((o) => (
+                <option key={o.id} value={o.id}>{o.nombre}</option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground mt-0.5">{t('pat_field_organizacion_ayuda')}</p>
+          </div>
+          <div>
+            <label htmlFor="pat-expiry" className="text-sm font-medium">{t('pat_field_expiry')}</label>
+            <input id="pat-expiry" {...register('expires_at')} type="date"
+              className="w-full border rounded px-2 py-1.5 text-sm mt-1" />
+            <p className="text-xs text-muted-foreground mt-0.5">{t('pat_field_expiry_ayuda')}</p>
+          </div>
+        </Modal>
       )}
 
       {created && (
-        <div role="dialog" aria-modal="true" aria-label={t('pat_created_title')} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-background rounded-lg shadow-lg p-6 w-full max-w-md space-y-4">
-            <h2 className="text-lg font-semibold">{t('pat_created_title')}</h2>
-            <p className="text-sm text-destructive">{t('pat_once_warning')}</p>
-            <code data-testid="pat-plaintext" className="block break-all bg-muted rounded p-2 text-xs font-mono">
-              {created.token}
-            </code>
-            <div className="flex justify-end gap-2">
+        <Modal
+          ariaLabel={t('pat_created_title')}
+          header={<h2 className="text-lg font-semibold">{t('pat_created_title')}</h2>}
+          footer={
+            <>
               <button onClick={handleCopy} className="px-3 py-1.5 rounded border text-sm">
                 {copied ? t('pat_copied') : t('pat_copy')}
               </button>
@@ -233,9 +233,14 @@ export function AccessTokensPage() {
               >
                 {t('pat_close')}
               </button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+        >
+          <p className="text-sm text-destructive">{t('pat_once_warning')}</p>
+          <code data-testid="pat-plaintext" className="block break-all bg-muted rounded p-2 text-xs font-mono">
+            {created.token}
+          </code>
+        </Modal>
       )}
     </div>
   )
