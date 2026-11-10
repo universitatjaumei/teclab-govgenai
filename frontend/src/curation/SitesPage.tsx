@@ -19,6 +19,7 @@ import type { ReconnaissanceView, SiteView } from '@/shared/api/generated/model'
 import { descargarConAutorizacion } from '@/shared/api/download'
 import { useOrganizacionElegida } from '@/shared/organizacion/useOrganizacionElegida'
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog'
+import { Modal } from '@/shared/components/Modal'
 import { SectionsPanel } from './SectionsPanel'
 
 const siteSchema = z.object({
@@ -411,223 +412,224 @@ export function SitesPage() {
       )}
 
       {dialogOpen && (
-        <div role="dialog" aria-modal="true" aria-label={t('new_site')} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-background rounded-lg shadow-lg p-6 w-full max-w-md space-y-4">
-            <h2 className="text-lg font-semibold">{t('new_site')}</h2>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-3" noValidate data-testid="form-sitio">
-              <div>
-                <label className="text-sm font-medium">{t('site_name')}</label>
-                <input {...register('name')} data-testid="campo-nombre" className="w-full border rounded px-2 py-1.5 text-sm mt-1" />
-                {errors.name && <p className="text-xs text-destructive mt-0.5">{tc('required')}</p>}
-              </div>
-              <div>
-                <label className="text-sm font-medium">{t('site_root_url')}</label>
-                <input {...register('root_url')} data-testid="campo-url" className="w-full border rounded px-2 py-1.5 text-sm mt-1" type="url" />
-                {errors.root_url && <p className="text-xs text-destructive mt-0.5">{tc('invalid_url')}</p>}
-              </div>
-              <div>
-                <label className="text-sm font-medium">{t('site_sitemap_url')}</label>
-                <input {...register('sitemap_url')} className="w-full border rounded px-2 py-1.5 text-sm mt-1" type="url" />
-              </div>
+        <Modal
+          ariaLabel={t('new_site')}
+          header={<h2 className="text-lg font-semibold">{t('new_site')}</h2>}
+          form={{ onSubmit: handleSubmit(onSubmit), noValidate: true, 'data-testid': 'form-sitio' }}
+          bodyClassName="space-y-3"
+          footer={
+            <>
+              <button type="button" onClick={() => { setDialogOpen(false); reset() }} className="px-3 py-1.5 rounded border text-sm">{tc('cancel')}</button>
+              <button type="submit" disabled={createMutation.isPending} className="px-3 py-1.5 rounded bg-primary text-primary-foreground text-sm">{tc('save')}</button>
+            </>
+          }
+        >
+          <div>
+            <label className="text-sm font-medium">{t('site_name')}</label>
+            <input {...register('name')} data-testid="campo-nombre" className="w-full border rounded px-2 py-1.5 text-sm mt-1" />
+            {errors.name && <p className="text-xs text-destructive mt-0.5">{tc('required')}</p>}
+          </div>
+          <div>
+            <label className="text-sm font-medium">{t('site_root_url')}</label>
+            <input {...register('root_url')} data-testid="campo-url" className="w-full border rounded px-2 py-1.5 text-sm mt-1" type="url" />
+            {errors.root_url && <p className="text-xs text-destructive mt-0.5">{tc('invalid_url')}</p>}
+          </div>
+          <div>
+            <label className="text-sm font-medium">{t('site_sitemap_url')}</label>
+            <input {...register('sitemap_url')} className="w-full border rounded px-2 py-1.5 text-sm mt-1" type="url" />
+          </div>
 
-              {/* CUR.6 — «valorar la extensión del sitio y si conviene hacerlo todo de golpe o por
-                  subapartados». El portal no publica sitemap (404 medido en RAS.4), así que se
-                  construye recorriendo: un sondeo corto que no guarda nada. */}
-              <fieldset className="border-t pt-3 space-y-2">
-                <legend className="text-sm font-medium">{t('recon_title')}</legend>
-                <p className="text-xs text-muted-foreground">{t('recon_help')}</p>
-                <button
-                  type="button"
-                  data-testid="btn-reconocer"
-                  disabled={!urlRaiz || reconocerMutation.isPending}
-                  onClick={reconocer}
-                  className="text-xs px-2 py-1 rounded border disabled:opacity-50"
-                >
-                  {reconocerMutation.isPending ? t('recon_running') : t('recon_run')}
-                </button>
+          {/* CUR.6 — «valorar la extensión del sitio y si conviene hacerlo todo de golpe o por
+              subapartados». El portal no publica sitemap (404 medido en RAS.4), así que se
+              construye recorriendo: un sondeo corto que no guarda nada. */}
+          <fieldset className="border-t pt-3 space-y-2">
+            <legend className="text-sm font-medium">{t('recon_title')}</legend>
+            <p className="text-xs text-muted-foreground">{t('recon_help')}</p>
+            <button
+              type="button"
+              data-testid="btn-reconocer"
+              disabled={!urlRaiz || reconocerMutation.isPending}
+              onClick={reconocer}
+              className="text-xs px-2 py-1 rounded border disabled:opacity-50"
+            >
+              {reconocerMutation.isPending ? t('recon_running') : t('recon_run')}
+            </button>
 
-                {errorReconocimiento && (
-                  <p data-testid="error-reconocimiento" className="text-xs text-destructive">
-                    {t('recon_failed')}: {errorReconocimiento}
+            {errorReconocimiento && (
+              <p data-testid="error-reconocimiento" className="text-xs text-destructive">
+                {t('recon_failed')}: {errorReconocimiento}
+              </p>
+            )}
+
+            {reconocimiento && (
+              <div className="space-y-2">
+                <p className="text-xs" data-testid="total-urls">
+                  {t('recon_total', {
+                    urls: reconocimiento.urls_encontradas,
+                    sondeadas: reconocimiento.paginas_sondeadas,
+                  })}
+                </p>
+                <p className="text-xs font-medium" data-testid="estimacion-rastreo">
+                  {t('recon_estimate', {
+                    minutos: Math.round(reconocimiento.segundos_estimados / 60),
+                    porPagina: reconocimiento.segundos_por_pagina.toFixed(1),
+                  })}
+                </p>
+                {reconocimiento.truncado && (
+                  <p data-testid="aviso-sondeo-truncado" className="text-xs text-amber-700">
+                    {t('recon_truncated', { motivo: reconocimiento.motivo_de_parada ?? '' })}
                   </p>
                 )}
-
-                {reconocimiento && (
-                  <div className="space-y-2">
-                    <p className="text-xs" data-testid="total-urls">
-                      {t('recon_total', {
-                        urls: reconocimiento.urls_encontradas,
-                        sondeadas: reconocimiento.paginas_sondeadas,
-                      })}
-                    </p>
-                    <p className="text-xs font-medium" data-testid="estimacion-rastreo">
-                      {t('recon_estimate', {
-                        minutos: Math.round(reconocimiento.segundos_estimados / 60),
-                        porPagina: reconocimiento.segundos_por_pagina.toFixed(1),
-                      })}
-                    </p>
-                    {reconocimiento.truncado && (
-                      <p data-testid="aviso-sondeo-truncado" className="text-xs text-amber-700">
-                        {t('recon_truncated', { motivo: reconocimiento.motivo_de_parada ?? '' })}
-                      </p>
-                    )}
-                    <table className="w-full text-xs border-collapse" data-testid="apartados-del-sitio">
-                      <thead>
-                        <tr className="border-b text-left text-muted-foreground">
-                          <th className="py-1 pr-2">{t('recon_section')}</th>
-                          <th className="py-1 pr-2">{t('recon_section_urls')}</th>
-                          <th className="py-1">{t('recon_section_example')}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {reconocimiento.apartados.map((a) => (
-                          <tr key={a.apartado} className="border-b">
-                            <td className="py-1 pr-2 font-mono">{a.apartado}</td>
-                            <td className="py-1 pr-2">{a.urls}</td>
-                            <td className="py-1 truncate max-w-[16rem] text-muted-foreground">
-                              {a.ejemplos[0] ?? '—'}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    <button
-                      type="button"
-                      data-testid="btn-descargar-csv"
-                      onClick={descargarElSitemap}
-                      className="text-xs px-2 py-1 rounded border"
-                    >
-                      {t('recon_download_csv')}
-                    </button>
-                  </div>
-                )}
-              </fieldset>
-              <div>
-                <label className="text-sm font-medium">{t('site_interval')}</label>
-                <input {...register('crawl_interval_hours')} type="number" min={1} className="w-full border rounded px-2 py-1.5 text-sm mt-1" />
+                <table className="w-full text-xs border-collapse" data-testid="apartados-del-sitio">
+                  <thead>
+                    <tr className="border-b text-left text-muted-foreground">
+                      <th className="py-1 pr-2">{t('recon_section')}</th>
+                      <th className="py-1 pr-2">{t('recon_section_urls')}</th>
+                      <th className="py-1">{t('recon_section_example')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reconocimiento.apartados.map((a) => (
+                      <tr key={a.apartado} className="border-b">
+                        <td className="py-1 pr-2 font-mono">{a.apartado}</td>
+                        <td className="py-1 pr-2">{a.urls}</td>
+                        <td className="py-1 truncate max-w-[16rem] text-muted-foreground">
+                          {a.ejemplos[0] ?? '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <button
+                  type="button"
+                  data-testid="btn-descargar-csv"
+                  onClick={descargarElSitemap}
+                  className="text-xs px-2 py-1 rounded border"
+                >
+                  {t('recon_download_csv')}
+                </button>
               </div>
-              <div>
-                <label className="text-sm font-medium">{t('site_audit_scope')}</label>
-                <select {...register('audit_semantic_scope')} className="w-full border rounded px-2 py-1.5 text-sm mt-1">
-                  <option value="ingested">{t('scope_ingested')}</option>
-                  <option value="full">{t('scope_full')}</option>
-                </select>
-              </div>
-              {/* El apartado y la cortesía: lo que convierte «rastrear un portal» en «rastrear
-                  este apartado, despacio y por donde el servidor deja». */}
-              <fieldset className="border-t pt-3 space-y-3">
-                <legend className="text-sm font-medium">{t('site_crawl_section')}</legend>
-                <div>
-                  <label className="text-sm font-medium" htmlFor="url_regex_filter">
-                    {t('site_url_filter')}
-                  </label>
-                  <input
-                    {...register('url_regex_filter')}
-                    id="url_regex_filter"
-                    data-testid="campo-url-regex"
-                    placeholder="/centres/escola-doctorat/"
-                    className="w-full border rounded px-2 py-1.5 text-sm mt-1 font-mono"
-                  />
-                  <p className="text-xs text-muted-foreground mt-0.5">{t('site_url_filter_help')}</p>
-                  {errors.url_regex_filter && (
-                    <p data-testid="error-url-regex" className="text-xs text-destructive mt-0.5">
-                      {t('site_url_filter_invalid')}
-                    </p>
-                  )}
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <label className="text-sm font-medium" htmlFor="crawl_depth">
-                      {t('site_depth')}
-                    </label>
-                    <input {...register('crawl_depth')} id="crawl_depth" data-testid="campo-profundidad" type="number" min={0} max={10} className="w-full border rounded px-2 py-1.5 text-sm mt-1" />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium" htmlFor="max_pages">
-                      {t('site_max_pages')}
-                    </label>
-                    <input {...register('max_pages')} id="max_pages" data-testid="campo-max-paginas" type="number" min={1} className="w-full border rounded px-2 py-1.5 text-sm mt-1" />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium" htmlFor="delay_seconds">
-                      {t('site_delay')}
-                    </label>
-                    <input {...register('delay_seconds')} id="delay_seconds" data-testid="campo-pausa" type="number" min={0} step={0.5} className="w-full border rounded px-2 py-1.5 text-sm mt-1" />
-                  </div>
-                </div>
-                <label className="flex items-center gap-2 text-sm">
-                  <input {...register('respect_robots')} data-testid="campo-robots" type="checkbox" />
-                  {t('site_respect_robots')}
-                </label>
-                {/* CUR.1 — la fecha que el propio portal publica en cada página. Con ella,
-                    «desactualizada» es un dato; sin ella se adivina por el año de la URL. */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-sm font-medium" htmlFor="content_date_selector">
-                      {t('site_date_selector')}
-                    </label>
-                    <input
-                      {...register('content_date_selector')}
-                      id="content_date_selector"
-                      data-testid="campo-selector-fecha"
-                      placeholder=".clockBarDate"
-                      className="w-full border rounded px-2 py-1.5 text-sm mt-1 font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium" htmlFor="content_date_format">
-                      {t('site_date_format')}
-                    </label>
-                    <input
-                      {...register('content_date_format')}
-                      id="content_date_format"
-                      data-testid="campo-formato-fecha"
-                      className="w-full border rounded px-2 py-1.5 text-sm mt-1 font-mono"
-                    />
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground">{t('site_date_help')}</p>
-              </fieldset>
-
-              {/* CUR.2.1 — los criterios con los que se juzga el contenido de ESTE sitio. Vivían en
-                  el código, así que todas las organizaciones compartían el mismo. */}
-              <fieldset className="border-t pt-3 space-y-3">
-                <legend className="text-sm font-medium">{t('site_criteria_section')}</legend>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-sm font-medium" htmlFor="stale_days">
-                      {t('site_stale_days')}
-                    </label>
-                    <input {...register('stale_days')} id="stale_days" data-testid="campo-antiguedad" type="number" min={1} className="w-full border rounded px-2 py-1.5 text-sm mt-1" />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium" htmlFor="thin_min_tokens">
-                      {t('site_thin_tokens')}
-                    </label>
-                    <input {...register('thin_min_tokens')} id="thin_min_tokens" data-testid="campo-pobreza" type="number" min={0} className="w-full border rounded px-2 py-1.5 text-sm mt-1" />
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium" htmlFor="version_series_policy">
-                    {t('site_series_policy')}
-                  </label>
-                  <select {...register('version_series_policy')} id="version_series_policy" data-testid="campo-politica-series" className="w-full border rounded px-2 py-1.5 text-sm mt-1">
-                    <option value="series">{t('series_policy_series')}</option>
-                    <option value="superseded">{t('series_policy_superseded')}</option>
-                    <option value="off">{t('series_policy_off')}</option>
-                  </select>
-                  <p className="text-xs text-muted-foreground mt-0.5">{t('site_series_help')}</p>
-                </div>
-                <p className="text-xs text-muted-foreground">{t('site_courtesy_help')}</p>
-              </fieldset>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => { setDialogOpen(false); reset() }} className="px-3 py-1.5 rounded border text-sm">{tc('cancel')}</button>
-                <button type="submit" disabled={createMutation.isPending} className="px-3 py-1.5 rounded bg-primary text-primary-foreground text-sm">{tc('save')}</button>
-              </div>
-            </form>
+            )}
+          </fieldset>
+          <div>
+            <label className="text-sm font-medium">{t('site_interval')}</label>
+            <input {...register('crawl_interval_hours')} type="number" min={1} className="w-full border rounded px-2 py-1.5 text-sm mt-1" />
           </div>
-        </div>
+          <div>
+            <label className="text-sm font-medium">{t('site_audit_scope')}</label>
+            <select {...register('audit_semantic_scope')} className="w-full border rounded px-2 py-1.5 text-sm mt-1">
+              <option value="ingested">{t('scope_ingested')}</option>
+              <option value="full">{t('scope_full')}</option>
+            </select>
+          </div>
+          {/* El apartado y la cortesía: lo que convierte «rastrear un portal» en «rastrear
+              este apartado, despacio y por donde el servidor deja». */}
+          <fieldset className="border-t pt-3 space-y-3">
+            <legend className="text-sm font-medium">{t('site_crawl_section')}</legend>
+            <div>
+              <label className="text-sm font-medium" htmlFor="url_regex_filter">
+                {t('site_url_filter')}
+              </label>
+              <input
+                {...register('url_regex_filter')}
+                id="url_regex_filter"
+                data-testid="campo-url-regex"
+                placeholder="/centres/escola-doctorat/"
+                className="w-full border rounded px-2 py-1.5 text-sm mt-1 font-mono"
+              />
+              <p className="text-xs text-muted-foreground mt-0.5">{t('site_url_filter_help')}</p>
+              {errors.url_regex_filter && (
+                <p data-testid="error-url-regex" className="text-xs text-destructive mt-0.5">
+                  {t('site_url_filter_invalid')}
+                </p>
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="text-sm font-medium" htmlFor="crawl_depth">
+                  {t('site_depth')}
+                </label>
+                <input {...register('crawl_depth')} id="crawl_depth" data-testid="campo-profundidad" type="number" min={0} max={10} className="w-full border rounded px-2 py-1.5 text-sm mt-1" />
+              </div>
+              <div>
+                <label className="text-sm font-medium" htmlFor="max_pages">
+                  {t('site_max_pages')}
+                </label>
+                <input {...register('max_pages')} id="max_pages" data-testid="campo-max-paginas" type="number" min={1} className="w-full border rounded px-2 py-1.5 text-sm mt-1" />
+              </div>
+              <div>
+                <label className="text-sm font-medium" htmlFor="delay_seconds">
+                  {t('site_delay')}
+                </label>
+                <input {...register('delay_seconds')} id="delay_seconds" data-testid="campo-pausa" type="number" min={0} step={0.5} className="w-full border rounded px-2 py-1.5 text-sm mt-1" />
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input {...register('respect_robots')} data-testid="campo-robots" type="checkbox" />
+              {t('site_respect_robots')}
+            </label>
+            {/* CUR.1 — la fecha que el propio portal publica en cada página. Con ella,
+                «desactualizada» es un dato; sin ella se adivina por el año de la URL. */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-sm font-medium" htmlFor="content_date_selector">
+                  {t('site_date_selector')}
+                </label>
+                <input
+                  {...register('content_date_selector')}
+                  id="content_date_selector"
+                  data-testid="campo-selector-fecha"
+                  placeholder=".clockBarDate"
+                  className="w-full border rounded px-2 py-1.5 text-sm mt-1 font-mono"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium" htmlFor="content_date_format">
+                  {t('site_date_format')}
+                </label>
+                <input
+                  {...register('content_date_format')}
+                  id="content_date_format"
+                  data-testid="campo-formato-fecha"
+                  className="w-full border rounded px-2 py-1.5 text-sm mt-1 font-mono"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">{t('site_date_help')}</p>
+          </fieldset>
+
+          {/* CUR.2.1 — los criterios con los que se juzga el contenido de ESTE sitio. Vivían en
+              el código, así que todas las organizaciones compartían el mismo. */}
+          <fieldset className="border-t pt-3 space-y-3">
+            <legend className="text-sm font-medium">{t('site_criteria_section')}</legend>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-sm font-medium" htmlFor="stale_days">
+                  {t('site_stale_days')}
+                </label>
+                <input {...register('stale_days')} id="stale_days" data-testid="campo-antiguedad" type="number" min={1} className="w-full border rounded px-2 py-1.5 text-sm mt-1" />
+              </div>
+              <div>
+                <label className="text-sm font-medium" htmlFor="thin_min_tokens">
+                  {t('site_thin_tokens')}
+                </label>
+                <input {...register('thin_min_tokens')} id="thin_min_tokens" data-testid="campo-pobreza" type="number" min={0} className="w-full border rounded px-2 py-1.5 text-sm mt-1" />
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium" htmlFor="version_series_policy">
+                {t('site_series_policy')}
+              </label>
+              <select {...register('version_series_policy')} id="version_series_policy" data-testid="campo-politica-series" className="w-full border rounded px-2 py-1.5 text-sm mt-1">
+                <option value="series">{t('series_policy_series')}</option>
+                <option value="superseded">{t('series_policy_superseded')}</option>
+                <option value="off">{t('series_policy_off')}</option>
+              </select>
+              <p className="text-xs text-muted-foreground mt-0.5">{t('site_series_help')}</p>
+            </div>
+            <p className="text-xs text-muted-foreground">{t('site_courtesy_help')}</p>
+          </fieldset>
+        </Modal>
       )}
 
       {/* #358 — la confirmación nombra el sitio y lo que se pierde. */}

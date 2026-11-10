@@ -13,6 +13,7 @@ import {
   getListPromptTemplatesApiV1HubPromptTemplatesGetQueryKey,
 } from '@/shared/api/generated/hub-prompt-templates/hub-prompt-templates'
 import type { ChatbotRead, PromptTemplateRead, PromptTemplateCreate, ChatbotUpdate } from '@/shared/api/generated/model'
+import { Modal } from '@/shared/components/Modal'
 import { useChatbotsDeLaOrganizacion } from '@/shared/organizacion/useChatbotsDeLaOrganizacion'
 
 // Render template text with {variable} spans highlighted (for the editor preview)
@@ -463,54 +464,12 @@ export function PromptsPage() {
       )}
 
       {showCreate && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="create-template-dialog-title"
-        >
-          <div className="bg-background rounded-lg p-6 w-full max-w-md flex flex-col gap-4">
-            <h3 id="create-template-dialog-title" className="font-semibold text-base">{t('hub.new_prompt_template')}</h3>
-            <div className="flex flex-col gap-3 text-sm">
-              <label className="flex flex-col gap-1">
-                <span className="text-xs text-muted-foreground">Servicio/chatbot</span>
-                <input
-                  disabled
-                  className="border rounded px-2 py-1.5 bg-muted text-muted-foreground"
-                  value={chatbots.find((c) => c.id === chatbotFilter)?.name ?? ''}
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-xs text-muted-foreground">{t('hub.prompt_slug')}</span>
-                <input
-                  className="border rounded px-2 py-1.5"
-                  value={newForm.slug ?? ''}
-                  onChange={(e) => setNewForm((f) => ({ ...f, slug: e.target.value }))}
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-xs text-muted-foreground">{t('hub.language_label')}</span>
-                <select
-                  className="border rounded px-2 py-1.5"
-                  value={newForm.language ?? 'es'}
-                  onChange={(e) => setNewForm((f) => ({ ...f, language: e.target.value }))}
-                >
-                  <option value="es">es</option>
-                  <option value="ca">ca</option>
-                  <option value="en">en</option>
-                </select>
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-xs text-muted-foreground">{t('hub.prompt_text')}</span>
-                <textarea
-                  rows={4}
-                  className="border rounded px-2 py-1.5 font-mono text-xs resize-y"
-                  value={newForm.template_text ?? ''}
-                  onChange={(e) => setNewForm((f) => ({ ...f, template_text: e.target.value }))}
-                />
-              </label>
-            </div>
-            <div className="flex justify-end gap-2">
+        <Modal
+          ariaLabelledBy="create-template-dialog-title"
+          header={<h3 id="create-template-dialog-title" className="font-semibold text-base">{t('hub.new_prompt_template')}</h3>}
+          bodyClassName="flex flex-col gap-3 space-y-0 text-sm"
+          footer={
+            <>
               <button
                 onClick={() => { setShowCreate(false); setNewForm({ language: 'es' }) }}
                 className="px-3 py-1.5 rounded border text-sm"
@@ -535,9 +494,47 @@ export function PromptsPage() {
               >
                 {t('hub.create')}
               </button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+        >
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-muted-foreground">Servicio/chatbot</span>
+            <input
+              disabled
+              className="border rounded px-2 py-1.5 bg-muted text-muted-foreground"
+              value={chatbots.find((c) => c.id === chatbotFilter)?.name ?? ''}
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-muted-foreground">{t('hub.prompt_slug')}</span>
+            <input
+              className="border rounded px-2 py-1.5"
+              value={newForm.slug ?? ''}
+              onChange={(e) => setNewForm((f) => ({ ...f, slug: e.target.value }))}
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-muted-foreground">{t('hub.language_label')}</span>
+            <select
+              className="border rounded px-2 py-1.5"
+              value={newForm.language ?? 'es'}
+              onChange={(e) => setNewForm((f) => ({ ...f, language: e.target.value }))}
+            >
+              <option value="es">es</option>
+              <option value="ca">ca</option>
+              <option value="en">en</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-muted-foreground">{t('hub.prompt_text')}</span>
+            <textarea
+              rows={4}
+              className="border rounded px-2 py-1.5 font-mono text-xs resize-y"
+              value={newForm.template_text ?? ''}
+              onChange={(e) => setNewForm((f) => ({ ...f, template_text: e.target.value }))}
+            />
+          </label>
+        </Modal>
       )}
     </div>
   )

@@ -14,6 +14,7 @@ import {
 } from '@/shared/api/generated/hub-organizaciones/hub-organizaciones'
 import { errorDeLaApi } from '@/shared/api/errorDeLaApi'
 import type { OrganizacionRead } from '@/shared/api/generated/model'
+import { Modal } from '@/shared/components/Modal'
 
 /**
  * #252 — el servidor no borra una organización que todavía tiene datos: responde 409 con
@@ -223,70 +224,65 @@ export function OrganizacionesPage() {
 
       {/* Dialog crear / editar */}
       {dialogOpen && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 flex items-center justify-center bg-black/40 z-50">
-          <div className="bg-card rounded-lg p-6 w-full max-w-md shadow-lg space-y-4">
+        <Modal
+          className="bg-card"
+          header={
             <h2 className="text-lg font-semibold">
               {editing ? tc('edit') + ' — ' + editing.name : t('hub.new_organizacion')}
             </h2>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
-              <div>
-                <label htmlFor="organizacion_name" className="text-sm font-medium">{t('hub.organizacion_name')}</label>
-                <input
-                  id="organizacion_name"
-                  {...register('name')}
-                  className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
-                />
-                {errors.name && <p className="text-destructive text-xs mt-1">{errors.name.message}</p>}
-              </div>
-              <div>
-                <label htmlFor="organizacion_admin_id" className="text-sm font-medium">{t('hub.organizacion_admin')}</label>
-                <input
-                  id="organizacion_admin_id"
-                  {...register('partner_id')}
-                  className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
-                />
-                {errors.partner_id && <p className="text-destructive text-xs mt-1">{errors.partner_id.message}</p>}
-              </div>
-              <div className="flex items-center gap-2">
-                <input type="checkbox" id="is_active" {...register('is_active')} className="rounded" />
-                <label htmlFor="is_active" className="text-sm">{t('hub.organizacion_active')}</label>
-              </div>
-              <div className="flex gap-2 justify-end pt-2">
-                <button
-                  type="button"
-                  onClick={closeDialog}
-                  className="px-3 py-2 border rounded-md text-sm"
-                >
-                  {tc('cancel')}
-                </button>
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="px-3 py-2 bg-primary text-primary-foreground rounded-md text-sm disabled:opacity-50"
-                >
-                  {tc('save')}
-                </button>
-              </div>
-            </form>
+          }
+          form={{ onSubmit: handleSubmit(onSubmit) }}
+          bodyClassName="space-y-3"
+          footer={
+            <>
+              <button
+                type="button"
+                onClick={closeDialog}
+                className="px-3 py-2 border rounded-md text-sm"
+              >
+                {tc('cancel')}
+              </button>
+              <button
+                type="submit"
+                disabled={isPending}
+                className="px-3 py-2 bg-primary text-primary-foreground rounded-md text-sm disabled:opacity-50"
+              >
+                {tc('save')}
+              </button>
+            </>
+          }
+        >
+          <div>
+            <label htmlFor="organizacion_name" className="text-sm font-medium">{t('hub.organizacion_name')}</label>
+            <input
+              id="organizacion_name"
+              {...register('name')}
+              className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
+            />
+            {errors.name && <p className="text-destructive text-xs mt-1">{errors.name.message}</p>}
           </div>
-        </div>
+          <div>
+            <label htmlFor="organizacion_admin_id" className="text-sm font-medium">{t('hub.organizacion_admin')}</label>
+            <input
+              id="organizacion_admin_id"
+              {...register('partner_id')}
+              className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
+            />
+            {errors.partner_id && <p className="text-destructive text-xs mt-1">{errors.partner_id.message}</p>}
+          </div>
+          <div className="flex items-center gap-2">
+            <input type="checkbox" id="is_active" {...register('is_active')} className="rounded" />
+            <label htmlFor="is_active" className="text-sm">{t('hub.organizacion_active')}</label>
+          </div>
+        </Modal>
       )}
 
       {/* Dialog confirmación borrado */}
       {deleteTarget && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 flex items-center justify-center bg-black/40 z-50">
-          <div className="bg-card rounded-lg p-6 w-full max-w-sm shadow-lg space-y-4">
-            <p className="text-sm">{t('hub.delete_organizacion_confirm')}</p>
-            <p className="font-medium">{deleteTarget.name}</p>
-            {deleteError && <p className="text-destructive text-xs">{deleteError}</p>}
-            {deletePendiente && (
-              <ul className="text-destructive text-xs list-disc pl-5">
-                {Object.entries(deletePendiente).map(([clave, cuantos]) => (
-                  <li key={clave}>{t(`hub.organizacion_pendiente_${clave}`, { count: cuantos })}</li>
-                ))}
-              </ul>
-            )}
-            <div className="flex gap-2 justify-end">
+        <Modal
+          className="bg-card max-w-sm"
+          footer={
+            <>
               <button
                 type="button"
                 onClick={() => { setDeleteTarget(null); setDeleteError(''); setDeletePendiente(null) }}
@@ -302,9 +298,20 @@ export function OrganizacionesPage() {
               >
                 {tc('delete')}
               </button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+        >
+          <p className="text-sm">{t('hub.delete_organizacion_confirm')}</p>
+          <p className="font-medium">{deleteTarget.name}</p>
+          {deleteError && <p className="text-destructive text-xs">{deleteError}</p>}
+          {deletePendiente && (
+            <ul className="text-destructive text-xs list-disc pl-5">
+              {Object.entries(deletePendiente).map(([clave, cuantos]) => (
+                <li key={clave}>{t(`hub.organizacion_pendiente_${clave}`, { count: cuantos })}</li>
+              ))}
+            </ul>
+          )}
+        </Modal>
       )}
     </div>
   )

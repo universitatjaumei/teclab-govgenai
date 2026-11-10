@@ -19,6 +19,7 @@
     "codigo_fuente": "Source code"
   },
   "required": "Required",
+  "invalid_url": "Invalid URL",
   "close": "Close",
   "create_report": "Create report",
   "sample_label": "Data file (optional)",

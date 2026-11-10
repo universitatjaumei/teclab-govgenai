@@ -13,6 +13,9 @@ import { join, resolve } from 'node:path'
 import es from '@/shared/i18n/locales/es/curation.json'
 import ca from '@/shared/i18n/locales/ca/curation.json'
 import en from '@/shared/i18n/locales/en/curation.json'
+import esCommon from '@/shared/i18n/locales/es/common.json'
+import caCommon from '@/shared/i18n/locales/ca/common.json'
+import enCommon from '@/shared/i18n/locales/en/common.json'
 
 const CURATION_SRC = resolve(__dirname, '../../../curation')
 
@@ -130,5 +133,16 @@ describe('CUR.2 — i18n de curación', () => {
       presentes,
       `Literales en castellano incrustados en frontend/src/curation:\n  ${presentes.join('\n  ')}`,
     ).toEqual([])
+  })
+
+  it('should_find_every_common_key_curation_uses', () => {
+    // #374 — `tc('invalid_url')` en «Nueva web» pintaba la clave tal cual: no estaba en
+    // `common.json` de ninguna lengua, y la paridad de arriba sólo mira `curation.json`.
+    const usadas = new Set([...codigoCuracion.matchAll(/\btc\(\s*'([\w.]+)'/g)].map((m) => m[1]))
+    for (const [lengua, dic] of Object.entries({ es: esCommon, ca: caCommon, en: enCommon })) {
+      const existentes = new Set(claves(dic as Diccionario))
+      const faltan = [...usadas].filter((k) => !existentes.has(k))
+      expect(faltan, `Claves de common que curación usa y faltan en ${lengua}`).toEqual([])
+    }
   })
 })

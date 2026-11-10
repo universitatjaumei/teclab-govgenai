@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { ChatbotRead, LLMConfigRead } from '@/shared/api/generated/model'
+import { Modal } from '@/shared/components/Modal'
 import {
   useCreateChatbotApiV1HubChatbotsPost,
   useUpdateChatbotApiV1HubChatbotsChatbotIdPatch,
@@ -562,15 +563,13 @@ export function ChatbotsPage() {
 
       {/* Dialog crear / editar */}
       {dialogOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 flex items-center justify-center bg-black/40 z-50 p-4"
-          onClick={(e) => { if (e.target === e.currentTarget) closeDialog() }}
-        >
-          <div className="bg-card rounded-lg w-full max-w-md shadow-lg flex flex-col max-h-[90vh]">
-            {/* Cabecera fija — siempre visible */}
-            <div className="flex items-center justify-between px-6 py-4 border-b shrink-0">
+        <Modal
+          className="bg-card"
+          onBackdropClick={closeDialog}
+          headerClassName="flex items-center justify-between px-6 py-4 border-b"
+          bodyClassName="px-6 py-4"
+          header={
+            <>
               <h2 className="text-lg font-semibold truncate">
                 {editing ? tc('edit') + ' — ' + editing.name : t('hub.new_chatbot')}
               </h2>
@@ -582,600 +581,591 @@ export function ChatbotsPage() {
               >
                 ✕
               </button>
-            </div>
-
-            {/* Cuerpo scrollable */}
-            <div className="overflow-y-auto flex-1 px-6 py-4 space-y-4">
-              {editing && (
-                <div className="space-y-3 rounded-md border bg-muted/40 p-3 text-sm">
-                  <div>
-                    <p className="font-medium text-muted-foreground mb-1">{t('hub.chatbot_id_label')}</p>
-                    <div className="flex items-center gap-2">
-                      <code className="flex-1 truncate rounded bg-background px-2 py-1 font-mono text-xs border">
-                        {editing.id}
-                      </code>
-                      <button
-                        type="button"
-                        onClick={copyId}
-                        className="shrink-0 px-2 py-1 text-xs border rounded-md hover:bg-accent transition-colors"
-                      >
-                        {copied ? t('hub.chatbot_id_copied') : t('hub.chatbot_id_copy')}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="font-medium text-muted-foreground mb-1">{t('hub.chatbot_install_title')}</p>
-                    <p className="text-muted-foreground text-xs mb-1">{t('hub.chatbot_install_desc')}</p>
-                    <pre
-                      data-testid="install-snippet"
-                      className="overflow-x-auto rounded bg-background border px-3 py-2 text-xs font-mono leading-relaxed"
-                    >
-                      {installSnippet(editing.id)}
-                    </pre>
-                  </div>
-                </div>
-              )}
-
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-3" noValidate>
-                <div>
-                  <label htmlFor="chatbot-name" className="text-sm font-medium">{t('hub.chatbot_name')}</label>
-                  <input
-                    id="chatbot-name"
-                    {...register('name')}
-                    className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
-                  />
-                  {errors.name && <p className="text-destructive text-xs mt-1">{errors.name.message}</p>}
-                </div>
-                <div>
-                  <label htmlFor="chatbot-llm-config" className="text-sm font-medium">
-                    {t('hub.chatbot_model')}
-                  </label>
-                  <select
-                    id="chatbot-llm-config"
-                    {...register('llm_config_id')}
-                    className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
+            </>
+          }
+        >
+          {editing && (
+            <div className="space-y-3 rounded-md border bg-muted/40 p-3 text-sm">
+              <div>
+                <p className="font-medium text-muted-foreground mb-1">{t('hub.chatbot_id_label')}</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 truncate rounded bg-background px-2 py-1 font-mono text-xs border">
+                    {editing.id}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={copyId}
+                    className="shrink-0 px-2 py-1 text-xs border rounded-md hover:bg-accent transition-colors"
                   >
-                    {llmConfigs.length === 0 && <option value="">{t('hub.no_llm_configs')}</option>}
-                    {llmConfigs.map((config) => (
-                      <option key={config.id} value={config.id}>{etiquetaModelo(config)}</option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-muted-foreground mt-1">{t('hub.chatbot_model_hint')}</p>
-                  {errors.llm_config_id && (
-                    <p className="text-destructive text-xs mt-1">{errors.llm_config_id.message}</p>
-                  )}
+                    {copied ? t('hub.chatbot_id_copied') : t('hub.chatbot_id_copy')}
+                  </button>
                 </div>
-                {!editing && (
-                  <div>
-                    <label htmlFor="chatbot-organizacion" className="text-sm font-medium">
-                      {t('hub.chatbot_organizacion')}
-                    </label>
-                    <select
-                      id="chatbot-organizacion"
-                      {...register('organizacion_id')}
-                      className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
+              </div>
+
+              <div>
+                <p className="font-medium text-muted-foreground mb-1">{t('hub.chatbot_install_title')}</p>
+                <p className="text-muted-foreground text-xs mb-1">{t('hub.chatbot_install_desc')}</p>
+                <pre
+                  data-testid="install-snippet"
+                  className="overflow-x-auto rounded bg-background border px-3 py-2 text-xs font-mono leading-relaxed"
+                >
+                  {installSnippet(editing.id)}
+                </pre>
+              </div>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-3" noValidate>
+            <div>
+              <label htmlFor="chatbot-name" className="text-sm font-medium">{t('hub.chatbot_name')}</label>
+              <input
+                id="chatbot-name"
+                {...register('name')}
+                className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
+              />
+              {errors.name && <p className="text-destructive text-xs mt-1">{errors.name.message}</p>}
+            </div>
+            <div>
+              <label htmlFor="chatbot-llm-config" className="text-sm font-medium">
+                {t('hub.chatbot_model')}
+              </label>
+              <select
+                id="chatbot-llm-config"
+                {...register('llm_config_id')}
+                className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
+              >
+                {llmConfigs.length === 0 && <option value="">{t('hub.no_llm_configs')}</option>}
+                {llmConfigs.map((config) => (
+                  <option key={config.id} value={config.id}>{etiquetaModelo(config)}</option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground mt-1">{t('hub.chatbot_model_hint')}</p>
+              {errors.llm_config_id && (
+                <p className="text-destructive text-xs mt-1">{errors.llm_config_id.message}</p>
+              )}
+            </div>
+            {!editing && (
+              <div>
+                <label htmlFor="chatbot-organizacion" className="text-sm font-medium">
+                  {t('hub.chatbot_organizacion')}
+                </label>
+                <select
+                  id="chatbot-organizacion"
+                  {...register('organizacion_id')}
+                  className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
+                >
+                  {organizaciones.map((org) => (
+                    <option key={org.id} value={org.id}>{org.name}</option>
+                  ))}
+                </select>
+                {errors.organizacion_id && (
+                  <p className="text-destructive text-xs mt-1">{errors.organizacion_id.message}</p>
+                )}
+              </div>
+            )}
+            <div>
+              <label htmlFor="chatbot-kind" className="text-sm font-medium">{t('hub.chatbot_kind')}</label>
+              <select
+                id="chatbot-kind"
+                {...register('kind')}
+                className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
+              >
+                <option value="atomic">{t('hub.chatbot_kind_atomic')}</option>
+                <option value="router">{t('hub.chatbot_kind_router')}</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="chatbot-system-prompt" className="text-sm font-medium">{selectedKind === 'router' ? t('hub.chatbot_router_description') : t('hub.chatbot_prompt')}</label>
+              <textarea
+                id="chatbot-system-prompt"
+                {...register('system_prompt')}
+                rows={8}
+                className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background resize-y"
+              />
+              {errors.system_prompt && <p className="text-destructive text-xs mt-1">{errors.system_prompt.message}</p>}
+            </div>
+            {editing && corpusStats && (
+              <div className="rounded-md border bg-blue-50 border-blue-200 p-3 space-y-1">
+                <p className="text-sm">
+                  <span className="font-medium">{t('hub.chatbot_suggested')}</span>{' '}
+                  <strong>{corpusStats.recommended_mode}</strong>
+                  <span className="text-muted-foreground"> — {corpusStats.total_tokens.toLocaleString()} tokens</span>
+                </p>
+                <p className="text-xs text-muted-foreground">{corpusStats.recommendation_reason}</p>
+                {selectedKind === 'atomic' && retrievalMode !== corpusStats.recommended_mode && (
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                    Has elegido un modo distinto del recomendado para este corpus.
+                  </p>
+                )}
+                {selectedKind === 'atomic' && retrievalMode === 'RAG' && (
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => regenerateChunksMutation.mutate({ chatbotId: editing!.id })}
+                      disabled={regenerateChunksMutation.isPending}
+                      className="px-2 py-1 text-xs border rounded-md hover:bg-accent disabled:opacity-50"
                     >
-                      {organizaciones.map((org) => (
-                        <option key={org.id} value={org.id}>{org.name}</option>
-                      ))}
-                    </select>
-                    {errors.organizacion_id && (
-                      <p className="text-destructive text-xs mt-1">{errors.organizacion_id.message}</p>
-                    )}
+                      {regenerateChunksMutation.isPending ? 'Regenerando...' : 'Recalcular chunks'}
+                    </button>
                   </div>
                 )}
+              </div>
+            )}
+
+            {selectedKind === 'atomic' && (
+              <>
                 <div>
-                  <label htmlFor="chatbot-kind" className="text-sm font-medium">{t('hub.chatbot_kind')}</label>
+                  <label htmlFor="chatbot-retrieval-mode" className="text-sm font-medium">{t('hub.chatbot_retrieval_mode')}</label>
                   <select
-                    id="chatbot-kind"
-                    {...register('kind')}
+                    id="chatbot-retrieval-mode"
+                    {...register('retrieval_mode')}
                     className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
                   >
-                    <option value="atomic">{t('hub.chatbot_kind_atomic')}</option>
-                    <option value="router">{t('hub.chatbot_kind_router')}</option>
+                    {modosDisponibles.map(m => (
+                      <option key={m.nombre} value={m.nombre}>
+                        {ETIQUETAS_DE_MODO[m.nombre] ? t(ETIQUETAS_DE_MODO[m.nombre].labelKey) : m.nombre}
+                      </option>
+                    ))}
                   </select>
+                  {retrievalHint && <p className="text-xs text-muted-foreground mt-1">{retrievalHint}</p>}
                 </div>
-                <div>
-                  <label htmlFor="chatbot-system-prompt" className="text-sm font-medium">{selectedKind === 'router' ? t('hub.chatbot_router_description') : t('hub.chatbot_prompt')}</label>
-                  <textarea
-                    id="chatbot-system-prompt"
-                    {...register('system_prompt')}
-                    rows={8}
-                    className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background resize-y"
-                  />
-                  {errors.system_prompt && <p className="text-destructive text-xs mt-1">{errors.system_prompt.message}</p>}
-                </div>
-                {editing && corpusStats && (
-                  <div className="rounded-md border bg-blue-50 border-blue-200 p-3 space-y-1">
-                    <p className="text-sm">
-                      <span className="font-medium">{t('hub.chatbot_suggested')}</span>{' '}
-                      <strong>{corpusStats.recommended_mode}</strong>
-                      <span className="text-muted-foreground"> — {corpusStats.total_tokens.toLocaleString()} tokens</span>
-                    </p>
-                    <p className="text-xs text-muted-foreground">{corpusStats.recommendation_reason}</p>
-                    {selectedKind === 'atomic' && retrievalMode !== corpusStats.recommended_mode && (
-                      <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-                        Has elegido un modo distinto del recomendado para este corpus.
-                      </p>
-                    )}
-                    {selectedKind === 'atomic' && retrievalMode === 'RAG' && (
-                      <div className="pt-1">
-                        <button
-                          type="button"
-                          onClick={() => regenerateChunksMutation.mutate({ chatbotId: editing!.id })}
-                          disabled={regenerateChunksMutation.isPending}
-                          className="px-2 py-1 text-xs border rounded-md hover:bg-accent disabled:opacity-50"
-                        >
-                          {regenerateChunksMutation.isPending ? 'Regenerando...' : 'Recalcular chunks'}
-                        </button>
+                {retrievalMode === 'RAG' && (
+                  <div>
+                    <label htmlFor="chatbot-top-k" className="text-sm font-medium">{t('hub.chatbot_top_k')}</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={50}
+                      id="chatbot-top-k"
+                        {...register('retrieval_top_k', { valueAsNumber: true })}
+                      className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
+                    />
+                    {errors.retrieval_top_k && <p className="text-destructive text-xs mt-1">{errors.retrieval_top_k.message}</p>}
+                    <p className="text-xs text-muted-foreground mt-1">{t('hub.chatbot_top_k_hint')}</p>
+                  </div>
+                )}
+                {retrievalMode === 'MD_LONG_CONTEXT' && (
+                  <div className="rounded-md border bg-muted/40 p-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="use_prompt_caching"
+                        {...register('use_prompt_caching')}
+                        className="rounded"
+                      />
+                      <label htmlFor="use_prompt_caching" className="text-sm">
+                        {t('hub.chatbot_prompt_caching')}
+                      </label>
+                    </div>
+                    {usePromptCaching && (
+                      <div>
+                        <label htmlFor="chatbot-cache-ttl" className="text-sm font-medium">{t('hub.chatbot_cache_ttl')}</label>
+                        <input
+                          type="number"
+                          min={60}
+                          max={86400}
+                          id="chatbot-cache-ttl"
+                        {...register('cache_ttl', { valueAsNumber: true })}
+                          className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
+                        />
+                        {errors.cache_ttl && <p className="text-destructive text-xs mt-1">{errors.cache_ttl.message}</p>}
                       </div>
                     )}
                   </div>
                 )}
-
-                {selectedKind === 'atomic' && (
-                  <>
+                {showLongContextHardError && (
+                  <p className="text-destructive text-xs mt-1">
+                    {t('hub.chatbot_long_context_error', {
+              limite: corpusStats?.limite_contexto_largo.toLocaleString(),
+            })}
+                  </p>
+                )}
+                <div className="pt-2">
+                  <p className="text-sm font-medium text-muted-foreground mb-2">{t('hub.chatbot_graph_section')}</p>
+                  <div className="space-y-3 rounded-md border bg-muted/40 p-3">
                     <div>
-                      <label htmlFor="chatbot-retrieval-mode" className="text-sm font-medium">{t('hub.chatbot_retrieval_mode')}</label>
+                      <label htmlFor="chatbot-graph-profile" className="text-sm font-medium">{t('hub.chatbot_graph_profile')}</label>
+                      {/* PLG.3 — la unica opcion estaba escrita aqui, asi que un perfil
+                          instalado no habria aparecido nunca. Ahora la lista viene del
+                          servidor, y los NO configurables salen deshabilitados con su
+                          motivo en vez de ocultarse: ocultarlos dejaria sin explicar por
+                          que un perfil que existe no se puede elegir. */}
                       <select
-                        id="chatbot-retrieval-mode"
-                        {...register('retrieval_mode')}
+                        id="chatbot-graph-profile"
+                        {...register('public_graph_profile')}
                         className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
                       >
-                        {modosDisponibles.map(m => (
-                          <option key={m.nombre} value={m.nombre}>
-                            {ETIQUETAS_DE_MODO[m.nombre] ? t(ETIQUETAS_DE_MODO[m.nombre].labelKey) : m.nombre}
+                        {perfilesDisponibles.map(p => (
+                          <option key={p.nombre} value={p.nombre} disabled={!p.configurable}>
+                            {p.nombre === 'PUBLIC_KB_RICH' ? t('hub.chatbot_graph_profile_rich') : p.nombre}
+                            {p.configurable ? '' : ` — ${t('hub.chatbot_graph_profile_no_configurable')}`}
                           </option>
                         ))}
                       </select>
-                      {retrievalHint && <p className="text-xs text-muted-foreground mt-1">{retrievalHint}</p>}
                     </div>
-                    {retrievalMode === 'RAG' && (
-                      <div>
-                        <label htmlFor="chatbot-top-k" className="text-sm font-medium">{t('hub.chatbot_top_k')}</label>
-                        <input
-                          type="number"
-                          min={1}
-                          max={50}
-                          id="chatbot-top-k"
-                            {...register('retrieval_top_k', { valueAsNumber: true })}
-                          className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
-                        />
-                        {errors.retrieval_top_k && <p className="text-destructive text-xs mt-1">{errors.retrieval_top_k.message}</p>}
-                        <p className="text-xs text-muted-foreground mt-1">{t('hub.chatbot_top_k_hint')}</p>
+                    {/* LANG.2 — la lista venía escrita aquí y ofrecía `strict`, que la
+                        factoría del grafo nunca compuso: una opción que no hacía nada, y
+                        que desde LANG.1 además da 422. Ahora los modos y los idiomas los
+                        trae el contrato, con el código del corpus (`val`, no `ca`). */}
+                    <SelectorDeModoDeLengua
+                      idPrefijo="chatbot-language"
+                      valor={languageMode ?? 'prefer'}
+                      onChange={(v) =>
+                        setValue('language_mode', v, { shouldDirty: true })
+                      }
+                    />
+                    {/* PLG.2/PLG.3 — un select por EJE, y los ejes salen de la respuesta:
+                        no hay lista de ejes en React. «Heredar» manda la clave AUSENTE, no
+                        una cadena vacia, porque la cascada distingue las dos cosas: ausente
+                        hereda de la organizacion y, en su defecto, de la composicion del
+                        perfil. */}
+                    {ejes.length > 0 && (
+                      <div className="space-y-2 rounded-md border border-dashed p-2">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          {t('hub.chatbot_estrategias')}
+                        </p>
+                        {ejes.map(eje => {
+                          const puestas = estrategiasPuestas ?? {}
+                          const disponibles = opciones?.estrategias?.[eje] ?? []
+                          return (
+                            <div key={eje}>
+                              <label htmlFor={`chatbot-estrategia-${eje}`} className="text-xs font-medium">
+                                {ETIQUETA_DE_EJE[eje] ? t(ETIQUETA_DE_EJE[eje]) : eje}
+                              </label>
+                              <select
+                                id={`chatbot-estrategia-${eje}`}
+                                value={puestas[eje] ?? ''}
+                                onChange={(e) => {
+                                  const siguiente = { ...puestas }
+                                  if (e.target.value) siguiente[eje] = e.target.value
+                                  else delete siguiente[eje]
+                                  setValue('estrategias', siguiente, { shouldDirty: true })
+                                }}
+                                className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
+                              >
+                                <option value="">{t('hub.chatbot_estrategia_heredar')}</option>
+                                {disponibles.map(s => (
+                                  <option key={s.nombre} value={s.nombre}>
+                                    {s.nombre}{s.origen === 'paquete' ? ` (${t('hub.chatbot_estrategia_de_paquete')})` : ''}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          )
+                        })}
                       </div>
                     )}
-                    {retrievalMode === 'MD_LONG_CONTEXT' && (
-                      <div className="rounded-md border bg-muted/40 p-3 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            id="use_prompt_caching"
-                            {...register('use_prompt_caching')}
-                            className="rounded"
-                          />
-                          <label htmlFor="use_prompt_caching" className="text-sm">
-                            {t('hub.chatbot_prompt_caching')}
-                          </label>
-                        </div>
-                        {usePromptCaching && (
-                          <div>
-                            <label htmlFor="chatbot-cache-ttl" className="text-sm font-medium">{t('hub.chatbot_cache_ttl')}</label>
-                            <input
-                              type="number"
-                              min={60}
-                              max={86400}
-                              id="chatbot-cache-ttl"
-                            {...register('cache_ttl', { valueAsNumber: true })}
-                              className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
-                            />
-                            {errors.cache_ttl && <p className="text-destructive text-xs mt-1">{errors.cache_ttl.message}</p>}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    {showLongContextHardError && (
-                      <p className="text-destructive text-xs mt-1">
-                        {t('hub.chatbot_long_context_error', {
-                  limite: corpusStats?.limite_contexto_largo.toLocaleString(),
-                })}
+                    {/* #351 — `step="any"` en los dos umbrales: se calibran midiendo (0,69), y
+                        con un paso de 0,05 la validación nativa bloqueaba el envío entero sin
+                        que saliera ninguna petición. El rango lo comprueba el esquema, y su
+                        error se pinta debajo de cada campo: el formulario es `noValidate`. */}
+                    <div>
+                      <label htmlFor="chatbot-quality-threshold" className="text-sm font-medium">{t('hub.chatbot_quality_threshold')}</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={1}
+                        step="any"
+                        id="chatbot-quality-threshold"
+                        {...register('quality_threshold', { valueAsNumber: true })}
+                        className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
+                      />
+                      {errors.quality_threshold && <p id="chatbot-quality-threshold-error" className="text-destructive text-xs mt-1">{errors.quality_threshold.message}</p>}
+                    </div>
+                    <div>
+                      <label htmlFor="chatbot-min-results" className="text-sm font-medium">{t('hub.chatbot_min_results')}</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={20}
+                        id="chatbot-min-results"
+                        {...register('min_retrieval_results', { valueAsNumber: true })}
+                        className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
+                      />
+                      {errors.min_retrieval_results && <p id="chatbot-min-results-error" className="text-destructive text-xs mt-1">{errors.min_retrieval_results.message}</p>}
+                    </div>
+                    <div>
+                      <label htmlFor="chatbot-min-score" className="text-sm font-medium">{t('hub.chatbot_min_score')}</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={1}
+                        step="any"
+                        id="chatbot-min-score"
+                        {...register('min_retrieval_score', { valueAsNumber: true })}
+                        className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
+                      />
+                      {errors.min_retrieval_score && <p id="chatbot-min-score-error" className="text-destructive text-xs mt-1">{errors.min_retrieval_score.message}</p>}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="reranker_enabled"
+                        {...register('reranker_enabled')}
+                        className="rounded"
+                      />
+                      <label htmlFor="reranker_enabled" className="text-sm">{t('hub.chatbot_reranker_enabled')}</label>
+                    </div>
+                    <div>
+                      <label htmlFor="chatbot-show-citation-corrections" className="text-sm font-medium">
+                        {t('hub.chatbot_show_citation_corrections')}
+                      </label>
+                      <select
+                        id="chatbot-show-citation-corrections"
+                        aria-describedby="chatbot-show-citation-corrections-ayuda"
+                        {...register('show_citation_corrections')}
+                        className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
+                      >
+                        <option value="">{t('hub.chatbot_show_citation_corrections_heredar')}</option>
+                        <option value="si">{t('hub.chatbot_show_citation_corrections_si')}</option>
+                        <option value="no">{t('hub.chatbot_show_citation_corrections_no')}</option>
+                      </select>
+                      <p id="chatbot-show-citation-corrections-ayuda" className="text-xs text-muted-foreground mt-1">
+                        {t('hub.chatbot_show_citation_corrections_ayuda')}
                       </p>
-                    )}
-                    <div className="pt-2">
-                      <p className="text-sm font-medium text-muted-foreground mb-2">{t('hub.chatbot_graph_section')}</p>
-                      <div className="space-y-3 rounded-md border bg-muted/40 p-3">
-                        <div>
-                          <label htmlFor="chatbot-graph-profile" className="text-sm font-medium">{t('hub.chatbot_graph_profile')}</label>
-                          {/* PLG.3 — la unica opcion estaba escrita aqui, asi que un perfil
-                              instalado no habria aparecido nunca. Ahora la lista viene del
-                              servidor, y los NO configurables salen deshabilitados con su
-                              motivo en vez de ocultarse: ocultarlos dejaria sin explicar por
-                              que un perfil que existe no se puede elegir. */}
-                          <select
-                            id="chatbot-graph-profile"
-                            {...register('public_graph_profile')}
-                            className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
-                          >
-                            {perfilesDisponibles.map(p => (
-                              <option key={p.nombre} value={p.nombre} disabled={!p.configurable}>
-                                {p.nombre === 'PUBLIC_KB_RICH' ? t('hub.chatbot_graph_profile_rich') : p.nombre}
-                                {p.configurable ? '' : ` — ${t('hub.chatbot_graph_profile_no_configurable')}`}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        {/* LANG.2 — la lista venía escrita aquí y ofrecía `strict`, que la
-                            factoría del grafo nunca compuso: una opción que no hacía nada, y
-                            que desde LANG.1 además da 422. Ahora los modos y los idiomas los
-                            trae el contrato, con el código del corpus (`val`, no `ca`). */}
-                        <SelectorDeModoDeLengua
-                          idPrefijo="chatbot-language"
-                          valor={languageMode ?? 'prefer'}
-                          onChange={(v) =>
-                            setValue('language_mode', v, { shouldDirty: true })
-                          }
-                        />
-                        {/* PLG.2/PLG.3 — un select por EJE, y los ejes salen de la respuesta:
-                            no hay lista de ejes en React. «Heredar» manda la clave AUSENTE, no
-                            una cadena vacia, porque la cascada distingue las dos cosas: ausente
-                            hereda de la organizacion y, en su defecto, de la composicion del
-                            perfil. */}
-                        {ejes.length > 0 && (
-                          <div className="space-y-2 rounded-md border border-dashed p-2">
-                            <p className="text-xs font-medium text-muted-foreground">
-                              {t('hub.chatbot_estrategias')}
-                            </p>
-                            {ejes.map(eje => {
-                              const puestas = estrategiasPuestas ?? {}
-                              const disponibles = opciones?.estrategias?.[eje] ?? []
-                              return (
-                                <div key={eje}>
-                                  <label htmlFor={`chatbot-estrategia-${eje}`} className="text-xs font-medium">
-                                    {ETIQUETA_DE_EJE[eje] ? t(ETIQUETA_DE_EJE[eje]) : eje}
-                                  </label>
-                                  <select
-                                    id={`chatbot-estrategia-${eje}`}
-                                    value={puestas[eje] ?? ''}
-                                    onChange={(e) => {
-                                      const siguiente = { ...puestas }
-                                      if (e.target.value) siguiente[eje] = e.target.value
-                                      else delete siguiente[eje]
-                                      setValue('estrategias', siguiente, { shouldDirty: true })
-                                    }}
-                                    className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
-                                  >
-                                    <option value="">{t('hub.chatbot_estrategia_heredar')}</option>
-                                    {disponibles.map(s => (
-                                      <option key={s.nombre} value={s.nombre}>
-                                        {s.nombre}{s.origen === 'paquete' ? ` (${t('hub.chatbot_estrategia_de_paquete')})` : ''}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        )}
-                        {/* #351 — `step="any"` en los dos umbrales: se calibran midiendo (0,69), y
-                            con un paso de 0,05 la validación nativa bloqueaba el envío entero sin
-                            que saliera ninguna petición. El rango lo comprueba el esquema, y su
-                            error se pinta debajo de cada campo: el formulario es `noValidate`. */}
-                        <div>
-                          <label htmlFor="chatbot-quality-threshold" className="text-sm font-medium">{t('hub.chatbot_quality_threshold')}</label>
-                          <input
-                            type="number"
-                            min={0}
-                            max={1}
-                            step="any"
-                            id="chatbot-quality-threshold"
-                            {...register('quality_threshold', { valueAsNumber: true })}
-                            className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
-                          />
-                          {errors.quality_threshold && <p id="chatbot-quality-threshold-error" className="text-destructive text-xs mt-1">{errors.quality_threshold.message}</p>}
-                        </div>
-                        <div>
-                          <label htmlFor="chatbot-min-results" className="text-sm font-medium">{t('hub.chatbot_min_results')}</label>
-                          <input
-                            type="number"
-                            min={1}
-                            max={20}
-                            id="chatbot-min-results"
-                            {...register('min_retrieval_results', { valueAsNumber: true })}
-                            className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
-                          />
-                          {errors.min_retrieval_results && <p id="chatbot-min-results-error" className="text-destructive text-xs mt-1">{errors.min_retrieval_results.message}</p>}
-                        </div>
-                        <div>
-                          <label htmlFor="chatbot-min-score" className="text-sm font-medium">{t('hub.chatbot_min_score')}</label>
-                          <input
-                            type="number"
-                            min={0}
-                            max={1}
-                            step="any"
-                            id="chatbot-min-score"
-                            {...register('min_retrieval_score', { valueAsNumber: true })}
-                            className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
-                          />
-                          {errors.min_retrieval_score && <p id="chatbot-min-score-error" className="text-destructive text-xs mt-1">{errors.min_retrieval_score.message}</p>}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            id="reranker_enabled"
-                            {...register('reranker_enabled')}
-                            className="rounded"
-                          />
-                          <label htmlFor="reranker_enabled" className="text-sm">{t('hub.chatbot_reranker_enabled')}</label>
-                        </div>
-                        <div>
-                          <label htmlFor="chatbot-show-citation-corrections" className="text-sm font-medium">
-                            {t('hub.chatbot_show_citation_corrections')}
-                          </label>
-                          <select
-                            id="chatbot-show-citation-corrections"
-                            aria-describedby="chatbot-show-citation-corrections-ayuda"
-                            {...register('show_citation_corrections')}
-                            className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
-                          >
-                            <option value="">{t('hub.chatbot_show_citation_corrections_heredar')}</option>
-                            <option value="si">{t('hub.chatbot_show_citation_corrections_si')}</option>
-                            <option value="no">{t('hub.chatbot_show_citation_corrections_no')}</option>
-                          </select>
-                          <p id="chatbot-show-citation-corrections-ayuda" className="text-xs text-muted-foreground mt-1">
-                            {t('hub.chatbot_show_citation_corrections_ayuda')}
-                          </p>
-                        </div>
-                        <div>
-                          <label htmlFor="chatbot-answer-template" className="text-sm font-medium">{t('hub.chatbot_answer_template')}</label>
-                          <select
-                            id="chatbot-answer-template"
-                            {...register('answer_template')}
-                            className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
-                          >
-                            <option value="generic">{t('hub.chatbot_answer_template_generic')}</option>
-                            <option value="institutional">{t('hub.chatbot_answer_template_institutional')}</option>
-                          </select>
-                        </div>
-                      </div>
                     </div>
-                  </>
-                )}
-                {editing && selectedKind === 'router' && (
-                  <div className="rounded-md border bg-muted/40 p-3 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-medium">Sub-chatbots</p>
-                      <button
-                        type="button"
-                        onClick={() => setAssignOpen(true)}
-                        className="px-2 py-1 text-xs border rounded-md hover:bg-accent"
+                    <div>
+                      <label htmlFor="chatbot-answer-template" className="text-sm font-medium">{t('hub.chatbot_answer_template')}</label>
+                      <select
+                        id="chatbot-answer-template"
+                        {...register('answer_template')}
+                        className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
                       >
-                        Asignar hijo
-                      </button>
-                    </div>
-                    {isLoadingChildren && <p className="text-xs text-muted-foreground">Cargando sub-chatbots...</p>}
-                    {!isLoadingChildren && children.length === 0 && (
-                      <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-                        Este router no tiene sub-chatbots asignados
-                      </p>
-                    )}
-                    {!isLoadingChildren && children.length > 0 && (
-                      <ul className="space-y-1">
-                        {children.map((child) => (
-                          <li key={child.id} className="text-xs rounded border px-2 py-1 bg-background">
-                            {child.name}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                )}
-
-                {assignOpen && editing && selectedKind === 'router' && (
-                  <div className="rounded-md border p-3 space-y-2 bg-background">
-                    <label htmlFor="chatbot-child-select" className="text-xs font-medium">{t('hub.chatbot_select_atomic')}</label>
-                    <select
-                      value={selectedChildId}
-                      onChange={(e) => setSelectedChildId(e.target.value)}
-                      className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
-                    >
-                      <option value="">{t('hub.select_placeholder')}</option>
-                      {assignableChildren.map((cb) => (
-                        <option key={cb.id} value={cb.id}>{cb.name}</option>
-                      ))}
-                    </select>
-                    <div className="flex justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => { setAssignOpen(false); setSelectedChildId('') }}
-                        className="px-2 py-1 text-xs border rounded-md"
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        type="button"
-                        disabled={!selectedChildId || assignChildMutation.isPending}
-                        onClick={() =>
-                          assignChildMutation.mutate({
-                            chatbotId: editing.id,
-                            data: { child_chatbot_id: selectedChildId },
-                          })
-                        }
-                        className="px-2 py-1 text-xs bg-primary text-primary-foreground rounded-md disabled:opacity-50"
-                      >
-                        Asignar
-                      </button>
+                        <option value="generic">{t('hub.chatbot_answer_template_generic')}</option>
+                        <option value="institutional">{t('hub.chatbot_answer_template_institutional')}</option>
+                      </select>
                     </div>
                   </div>
-                )}
-
-                <div className="flex items-center gap-2">
-                  <input type="checkbox" id="is_active" {...register('is_active')} className="rounded" />
-                  <label htmlFor="is_active" className="text-sm">{t('hub.chatbot_active')}</label>
                 </div>
-
-                {/* SEC.4.1: vigencia y techo de gasto. `is_active` es el interruptor manual;
-                    esto es el que se apaga solo. Son cosas distintas y se editan aparte. */}
-                <fieldset className="border rounded-md p-3 space-y-3">
-                  <legend className="text-xs font-medium px-1">{t('hub.availability')}</legend>
-                  <p className="text-xs text-muted-foreground">
-                    {t('hub.availability_hint')}
-                  </p>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label htmlFor="valid_from" className="block text-sm mb-1">
-                        {t('hub.valid_from')}
-                      </label>
-                      <input
-                        type="datetime-local"
-                        id="valid_from"
-                        {...register('valid_from')}
-                        className="w-full px-2 py-1 border rounded-md text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="valid_until" className="block text-sm mb-1">
-                        {t('hub.valid_until')}
-                      </label>
-                      <input
-                        type="datetime-local"
-                        id="valid_until"
-                        {...register('valid_until')}
-                        className="w-full px-2 py-1 border rounded-md text-sm"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label htmlFor="total_token_budget" className="block text-sm mb-1">
-                      {t('hub.total_token_budget')}
-                    </label>
-                    <input
-                      type="number"
-                      id="total_token_budget"
-                      min={0}
-                      {...register('total_token_budget', { valueAsNumber: true })}
-                      className="w-full px-2 py-1 border rounded-md text-sm"
-                    />
-                    {/* 0 = sin techo, igual que en el backend. Decirlo aquí evita que
-                        alguien ponga 0 creyendo que bloquea el chatbot. */}
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {t('hub.total_token_budget_hint')}
-                    </p>
-                    {errors.total_token_budget && (
-                      <p className="text-xs text-destructive mt-1">
-                        {errors.total_token_budget.message}
-                      </p>
-                    )}
-                  </div>
-                  {/* SEC.4: los tres techos diarios. Existian en la base de datos y los
-                      aplicaba el servidor desde SEC.4, pero no habia forma de fijarlos que no
-                      fuera un UPDATE a mano, asi que en la practica quedaban sin poner. */}
-                  <div className="grid grid-cols-3 gap-2">
-                    <div>
-                      <label htmlFor="user_daily_token_quota" className="block text-sm mb-1">
-                        {t('hub.user_daily_token_quota')}
-                      </label>
-                      <input
-                        type="number"
-                        id="user_daily_token_quota"
-                        min={0}
-                        {...register('user_daily_token_quota')}
-                        className="w-full px-2 py-1 border rounded-md text-sm"
-                        placeholder={t('hub.quota_inherit')}
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="chatbot_daily_token_quota" className="block text-sm mb-1">
-                        {t('hub.chatbot_daily_token_quota')}
-                      </label>
-                      <input
-                        type="number"
-                        id="chatbot_daily_token_quota"
-                        min={0}
-                        {...register('chatbot_daily_token_quota')}
-                        className="w-full px-2 py-1 border rounded-md text-sm"
-                        placeholder={t('hub.quota_inherit')}
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="anon_ip_daily_token_quota" className="block text-sm mb-1">
-                        {t('hub.anon_ip_daily_token_quota')}
-                      </label>
-                      <input
-                        type="number"
-                        id="anon_ip_daily_token_quota"
-                        min={0}
-                        {...register('anon_ip_daily_token_quota')}
-                        className="w-full px-2 py-1 border rounded-md text-sm"
-                        placeholder={t('hub.quota_inherit')}
-                      />
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground -mt-1">
-                    {t('hub.quota_hint')}
-                  </p>
-                  <div>
-                    <label htmlFor="unavailable_message" className="block text-sm mb-1">
-                      {t('hub.unavailable_message')}
-                    </label>
-                    <textarea
-                      id="unavailable_message"
-                      rows={2}
-                      {...register('unavailable_message')}
-                      className="w-full px-2 py-1 border rounded-md text-sm"
-                      placeholder={t('hub.unavailable_message_placeholder')}
-                    />
-                    {errors.unavailable_message && (
-                      <p className="text-xs text-destructive mt-1">
-                        {errors.unavailable_message.message}
-                      </p>
-                    )}
-                  </div>
-                  {editing?.availability && (
-                    <p className="text-xs text-muted-foreground">
-                      {t('hub.availability')}:{' '}
-                      <span data-testid="availability-state">
-                        {t(`hub.availability_${editing.availability.state}`)}
-                      </span>
-                      {' · '}
-                      {editing.availability.tokens_used} tokens
-                    </p>
-                  )}
-                </fieldset>
-                <div className="flex gap-2 justify-end pt-2">
+              </>
+            )}
+            {editing && selectedKind === 'router' && (
+              <div className="rounded-md border bg-muted/40 p-3 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-medium">Sub-chatbots</p>
                   <button
                     type="button"
-                    onClick={closeDialog}
-                    className="px-3 py-2 border rounded-md text-sm"
+                    onClick={() => setAssignOpen(true)}
+                    className="px-2 py-1 text-xs border rounded-md hover:bg-accent"
                   >
-                    {tc('cancel')}
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isPending || showLongContextHardError}
-                    className="px-3 py-2 bg-primary text-primary-foreground rounded-md text-sm disabled:opacity-50"
-                  >
-                    {tc('save')}
+                    Asignar hijo
                   </button>
                 </div>
-              </form>
+                {isLoadingChildren && <p className="text-xs text-muted-foreground">Cargando sub-chatbots...</p>}
+                {!isLoadingChildren && children.length === 0 && (
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                    Este router no tiene sub-chatbots asignados
+                  </p>
+                )}
+                {!isLoadingChildren && children.length > 0 && (
+                  <ul className="space-y-1">
+                    {children.map((child) => (
+                      <li key={child.id} className="text-xs rounded border px-2 py-1 bg-background">
+                        {child.name}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
+            {assignOpen && editing && selectedKind === 'router' && (
+              <div className="rounded-md border p-3 space-y-2 bg-background">
+                <label htmlFor="chatbot-child-select" className="text-xs font-medium">{t('hub.chatbot_select_atomic')}</label>
+                <select
+                  value={selectedChildId}
+                  onChange={(e) => setSelectedChildId(e.target.value)}
+                  className="w-full mt-1 px-3 py-2 border rounded-md text-sm bg-background"
+                >
+                  <option value="">{t('hub.select_placeholder')}</option>
+                  {assignableChildren.map((cb) => (
+                    <option key={cb.id} value={cb.id}>{cb.name}</option>
+                  ))}
+                </select>
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setAssignOpen(false); setSelectedChildId('') }}
+                    className="px-2 py-1 text-xs border rounded-md"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!selectedChildId || assignChildMutation.isPending}
+                    onClick={() =>
+                      assignChildMutation.mutate({
+                        chatbotId: editing.id,
+                        data: { child_chatbot_id: selectedChildId },
+                      })
+                    }
+                    className="px-2 py-1 text-xs bg-primary text-primary-foreground rounded-md disabled:opacity-50"
+                  >
+                    Asignar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2">
+              <input type="checkbox" id="is_active" {...register('is_active')} className="rounded" />
+              <label htmlFor="is_active" className="text-sm">{t('hub.chatbot_active')}</label>
             </div>
-          </div>
-        </div>
+
+            {/* SEC.4.1: vigencia y techo de gasto. `is_active` es el interruptor manual;
+                esto es el que se apaga solo. Son cosas distintas y se editan aparte. */}
+            <fieldset className="border rounded-md p-3 space-y-3">
+              <legend className="text-xs font-medium px-1">{t('hub.availability')}</legend>
+              <p className="text-xs text-muted-foreground">
+                {t('hub.availability_hint')}
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="valid_from" className="block text-sm mb-1">
+                    {t('hub.valid_from')}
+                  </label>
+                  <input
+                    type="datetime-local"
+                    id="valid_from"
+                    {...register('valid_from')}
+                    className="w-full px-2 py-1 border rounded-md text-sm"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="valid_until" className="block text-sm mb-1">
+                    {t('hub.valid_until')}
+                  </label>
+                  <input
+                    type="datetime-local"
+                    id="valid_until"
+                    {...register('valid_until')}
+                    className="w-full px-2 py-1 border rounded-md text-sm"
+                  />
+                </div>
+              </div>
+              <div>
+                <label htmlFor="total_token_budget" className="block text-sm mb-1">
+                  {t('hub.total_token_budget')}
+                </label>
+                <input
+                  type="number"
+                  id="total_token_budget"
+                  min={0}
+                  {...register('total_token_budget', { valueAsNumber: true })}
+                  className="w-full px-2 py-1 border rounded-md text-sm"
+                />
+                {/* 0 = sin techo, igual que en el backend. Decirlo aquí evita que
+                    alguien ponga 0 creyendo que bloquea el chatbot. */}
+                <p className="text-xs text-muted-foreground mt-1">
+                  {t('hub.total_token_budget_hint')}
+                </p>
+                {errors.total_token_budget && (
+                  <p className="text-xs text-destructive mt-1">
+                    {errors.total_token_budget.message}
+                  </p>
+                )}
+              </div>
+              {/* SEC.4: los tres techos diarios. Existian en la base de datos y los
+                  aplicaba el servidor desde SEC.4, pero no habia forma de fijarlos que no
+                  fuera un UPDATE a mano, asi que en la practica quedaban sin poner. */}
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label htmlFor="user_daily_token_quota" className="block text-sm mb-1">
+                    {t('hub.user_daily_token_quota')}
+                  </label>
+                  <input
+                    type="number"
+                    id="user_daily_token_quota"
+                    min={0}
+                    {...register('user_daily_token_quota')}
+                    className="w-full px-2 py-1 border rounded-md text-sm"
+                    placeholder={t('hub.quota_inherit')}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="chatbot_daily_token_quota" className="block text-sm mb-1">
+                    {t('hub.chatbot_daily_token_quota')}
+                  </label>
+                  <input
+                    type="number"
+                    id="chatbot_daily_token_quota"
+                    min={0}
+                    {...register('chatbot_daily_token_quota')}
+                    className="w-full px-2 py-1 border rounded-md text-sm"
+                    placeholder={t('hub.quota_inherit')}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="anon_ip_daily_token_quota" className="block text-sm mb-1">
+                    {t('hub.anon_ip_daily_token_quota')}
+                  </label>
+                  <input
+                    type="number"
+                    id="anon_ip_daily_token_quota"
+                    min={0}
+                    {...register('anon_ip_daily_token_quota')}
+                    className="w-full px-2 py-1 border rounded-md text-sm"
+                    placeholder={t('hub.quota_inherit')}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground -mt-1">
+                {t('hub.quota_hint')}
+              </p>
+              <div>
+                <label htmlFor="unavailable_message" className="block text-sm mb-1">
+                  {t('hub.unavailable_message')}
+                </label>
+                <textarea
+                  id="unavailable_message"
+                  rows={2}
+                  {...register('unavailable_message')}
+                  className="w-full px-2 py-1 border rounded-md text-sm"
+                  placeholder={t('hub.unavailable_message_placeholder')}
+                />
+                {errors.unavailable_message && (
+                  <p className="text-xs text-destructive mt-1">
+                    {errors.unavailable_message.message}
+                  </p>
+                )}
+              </div>
+              {editing?.availability && (
+                <p className="text-xs text-muted-foreground">
+                  {t('hub.availability')}:{' '}
+                  <span data-testid="availability-state">
+                    {t(`hub.availability_${editing.availability.state}`)}
+                  </span>
+                  {' · '}
+                  {editing.availability.tokens_used} tokens
+                </p>
+              )}
+            </fieldset>
+            <div className="flex gap-2 justify-end pt-2">
+              <button
+                type="button"
+                onClick={closeDialog}
+                className="px-3 py-2 border rounded-md text-sm"
+              >
+                {tc('cancel')}
+              </button>
+              <button
+                type="submit"
+                disabled={isPending || showLongContextHardError}
+                className="px-3 py-2 bg-primary text-primary-foreground rounded-md text-sm disabled:opacity-50"
+              >
+                {tc('save')}
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
 
       {/* Dialog confirmación borrado */}
       {deleteTarget && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 flex items-center justify-center bg-black/40 z-50">
-          <div className="bg-card rounded-lg p-6 w-full max-w-sm shadow-lg space-y-4">
-            <p className="text-sm">{t('hub.delete_confirm')}</p>
-            <p className="font-medium">{deleteTarget.name}</p>
-            {deleteError && (
-              <div className="rounded-md bg-destructive/10 border border-destructive/30 px-3 py-2">
-                <p className="text-destructive text-sm font-medium">{deleteError}</p>
-              </div>
-            )}
-            <div className="flex gap-2 justify-end">
+        <Modal
+          className="bg-card max-w-sm"
+          footer={
+            <>
               <button
                 type="button"
                 onClick={() => { setDeleteTarget(null); setDeleteError('') }}
@@ -1191,9 +1181,17 @@ export function ChatbotsPage() {
               >
                 {deleteMutation.isPending ? '...' : tc('delete')}
               </button>
+            </>
+          }
+        >
+          <p className="text-sm">{t('hub.delete_confirm')}</p>
+          <p className="font-medium">{deleteTarget.name}</p>
+          {deleteError && (
+            <div className="rounded-md bg-destructive/10 border border-destructive/30 px-3 py-2">
+              <p className="text-destructive text-sm font-medium">{deleteError}</p>
             </div>
-          </div>
-        </div>
+          )}
+        </Modal>
       )}
     </div>
   )
