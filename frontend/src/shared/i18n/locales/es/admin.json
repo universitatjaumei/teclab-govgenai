@@ -218,6 +218,7 @@
     "prompt_default_tier": "Tier por defecto",
     "prompt_override_tier": "Override tier",
     "prompt_preview": "Vista previa",
+    "prompt_service": "Servicio/chatbot",
     "prompt_slug": "Identificador (slug)",
     "prompt_templates": "Prompts del sistema",
     "prompt_text": "Texto del prompt",

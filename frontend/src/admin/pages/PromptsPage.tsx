@@ -498,7 +498,7 @@ export function PromptsPage() {
           }
         >
           <label className="flex flex-col gap-1">
-            <span className="text-xs text-muted-foreground">Servicio/chatbot</span>
+            <span className="text-xs text-muted-foreground">{t('hub.prompt_service')}</span>
             <input
               disabled
               className="border rounded px-2 py-1.5 bg-muted text-muted-foreground"

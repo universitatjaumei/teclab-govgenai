@@ -209,4 +209,10 @@ describe('CAL.4 — i18n del panel admin', () => {
 
     expect(huerfanos, `Etiquetas que no nombran a su campo:\n  ${huerfanos.join('\n  ')}`).toEqual([])
   })
+
+  it('should_not_render_hardcoded_spanish_in_prompts_dialog', () => {
+    // Revisión de la PR #375: «Servicio/chatbot» seguía incrustado en el alta de plantilla.
+    const page = readFileSync(join(SRC, 'admin/pages/PromptsPage.tsx'), 'utf-8')
+    expect(page).not.toContain('>Servicio/chatbot<')
+  })
 })

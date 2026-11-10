@@ -1,4 +1,4 @@
-import type { FormHTMLAttributes, ReactNode } from 'react'
+import { useId, useRef, type FormHTMLAttributes, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
 /** La ventana modal de todo el panel (#374).
@@ -13,7 +13,11 @@ import { cn } from '@/lib/utils'
  * seguir dentro del formulario.
  *
  * Las clases que se pasan se mezclan con `cn`, así que un `p-4` sustituye al relleno por defecto
- * en vez de pelearse con él. */
+ * en vez de pelearse con él.
+ *
+ * Sin `ariaLabel` ni `ariaLabelledBy`, el diálogo toma su nombre de la cabecera. Y la capa sólo
+ * cierra si el clic **empieza y acaba** en ella: seleccionar texto y soltar fuera manda el `click`
+ * a la capa y cerraba el chatbot perdiendo lo escrito (revisión de la PR #375). */
 export function Modal({
   children,
   header,
@@ -39,9 +43,12 @@ export function Modal({
   headerClassName?: string
   bodyClassName?: string
   footerClassName?: string
-  form?: FormHTMLAttributes<HTMLFormElement> & { 'data-testid'?: string }
+  /** Sin `className`: el panel es el formulario, y sus clases van en `className`. */
+  form?: Omit<FormHTMLAttributes<HTMLFormElement>, 'className'> & { 'data-testid'?: string }
   testId?: string
 }) {
+  const idCabecera = useId()
+  const pulsadoEnLaCapa = useRef(false)
   const panel = cn(
     'flex flex-col w-full max-w-md max-h-full overflow-hidden rounded-lg shadow-lg bg-background',
     className,
@@ -49,7 +56,7 @@ export function Modal({
   const contenido = (
     <>
       {header && (
-        <div data-modal-header className={cn('shrink-0 px-6 pt-6 pb-4', headerClassName)}>
+        <div data-modal-header id={idCabecera} className={cn('shrink-0 px-6 pt-6 pb-4', headerClassName)}>
           {header}
         </div>
       )}
@@ -77,10 +84,13 @@ export function Modal({
       role="dialog"
       aria-modal="true"
       aria-label={ariaLabel}
-      aria-labelledby={ariaLabelledBy}
+      aria-labelledby={ariaLabelledBy ?? (header && !ariaLabel ? idCabecera : undefined)}
       data-testid={testId}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={onBackdropClick ? (e) => { if (e.target === e.currentTarget) onBackdropClick() } : undefined}
+      onMouseDown={(e) => { pulsadoEnLaCapa.current = e.target === e.currentTarget }}
+      onClick={onBackdropClick ? (e) => {
+        if (e.target === e.currentTarget && pulsadoEnLaCapa.current) onBackdropClick()
+      } : undefined}
     >
       {form ? (
         <form {...form} className={panel}>{contenido}</form>

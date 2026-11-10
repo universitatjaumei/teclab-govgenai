@@ -60,8 +60,30 @@ describe('#374 — Modal', () => {
 
     fireEvent.click(screen.getByText('dentro'))
     expect(onBackdropClick).not.toHaveBeenCalled()
+    fireEvent.mouseDown(screen.getByRole('dialog'))
     fireEvent.click(screen.getByRole('dialog'))
     expect(onBackdropClick).toHaveBeenCalledOnce()
+  })
+
+  it('should_not_close_when_a_drag_starts_inside_and_ends_on_the_backdrop', () => {
+    // Revisión de la PR #375: seleccionar texto en un campo y soltar sobre la capa manda el
+    // `click` a la capa —el ancestro común— y cerraba el chatbot perdiendo lo escrito.
+    const onBackdropClick = vi.fn()
+    render(<Modal onBackdropClick={onBackdropClick}><textarea aria-label="prompt" /></Modal>)
+
+    fireEvent.mouseDown(screen.getByRole('textbox', { name: 'prompt' }))
+    fireEvent.click(screen.getByRole('dialog'))
+    expect(onBackdropClick).not.toHaveBeenCalled()
+  })
+
+  it('should_name_the_dialog_after_its_header_by_default', () => {
+    render(<Modal header={<h3>Borrar sitio</h3>}><p>¿Seguro?</p></Modal>)
+    expect(screen.getByRole('dialog', { name: 'Borrar sitio' })).toBeInTheDocument()
+  })
+
+  it('should_prefer_an_explicit_label_over_the_header', () => {
+    render(<Modal ariaLabel="Nombre explícito" header={<h3>Cabecera</h3>}><p>x</p></Modal>)
+    expect(screen.getByRole('dialog', { name: 'Nombre explícito' })).toBeInTheDocument()
   })
 })
 
@@ -70,7 +92,13 @@ describe('#374 — Modal', () => {
 const SRC = resolve(__dirname, '../../..')
 const IGNORADOS = new Set(['generated', 'node_modules', '__tests__', 'test-utils'])
 const PERMITIDOS = new Set(['shared/components/Modal.tsx'])
-const CAPA_A_MANO = /fixed\s+inset-0/
+/** `fixed` e `inset-0` en el mismo atributo de clases, en cualquier orden (revisión de la PR
+ * #375: `fixed z-50 inset-0` pasaba con la expresión anterior). */
+function tieneCapaAMano(codigo: string): boolean {
+  return [...codigo.matchAll(/className=(?:"([^"]*)"|\{`([^`]*)`\}|'([^']*)')/g)]
+    .map((m) => m[1] ?? m[2] ?? m[3])
+    .some((clases) => /(^|\s)fixed(\s|$)/.test(clases) && /(^|\s)inset-0(\s|$)/.test(clases))
+}
 
 function ficherosDeCodigo(directorio: string): string[] {
   return readdirSync(directorio).flatMap((entrada) => {
@@ -89,7 +117,14 @@ describe('#374 — ninguna capa modal fuera de Modal', () => {
     const culpables = ficherosDeCodigo(SRC)
       .map((ruta) => relative(SRC, ruta).replaceAll('\\', '/'))
       .filter((ruta) => !PERMITIDOS.has(ruta))
-      .filter((ruta) => CAPA_A_MANO.test(codigoSinComentarios(readFileSync(join(SRC, ruta), 'utf-8'))))
+      .filter((ruta) => tieneCapaAMano(codigoSinComentarios(readFileSync(join(SRC, ruta), 'utf-8'))))
     expect(culpables).toEqual([])
+  })
+
+  it('should_catch_an_overlay_whatever_the_class_order', () => {
+    expect(tieneCapaAMano('<div className="fixed z-50 inset-0 bg-black/40">')).toBe(true)
+    expect(tieneCapaAMano('<div className={`inset-0 fixed ${x}`}>')).toBe(true)
+    expect(tieneCapaAMano('<div className="fixed bottom-4 right-4">')).toBe(false)
+    expect(tieneCapaAMano('<div className="absolute inset-0">')).toBe(false)
   })
 })

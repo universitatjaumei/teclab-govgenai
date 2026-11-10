@@ -107,6 +107,17 @@ describe('gestión de plantillas', () => {
     expect(screen.getByTestId('confirmar-archivar')).toBeInTheDocument()
   })
 
+  it('should_name_the_dialog_with_the_template_name', () => {
+    // Revisión de la PR #375: el nombre accesible quedaba en «Retirar la plantilla «{{name}}»».
+    mockearApi()
+    pintar()
+
+    fireEvent.click(screen.getByTestId('btn-archivar-tpl-1'))
+    const titulo = screen.getByRole('heading', { name: /retirar la plantilla/i }).textContent ?? ''
+    expect(titulo).not.toContain('{{')
+    expect(screen.getByRole('dialog', { name: titulo })).toBeInTheDocument()
+  })
+
   it('should_retirar_al_confirmar', async () => {
     const archive = vi.fn()
     mockearApi({ archive })
