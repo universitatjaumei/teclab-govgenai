@@ -1,4 +1,5 @@
-import { useId, useRef, type FormHTMLAttributes, type ReactNode } from 'react'
+import { useId, useLayoutEffect, useRef, useState, type FormHTMLAttributes, type ReactNode } from 'react'
+import FocusLock from 'react-focus-lock'
 import { cn } from '@/lib/utils'
 
 /** La ventana modal de todo el panel (#374).
@@ -15,9 +16,15 @@ import { cn } from '@/lib/utils'
  * Las clases que se pasan se mezclan con `cn`, así que un `p-4` sustituye al relleno por defecto
  * en vez de pelearse con él.
  *
- * Sin `ariaLabel` ni `ariaLabelledBy`, el diálogo toma su nombre de la cabecera. Y la capa sólo
+ * Sin `ariaLabel` ni `ariaLabelledBy`, el diálogo toma su nombre del encabezado de la cabecera. Y la capa sólo
  * cierra si el clic **empieza y acaba** en ella: seleccionar texto y soltar fuera manda el `click`
- * a la capa y cerraba el chatbot perdiendo lo escrito (revisión de la PR #375). */
+ * a la capa y cerraba el chatbot perdiendo lo escrito (revisión de la PR #375).
+ *
+ * Con teclado (#376): el foco entra al abrir, Tab no sale de la ventana, Escape llama a `onClose`
+ * y al cerrar el foco vuelve a quien la abrió —el `FocusLock returnFocus` de DrawerHub—.
+ * `onClose` es obligatorio a propósito: cada ventana decide si se puede cerrar, y `null` es
+ * «ahora no» (`ConfirmDialog` mientras borra). Escape se escucha en la capa y no en `window`:
+ * así, con dos ventanas apiladas, cierra sólo la de arriba, que es donde está el foco. */
 export function Modal({
   children,
   header,
@@ -25,6 +32,7 @@ export function Modal({
   ariaLabel,
   ariaLabelledBy,
   onBackdropClick,
+  onClose,
   className,
   headerClassName,
   bodyClassName,
@@ -38,6 +46,8 @@ export function Modal({
   ariaLabel?: string
   ariaLabelledBy?: string
   onBackdropClick?: () => void
+  /** Lo que hace Escape; `null` si ahora no se puede cerrar. */
+  onClose: (() => void) | null
   /** Clases del panel: la anchura (`max-w-sm`, `max-w-3xl`…) y el fondo, sobre todo. */
   className?: string
   headerClassName?: string
@@ -49,6 +59,15 @@ export function Modal({
 }) {
   const idCabecera = useId()
   const pulsadoEnLaCapa = useRef(false)
+  const cabecera = useRef<HTMLDivElement>(null)
+  // El nombre sale del primer encabezado de la cabecera, no de toda ella: la del chatbot lleva
+  // también el aspa de cerrar y se anunciaba «Nou chatbot ✕» (#376, visto en el navegador).
+  const [idDelNombre, setIdDelNombre] = useState<string>()
+  useLayoutEffect(() => {
+    const titulo = cabecera.current?.querySelector('h1, h2, h3, h4, h5, h6')
+    if (titulo && !titulo.id) titulo.id = `${idCabecera}-titulo`
+    setIdDelNombre(titulo ? titulo.id : cabecera.current ? idCabecera : undefined)
+  }, [idCabecera, header])
   const panel = cn(
     'flex flex-col w-full max-w-md max-h-full overflow-hidden rounded-lg shadow-lg bg-background',
     className,
@@ -56,7 +75,7 @@ export function Modal({
   const contenido = (
     <>
       {header && (
-        <div data-modal-header id={idCabecera} className={cn('shrink-0 px-6 pt-6 pb-4', headerClassName)}>
+        <div data-modal-header ref={cabecera} id={idCabecera} className={cn('shrink-0 px-6 pt-6 pb-4', headerClassName)}>
           {header}
         </div>
       )}
@@ -80,23 +99,31 @@ export function Modal({
   )
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={ariaLabel}
-      aria-labelledby={ariaLabelledBy ?? (header && !ariaLabel ? idCabecera : undefined)}
-      data-testid={testId}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onMouseDown={(e) => { pulsadoEnLaCapa.current = e.target === e.currentTarget }}
-      onClick={onBackdropClick ? (e) => {
-        if (e.target === e.currentTarget && pulsadoEnLaCapa.current) onBackdropClick()
-      } : undefined}
-    >
-      {form ? (
-        <form {...form} className={panel}>{contenido}</form>
-      ) : (
-        <div className={panel}>{contenido}</div>
-      )}
-    </div>
+    <FocusLock returnFocus>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={ariaLabel}
+        aria-labelledby={ariaLabelledBy ?? (ariaLabel ? undefined : idDelNombre)}
+        data-testid={testId}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        onMouseDown={(e) => { pulsadoEnLaCapa.current = e.target === e.currentTarget }}
+        onClick={onBackdropClick ? (e) => {
+          if (e.target === e.currentTarget && pulsadoEnLaCapa.current) onBackdropClick()
+        } : undefined}
+        onKeyDown={(e) => {
+          if (e.key !== 'Escape') return
+          // La de arriba se queda el Escape: sin esto, con dos apiladas cerrarían las dos.
+          e.stopPropagation()
+          onClose?.()
+        }}
+      >
+        {form ? (
+          <form {...form} className={panel}>{contenido}</form>
+        ) : (
+          <div className={panel}>{contenido}</div>
+        )}
+      </div>
+    </FocusLock>
   )
 }

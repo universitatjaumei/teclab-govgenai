@@ -18,6 +18,7 @@ export function DocumentPreviewModal({
 
   return (
     <Modal
+      onClose={onClose}
       className="bg-card max-w-3xl shadow-xl"
       headerClassName="flex items-center justify-between p-4 border-b"
       bodyClassName="p-4"

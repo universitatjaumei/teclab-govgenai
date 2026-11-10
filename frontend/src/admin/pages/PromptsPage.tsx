@@ -465,6 +465,7 @@ export function PromptsPage() {
 
       {showCreate && (
         <Modal
+          onClose={() => { setShowCreate(false); setNewForm({ language: 'es' }) }}
           ariaLabelledBy="create-template-dialog-title"
           header={<h3 id="create-template-dialog-title" className="font-semibold text-base">{t('hub.new_prompt_template')}</h3>}
           bodyClassName="flex flex-col gap-3 space-y-0 text-sm"

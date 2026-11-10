@@ -319,6 +319,7 @@ export function LLMConfigsPage() {
         {/* Delete confirmation */}
         {deleteTarget && (
           <Modal
+            onClose={() => { setDeleteTarget(null); setDeleteError('') }}
             className="border max-w-96 shadow-xl"
             header={<h2 className="font-semibold">{t('hub.llm_config_delete_confirm')}</h2>}
             footer={
@@ -344,6 +345,7 @@ export function LLMConfigsPage() {
         {/* Create / edit dialog */}
         {dialogOpen && (
           <Modal
+            onClose={closeDialog}
             className="border max-w-lg shadow-xl"
             headerClassName="px-6 py-4 border-b"
             bodyClassName="px-6 py-4"
@@ -623,6 +625,7 @@ function ProvidersSection({ providers, isLoading }: { providers: HubProviderOut[
       {/* Delete confirmation for Provider */}
       {deleteTarget && (
         <Modal
+          onClose={() => { setDeleteTarget(null); setDeleteError('') }}
           className="border max-w-96 shadow-xl"
           header={<h2 className="font-semibold">{t('hub.provider_delete')}</h2>}
           footer={
@@ -648,6 +651,7 @@ function ProvidersSection({ providers, isLoading }: { providers: HubProviderOut[
       {/* Create / edit dialog for Provider */}
       {dialogOpen && (
         <Modal
+          onClose={closeDialog}
           className="border shadow-xl"
           headerClassName="px-6 py-4 border-b"
           bodyClassName="px-6 py-4"

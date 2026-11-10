@@ -413,6 +413,7 @@ export function SitesPage() {
 
       {dialogOpen && (
         <Modal
+          onClose={() => { setDialogOpen(false); reset() }}
           ariaLabel={t('new_site')}
           header={<h2 className="text-lg font-semibold">{t('new_site')}</h2>}
           form={{ onSubmit: handleSubmit(onSubmit), noValidate: true, 'data-testid': 'form-sitio' }}

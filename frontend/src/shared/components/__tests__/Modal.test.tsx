@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { useState } from 'react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
 
@@ -16,7 +17,7 @@ import { codigoSinComentarios } from '@/test-utils/codigoSinComentarios'
  */
 describe('#374 — Modal', () => {
   it('should_cap_the_panel_to_the_window_and_scroll_the_body', () => {
-    render(<Modal ariaLabel="Nueva web" header={<h2>T</h2>} footer={<button>Guardar</button>}><p>campos</p></Modal>)
+    render(<Modal onClose={null} ariaLabel="Nueva web" header={<h2>T</h2>} footer={<button>Guardar</button>}><p>campos</p></Modal>)
 
     const capa = screen.getByRole('dialog', { name: 'Nueva web' })
     expect(capa.className).toMatch(/\bfixed\b/)
@@ -32,7 +33,7 @@ describe('#374 — Modal', () => {
   })
 
   it('should_keep_header_and_footer_out_of_the_scrolling_body', () => {
-    render(<Modal header={<h2>Título</h2>} footer={<button>Guardar</button>}><p>campos</p></Modal>)
+    render(<Modal onClose={null} header={<h2>Título</h2>} footer={<button>Guardar</button>}><p>campos</p></Modal>)
 
     const cuerpo = document.querySelector('[data-modal-body]') as HTMLElement
     expect(cuerpo).not.toContainElement(screen.getByText('Título'))
@@ -42,7 +43,7 @@ describe('#374 — Modal', () => {
   it('should_make_the_whole_panel_the_form_so_the_footer_button_submits', () => {
     const onSubmit = vi.fn((e: { preventDefault: () => void }) => e.preventDefault())
     render(
-      <Modal form={{ onSubmit, 'data-testid': 'f' }} footer={<button type="submit">Guardar</button>}>
+      <Modal onClose={null} form={{ onSubmit, 'data-testid': 'f' }} footer={<button type="submit">Guardar</button>}>
         <input aria-label="nombre" />
       </Modal>,
     )
@@ -56,7 +57,7 @@ describe('#374 — Modal', () => {
 
   it('should_close_on_backdrop_click_only', () => {
     const onBackdropClick = vi.fn()
-    render(<Modal onBackdropClick={onBackdropClick}><p>dentro</p></Modal>)
+    render(<Modal onClose={null} onBackdropClick={onBackdropClick}><p>dentro</p></Modal>)
 
     fireEvent.click(screen.getByText('dentro'))
     expect(onBackdropClick).not.toHaveBeenCalled()
@@ -69,7 +70,7 @@ describe('#374 — Modal', () => {
     // Revisión de la PR #375: seleccionar texto en un campo y soltar sobre la capa manda el
     // `click` a la capa —el ancestro común— y cerraba el chatbot perdiendo lo escrito.
     const onBackdropClick = vi.fn()
-    render(<Modal onBackdropClick={onBackdropClick}><textarea aria-label="prompt" /></Modal>)
+    render(<Modal onClose={null} onBackdropClick={onBackdropClick}><textarea aria-label="prompt" /></Modal>)
 
     fireEvent.mouseDown(screen.getByRole('textbox', { name: 'prompt' }))
     fireEvent.click(screen.getByRole('dialog'))
@@ -77,13 +78,89 @@ describe('#374 — Modal', () => {
   })
 
   it('should_name_the_dialog_after_its_header_by_default', () => {
-    render(<Modal header={<h3>Borrar sitio</h3>}><p>¿Seguro?</p></Modal>)
+    render(<Modal onClose={null} header={<h3>Borrar sitio</h3>}><p>¿Seguro?</p></Modal>)
     expect(screen.getByRole('dialog', { name: 'Borrar sitio' })).toBeInTheDocument()
   })
 
+  it('should_name_the_dialog_after_the_heading_not_the_whole_header', () => {
+    // #376, visto en el navegador: el chatbot se llamaba «Nou chatbot ✕» porque la cabecera
+    // lleva también el aspa de cerrar.
+    render(
+      <Modal onClose={null} header={<><h2>Nou chatbot</h2><button aria-label="Cancel·lar">✕</button></>}>
+        <p>x</p>
+      </Modal>,
+    )
+    expect(screen.getByRole('dialog', { name: 'Nou chatbot' })).toBeInTheDocument()
+  })
+
   it('should_prefer_an_explicit_label_over_the_header', () => {
-    render(<Modal ariaLabel="Nombre explícito" header={<h3>Cabecera</h3>}><p>x</p></Modal>)
+    render(<Modal onClose={null} ariaLabel="Nombre explícito" header={<h3>Cabecera</h3>}><p>x</p></Modal>)
     expect(screen.getByRole('dialog', { name: 'Nombre explícito' })).toBeInTheDocument()
+  })
+})
+
+/**
+ * #376 — con teclado se entra, se queda dentro y se sale.
+ *
+ * Las ventanas declaraban `aria-modal="true"` pero Tab llevaba el foco a la página de detrás,
+ * Escape no hacía nada y al cerrar el foco caía en `<body>`. Es el defecto que DrawerHub ya
+ * arregló con `FocusLock returnFocus` y un Escape (INF.8).
+ */
+describe('#376 — Modal y el teclado', () => {
+  it('should_close_with_escape', () => {
+    const onClose = vi.fn()
+    render(<Modal onClose={onClose}><input aria-label="campo" /></Modal>)
+
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'campo' }), { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledOnce()
+  })
+
+  it('should_not_close_with_escape_while_it_cannot_close', () => {
+    // `ConfirmDialog` bloquea Cancelar mientras borra: Escape tampoco puede cerrar entonces.
+    render(<Modal onClose={null}><input aria-label="campo" /></Modal>)
+    expect(() => fireEvent.keyDown(screen.getByRole('textbox', { name: 'campo' }), { key: 'Escape' })).not.toThrow()
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('should_close_only_the_topmost_dialog_with_escape', () => {
+    const exterior = vi.fn()
+    const interior = vi.fn()
+    render(
+      <Modal onClose={exterior}>
+        <Modal onClose={interior}><input aria-label="dentro" /></Modal>
+      </Modal>,
+    )
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'dentro' }), { key: 'Escape' })
+    expect(interior).toHaveBeenCalledOnce()
+    expect(exterior).not.toHaveBeenCalled()
+  })
+
+  it('should_move_focus_inside_when_it_opens', async () => {
+    render(<Modal onClose={null}><input aria-label="primero" /></Modal>)
+    await waitFor(() => expect(screen.getByRole('dialog')).toContainElement(document.activeElement as HTMLElement))
+  })
+
+  it('should_return_focus_to_the_opener_when_it_closes', async () => {
+    function Pagina() {
+      const [abierta, setAbierta] = useState(false)
+      return (
+        <>
+          <button onClick={() => setAbierta(true)}>Abrir</button>
+          {abierta && (
+            <Modal onClose={() => setAbierta(false)}><input aria-label="campo" /></Modal>
+          )}
+        </>
+      )
+    }
+    render(<Pagina />)
+    const abrir = screen.getByRole('button', { name: 'Abrir' })
+    abrir.focus()
+    fireEvent.click(abrir)
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'campo' })).toHaveFocus())
+
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'campo' }), { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+    await waitFor(() => expect(abrir).toHaveFocus())
   })
 })
 

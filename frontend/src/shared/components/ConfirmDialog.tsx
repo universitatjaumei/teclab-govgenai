@@ -23,6 +23,7 @@ export function ConfirmDialog({
 
   return (
     <Modal
+      onClose={isPending ? null : onCancel}
       className="bg-card"
       header={<h3 className={`text-lg font-semibold ${destructive ? 'text-destructive' : ''}`}>{title}</h3>}
       footer={

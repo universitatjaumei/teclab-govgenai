@@ -225,6 +225,7 @@ export function OrganizacionesPage() {
       {/* Dialog crear / editar */}
       {dialogOpen && (
         <Modal
+          onClose={closeDialog}
           className="bg-card"
           header={
             <h2 className="text-lg font-semibold">
@@ -280,6 +281,7 @@ export function OrganizacionesPage() {
       {/* Dialog confirmación borrado */}
       {deleteTarget && (
         <Modal
+          onClose={() => { setDeleteTarget(null); setDeleteError(''); setDeletePendiente(null) }}
           className="bg-card max-w-sm"
           footer={
             <>

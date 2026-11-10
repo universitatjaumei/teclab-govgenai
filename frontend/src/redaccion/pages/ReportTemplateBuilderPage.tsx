@@ -192,6 +192,7 @@ export function ReportTemplateBuilderPage() {
           hacer nada. Visto en el navegador al capturar la guía. */}
       {aRetirar && (
         <Modal
+          onClose={() => setARetirar(null)}
           ariaLabel={t('templates.archive_title', { name: aRetirar.name })}
           className="border bg-card max-w-lg"
           headerClassName="px-4 pt-4 pb-3"

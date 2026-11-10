@@ -564,6 +564,7 @@ export function ChatbotsPage() {
       {/* Dialog crear / editar */}
       {dialogOpen && (
         <Modal
+          onClose={closeDialog}
           className="bg-card"
           onBackdropClick={closeDialog}
           form={{ onSubmit: handleSubmit(onSubmit), noValidate: true }}
@@ -1167,6 +1168,7 @@ export function ChatbotsPage() {
       {/* Dialog confirmación borrado */}
       {deleteTarget && (
         <Modal
+          onClose={() => { setDeleteTarget(null); setDeleteError('') }}
           className="bg-card max-w-sm"
           footer={
             <>

@@ -169,6 +169,7 @@ export function AccessTokensPage() {
 
       {dialogOpen && (
         <Modal
+          onClose={() => { setDialogOpen(false); reset() }}
           ariaLabel={t('pat_modal_title')}
           header={<h2 className="text-lg font-semibold">{t('pat_modal_title')}</h2>}
           form={{ onSubmit: handleSubmit(onSubmit), noValidate: true }}
@@ -220,6 +221,7 @@ export function AccessTokensPage() {
 
       {created && (
         <Modal
+          onClose={() => { setCreated(null); setCopied(false) }}
           ariaLabel={t('pat_created_title')}
           header={<h2 className="text-lg font-semibold">{t('pat_created_title')}</h2>}
           footer={
