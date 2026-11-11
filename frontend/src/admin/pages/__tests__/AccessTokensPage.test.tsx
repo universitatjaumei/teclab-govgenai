@@ -170,3 +170,20 @@ describe('Revisión de la PR #377 — el token creado', () => {
     expect(screen.getByTestId('pat-plaintext')).toBeInTheDocument()
   })
 })
+
+describe('Revisión de la PR #377 — el foco tras crear un token', () => {
+  it('should_return_focus_to_create_token_after_closing_the_token', async () => {
+    // El formulario y el token son la misma ventana: si fueran dos, la segunda guardaría como
+    // «quien la abrió» el botón Crear, ya retirado, y el foco acabaría en <body>.
+    renderPage()
+    const abrir = screen.getByText('Crear token')
+    abrir.focus()
+    await act(async () => { fireEvent.click(abrir) })
+    fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'mcp' } })
+    fireEvent.click(screen.getByLabelText('Plantillas: lectura'))
+    await act(async () => { fireEvent.submit(screen.getByText('Crear').closest('form')!) })
+    await waitFor(() => screen.getByTestId('pat-plaintext'))
+    await act(async () => { fireEvent.click(screen.getByText('Cerrar')) })
+    await waitFor(() => expect(abrir).toHaveFocus())
+  })
+})

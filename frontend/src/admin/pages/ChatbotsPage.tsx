@@ -1175,6 +1175,7 @@ export function ChatbotsPage() {
             <>
               <button
                 type="button"
+                disabled={deleteMutation.isPending}
                 onClick={() => { setDeleteTarget(null); setDeleteError('') }}
                 className="px-3 py-2 border rounded-md text-sm"
               >

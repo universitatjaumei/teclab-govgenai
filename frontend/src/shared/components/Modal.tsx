@@ -2,9 +2,6 @@ import { useId, useLayoutEffect, useRef, useState, type FormHTMLAttributes, type
 import FocusLock from 'react-focus-lock'
 import { cn } from '@/lib/utils'
 
-/** Quien abrió la última ventana que se cerró, mientras dura el render que la cierra. */
-let relevo: HTMLElement | null = null
-
 /** La ventana modal de todo el panel (#374).
  *
  * Cada diálogo montaba su propia capa centrada, y doce de diecisiete no limitaban la altura del
@@ -25,7 +22,10 @@ let relevo: HTMLElement | null = null
  *
  * Con teclado (#376): el foco entra al abrir —en la ventana misma, que se anuncia por su nombre,
  * y no en su primer botón, que en «archivar plantilla» era «Retirar» (revisión de la PR #377)—, Tab no sale de la ventana, Escape llama a `onClose`
- * y al cerrar el foco vuelve a quien la abrió —el `FocusLock returnFocus` de DrawerHub—.
+ * y al cerrar el foco vuelve a quien la abrió —el `FocusLock returnFocus` de DrawerHub—. Una
+ * ventana que sustituye a otra (formulario → resultado) es **la misma** `Modal` con otro
+ * contenido: si fueran dos, la segunda guardaría como «quien la abrió» un botón de la primera,
+ * ya retirado, y el foco acabaría en <body> (revisión de la PR #377, en Tokens).
  * `onClose` es obligatorio a propósito: cada ventana decide si se puede cerrar, y `null` es
  * «ahora no» (`ConfirmDialog` mientras borra). Escape se escucha en la capa y no en `window`:
  * así, con dos ventanas apiladas, cierra sólo la de arriba, que es donde está el foco. */
@@ -64,23 +64,6 @@ export function Modal({
   const idCabecera = useId()
   const pulsadoEnLaCapa = useRef(false)
   const cabecera = useRef<HTMLDivElement>(null)
-  const capa = useRef<HTMLDivElement>(null)
-  // El foco vuelve a quien la abrió. No con `returnFocus`, que guarda lo enfocado al activarse:
-  // si en el mismo render otra ventana sustituye a ésta —crear un token cierra el formulario y
-  // abre el del token—, eso es un botón ya retirado y el foco acababa en <body>. La que entra
-  // hereda a quien abrió la que sale (revisión de la PR #377).
-  useLayoutEffect(() => {
-    const activo = document.activeElement
-    const quienLaAbrio = activo instanceof HTMLElement && activo !== document.body ? activo : relevo
-    return () => {
-      relevo = quienLaAbrio
-      setTimeout(() => {
-        if (relevo === quienLaAbrio) relevo = null
-        // Sólo si el foco se ha perdido: si otra ventana lo tiene, es suyo.
-        if (document.activeElement === document.body && quienLaAbrio?.isConnected) quienLaAbrio.focus()
-      })
-    }
-  }, [])
   // El nombre sale del primer encabezado de la cabecera, no de toda ella: la del chatbot lleva
   // también el aspa de cerrar y se anunciaba «Nou chatbot ✕» (#376, visto en el navegador).
   const [idDelNombre, setIdDelNombre] = useState<string>()
@@ -120,9 +103,11 @@ export function Modal({
   )
 
   return (
-    <FocusLock autoFocus={false} onActivation={() => capa.current?.focus()}>
+    <FocusLock returnFocus>
       <div
-        ref={capa}
+        // `data-autofocus`: el foco inicial va a la ventana y no al primer botón. Si un campo
+        // ya lo tiene por `autoFocus`, FocusLock lo respeta.
+        data-autofocus
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
@@ -135,11 +120,14 @@ export function Modal({
           if (e.target === e.currentTarget && pulsadoEnLaCapa.current) onBackdropClick()
         } : undefined}
         onKeyDown={(e) => {
-          // Un hijo que ya usó el Escape —un desplegable, cancelar una composición IME— se lo
-          // queda: cerrar la ventana entera tiraría lo escrito (revisión de la PR #377).
-          if (e.key !== 'Escape' || e.defaultPrevented || e.nativeEvent.isComposing) return
-          // La de arriba se queda el Escape: sin esto, con dos apiladas cerrarían las dos.
+          if (e.key !== 'Escape') return
+          // La de arriba se queda el Escape: sin esto, con dos apiladas cerrarían las dos, y el
+          // de DrawerHub, que escucha en `window`, cerraría el cajón.
           e.stopPropagation()
+          // Un hijo que ya usó el Escape —un desplegable, cancelar una composición IME, que
+          // Safari marca con `keyCode` 229 y no con `isComposing`— se lo queda: cerrar la
+          // ventana entera tiraría lo escrito (revisión de la PR #377).
+          if (e.defaultPrevented || e.nativeEvent.isComposing || e.keyCode === 229) return
           onClose?.()
         }}
       >

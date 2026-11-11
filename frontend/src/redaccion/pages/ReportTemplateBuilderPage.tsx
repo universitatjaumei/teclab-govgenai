@@ -217,6 +217,7 @@ export function ReportTemplateBuilderPage() {
               <button
                 type="button"
                 data-testid="cancelar-archivar"
+                disabled={archivandoEnCurso}
                 onClick={() => setARetirar(null)}
                 className="px-4 py-2 text-sm border rounded"
               >

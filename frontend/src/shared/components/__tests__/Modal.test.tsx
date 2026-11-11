@@ -190,6 +190,33 @@ describe('#376 — Modal y el teclado', () => {
     expect(onClose).not.toHaveBeenCalled()
   })
 
+  it('should_not_close_on_the_safari_ime_escape', () => {
+    // Safari marca la tecla que cancela la composición con keyCode 229, no con isComposing.
+    const onClose = vi.fn()
+    render(<Modal onClose={onClose}><textarea aria-label="prompt" /></Modal>)
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'prompt' }), { key: 'Escape', keyCode: 229 })
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('should_keep_an_escape_a_child_used_from_reaching_window', () => {
+    // DrawerHub escucha Escape en window: el que se quedó un hijo no debe cerrar el cajón.
+    const enWindow = vi.fn()
+    window.addEventListener('keydown', enWindow)
+    render(
+      <Modal onClose={vi.fn()}>
+        <input aria-label="combo" onKeyDown={(e) => { if (e.key === 'Escape') e.preventDefault() }} />
+      </Modal>,
+    )
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'combo' }), { key: 'Escape' })
+    window.removeEventListener('keydown', enWindow)
+    expect(enWindow).not.toHaveBeenCalled()
+  })
+
+  it('should_keep_focus_on_a_field_that_takes_it_with_autofocus', async () => {
+    render(<Modal onClose={null} footer={<button>Guardar</button>}><input aria-label="nombre" autoFocus /></Modal>)
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'nombre' })).toHaveFocus())
+  })
+
   it('should_return_focus_to_the_opener_when_one_dialog_replaces_another', async () => {
     // Revisión de la PR #377: crear un token cierra el formulario y abre el del token en el
     // mismo render; al cerrar éste el foco caía en <body>.
@@ -198,11 +225,11 @@ describe('#376 — Modal y el teclado', () => {
       return (
         <>
           <button onClick={() => setPaso('form')}>Nuevo</button>
-          {paso === 'form' && (
-            <Modal onClose={() => setPaso('nada')}><button onClick={() => setPaso('hecho')}>Crear</button></Modal>
-          )}
-          {paso === 'hecho' && (
-            <Modal onClose={() => setPaso('nada')}><p>creado</p></Modal>
+          {/* La misma Modal con otro contenido, no dos: así se escribe una sustitución. */}
+          {paso !== 'nada' && (
+            <Modal onClose={() => setPaso('nada')}>
+              {paso === 'form' ? <button onClick={() => setPaso('hecho')}>Crear</button> : <p>creado</p>}
+            </Modal>
           )}
         </>
       )

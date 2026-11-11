@@ -250,5 +250,6 @@ describe('Revisión de la PR #377 — retirar una plantilla y el teclado', () =>
     fireEvent.click(screen.getByTestId('btn-archivar-tpl-1'))
     fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
     expect(screen.getByTestId('confirmar-archivar')).toBeInTheDocument()
+    expect(screen.getByTestId('cancelar-archivar')).toBeDisabled()
   })
 })

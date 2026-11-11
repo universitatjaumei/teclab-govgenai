@@ -324,7 +324,7 @@ export function LLMConfigsPage() {
             header={<h2 className="font-semibold">{t('hub.llm_config_delete_confirm')}</h2>}
             footer={
               <>
-                <button onClick={() => { setDeleteTarget(null); setDeleteError('') }} className="px-3 py-2 border rounded-md text-sm">{tc('cancel')}</button>
+                <button onClick={() => { setDeleteTarget(null); setDeleteError('') }} disabled={deleteMutation.isPending} className="px-3 py-2 border rounded-md text-sm disabled:opacity-50">{tc('cancel')}</button>
                 <button
                   onClick={() => deleteMutation.mutate({ configId: deleteTarget.id })}
                   disabled={deleteMutation.isPending}
@@ -630,7 +630,7 @@ function ProvidersSection({ providers, isLoading }: { providers: HubProviderOut[
           header={<h2 className="font-semibold">{t('hub.provider_delete')}</h2>}
           footer={
             <>
-              <button onClick={() => { setDeleteTarget(null); setDeleteError('') }} className="px-3 py-2 border rounded-md text-sm">{tc('cancel')}</button>
+              <button onClick={() => { setDeleteTarget(null); setDeleteError('') }} disabled={deleteMutation.isPending} className="px-3 py-2 border rounded-md text-sm disabled:opacity-50">{tc('cancel')}</button>
               <button
                 onClick={() => deleteMutation.mutate({ providerId: deleteTarget.id })}
                 disabled={deleteMutation.isPending}

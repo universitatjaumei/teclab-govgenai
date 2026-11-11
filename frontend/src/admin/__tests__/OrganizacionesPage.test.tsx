@@ -197,5 +197,7 @@ describe('Revisión de la PR #377 — borrar una organización y el teclado', ()
     await act(async () => { screen.getAllByRole('button', { name: /^eliminar$/i })[0].click() })
     fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
     expect(screen.getByRole('dialog')).toBeInTheDocument()
+    // Ni Cancelar: cerrar haría creer que no se ha borrado nada (segunda revisión de la PR #377).
+    expect(within(screen.getByRole('dialog')).getByRole('button', { name: /cancelar/i })).toBeDisabled()
   })
 })
