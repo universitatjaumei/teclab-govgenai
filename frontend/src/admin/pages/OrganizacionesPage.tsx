@@ -290,7 +290,7 @@ export function OrganizacionesPage() {
                 type="button"
                 disabled={deleteMutation.isPending}
                 onClick={() => { setDeleteTarget(null); setDeleteError(''); setDeletePendiente(null) }}
-                className="px-3 py-2 border rounded-md text-sm"
+                className="px-3 py-2 border rounded-md text-sm disabled:opacity-50"
               >
                 {tc('cancel')}
               </button>

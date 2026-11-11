@@ -219,7 +219,7 @@ export function ReportTemplateBuilderPage() {
                 data-testid="cancelar-archivar"
                 disabled={archivandoEnCurso}
                 onClick={() => setARetirar(null)}
-                className="px-4 py-2 text-sm border rounded"
+                className="px-4 py-2 text-sm border rounded disabled:opacity-50"
               >
                 {tc('cancel')}
               </button>

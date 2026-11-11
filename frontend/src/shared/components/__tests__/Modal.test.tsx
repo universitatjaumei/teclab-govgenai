@@ -217,7 +217,27 @@ describe('#376 — Modal y el teclado', () => {
     await waitFor(() => expect(screen.getByRole('textbox', { name: 'nombre' })).toHaveFocus())
   })
 
-  it('should_return_focus_to_the_opener_when_one_dialog_replaces_another', async () => {
+  it('should_take_focus_back_when_its_content_drops_it', async () => {
+    // Tercera revisión de la PR #377: en Tokens el panel pasa de <form> a <div> al crear el
+    // token y el botón enfocado desaparece. FocusLock recupera el foco —en Chrome cae en
+    // «Copiar»—; esto fija que no se quede en <body>.
+    function Pagina() {
+      const [hecho, setHecho] = useState(false)
+      return (
+        <Modal onClose={null} ariaLabel="Token" form={hecho ? undefined : { onSubmit: (e) => { e.preventDefault(); setHecho(true) } }}>
+          {hecho ? <p>creado</p> : <button type="submit">Crear</button>}
+        </Modal>
+      )
+    }
+    render(<Pagina />)
+    const crear = screen.getByRole('button', { name: 'Crear' })
+    crear.focus()
+    fireEvent.click(crear)
+    await waitFor(() => expect(screen.getByText('creado')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('dialog', { name: 'Token' })).toHaveFocus())
+  })
+
+  it('should_return_focus_to_the_opener_when_its_content_is_replaced', async () => {
     // Revisión de la PR #377: crear un token cierra el formulario y abre el del token en el
     // mismo render; al cerrar éste el foco caía en <body>.
     function Pagina() {
