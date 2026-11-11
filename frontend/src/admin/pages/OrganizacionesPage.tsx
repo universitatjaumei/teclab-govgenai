@@ -225,6 +225,7 @@ export function OrganizacionesPage() {
       {/* Dialog crear / editar */}
       {dialogOpen && (
         <Modal
+          onClose={closeDialog}
           className="bg-card"
           header={
             <h2 className="text-lg font-semibold">
@@ -280,13 +281,16 @@ export function OrganizacionesPage() {
       {/* Dialog confirmación borrado */}
       {deleteTarget && (
         <Modal
+          onClose={deleteMutation.isPending ? null : () => { setDeleteTarget(null); setDeleteError(''); setDeletePendiente(null) }}
+          ariaLabel={t('hub.delete_organizacion_confirm')}
           className="bg-card max-w-sm"
           footer={
             <>
               <button
                 type="button"
+                disabled={deleteMutation.isPending}
                 onClick={() => { setDeleteTarget(null); setDeleteError(''); setDeletePendiente(null) }}
-                className="px-3 py-2 border rounded-md text-sm"
+                className="px-3 py-2 border rounded-md text-sm disabled:opacity-50"
               >
                 {tc('cancel')}
               </button>

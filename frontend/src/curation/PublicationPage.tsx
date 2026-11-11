@@ -385,6 +385,7 @@ export function PublicationPage() {
       {/* Selection dialog */}
       {selDialogOpen && (
         <Modal
+          onClose={() => { setSelDialogOpen(false); reset() }}
           ariaLabel={t('new_selection')}
           className="max-w-sm"
           header={<h2 className="text-base font-semibold">{t('new_selection')}</h2>}

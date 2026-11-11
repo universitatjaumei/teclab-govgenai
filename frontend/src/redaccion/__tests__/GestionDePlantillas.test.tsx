@@ -241,3 +241,15 @@ describe('gestión de plantillas', () => {
     expect(screen.getByTestId('access-denied')).toBeInTheDocument()
   })
 })
+
+describe('Revisión de la PR #377 — retirar una plantilla y el teclado', () => {
+  it('should_not_close_with_escape_while_archiving', () => {
+    mockearApi()
+    vi.mocked(useArchiveTemplate).mockReturnValue({ mutate: vi.fn(), isPending: true } as any)
+    pintar()
+    fireEvent.click(screen.getByTestId('btn-archivar-tpl-1'))
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+    expect(screen.getByTestId('confirmar-archivar')).toBeInTheDocument()
+    expect(screen.getByTestId('cancelar-archivar')).toBeDisabled()
+  })
+})

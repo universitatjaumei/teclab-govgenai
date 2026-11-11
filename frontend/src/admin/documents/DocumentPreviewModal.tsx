@@ -18,6 +18,7 @@ export function DocumentPreviewModal({
 
   return (
     <Modal
+      onClose={onClose}
       className="bg-card max-w-3xl shadow-xl"
       headerClassName="flex items-center justify-between p-4 border-b"
       bodyClassName="p-4"
@@ -29,6 +30,7 @@ export function DocumentPreviewModal({
           <button
             type="button"
             onClick={onClose}
+            aria-label={tc('close')}
             className="p-1 text-muted-foreground hover:text-foreground"
           >✕</button>
         </>

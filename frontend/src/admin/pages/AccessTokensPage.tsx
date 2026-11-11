@@ -167,8 +167,38 @@ export function AccessTokensPage() {
         </div>
       )}
 
-      {dialogOpen && (
+      {/* El formulario y el token son **la misma** Modal: si fueran dos, la del token guardaría
+          como «quien la abrió» el botón Crear, ya retirado, y al cerrarla el foco acabaría en
+          <body> en vez de en «Crear token» (revisión de la PR #377). */}
+      {created ? (
+        // Sin Escape, como sin clic en la capa: es el único sitio donde se ve el token en claro
+        // (revisión de la PR #377). Se cierra con «Cerrar».
         <Modal
+          onClose={null}
+          ariaLabel={t('pat_created_title')}
+          header={<h2 className="text-lg font-semibold">{t('pat_created_title')}</h2>}
+          footer={
+            <>
+              <button onClick={handleCopy} className="px-3 py-1.5 rounded border text-sm">
+                {copied ? t('pat_copied') : t('pat_copy')}
+              </button>
+              <button
+                onClick={() => { setCreated(null); setCopied(false) }}
+                className="px-3 py-1.5 rounded bg-primary text-primary-foreground text-sm"
+              >
+                {t('pat_close')}
+              </button>
+            </>
+          }
+        >
+          <p className="text-sm text-destructive">{t('pat_once_warning')}</p>
+          <code data-testid="pat-plaintext" className="block break-all bg-muted rounded p-2 text-xs font-mono">
+            {created.token}
+          </code>
+        </Modal>
+      ) : dialogOpen && (
+        <Modal
+          onClose={() => { setDialogOpen(false); reset() }}
           ariaLabel={t('pat_modal_title')}
           header={<h2 className="text-lg font-semibold">{t('pat_modal_title')}</h2>}
           form={{ onSubmit: handleSubmit(onSubmit), noValidate: true }}
@@ -215,31 +245,6 @@ export function AccessTokensPage() {
               className="w-full border rounded px-2 py-1.5 text-sm mt-1" />
             <p className="text-xs text-muted-foreground mt-0.5">{t('pat_field_expiry_ayuda')}</p>
           </div>
-        </Modal>
-      )}
-
-      {created && (
-        <Modal
-          ariaLabel={t('pat_created_title')}
-          header={<h2 className="text-lg font-semibold">{t('pat_created_title')}</h2>}
-          footer={
-            <>
-              <button onClick={handleCopy} className="px-3 py-1.5 rounded border text-sm">
-                {copied ? t('pat_copied') : t('pat_copy')}
-              </button>
-              <button
-                onClick={() => { setCreated(null); setCopied(false) }}
-                className="px-3 py-1.5 rounded bg-primary text-primary-foreground text-sm"
-              >
-                {t('pat_close')}
-              </button>
-            </>
-          }
-        >
-          <p className="text-sm text-destructive">{t('pat_once_warning')}</p>
-          <code data-testid="pat-plaintext" className="block break-all bg-muted rounded p-2 text-xs font-mono">
-            {created.token}
-          </code>
         </Modal>
       )}
     </div>

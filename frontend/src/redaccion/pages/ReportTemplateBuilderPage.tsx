@@ -192,6 +192,7 @@ export function ReportTemplateBuilderPage() {
           hacer nada. Visto en el navegador al capturar la guía. */}
       {aRetirar && (
         <Modal
+          onClose={archivandoEnCurso ? null : () => setARetirar(null)}
           ariaLabel={t('templates.archive_title', { name: aRetirar.name })}
           className="border bg-card max-w-lg"
           headerClassName="px-4 pt-4 pb-3"
@@ -216,8 +217,9 @@ export function ReportTemplateBuilderPage() {
               <button
                 type="button"
                 data-testid="cancelar-archivar"
+                disabled={archivandoEnCurso}
                 onClick={() => setARetirar(null)}
-                className="px-4 py-2 text-sm border rounded"
+                className="px-4 py-2 text-sm border rounded disabled:opacity-50"
               >
                 {tc('cancel')}
               </button>

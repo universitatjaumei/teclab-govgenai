@@ -179,3 +179,25 @@ describe('OrganizacionesPage', () => {
     expect(within(dialogo).queryByText(/status code/i)).toBeNull()
   })
 })
+
+describe('Revisión de la PR #377 — borrar una organización y el teclado', () => {
+  it('should_name_the_delete_dialog', async () => {
+    renderPage(SAMPLE_CLIENTS)
+    await waitFor(() => screen.getByText('Universitat Jaume I'))
+    await act(async () => { screen.getAllByRole('button', { name: /^eliminar$/i })[0].click() })
+    expect(screen.getByRole('dialog', { name: '¿Eliminar esta organización?' })).toBeInTheDocument()
+  })
+
+  it('should_not_close_with_escape_while_deleting', async () => {
+    vi.mocked(useDeleteOrganizacionApiV1HubOrganizacionesOrganizacionIdDelete).mockReturnValue(
+      { mutate: vi.fn(), isPending: true } as any,
+    )
+    renderPage(SAMPLE_CLIENTS)
+    await waitFor(() => screen.getByText('Universitat Jaume I'))
+    await act(async () => { screen.getAllByRole('button', { name: /^eliminar$/i })[0].click() })
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    // Ni Cancelar: cerrar haría creer que no se ha borrado nada (segunda revisión de la PR #377).
+    expect(within(screen.getByRole('dialog')).getByRole('button', { name: /cancelar/i })).toBeDisabled()
+  })
+})

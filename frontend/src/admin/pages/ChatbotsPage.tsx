@@ -564,6 +564,7 @@ export function ChatbotsPage() {
       {/* Dialog crear / editar */}
       {dialogOpen && (
         <Modal
+          onClose={closeDialog}
           className="bg-card"
           onBackdropClick={closeDialog}
           form={{ onSubmit: handleSubmit(onSubmit), noValidate: true }}
@@ -1167,13 +1168,16 @@ export function ChatbotsPage() {
       {/* Dialog confirmación borrado */}
       {deleteTarget && (
         <Modal
+          onClose={deleteMutation.isPending ? null : () => { setDeleteTarget(null); setDeleteError('') }}
+          ariaLabel={t('hub.delete_confirm')}
           className="bg-card max-w-sm"
           footer={
             <>
               <button
                 type="button"
+                disabled={deleteMutation.isPending}
                 onClick={() => { setDeleteTarget(null); setDeleteError('') }}
-                className="px-3 py-2 border rounded-md text-sm"
+                className="px-3 py-2 border rounded-md text-sm disabled:opacity-50"
               >
                 {tc('cancel')}
               </button>

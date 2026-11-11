@@ -27,6 +27,7 @@ export function PageContentDialog({ pageId, onClose }: Props) {
 
   return (
     <Modal
+      onClose={onClose}
       ariaLabel={t('page_content_title')}
       className="max-w-3xl"
       headerClassName="p-4 border-b space-y-1"
