@@ -319,7 +319,7 @@ export function LLMConfigsPage() {
         {/* Delete confirmation */}
         {deleteTarget && (
           <Modal
-            onClose={() => { setDeleteTarget(null); setDeleteError('') }}
+            onClose={deleteMutation.isPending ? null : () => { setDeleteTarget(null); setDeleteError('') }}
             className="border max-w-96 shadow-xl"
             header={<h2 className="font-semibold">{t('hub.llm_config_delete_confirm')}</h2>}
             footer={
@@ -625,7 +625,7 @@ function ProvidersSection({ providers, isLoading }: { providers: HubProviderOut[
       {/* Delete confirmation for Provider */}
       {deleteTarget && (
         <Modal
-          onClose={() => { setDeleteTarget(null); setDeleteError('') }}
+          onClose={deleteMutation.isPending ? null : () => { setDeleteTarget(null); setDeleteError('') }}
           className="border max-w-96 shadow-xl"
           header={<h2 className="font-semibold">{t('hub.provider_delete')}</h2>}
           footer={

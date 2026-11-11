@@ -220,8 +220,10 @@ export function AccessTokensPage() {
       )}
 
       {created && (
+        // Sin Escape, como sin clic en la capa: es el único sitio donde se ve el token en claro
+        // (revisión de la PR #377). Se cierra con «Cerrar».
         <Modal
-          onClose={() => { setCreated(null); setCopied(false) }}
+          onClose={null}
           ariaLabel={t('pat_created_title')}
           header={<h2 className="text-lg font-semibold">{t('pat_created_title')}</h2>}
           footer={

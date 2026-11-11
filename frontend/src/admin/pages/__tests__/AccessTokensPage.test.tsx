@@ -156,3 +156,17 @@ describe('AccessTokensPage', () => {
     await expectNoA11yViolations(container)
   })
 })
+
+describe('Revisión de la PR #377 — el token creado', () => {
+  it('should_not_lose_the_token_with_escape', async () => {
+    // Es el único sitio donde se ve el token en claro: Escape por costumbre lo perdía.
+    renderPage()
+    await act(async () => { fireEvent.click(screen.getByText('Crear token')) })
+    fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'mcp' } })
+    fireEvent.click(screen.getByLabelText('Plantillas: lectura'))
+    await act(async () => { fireEvent.submit(screen.getByText('Crear').closest('form')!) })
+    await waitFor(() => screen.getByTestId('pat-plaintext'))
+    fireEvent.keyDown(screen.getByTestId('pat-plaintext'), { key: 'Escape' })
+    expect(screen.getByTestId('pat-plaintext')).toBeInTheDocument()
+  })
+})

@@ -2,6 +2,9 @@ import { useId, useLayoutEffect, useRef, useState, type FormHTMLAttributes, type
 import FocusLock from 'react-focus-lock'
 import { cn } from '@/lib/utils'
 
+/** Quien abrió la última ventana que se cerró, mientras dura el render que la cierra. */
+let relevo: HTMLElement | null = null
+
 /** La ventana modal de todo el panel (#374).
  *
  * Cada diálogo montaba su propia capa centrada, y doce de diecisiete no limitaban la altura del
@@ -20,7 +23,8 @@ import { cn } from '@/lib/utils'
  * cierra si el clic **empieza y acaba** en ella: seleccionar texto y soltar fuera manda el `click`
  * a la capa y cerraba el chatbot perdiendo lo escrito (revisión de la PR #375).
  *
- * Con teclado (#376): el foco entra al abrir, Tab no sale de la ventana, Escape llama a `onClose`
+ * Con teclado (#376): el foco entra al abrir —en la ventana misma, que se anuncia por su nombre,
+ * y no en su primer botón, que en «archivar plantilla» era «Retirar» (revisión de la PR #377)—, Tab no sale de la ventana, Escape llama a `onClose`
  * y al cerrar el foco vuelve a quien la abrió —el `FocusLock returnFocus` de DrawerHub—.
  * `onClose` es obligatorio a propósito: cada ventana decide si se puede cerrar, y `null` es
  * «ahora no» (`ConfirmDialog` mientras borra). Escape se escucha en la capa y no en `window`:
@@ -60,6 +64,23 @@ export function Modal({
   const idCabecera = useId()
   const pulsadoEnLaCapa = useRef(false)
   const cabecera = useRef<HTMLDivElement>(null)
+  const capa = useRef<HTMLDivElement>(null)
+  // El foco vuelve a quien la abrió. No con `returnFocus`, que guarda lo enfocado al activarse:
+  // si en el mismo render otra ventana sustituye a ésta —crear un token cierra el formulario y
+  // abre el del token—, eso es un botón ya retirado y el foco acababa en <body>. La que entra
+  // hereda a quien abrió la que sale (revisión de la PR #377).
+  useLayoutEffect(() => {
+    const activo = document.activeElement
+    const quienLaAbrio = activo instanceof HTMLElement && activo !== document.body ? activo : relevo
+    return () => {
+      relevo = quienLaAbrio
+      setTimeout(() => {
+        if (relevo === quienLaAbrio) relevo = null
+        // Sólo si el foco se ha perdido: si otra ventana lo tiene, es suyo.
+        if (document.activeElement === document.body && quienLaAbrio?.isConnected) quienLaAbrio.focus()
+      })
+    }
+  }, [])
   // El nombre sale del primer encabezado de la cabecera, no de toda ella: la del chatbot lleva
   // también el aspa de cerrar y se anunciaba «Nou chatbot ✕» (#376, visto en el navegador).
   const [idDelNombre, setIdDelNombre] = useState<string>()
@@ -99,20 +120,24 @@ export function Modal({
   )
 
   return (
-    <FocusLock returnFocus>
+    <FocusLock autoFocus={false} onActivation={() => capa.current?.focus()}>
       <div
+        ref={capa}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={ariaLabel}
         aria-labelledby={ariaLabelledBy ?? (ariaLabel ? undefined : idDelNombre)}
         data-testid={testId}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 outline-none"
         onMouseDown={(e) => { pulsadoEnLaCapa.current = e.target === e.currentTarget }}
         onClick={onBackdropClick ? (e) => {
           if (e.target === e.currentTarget && pulsadoEnLaCapa.current) onBackdropClick()
         } : undefined}
         onKeyDown={(e) => {
-          if (e.key !== 'Escape') return
+          // Un hijo que ya usó el Escape —un desplegable, cancelar una composición IME— se lo
+          // queda: cerrar la ventana entera tiraría lo escrito (revisión de la PR #377).
+          if (e.key !== 'Escape' || e.defaultPrevented || e.nativeEvent.isComposing) return
           // La de arriba se queda el Escape: sin esto, con dos apiladas cerrarían las dos.
           e.stopPropagation()
           onClose?.()

@@ -1168,7 +1168,8 @@ export function ChatbotsPage() {
       {/* Dialog confirmación borrado */}
       {deleteTarget && (
         <Modal
-          onClose={() => { setDeleteTarget(null); setDeleteError('') }}
+          onClose={deleteMutation.isPending ? null : () => { setDeleteTarget(null); setDeleteError('') }}
+          ariaLabel={t('hub.delete_confirm')}
           className="bg-card max-w-sm"
           footer={
             <>

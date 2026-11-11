@@ -281,7 +281,8 @@ export function OrganizacionesPage() {
       {/* Dialog confirmación borrado */}
       {deleteTarget && (
         <Modal
-          onClose={() => { setDeleteTarget(null); setDeleteError(''); setDeletePendiente(null) }}
+          onClose={deleteMutation.isPending ? null : () => { setDeleteTarget(null); setDeleteError(''); setDeletePendiente(null) }}
+          ariaLabel={t('hub.delete_organizacion_confirm')}
           className="bg-card max-w-sm"
           footer={
             <>

@@ -156,11 +156,68 @@ describe('#376 — Modal y el teclado', () => {
     const abrir = screen.getByRole('button', { name: 'Abrir' })
     abrir.focus()
     fireEvent.click(abrir)
-    await waitFor(() => expect(screen.getByRole('textbox', { name: 'campo' })).toHaveFocus())
+    await waitFor(() => expect(screen.getByRole('dialog')).toHaveFocus())
 
-    fireEvent.keyDown(screen.getByRole('textbox', { name: 'campo' }), { key: 'Escape' })
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
     expect(screen.queryByRole('dialog')).toBeNull()
     await waitFor(() => expect(abrir).toHaveFocus())
+  })
+
+  it('should_focus_the_dialog_itself_not_its_first_button', async () => {
+    // Revisión de la PR #377: «Retirar» va primero en el pie de archivar una plantilla, y un
+    // segundo Enter —o el autorrepetir de la tecla— archivaba sin elegirlo.
+    render(
+      <Modal onClose={null} header={<h2>Retirar plantilla</h2>} footer={<button>Retirar</button>}><p>x</p></Modal>,
+    )
+    await waitFor(() => expect(screen.getByRole('dialog', { name: 'Retirar plantilla' })).toHaveFocus())
+  })
+
+  it('should_leave_escape_to_a_child_that_already_used_it', () => {
+    const onClose = vi.fn()
+    render(
+      <Modal onClose={onClose}>
+        <input aria-label="combo" onKeyDown={(e) => { if (e.key === 'Escape') e.preventDefault() }} />
+      </Modal>,
+    )
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'combo' }), { key: 'Escape' })
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('should_not_close_while_an_ime_composition_is_cancelled', () => {
+    const onClose = vi.fn()
+    render(<Modal onClose={onClose}><textarea aria-label="prompt" /></Modal>)
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'prompt' }), { key: 'Escape', isComposing: true })
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('should_return_focus_to_the_opener_when_one_dialog_replaces_another', async () => {
+    // Revisión de la PR #377: crear un token cierra el formulario y abre el del token en el
+    // mismo render; al cerrar éste el foco caía en <body>.
+    function Pagina() {
+      const [paso, setPaso] = useState<'nada' | 'form' | 'hecho'>('nada')
+      return (
+        <>
+          <button onClick={() => setPaso('form')}>Nuevo</button>
+          {paso === 'form' && (
+            <Modal onClose={() => setPaso('nada')}><button onClick={() => setPaso('hecho')}>Crear</button></Modal>
+          )}
+          {paso === 'hecho' && (
+            <Modal onClose={() => setPaso('nada')}><p>creado</p></Modal>
+          )}
+        </>
+      )
+    }
+    render(<Pagina />)
+    const nuevo = screen.getByRole('button', { name: 'Nuevo' })
+    nuevo.focus()
+    fireEvent.click(nuevo)
+    await waitFor(() => expect(screen.getByRole('dialog')).toHaveFocus())
+    const crear = screen.getByRole('button', { name: 'Crear' })
+    crear.focus()
+    fireEvent.click(crear)
+    await waitFor(() => expect(screen.getByText('creado')).toBeInTheDocument())
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+    await waitFor(() => expect(nuevo).toHaveFocus())
   })
 })
 

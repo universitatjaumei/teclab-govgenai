@@ -30,6 +30,7 @@ export function DocumentPreviewModal({
           <button
             type="button"
             onClick={onClose}
+            aria-label={tc('close')}
             className="p-1 text-muted-foreground hover:text-foreground"
           >✕</button>
         </>
