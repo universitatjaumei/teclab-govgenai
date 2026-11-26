@@ -45,7 +45,7 @@ RUN npm run build
 # mapeo del compose de producción. Son cinco sitios y un solo número; lo comprueba
 # `server/tests/infra/test_issue44_el_frontend_no_corre_como_root.py`, porque si uno se
 # queda atrás el panel devuelve 502 y el fallo aparece en el despliegue, no aquí.
-FROM nginxinc/nginx-unprivileged:1.29-alpine AS runtime
+FROM nginxinc/nginx-unprivileged:1.31-alpine AS runtime
 
 # El `dist` va al SUBDIRECTORIO del prefijo, no a la raíz. Así `/panel/assets/x.js`
 # es un fichero que existe de verdad y no el `index.html` devuelto por el fallback
