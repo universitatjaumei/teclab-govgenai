@@ -16,6 +16,34 @@
 # contenedores del otro entorno al levantar cualquiera de los dos.
 name: govgenai-prod
 
+# #387 — el entorno que comparten la web de Langfuse y su worker. En un ancla, y no copiado,
+# porque un `SALT` o una `ENCRYPTION_KEY` distinta entre los dos descifra mal en silencio.
+# #269 — ningún secreto arranca vacío: los que se comparten con otros servicios llevan `:?`, y
+# los propios de Langfuse los exige el `entrypoint` de la web (#318).
+x-langfuse-entorno: &langfuse-entorno
+  DATABASE_URL: postgresql://${POSTGRES_USER:?falta POSTGRES_USER}:${POSTGRES_PASSWORD:?falta POSTGRES_PASSWORD}@postgres:5432/langfuse
+  CLICKHOUSE_MIGRATION_URL: clickhouse://${CLICKHOUSE_USER:-clickhouse}:${CLICKHOUSE_PASSWORD}@clickhouse:9000
+  CLICKHOUSE_URL: http://clickhouse:8123
+  CLICKHOUSE_USER: ${CLICKHOUSE_USER:-clickhouse}
+  CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse-events
+  LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://s3:9000
+  LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${S3_ACCESS_KEY:?falta S3_ACCESS_KEY}
+  LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:?falta S3_SECRET_KEY}
+  LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
+  LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+  LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: langfuse-media
+  LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://s3:9000
+  LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: ${S3_ACCESS_KEY:?falta S3_ACCESS_KEY}
+  LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:?falta S3_SECRET_KEY}
+  LANGFUSE_S3_MEDIA_UPLOAD_REGION: auto
+  LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
+  SALT: ${LANGFUSE_SALT}
+  ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY}
+  TELEMETRY_ENABLED: "false"
+
 services:
   app:
     build:
@@ -261,32 +289,9 @@ services:
     ports:
       - "127.0.0.1:3000:3000"
     environment:
-      # #269 — ningún secreto arranca vacío: los que comparte con otros servicios llevan `:?`, y
-      # los suyos propios los exige el `entrypoint` de arriba (#318).
-      DATABASE_URL: postgresql://${POSTGRES_USER:?falta POSTGRES_USER}:${POSTGRES_PASSWORD:?falta POSTGRES_PASSWORD}@postgres:5432/langfuse
-      CLICKHOUSE_MIGRATION_URL: clickhouse://${CLICKHOUSE_USER:-clickhouse}:${CLICKHOUSE_PASSWORD}@clickhouse:9000
-      CLICKHOUSE_URL: http://clickhouse:8123
-      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-clickhouse}
-      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
-      REDIS_HOST: redis
-      REDIS_PORT: "6379"
-      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse-events
-      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://s3:9000
-      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${S3_ACCESS_KEY:?falta S3_ACCESS_KEY}
-      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:?falta S3_SECRET_KEY}
-      LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
-      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
-      LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: langfuse-media
-      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://s3:9000
-      LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: ${S3_ACCESS_KEY:?falta S3_ACCESS_KEY}
-      LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:?falta S3_SECRET_KEY}
-      LANGFUSE_S3_MEDIA_UPLOAD_REGION: auto
-      LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
+      <<: *langfuse-entorno
       NEXTAUTH_URL: ${LANGFUSE_NEXTAUTH_URL:-http://localhost:3000}
       NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET}
-      SALT: ${LANGFUSE_SALT}
-      ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY}
-      TELEMETRY_ENABLED: "false"
       LANGFUSE_INIT_ORG_ID: govgenai-org
       LANGFUSE_INIT_ORG_NAME: "Gov Gen AI"
       LANGFUSE_INIT_PROJECT_ID: govgenai-project
@@ -302,6 +307,33 @@ services:
           # Medido (#297): con 1024M arranca, corre sus scripts de inicio y muere con
           # «JavaScript heap out of memory», en bucle por el `restart`.
           memory: 2048M
+    restart: unless-stopped
+    profiles:
+      - observabilidad
+
+  # #387 — Langfuse 3 son dos contenedores. La web recibe las trazas, las deja en S3 y encola un
+  # trabajo en Redis; el worker las lleva a ClickHouse. Sin él, Langfuse arranca, migra y responde
+  # a `/api/public/health`, y no muestra ni una traza. Misma versión que la web: lo vigila el test.
+  langfuse-worker:
+    image: langfuse/langfuse-worker:3.225.11
+    container_name: govgenai_langfuse_worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      s3:
+        condition: service_healthy
+      langfuse:
+        condition: service_started
+    environment: *langfuse-entorno
+    deploy:
+      resources:
+        limits:
+          # 445 MiB medidos en reposo tras procesar trazas (#387).
+          memory: 1024M
     restart: unless-stopped
     profiles:
       - observabilidad

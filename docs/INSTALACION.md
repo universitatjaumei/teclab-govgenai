@@ -48,8 +48,13 @@ duplica nada ni rehashea la contraseña que ya pusiste.
 
 **Langfuse va aparte, en el perfil `observabilidad`**: `docker compose -f docker-compose.prod.yml
 --profile observabilidad up -d`. Trae con él ClickHouse, Redis y sus dos buckets en el almacén S3, que la
-versión 3 necesita y sin los que no arranca; son un par de gigas de memoria que la plataforma no
-necesita para funcionar.
+versión 3 necesita y sin los que no arranca, y el *worker* de Langfuse; son un par de gigas de
+memoria que la plataforma no necesita para funcionar.
+
+**Si levantaste el perfil antes del 2026-11-27, Langfuse no te mostraba ninguna traza** (#387). La
+versión 3 son dos contenedores: la web recibe las trazas y las encola, y `langfuse-worker` las
+lleva a ClickHouse. El compose sólo traía la web. Basta con volver a ejecutar el mismo `up -d` con
+el perfil: el *worker* procesa lo que siga en la cola.
 
 **Si actualizas una instalación anterior al 2026-10-28**, tu `.env` no tiene `CLICKHOUSE_PASSWORD`.
 La plataforma arranca igual; para el perfil, añádela a mano (`openssl rand -hex 16`). Antes de
@@ -137,7 +142,8 @@ generado no cuadra con el contrato.
 En Windows, `arranque.bat` levanta el backend y el frontend, pero **no genera el cliente**: eso se
 hace una vez, a mano.
 
-`docker-compose.yml` levanta además `s3`, `clickhouse`, `redis`, `langfuse` y `script-sandbox`
+`docker-compose.yml` levanta además `s3`, `clickhouse`, `redis`, `langfuse`, `langfuse-worker` y
+`script-sandbox`
 si los necesitas; `postgres` es el único imprescindible para arrancar.
 
 ---

@@ -6,6 +6,34 @@
 # producción). Nombres distintos aíslan completamente ambos proyectos.
 name: govgenai-dev
 
+# #387 — el entorno que comparten la web de Langfuse y su worker. En un ancla, y no copiado,
+# porque un `SALT` o una `ENCRYPTION_KEY` distinta entre los dos descifra mal en silencio.
+x-langfuse-entorno: &langfuse-entorno
+  DATABASE_URL: postgresql://${POSTGRES_USER:-govgenai}:${POSTGRES_PASSWORD:-govgenai_dev}@postgres:5432/langfuse
+  SALT: ${LANGFUSE_SALT:-dev-salt-at-least-32-chars-here!}
+  ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
+  CLICKHOUSE_MIGRATION_URL: clickhouse://${CLICKHOUSE_USER:-clickhouse}:${CLICKHOUSE_PASSWORD:-clickhouse_dev}@clickhouse:9000
+  CLICKHOUSE_URL: http://clickhouse:8123
+  CLICKHOUSE_USER: ${CLICKHOUSE_USER:-clickhouse}
+  CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-clickhouse_dev}
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  TELEMETRY_ENABLED: "false"
+  LANGFUSE_S3_EVENT_UPLOAD_ENABLED: "true"
+  LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse-events
+  LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://s3:9000
+  LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${S3_ACCESS_KEY:-govgenai}
+  LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:-govgenai_dev_secret}
+  LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
+  LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+  LANGFUSE_S3_MEDIA_UPLOAD_ENABLED: "true"
+  LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: langfuse-media
+  LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://s3:9000
+  LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: ${S3_ACCESS_KEY:-govgenai}
+  LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:-govgenai_dev_secret}
+  LANGFUSE_S3_MEDIA_UPLOAD_REGION: auto
+  LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
+
 services:
   postgres:
     image: pgvector/pgvector:0.8.7-pg16
@@ -105,18 +133,9 @@ services:
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-govgenai}:${POSTGRES_PASSWORD:-govgenai_dev}@postgres:5432/langfuse
+      <<: *langfuse-entorno
       NEXTAUTH_URL: http://localhost:3000
       NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET:-dev-nextauth-secret-change-in-prod}
-      SALT: ${LANGFUSE_SALT:-dev-salt-at-least-32-chars-here!}
-      ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
-      CLICKHOUSE_MIGRATION_URL: clickhouse://${CLICKHOUSE_USER:-clickhouse}:${CLICKHOUSE_PASSWORD:-clickhouse_dev}@clickhouse:9000
-      CLICKHOUSE_URL: http://clickhouse:8123
-      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-clickhouse}
-      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-clickhouse_dev}
-      REDIS_HOST: redis
-      REDIS_PORT: "6379"
-      TELEMETRY_ENABLED: "false"
       LANGFUSE_INIT_ORG_ID: govgenai-org
       LANGFUSE_INIT_ORG_NAME: "Gov Gen AI"
       LANGFUSE_INIT_PROJECT_ID: govgenai-project
@@ -126,20 +145,24 @@ services:
       LANGFUSE_INIT_USER_EMAIL: ${LANGFUSE_ADMIN_EMAIL:-admin@govgenai.local}
       LANGFUSE_INIT_USER_NAME: Admin
       LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_ADMIN_PASSWORD:-admin123}
-      LANGFUSE_S3_EVENT_UPLOAD_ENABLED: "true"
-      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse-events
-      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://s3:9000
-      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${S3_ACCESS_KEY:-govgenai}
-      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:-govgenai_dev_secret}
-      LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
-      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
-      LANGFUSE_S3_MEDIA_UPLOAD_ENABLED: "true"
-      LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: langfuse-media
-      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://s3:9000
-      LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: ${S3_ACCESS_KEY:-govgenai}
-      LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:-govgenai_dev_secret}
-      LANGFUSE_S3_MEDIA_UPLOAD_REGION: auto
-      LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
+
+  # #387 — Langfuse 3 son dos contenedores. La web recibe las trazas, las deja en S3 y encola un
+  # trabajo en Redis; el worker las lleva a ClickHouse. Sin él, Langfuse arranca, migra y responde
+  # a `/api/public/health`, y no muestra ni una traza. Misma versión que la web: lo vigila el test.
+  langfuse-worker:
+    image: langfuse/langfuse-worker:3.225.11
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      s3:
+        condition: service_healthy
+      langfuse:
+        condition: service_started
+    environment: *langfuse-entorno
 
   script-sandbox:
     build:
