@@ -206,7 +206,7 @@ services:
       - observabilidad
 
   redis:
-    image: redis:7.4.10-alpine
+    image: redis:8.10.0-alpine
     container_name: govgenai_redis
     volumes:
       - redis_data_prod:/data
