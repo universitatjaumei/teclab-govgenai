@@ -172,7 +172,7 @@ services:
   # tres servicios y un par de gigas de memoria que no todo el mundo quiere; quien lo levanta,
   # lo levanta entero. Sus buckets los crea el almacén `s3` de este mismo compose al arrancar.
   clickhouse:
-    image: clickhouse/clickhouse-server:24.12-alpine
+    image: clickhouse/clickhouse-server:26.10-alpine
     container_name: govgenai_clickhouse
     # Revisión de la PR #313 — la contraseña va sin `:?` (ni `:-`, NUEVO-9): Compose interpola todo,
     # perfiles inactivos incluidos, y un `.env` anterior a #297 tumbaba el `up` de todos los
